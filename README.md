@@ -116,6 +116,20 @@ host at the proxy instead of the tool server, write a policy file, done.
 (The proxy's `niyam/approve` and `niyam/kill` JSON-RPC methods are demo
 conveniences, not part of MCP.)
 
+## Using it from an AI gateway (LiteLLM example)
+
+`examples/litellm_guardrail.py` is an experimental adapter showing the engine
+as a LiteLLM custom guardrail: `async_pre_call_hook` governs completions
+(model allow-list as *value* bounds, daily caps) and — because LiteLLM routes
+its MCP gateway's tool calls through the same hook (`call_type="call_mcp_tool"`)
+— every MCP tool call, with default-deny, bounds, tier-3 approval and the kill
+switch. Run `python -m examples.litellm_guardrail` for a proxy-free self-test.
+What this adds over the gateway's built-in MCP ACLs: decisions beyond
+allow/deny (defer with an approval id, dry-run), value-level bounds rather
+than parameter-name lists, race-free caps, and an audit row with a reason for
+every decision. `litellm` is not a dependency of this package — the example
+imports it only if you have it.
+
 ## Origin & status
 
 Extracted from a personal single-user control plane (home/energy/money with an
