@@ -15,9 +15,16 @@ from pathlib import Path
 _MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
-def connect(db_path: str) -> sqlite3.Connection:
-    """Open a configured connection. Caller owns its lifecycle."""
-    conn = sqlite3.connect(db_path, isolation_level=None, timeout=10.0)
+def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connection:
+    """Open a configured connection. Caller owns its lifecycle.
+
+    ``check_same_thread=False`` is for callers that serialize access with their
+    own lock (e.g. the decision service, whose endpoints run in a threadpool);
+    the engine's transactions remain the concurrency mechanism either way.
+    """
+    conn = sqlite3.connect(
+        db_path, isolation_level=None, timeout=10.0, check_same_thread=check_same_thread
+    )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -74,8 +81,8 @@ class Database:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
 
-    def connect(self) -> sqlite3.Connection:
-        return connect(self.db_path)
+    def connect(self, *, check_same_thread: bool = True) -> sqlite3.Connection:
+        return connect(self.db_path, check_same_thread=check_same_thread)
 
     def init(self) -> list[str]:
         """Open a connection, run migrations, close. Returns applied migrations."""

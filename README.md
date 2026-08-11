@@ -60,7 +60,7 @@ Requires Python ≥ 3.12.
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # 58 tests — the guardrail suite is the release blocker
+pytest                    # 63 tests — the guardrail suite is the release blocker
 python -m scripts.demo    # one of everything, end to end, zero external deps
 ```
 
@@ -129,6 +129,28 @@ allow/deny (defer with an approval id, dry-run), value-level bounds rather
 than parameter-name lists, race-free caps, and an audit row with a reason for
 every decision. `litellm` is not a dependency of this package — the example
 imports it only if you have it.
+
+## The decision service (v0.3)
+
+The PDP over HTTP, so any enforcement point in any language can consult the
+engine:
+
+```bash
+pip install "niyam[service]"
+NIYAM_DECIDE_KEYS=dev NIYAM_ADMIN_KEYS=root \
+NIYAM_POLICIES=config/policies.yaml \
+uvicorn niyam.service.app:create_app --factory --port 8470
+```
+
+`POST /v1/decide` returns the decision; a permitted one carries an
+`intent_audit_id` — enforce, then `POST /v1/report` the outcome. Approvals,
+denial and the kill switch live under admin-role keys (`NIYAM_ADMIN_KEYS`),
+separate from decide-role keys by design: the process that asks for permission
+should not be the process that grants it. Tier-3 proposals can notify a
+webhook (`NIYAM_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
+`niyam[otel]` lights up OpenTelemetry spans and decision counters with no
+code changes. See `ROADMAP.md` for where this is going (tenancy, Postgres,
+OIDC, audit hardening).
 
 ## Origin & status
 
