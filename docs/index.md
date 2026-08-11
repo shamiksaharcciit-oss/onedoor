@@ -13,6 +13,7 @@ world. The model proposes; the policy layer disposes.
 | Anything that speaks HTTP (gateways, services in any language) | The decision service | [Decision service](integration-service.md) |
 | An MCP host + tool servers (Claude Desktop, any agent host) | The MCP proxy | [MCP proxy](integration-mcp.md) |
 | A LiteLLM proxy | The custom guardrail adapter | [LiteLLM adapter](integration-litellm.md) |
+| A LangGraph / LangChain agent | Governed tool wrapper + interrupts | [LangGraph](integration-langgraph.md) |
 
 Then write your policies: [Policy reference](policy-reference.md).
 

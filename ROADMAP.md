@@ -56,8 +56,12 @@ gateways and content-safety tools; it does not compete with them.
 - **MCP streamable-HTTP transport** for the proxy (stdio remains).
 - **LiteLLM adapter graduates** from `examples/` to a supported integration,
   with intent carried to post-call hooks so the audit records true outcomes.
-- **LangChain/LangGraph tool wrapper**; Envoy `ext_authz` filter if demand
-  shows up.
+- **LangChain/LangGraph tool wrapper** — shipped early as a worked example
+  (`examples/langgraph_tools.py`, incl. the interrupt-based governed
+  human-in-the-loop); graduates to a supported integration here.
+- **Coding-agent hook adapter** (e.g. Claude Code `pre_tool_use` consulting
+  the decision service) — the dev-workstation doorway.
+- **Envoy `ext_authz` filter** if demand shows up.
 - **Documentation site**: concepts (the ordered pipeline and why the order),
   policy reference, an integration guide per surface (library, service, MCP,
   LiteLLM), deployment and operations guide, threat model.

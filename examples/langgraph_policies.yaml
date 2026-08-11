@@ -1,0 +1,35 @@
+# Policies for the LangGraph example. Tool calls become "tool.<name>" actions.
+policies:
+  - action_type: tool.get_weather
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop     # a read: trivially reversible
+    bounds:
+      required: [city]
+      strict_params: true
+
+  - action_type: tool.set_thermostat
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop     # demo simplification; see docs
+    bounds:
+      numeric:
+        temperature: { min: 17, max: 23 }
+      required: [temperature]
+      strict_params: true
+
+  - action_type: tool.send_payment        # money: propose-and-confirm, always
+    tier: 3
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 500 }
+      required: [payee, amount_eur]
+      strict_params: true
+
+  - action_type: onedoor.noop
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop
+    bounds:
+      strict_params: false
+  # Any tool NOT listed here default-denies to Tier 3.

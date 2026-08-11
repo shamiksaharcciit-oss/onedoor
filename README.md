@@ -60,7 +60,8 @@ Developer guides live in [`docs/`](docs/index.md): the three-minute mental
 model, an integration guide per surface — [library](docs/integration-library.md),
 [HTTP decision service](docs/integration-service.md),
 [MCP proxy](docs/integration-mcp.md),
-[LiteLLM adapter](docs/integration-litellm.md) — and the full
+[LiteLLM adapter](docs/integration-litellm.md),
+[LangGraph](docs/integration-langgraph.md) — and the full
 [policy reference](docs/policy-reference.md).
 
 ## Quickstart
