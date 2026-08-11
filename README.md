@@ -60,7 +60,7 @@ Requires Python ≥ 3.12.
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # 52 tests — the guardrail suite is the release blocker
+pytest                    # 58 tests — the guardrail suite is the release blocker
 python -m scripts.demo    # one of everything, end to end, zero external deps
 ```
 
@@ -82,13 +82,48 @@ and the kill switch clamping an auto action to propose-and-confirm.
     strict_params: true
 ```
 
+## v0.2 — the decision/enforcement split, and the engine on other people's doors
+
+v0.2 separates the engine into the classic authorization pair — a **Policy
+Decision Point** and **Policy Enforcement Points** — without changing a single
+decision's semantics (the v0.1 suite passes unchanged):
+
+- `decision.decide_and_reserve(request, ...)` — Tx A: the full ordered check
+  pipeline, cap reservation, and the intent row in the audit log. Returns
+  either a terminal result (denied / proposed / dry-run) or a
+  `PermittedIntent`: an obligation the caller must enforce.
+- `decision.report_result(intent, ok, ...)` — Tx B: the linked, append-only
+  execution receipt, whatever happened.
+
+The in-process executor is now literally these two phases composed around a
+connector call. Any other enforcement point — a gateway filter, a tool
+wrapper — composes them around its own act.
+
+**The first external enforcement point ships with it: an MCP proxy.**
+`niyam.mcp.proxy` speaks MCP's stdio transport on both sides: an agent host
+connects to it as if it were the tool server; it spawns the real server as a
+subprocess and forwards everything except `tools/call`, which becomes an
+`ActionRequest` (`mcp.<tool>`) through the full pipeline — unknown tools
+default-deny to a human, bounds are checked before the tool ever sees the
+call, money waits for approval, and the kill switch clamps everything at once.
+
+```bash
+python -m scripts.demo_mcp   # an agent's-eye view: 7 calls, every mechanism
+```
+
+This makes the engine usable with agents you don't control: point any MCP
+host at the proxy instead of the tool server, write a policy file, done.
+(The proxy's `niyam/approve` and `niyam/kill` JSON-RPC methods are demo
+conveniences, not part of MCP.)
+
 ## Origin & status
 
 Extracted from a personal single-user control plane (home/energy/money with an
 LLM agent layer), where this engine has governed every action since July 2026 —
 the domain modules stayed home; the engine, its mock connector, its demo action
-types, and its full test suite are what you see here. v0.1: SQLite-backed,
-single-process, synchronous. Deliberately boring technology; the design is the
+types, and its full test suite are what you see here. v0.2: SQLite-backed,
+single-process, synchronous; PDP/PEP split with an MCP proxy as the first
+external enforcement point. Deliberately boring technology; the design is the
 contribution.
 
 ## License

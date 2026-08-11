@@ -1,0 +1,47 @@
+# Policies for the MCP proxy demo. Action types are "mcp.<tool_name>".
+#
+# HONESTY NOTE on compensation: `mcp.noop` as compensating_command satisfies the
+# reversibility rule for actions that are genuinely harmless to "reverse" by
+# doing nothing (a read). For real actuations you either register a true
+# reversal tool or the action does not get Tier 1 — set_thermostat below uses
+# noop as a demo simplification and says so.
+
+policies:
+  - action_type: mcp.get_weather        # a read: trivially reversible (noop)
+    tier: 1
+    dry_run: false
+    compensating_command: mcp.noop
+    bounds:
+      required: [city]
+      strict_params: true
+
+  - action_type: mcp.set_thermostat     # bounded actuation (demo: noop reversal)
+    tier: 1
+    dry_run: false
+    compensating_command: mcp.noop
+    bounds:
+      numeric:
+        temperature: { min: 17, max: 23 }
+      required: [temperature]
+      strict_params: true
+    caps:
+      daily_rate: 20
+
+  - action_type: mcp.send_payment       # money: propose-and-confirm, always
+    tier: 3
+    dry_run: false
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 500 }
+      required: [payee, amount_eur]
+      strict_params: true
+
+  - action_type: mcp.noop
+    tier: 1
+    dry_run: false
+    compensating_command: mcp.noop
+    bounds:
+      strict_params: false
+
+  # NOTE: any tool NOT listed here (e.g. delete_everything) default-denies to
+  # Tier 3 — unknown tools are escalated to a human, never trusted.
