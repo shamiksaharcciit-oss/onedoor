@@ -23,11 +23,11 @@ from sqlite3 import Connection
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from niyam.config import Settings
-from niyam.guardrail import approvals, audit, bounds, caps, killswitch
-from niyam.guardrail import decision as decision_mod
-from niyam.guardrail.errors import ApprovalError
-from niyam.guardrail.models import (
+from onedoor.config import Settings
+from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
+from onedoor.guardrail import decision as decision_mod
+from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
     CheckId,
@@ -37,11 +37,11 @@ from niyam.guardrail.models import (
     Source,
     Tier,
 )
-from niyam.guardrail.policy import PolicyStore
-from niyam.guardrail.registry import ConnectorRegistry
-from niyam.store import bus
-from niyam.store.clock import now_utc
-from niyam.store.db import tx
+from onedoor.guardrail.policy import PolicyStore
+from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store import bus
+from onedoor.store.clock import now_utc
+from onedoor.store.db import tx
 
 
 @dataclass(frozen=True)
@@ -66,7 +66,7 @@ def _redact(message: str) -> str:
 def _call_with_timeout(
     act: object, params: dict[str, JsonValue], timeout: float
 ) -> dict[str, JsonValue]:
-    from niyam.guardrail.registry import ActFn
+    from onedoor.guardrail.registry import ActFn
 
     fn: ActFn = act  # type: ignore[assignment]
     pool = ThreadPoolExecutor(max_workers=1)
@@ -92,8 +92,8 @@ def evaluate_and_execute(
     """Evaluate a request against policy and, if permitted, execute it.
 
     Since v0.2 this is a thin composition of the decision/enforcement split:
-    :func:`niyam.guardrail.decision.decide_and_reserve` (Tx A) -> connector call
-    outside any DB lock -> :func:`niyam.guardrail.decision.report_result` (Tx B).
+    :func:`onedoor.guardrail.decision.decide_and_reserve` (Tx A) -> connector call
+    outside any DB lock -> :func:`onedoor.guardrail.decision.report_result` (Tx B).
     External enforcement points (an MCP proxy, a gateway filter) compose the
     same two phases around their own act.
     """

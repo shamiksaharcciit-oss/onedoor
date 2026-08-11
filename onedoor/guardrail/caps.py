@@ -13,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from niyam.guardrail.models import ActionRequest, CheckId, Policy
+from onedoor.guardrail.models import ActionRequest, CheckId, Policy
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
-# niyam documentation
+# onedoor documentation
 
-**niyam** is a tiered guardrail engine for agentic systems. Every action —
+**onedoor** is a tiered guardrail engine for agentic systems. Every action —
 scheduled, rule-fired, LLM-proposed, or human-clicked — is a structured
 `ActionRequest` evaluated by one decision pipeline before anything touches the
 world. The model proposes; the policy layer disposes.

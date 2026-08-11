@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from sqlite3 import Connection
 
-from niyam.guardrail import approvals, audit, bounds, caps, killswitch
-from niyam.guardrail.models import (
+from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
+from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
     CheckId,
@@ -39,9 +39,9 @@ from niyam.guardrail.models import (
     Source,
     Tier,
 )
-from niyam.guardrail.policy import PolicyStore
-from niyam.store import bus
-from niyam.store.db import tx
+from onedoor.guardrail.policy import PolicyStore
+from onedoor.store import bus
+from onedoor.store.db import tx
 
 # EngineConfig lives in executor.py for backwards compatibility; import lazily
 # to avoid a circular import at module load.

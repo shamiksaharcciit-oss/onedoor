@@ -4,17 +4,17 @@ from datetime import timedelta
 from sqlite3 import Connection
 
 import pytest
-from niyam.guardrail import approvals, killswitch
-from niyam.guardrail.errors import ApprovalError
-from niyam.guardrail.executor import (
+from onedoor.guardrail import approvals, killswitch
+from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.executor import (
     EngineConfig,
     deny_approval,
     evaluate_and_execute,
     resume_approval,
 )
-from niyam.guardrail.models import ApprovalState, Decision
-from niyam.guardrail.registry import ConnectorRegistry
-from niyam.store.db import tx
+from onedoor.guardrail.models import ApprovalState, Decision
+from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store.db import tx
 from tests.conftest import make_request
 
 

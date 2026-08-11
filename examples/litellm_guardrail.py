@@ -1,10 +1,10 @@
-"""niyam as a LiteLLM custom guardrail — EXPERIMENTAL EXAMPLE.
+"""onedoor as a LiteLLM custom guardrail — EXPERIMENTAL EXAMPLE.
 
 LiteLLM's proxy loads custom guardrails (subclasses of ``CustomGuardrail``)
 and calls ``async_pre_call_hook`` before every call — including, notably,
 ``call_type="call_mcp_tool"`` for tool calls routed through LiteLLM's MCP
 gateway. That hook is a natural Policy Enforcement Point: this adapter turns
-each call into a niyam ``ActionRequest`` and consults the decision engine.
+each call into a onedoor ``ActionRequest`` and consults the decision engine.
 
 What this adds over LiteLLM's built-in MCP permission ACLs (allowed/blocked
 tools, allowed param *names*): value-level bounds (amount <= 500, model in an
@@ -23,12 +23,12 @@ Example-grade simplifications, stated honestly:
 
 Proxy config sketch (config.yaml):
     guardrails:
-      - guardrail_name: niyam
+      - guardrail_name: onedoor
         litellm_params:
-          guardrail: examples.litellm_guardrail.NiyamGuardrail
+          guardrail: examples.litellm_guardrail.OneDoorGuardrail
           mode: pre_call
           policies: examples/litellm_policies.yaml
-          db_path: /var/lib/niyam/gateway.db
+          db_path: /var/lib/onedoor/gateway.db
 
 Self-test (no proxy needed):  python -m examples.litellm_guardrail
 """
@@ -41,24 +41,24 @@ from uuid import uuid4
 
 from litellm.integrations.custom_guardrail import CustomGuardrail
 
-from niyam.guardrail import policy_loader
-from niyam.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from niyam.guardrail.executor import EngineConfig
-from niyam.guardrail.models import ActionRequest, Decision, Source
-from niyam.store.clock import now_utc
-from niyam.store.db import Database
+from onedoor.guardrail import policy_loader
+from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.store.clock import now_utc
+from onedoor.store.db import Database
 from zoneinfo import ZoneInfo
 
 
-class NiyamRejection(Exception):
+class OneDoorRejection(Exception):
     """Raised to make LiteLLM reject the call; the message reaches the caller."""
 
 
-class NiyamGuardrail(CustomGuardrail):
+class OneDoorGuardrail(CustomGuardrail):
     def __init__(
         self,
         policies: str = "examples/litellm_policies.yaml",
-        db_path: str = "niyam-litellm.db",
+        db_path: str = "onedoor-litellm.db",
         **kwargs: Any,
     ) -> None:
         db = Database(db_path)
@@ -96,16 +96,16 @@ class NiyamGuardrail(CustomGuardrail):
             return
         d = outcome.decision
         if d.decision == Decision.PROPOSED:
-            raise NiyamRejection(
-                f"niyam: '{action_type}' requires human approval "
+            raise OneDoorRejection(
+                f"onedoor: '{action_type}' requires human approval "
                 f"(reason: {d.reason_code.value}, approval_id={outcome.approval_id})."
             )
         if d.decision == Decision.DRY_RUN:
-            raise NiyamRejection(
-                f"niyam: '{action_type}' is in dry-run — would have executed."
+            raise OneDoorRejection(
+                f"onedoor: '{action_type}' is in dry-run — would have executed."
             )
-        raise NiyamRejection(
-            f"niyam: '{action_type}' denied (reason: {d.reason_code.value}"
+        raise OneDoorRejection(
+            f"onedoor: '{action_type}' denied (reason: {d.reason_code.value}"
             + (f" — {d.detail}" if d.detail else "") + ")."
         )
 
@@ -140,17 +140,17 @@ def _selftest() -> None:
     import asyncio
     import tempfile
 
-    g = NiyamGuardrail(
+    g = OneDoorGuardrail(
         policies=str(Path(__file__).parent / "litellm_policies.yaml"),
         db_path=tempfile.mktemp(suffix=".db"),
-        guardrail_name="niyam",
+        guardrail_name="onedoor",
     )
 
     async def run(call_type: str, data: dict) -> str:
         try:
             await g.async_pre_call_hook(None, None, data, call_type)
             return "ok    (permitted, audited)"
-        except NiyamRejection as e:
+        except OneDoorRejection as e:
             return f"BLOCK {e}"
 
     async def main() -> None:

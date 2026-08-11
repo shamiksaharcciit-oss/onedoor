@@ -10,14 +10,14 @@ injected :class:`ConnectorRegistry`.
 
 from __future__ import annotations
 
-from niyam.guardrail.errors import (
+from onedoor.guardrail.errors import (
     AuditImmutabilityError,
     CapExceeded,
     GuardrailError,
     KillSwitchEngaged,
 )
-from niyam.guardrail.executor import evaluate_and_execute, propose_action
-from niyam.guardrail.models import (
+from onedoor.guardrail.executor import evaluate_and_execute, propose_action
+from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
     Approval,
@@ -31,7 +31,7 @@ from niyam.guardrail.models import (
     Source,
     Tier,
 )
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail.registry import ConnectorRegistry
 
 __all__ = [
     "ActionRequest",

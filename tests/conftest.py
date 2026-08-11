@@ -16,13 +16,13 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
-from niyam.connectors import mock
-from niyam.guardrail import policy_loader
-from niyam.guardrail.executor import EngineConfig
-from niyam.guardrail.models import ActionRequest, Bounds, Caps, Policy, Source, Tier
-from niyam.guardrail.registry import ConnectorRegistry
-from niyam.store import bus
-from niyam.store.db import Database
+from onedoor.connectors import mock
+from onedoor.guardrail import policy_loader
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import ActionRequest, Bounds, Caps, Policy, Source, Tier
+from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store import bus
+from onedoor.store.db import Database
 
 _CONFIG_DIR = Path(__file__).parent.parent / "config"
 FROZEN_NOW = datetime(2026, 7, 5, 12, 0, 0, tzinfo=UTC)

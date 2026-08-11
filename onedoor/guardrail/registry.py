@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from niyam.guardrail.models import JsonValue
+from onedoor.guardrail.models import JsonValue
 
 ActFn = Callable[[dict[str, JsonValue]], dict[str, JsonValue]]
 

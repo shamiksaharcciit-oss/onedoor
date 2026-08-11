@@ -9,7 +9,7 @@ and a scalable persistence layer. Self-hosted, open source, Apache-2.0.
 **The strategy:** the moat is semantics, not surface area. The decision core
 (tiers, default-deny, reversibility-as-precondition, ordered checks) changes
 rarely and carefully; enforcement surfaces and integrations grow demand-driven
-— ideally contributed by the people who need them. niyam composes with
+— ideally contributed by the people who need them. onedoor composes with
 gateways and content-safety tools; it does not compete with them.
 
 ---
@@ -32,7 +32,7 @@ gateways and content-safety tools; it does not compete with them.
 - **Approval notifications.** A pluggable notifier interface; webhook as the
   reference implementation (Slack-compatible payload). "Who sees the
   approval?" gets a real answer.
-- **Packaging.** `pip install niyam` (PyPI), with `[service]` and `[otel]`
+- **Packaging.** `pip install onedoor` (PyPI), with `[service]` and `[otel]`
   extras; a Dockerfile for the service.
 
 ## v0.4 — many principals, durable at scale
@@ -74,10 +74,10 @@ are for.
 
 ## Non-goals
 
-- **Not a gateway.** niyam decides; gateways route. Compose, don't compete.
+- **Not a gateway.** onedoor decides; gateways route. Compose, don't compete.
 - **Not a content-safety filter.** Prompt-injection and toxicity screening
-  belong to the tools built for them; niyam governs *actions*.
-- **Not an agent framework.** Bring your own agent; niyam is the door.
+  belong to the tools built for them; onedoor governs *actions*.
+- **Not an agent framework.** Bring your own agent; onedoor is the door.
 - **Never clever storage.** SQLite stays the default; Postgres is an option,
   not a replacement.
 

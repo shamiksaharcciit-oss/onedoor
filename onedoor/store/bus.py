@@ -12,7 +12,7 @@ import json
 import sqlite3
 from collections.abc import Callable
 
-from niyam.store.clock import now_utc, to_iso
+from onedoor.store.clock import now_utc, to_iso
 
 Subscriber = Callable[[str, dict[str, object]], None]
 

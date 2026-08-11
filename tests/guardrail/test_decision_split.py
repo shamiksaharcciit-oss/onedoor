@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from sqlite3 import Connection
 
-from niyam.guardrail import audit
-from niyam.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from niyam.guardrail.executor import EngineConfig
-from niyam.guardrail.models import Decision
+from onedoor.guardrail import audit
+from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import Decision
 
 from tests.conftest import FROZEN_NOW, make_request
 
@@ -72,8 +72,8 @@ def test_replay_guard_runs_before_decide(conn: Connection, config: EngineConfig)
 
 def test_executor_and_split_agree(conn: Connection, config: EngineConfig) -> None:
     """The in-process executor is now literally the split composed — same audit shape."""
-    from niyam.connectors import mock
-    from niyam.guardrail.executor import evaluate_and_execute
+    from onedoor.connectors import mock
+    from onedoor.guardrail.executor import evaluate_and_execute
 
     req = make_request("demo.toggle", {"target": "demo.lamp", "state": "on"})
     result = evaluate_and_execute(

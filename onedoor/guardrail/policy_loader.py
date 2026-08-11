@@ -13,8 +13,8 @@ from typing import Any
 
 import yaml
 
-from niyam.guardrail.models import Policy, Tier
-from niyam.store.clock import now_utc, to_iso
+from onedoor.guardrail.models import Policy, Tier
+from onedoor.store.clock import now_utc, to_iso
 
 
 def _policy_from_entry(entry: dict[str, Any]) -> Policy:

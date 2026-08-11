@@ -1,4 +1,4 @@
-"""The niyam decision service — the PDP over HTTP (v0.3).
+"""The onedoor decision service — the PDP over HTTP (v0.3).
 
 Any enforcement point in any language can now consult the engine:
 
@@ -12,8 +12,8 @@ Any enforcement point in any language can now consult the engine:
 
 Authentication: static API keys with a two-role split from day one —
 *decide* keys may decide and report; *admin* keys may additionally approve,
-deny, and operate the kill switch. Set ``NIYAM_DECIDE_KEYS`` and
-``NIYAM_ADMIN_KEYS`` (comma-separated) and send ``Authorization: Bearer <key>``.
+deny, and operate the kill switch. Set ``ONEDOOR_DECIDE_KEYS`` and
+``ONEDOOR_ADMIN_KEYS`` (comma-separated) and send ``Authorization: Bearer <key>``.
 Separation of duties is a governance property: the process that asks for
 permission should not be the process that grants it.
 
@@ -28,8 +28,8 @@ span (action type, outcome, reason, tier) and counters; without it, the
 no-op API keeps the code path identical. The engine never requires a
 collector.
 
-Run:  NIYAM_DECIDE_KEYS=dev NIYAM_ADMIN_KEYS=root \\
-      uvicorn niyam.service.app:create_app --factory --port 8470
+Run:  ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root \\
+      uvicorn onedoor.service.app:create_app --factory --port 8470
 """
 
 from __future__ import annotations
@@ -45,15 +45,15 @@ from zoneinfo import ZoneInfo
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from niyam.guardrail import approvals, killswitch, policy_loader
-from niyam.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from niyam.guardrail.errors import ApprovalError
-from niyam.guardrail.executor import EngineConfig
-from niyam.guardrail.models import ActionRequest, Decision, Source
-from niyam.service.notify import Notifier, build_notifier
-from niyam.service.telemetry import record_decision, span
-from niyam.store.clock import now_utc
-from niyam.store.db import Database
+from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.service.notify import Notifier, build_notifier
+from onedoor.service.telemetry import record_decision, span
+from onedoor.store.clock import now_utc
+from onedoor.store.db import Database
 
 # ----------------------------- auth ------------------------------------------
 
@@ -70,14 +70,14 @@ def _extract_bearer(authorization: str | None) -> str:
 
 def require_decide(authorization: str | None = Header(default=None)) -> str:
     token = _extract_bearer(authorization)
-    if token in _keys("NIYAM_DECIDE_KEYS") or token in _keys("NIYAM_ADMIN_KEYS"):
+    if token in _keys("ONEDOOR_DECIDE_KEYS") or token in _keys("ONEDOOR_ADMIN_KEYS"):
         return token
     raise HTTPException(status_code=403, detail="key lacks decide role")
 
 
 def require_admin(authorization: str | None = Header(default=None)) -> str:
     token = _extract_bearer(authorization)
-    if token in _keys("NIYAM_ADMIN_KEYS"):
+    if token in _keys("ONEDOOR_ADMIN_KEYS"):
         return token
     raise HTTPException(status_code=403, detail="key lacks admin role")
 
@@ -138,9 +138,9 @@ class EngineState:
         self.conn = db.connect(check_same_thread=False)
         policy_loader.load_file(self.conn, policies)
         self.config = EngineConfig(
-            approval_ttl_seconds=int(os.environ.get("NIYAM_APPROVAL_TTL", "3600")),
+            approval_ttl_seconds=int(os.environ.get("ONEDOOR_APPROVAL_TTL", "3600")),
             connector_timeout_seconds=30.0,
-            tz=ZoneInfo(os.environ.get("NIYAM_TZ", "UTC")),
+            tz=ZoneInfo(os.environ.get("ONEDOOR_TZ", "UTC")),
         )
         self.lock = threading.Lock()
         self.pending: dict[int, PermittedIntent] = {}
@@ -174,10 +174,10 @@ def create_app(
     db_path: str | None = None, policies: str | None = None
 ) -> FastAPI:
     state = EngineState(
-        db_path or os.environ.get("NIYAM_DB", "niyam-service.db"),
-        Path(policies or os.environ.get("NIYAM_POLICIES", "config/policies.yaml")),
+        db_path or os.environ.get("ONEDOOR_DB", "onedoor-service.db"),
+        Path(policies or os.environ.get("ONEDOOR_POLICIES", "config/policies.yaml")),
     )
-    app = FastAPI(title="niyam decision service", version="0.3.0")
+    app = FastAPI(title="onedoor decision service", version="0.3.0")
     app.state.engine = state
 
     @app.get("/v1/health")
@@ -197,7 +197,7 @@ def create_app(
             rationale=body.rationale or f"service decide {body.action_type}",
             created_at=now,
         )
-        with span("niyam.decide", body.action_type), state.lock:
+        with span("onedoor.decide", body.action_type), state.lock:
             outcome = decide_and_reserve(
                 request, conn=state.conn, config=state.config, now=now
             )
@@ -212,7 +212,7 @@ def create_app(
         intent = state.pending.pop(body.intent_audit_id, None)
         if intent is None:
             raise HTTPException(status_code=404, detail="unknown or already-reported intent")
-        with span("niyam.report", intent.request.action_type), state.lock:
+        with span("onedoor.report", intent.request.action_type), state.lock:
             result = report_result(
                 intent, conn=state.conn, ok=body.ok,
                 payload=body.payload, error=body.error, now=now_utc(),

@@ -4,8 +4,8 @@ from pathlib import Path
 from sqlite3 import Connection
 
 import pytest
-from niyam.guardrail import policy_loader
-from niyam.guardrail.policy import PolicyStore
+from onedoor.guardrail import policy_loader
+from onedoor.guardrail.policy import PolicyStore
 from tests.conftest import _CONFIG_DIR
 
 

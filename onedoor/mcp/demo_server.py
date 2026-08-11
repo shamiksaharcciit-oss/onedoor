@@ -74,7 +74,7 @@ def main() -> None:
             result: dict[str, Any] = {
                 "protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "niyam-demo-downstream", "version": "0.2.0"},
+                "serverInfo": {"name": "onedoor-demo-downstream", "version": "0.2.0"},
             }
         elif method == "tools/list":
             result = {"tools": TOOLS}

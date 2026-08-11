@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from sqlite3 import Connection
 
-from niyam.guardrail import policy_loader
-from niyam.guardrail.executor import EngineConfig, evaluate_and_execute
-from niyam.guardrail.models import Bounds, Decision, NumericBound, Policy, Tier
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail import policy_loader
+from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+from onedoor.guardrail.models import Bounds, Decision, NumericBound, Policy, Tier
+from onedoor.guardrail.registry import ConnectorRegistry
 from tests.conftest import make_request
 
 

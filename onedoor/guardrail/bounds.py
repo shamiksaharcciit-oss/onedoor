@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from niyam.guardrail.models import Bounds, JsonValue
+from onedoor.guardrail.models import Bounds, JsonValue
 
 
 @dataclass(frozen=True)

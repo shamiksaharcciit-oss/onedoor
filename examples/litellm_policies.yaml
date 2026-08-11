@@ -5,7 +5,7 @@ policies:
   - action_type: llm.completion
     tier: 1
     dry_run: false
-    compensating_command: niyam.noop      # a completion is harmless to "reverse" by noop
+    compensating_command: onedoor.noop      # a completion is harmless to "reverse" by noop
     bounds:
       enum:
         model: [gpt-4o-mini, claude-sonnet-5, mistral-small-2603]
@@ -17,7 +17,7 @@ policies:
   - action_type: mcp.get_weather
     tier: 1
     dry_run: false
-    compensating_command: niyam.noop
+    compensating_command: onedoor.noop
     bounds:
       required: [city]
       strict_params: true
@@ -30,10 +30,10 @@ policies:
       required: [payee, amount_eur]
       strict_params: true
 
-  - action_type: niyam.noop
+  - action_type: onedoor.noop
     tier: 1
     dry_run: false
-    compensating_command: niyam.noop
+    compensating_command: onedoor.noop
     bounds:
       strict_params: false
   # Any tool NOT listed (e.g. delete_everything) default-denies to Tier 3.

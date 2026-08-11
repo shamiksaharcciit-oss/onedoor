@@ -8,15 +8,15 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from niyam.service.app import create_app
+from onedoor.service.app import create_app
 
 ROOT = Path(__file__).parent.parent.parent
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("NIYAM_DECIDE_KEYS", "dkey")
-    monkeypatch.setenv("NIYAM_ADMIN_KEYS", "akey")
+    monkeypatch.setenv("ONEDOOR_DECIDE_KEYS", "dkey")
+    monkeypatch.setenv("ONEDOOR_ADMIN_KEYS", "akey")
     app = create_app(
         db_path=tempfile.mktemp(suffix=".db"),
         policies=str(ROOT / "config" / "policies.yaml"),

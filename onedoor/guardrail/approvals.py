@@ -13,9 +13,9 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timedelta
 
-from niyam.guardrail.errors import ApprovalError
-from niyam.guardrail.models import ActionRequest, Approval, ApprovalState
-from niyam.store.clock import from_iso, to_iso
+from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.models import ActionRequest, Approval, ApprovalState
+from onedoor.store.clock import from_iso, to_iso
 
 
 def _row_to_approval(row: sqlite3.Row) -> Approval:

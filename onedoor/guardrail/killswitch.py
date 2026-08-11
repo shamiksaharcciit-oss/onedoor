@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from niyam.store.clock import now_utc, to_iso
+from onedoor.store.clock import now_utc, to_iso
 
 _KEY = "kill_switch_engaged"
 

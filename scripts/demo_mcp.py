@@ -1,4 +1,4 @@
-"""Drive the niyam MCP proxy end to end — an agent's-eye view.
+"""Drive the onedoor MCP proxy end to end — an agent's-eye view.
 
 Spawns the proxy (which spawns the toy downstream server) and speaks MCP's
 stdio JSON-RPC to it, exactly as an agent host would. Shows: a permitted read,
@@ -23,8 +23,8 @@ class Client:
     def __init__(self) -> None:
         db = tempfile.mktemp(suffix=".db")
         self.proc = subprocess.Popen(
-            [sys.executable, "-m", "niyam.mcp.proxy",
-             "--downstream", f"{sys.executable} -m niyam.mcp.demo_server",
+            [sys.executable, "-m", "onedoor.mcp.proxy",
+             "--downstream", f"{sys.executable} -m onedoor.mcp.demo_server",
              "--policies", str(ROOT / "config" / "mcp_policies.yaml"),
              "--db", db],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1, cwd=ROOT,
@@ -68,14 +68,14 @@ def main() -> None:
     approval_id = int(out.rsplit("approval_id=", 1)[1].split(")")[0])
 
     print("5) A human approves — only then is the call forwarded:")
-    resp = c.request("niyam/approve", {"approval_id": approval_id})
+    resp = c.request("onedoor/approve", {"approval_id": approval_id})
     print("   ok  ", resp["result"]["content"][0]["text"])
 
     print("6) An unknown tool default-denies to a human:")
     print("  ", c.call("delete_everything", really=True))
 
     print("7) Kill switch engaged — even the in-policy read now needs a human:")
-    c.request("niyam/kill", {"engaged": True})
+    c.request("onedoor/kill", {"engaged": True})
     print("  ", c.call("get_weather", city="Utrecht"))
 
     print("\nOne door — installed on someone else's doorway.")

@@ -1,4 +1,4 @@
-"""End-to-end demo of the niyam guardrail engine — zero external dependencies.
+"""End-to-end demo of the onedoor guardrail engine — zero external dependencies.
 
 Walks one of everything through the executor: an auto-executed reversible action
 and its undo, an unlisted action falling to default-deny and needing approval,
@@ -16,13 +16,13 @@ from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from niyam.connectors import mock
-from niyam.guardrail import approvals, killswitch, policy_loader
-from niyam.guardrail import undo as undo_mod
-from niyam.guardrail.executor import EngineConfig, evaluate_and_execute, resume_approval
-from niyam.guardrail.models import ActionRequest, Source
-from niyam.guardrail.registry import ConnectorRegistry
-from niyam.store.db import Database
+from onedoor.connectors import mock
+from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail import undo as undo_mod
+from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute, resume_approval
+from onedoor.guardrail.models import ActionRequest, Source
+from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store.db import Database
 
 NOW = datetime(2026, 8, 11, 12, 0, 0, tzinfo=UTC)
 CONFIG = EngineConfig(

@@ -1,9 +1,9 @@
 """Approval notifications — pluggable, webhook as the reference implementation.
 
-Set ``NIYAM_APPROVAL_WEBHOOK`` to a URL and every Tier-3 proposal POSTs a
+Set ``ONEDOOR_APPROVAL_WEBHOOK`` to a URL and every Tier-3 proposal POSTs a
 Slack-compatible payload there:
 
-    {"text": "niyam approval #12: mcp.send_payment ...", "niyam": {...}}
+    {"text": "onedoor approval #12: mcp.send_payment ...", "onedoor": {...}}
 
 No URL configured -> the null notifier (a log line). Failures are swallowed
 after a short timeout: a broken webhook must never block or fail a decision —
@@ -18,7 +18,7 @@ import os
 import urllib.request
 from typing import Any, Protocol
 
-log = logging.getLogger("niyam.notify")
+log = logging.getLogger("onedoor.notify")
 
 
 class Notifier(Protocol):
@@ -44,10 +44,10 @@ class WebhookNotifier:
     ) -> None:
         body = {
             "text": (
-                f"niyam approval #{approval_id}: `{action_type}` "
+                f"onedoor approval #{approval_id}: `{action_type}` "
                 f"params={json.dumps(params, default=str)[:300]} — {rationale or 'no rationale'}"
             ),
-            "niyam": {
+            "onedoor": {
                 "approval_id": approval_id,
                 "action_type": action_type,
                 "params": params,
@@ -66,5 +66,5 @@ class WebhookNotifier:
 
 
 def build_notifier() -> Notifier:
-    url = os.environ.get("NIYAM_APPROVAL_WEBHOOK", "").strip()
+    url = os.environ.get("ONEDOOR_APPROVAL_WEBHOOK", "").strip()
     return WebhookNotifier(url) if url else NullNotifier()

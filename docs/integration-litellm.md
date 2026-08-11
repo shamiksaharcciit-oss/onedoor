@@ -7,7 +7,7 @@ MCP gateway's tool calls through the same hook (`call_type="call_mcp_tool"`)
 
 ## What it adds over LiteLLM's built-in MCP ACLs
 
-| LiteLLM built-in | With niyam |
+| LiteLLM built-in | With onedoor |
 |---|---|
 | Tool allow/block lists | Default-deny + per-tool policy |
 | Allowed parameter *names* | Value-level bounds (`amount_eur <= 500`) |
@@ -17,7 +17,7 @@ MCP gateway's tool calls through the same hook (`call_type="call_mcp_tool"`)
 | — | Kill switch over everything |
 | — | Append-only decision audit with reasons |
 
-The two compose: LiteLLM's hierarchy decides who may ask; niyam decides what
+The two compose: LiteLLM's hierarchy decides who may ask; onedoor decides what
 may happen.
 
 ## Configure
@@ -25,15 +25,15 @@ may happen.
 ```yaml
 # litellm config.yaml
 guardrails:
-  - guardrail_name: niyam
+  - guardrail_name: onedoor
     litellm_params:
-      guardrail: examples.litellm_guardrail.NiyamGuardrail
+      guardrail: examples.litellm_guardrail.OneDoorGuardrail
       mode: pre_call
       policies: /abs/path/policies.yaml
-      db_path: /var/lib/niyam/gateway.db
+      db_path: /var/lib/onedoor/gateway.db
 ```
 
-Rejections surface to the caller with the niyam reason string (bounds detail,
+Rejections surface to the caller with the onedoor reason string (bounds detail,
 approval id, kill switch). Self-test without a proxy:
 `python -m examples.litellm_guardrail`.
 

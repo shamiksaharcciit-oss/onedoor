@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from niyam.guardrail.models import Bounds, Caps, Policy, Tier
-from niyam.store.clock import from_iso
+from onedoor.guardrail.models import Bounds, Caps, Policy, Tier
+from onedoor.store.clock import from_iso
 
 
 def _row_to_policy(row: sqlite3.Row) -> Policy:

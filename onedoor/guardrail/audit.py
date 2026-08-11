@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime
 from uuid import UUID
 
-from niyam.guardrail.models import (
+from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
     Decision,
@@ -19,7 +19,7 @@ from niyam.guardrail.models import (
     PolicyDecision,
     Tier,
 )
-from niyam.store.clock import from_iso, to_iso
+from onedoor.store.clock import from_iso, to_iso
 
 
 def append(

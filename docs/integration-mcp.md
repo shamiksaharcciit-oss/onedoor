@@ -6,10 +6,10 @@ side needs modification; unknown tools default-deny to a human.
 ## Run
 
 ```bash
-python -m niyam.mcp.proxy \
+python -m onedoor.mcp.proxy \
   --downstream "python -m your_real_mcp_server" \
   --policies mcp_policies.yaml \
-  --db /var/lib/niyam/mcp.db
+  --db /var/lib/onedoor/mcp.db
 ```
 
 The proxy speaks MCP's stdio transport (newline-delimited JSON-RPC) on both
@@ -25,7 +25,7 @@ and the tool arguments as params.
   "mcpServers": {
     "governed-tools": {
       "command": "python",
-      "args": ["-m", "niyam.mcp.proxy",
+      "args": ["-m", "onedoor.mcp.proxy",
                "--downstream", "python -m your_real_mcp_server",
                "--policies", "/abs/path/mcp_policies.yaml",
                "--db", "/abs/path/mcp.db"]
@@ -38,7 +38,7 @@ and the tool arguments as params.
 
 - **Permitted** → the call is forwarded; the downstream result returns
   unchanged; the audit log records intent + outcome.
-- **Denied** → a tool error naming the reason: `niyam: 'set_thermostat'
+- **Denied** → a tool error naming the reason: `onedoor: 'set_thermostat'
   denied (reason: bounds — param 'temperature'=30 above max 23.0)`. The call
   never reached the tool.
 - **Proposed** → a tool error carrying the `approval_id`. The call is parked
@@ -51,8 +51,8 @@ what they tried either way.
 ## Releasing approvals
 
 Run the decision service against the same policies/DB and use its approval
-endpoints, or use the proxy's demo JSON-RPC methods (`niyam/approve`,
-`niyam/kill` — non-standard, intended for demos and local use).
+endpoints, or use the proxy's demo JSON-RPC methods (`onedoor/approve`,
+`onedoor/kill` — non-standard, intended for demos and local use).
 
 ## Notes
 

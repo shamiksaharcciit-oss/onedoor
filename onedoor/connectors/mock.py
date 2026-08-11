@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import time
 
-from niyam.guardrail.models import JsonValue
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail.models import JsonValue
+from onedoor.guardrail.registry import ConnectorRegistry
 
 
 def act_toggle(params: dict[str, JsonValue]) -> dict[str, JsonValue]:

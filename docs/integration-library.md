@@ -7,7 +7,7 @@ enforce; the engine decides and audits).
 ## Install
 
 ```bash
-pip install niyam          # engine only; Python >= 3.12
+pip install onedoor          # engine only; Python >= 3.12
 ```
 
 ## Setup once
@@ -16,9 +16,9 @@ pip install niyam          # engine only; Python >= 3.12
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from niyam.guardrail import policy_loader
-from niyam.guardrail.executor import EngineConfig
-from niyam.store.db import Database
+from onedoor.guardrail import policy_loader
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.store.db import Database
 
 db = Database("guardrail.db")
 db.init()
@@ -33,15 +33,15 @@ config = EngineConfig(
 
 ## Style A — the decision/enforcement split (recommended for integrations)
 
-You own the act (an API call, a tool invocation, a DB write); niyam owns the
+You own the act (an API call, a tool invocation, a DB write); onedoor owns the
 judgment and the audit trail.
 
 ```python
 from uuid import uuid4
 
-from niyam.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from niyam.guardrail.models import ActionRequest, Source
-from niyam.store.clock import now_utc
+from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.models import ActionRequest, Source
+from onedoor.store.clock import now_utc
 
 now = now_utc()
 request = ActionRequest(
@@ -83,8 +83,8 @@ Register connectors and let the engine enforce too. Suits systems where the
 actions are yours end to end.
 
 ```python
-from niyam.guardrail.executor import evaluate_and_execute, propose_action
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail.executor import evaluate_and_execute, propose_action
+from onedoor.guardrail.registry import ConnectorRegistry
 
 registry = ConnectorRegistry()
 registry.register("crm.update_record", my_crm_act_fn)   # (params: dict) -> dict
@@ -98,8 +98,8 @@ result = propose_action(
 ## Approvals and undo
 
 ```python
-from niyam.guardrail.executor import resume_approval, deny_approval
-from niyam.guardrail import approvals, undo
+from onedoor.guardrail.executor import resume_approval, deny_approval
+from onedoor.guardrail import approvals, undo
 
 pending = approvals.list_pending(conn)
 result = resume_approval(pending[0].approval_id, "session-ui-1",

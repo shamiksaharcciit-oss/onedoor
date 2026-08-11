@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from sqlite3 import Connection
 
-from niyam.guardrail.executor import EngineConfig, evaluate_and_execute
-from niyam.guardrail.models import Decision
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+from onedoor.guardrail.models import Decision
+from onedoor.guardrail.registry import ConnectorRegistry
 from tests.conftest import make_request
 
 
@@ -43,8 +43,8 @@ def test_cap_retained_on_failure(
 ) -> None:
     # demo.flaky has no cap; give a capped failing action to confirm the reservation
     # is NOT refunded on failure (conservative).
-    from niyam.guardrail import policy_loader
-    from niyam.guardrail.models import Bounds, Caps, Policy, Tier
+    from onedoor.guardrail import policy_loader
+    from onedoor.guardrail.models import Bounds, Caps, Policy, Tier
 
     policy_loader.upsert(
         conn,

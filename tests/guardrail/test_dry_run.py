@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import timedelta
 from sqlite3 import Connection
 
-from niyam.guardrail import killswitch, policy_loader
-from niyam.guardrail.executor import EngineConfig, evaluate_and_execute
-from niyam.guardrail.models import Bounds, Decision, Policy, Tier
-from niyam.guardrail.registry import ConnectorRegistry
-from niyam.store.db import tx
+from onedoor.guardrail import killswitch, policy_loader
+from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+from onedoor.guardrail.models import Bounds, Decision, Policy, Tier
+from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store.db import tx
 from tests.conftest import make_request
 
 TOGGLE = {"target": "demo.lamp", "state": "on"}

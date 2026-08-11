@@ -1,5 +1,5 @@
 [project]
-name = "niyam"
+name = "onedoor"
 version = "0.3.0"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
@@ -28,4 +28,4 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["niyam*"]
+include = ["onedoor*"]

@@ -1,4 +1,4 @@
-# niyam
+# onedoor
 
 **A tiered guardrail engine for agentic systems.**
 The model proposes; the policy layer disposes.
@@ -109,7 +109,7 @@ connector call. Any other enforcement point — a gateway filter, a tool
 wrapper — composes them around its own act.
 
 **The first external enforcement point ships with it: an MCP proxy.**
-`niyam.mcp.proxy` speaks MCP's stdio transport on both sides: an agent host
+`onedoor.mcp.proxy` speaks MCP's stdio transport on both sides: an agent host
 connects to it as if it were the tool server; it spawns the real server as a
 subprocess and forwards everything except `tools/call`, which becomes an
 `ActionRequest` (`mcp.<tool>`) through the full pipeline — unknown tools
@@ -122,7 +122,7 @@ python -m scripts.demo_mcp   # an agent's-eye view: 7 calls, every mechanism
 
 This makes the engine usable with agents you don't control: point any MCP
 host at the proxy instead of the tool server, write a policy file, done.
-(The proxy's `niyam/approve` and `niyam/kill` JSON-RPC methods are demo
+(The proxy's `onedoor/approve` and `onedoor/kill` JSON-RPC methods are demo
 conveniences, not part of MCP.)
 
 ## Using it from an AI gateway (LiteLLM example)
@@ -145,19 +145,19 @@ The PDP over HTTP, so any enforcement point in any language can consult the
 engine:
 
 ```bash
-pip install "niyam[service]"
-NIYAM_DECIDE_KEYS=dev NIYAM_ADMIN_KEYS=root \
-NIYAM_POLICIES=config/policies.yaml \
-uvicorn niyam.service.app:create_app --factory --port 8470
+pip install "onedoor[service]"
+ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root \
+ONEDOOR_POLICIES=config/policies.yaml \
+uvicorn onedoor.service.app:create_app --factory --port 8470
 ```
 
 `POST /v1/decide` returns the decision; a permitted one carries an
 `intent_audit_id` — enforce, then `POST /v1/report` the outcome. Approvals,
-denial and the kill switch live under admin-role keys (`NIYAM_ADMIN_KEYS`),
+denial and the kill switch live under admin-role keys (`ONEDOOR_ADMIN_KEYS`),
 separate from decide-role keys by design: the process that asks for permission
 should not be the process that grants it. Tier-3 proposals can notify a
-webhook (`NIYAM_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
-`niyam[otel]` lights up OpenTelemetry spans and decision counters with no
+webhook (`ONEDOOR_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
+`onedoor[otel]` lights up OpenTelemetry spans and decision counters with no
 code changes. See `ROADMAP.md` for where this is going (tenancy, Postgres,
 OIDC, audit hardening).
 

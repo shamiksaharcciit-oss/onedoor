@@ -4,10 +4,10 @@ from datetime import timedelta
 from sqlite3 import Connection
 
 import pytest
-from niyam.guardrail import undo
-from niyam.guardrail.errors import UndoError
-from niyam.guardrail.executor import EngineConfig, evaluate_and_execute
-from niyam.guardrail.registry import ConnectorRegistry
+from onedoor.guardrail import undo
+from onedoor.guardrail.errors import UndoError
+from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+from onedoor.guardrail.registry import ConnectorRegistry
 from tests.conftest import make_request
 
 TOGGLE = {"target": "demo.lamp", "state": "on"}
