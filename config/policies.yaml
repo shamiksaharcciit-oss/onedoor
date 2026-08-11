@@ -1,0 +1,123 @@
+# Seed action policy table. Numeric bounds and caps live HERE, not in code
+# (CLAUDE.md invariant 6). Every Tier-1 entry MUST declare a compensating_command
+# (invariant 10) or the loader refuses to start.
+#
+# M0 ships only `demo.*` action types to exercise the guardrail engine end to end.
+# Real connectors (and their policies) arrive in M1+.
+
+policies:
+  # Reversible Tier-1 action that really executes (via the mock connector) and
+  # therefore offers a 15-minute undo.
+  - action_type: demo.toggle
+    tier: 1
+    dry_run: false
+    compensating_command: demo.restore
+    undo_window_seconds: 900
+    bounds:
+      enum:
+        target: [demo.lamp]
+        state: ["on", "off"]
+      required: [target, state]
+      strict_params: true
+
+  # Same shape, but left in dry-run to demonstrate "would have executed".
+  - action_type: demo.dry
+    tier: 1
+    dry_run: true
+    compensating_command: demo.restore
+    bounds:
+      enum:
+        target: [demo.lamp]
+        state: ["on", "off"]
+      required: [target, state]
+      strict_params: true
+
+  # Tier-1 with a low daily rate cap, to demonstrate cap exhaustion.
+  - action_type: demo.capped
+    tier: 1
+    dry_run: false
+    compensating_command: demo.restore
+    caps:
+      daily_rate: 2
+    bounds:
+      strict_params: false
+
+  # The compensating action for the above (reverses them). Not itself in dry-run
+  # so that an undo actually takes effect.
+  - action_type: demo.restore
+    tier: 1
+    dry_run: false
+    compensating_command: demo.toggle
+    bounds:
+      strict_params: false
+
+  # NOTE: demo.unlisted is deliberately NOT listed here. It has a mock connector,
+  # so it resolves to default-deny -> Tier 3, and approving it actually executes.
+
+  # ---------------- M1 energy / Home Assistant ----------------
+  # New action types START IN DRY-RUN (invariant 7) — logged as "would have
+  # executed" for 14 days before going live. Restore actions are NOT dry-run so
+  # that an undo actually reverts. Bounds live here (invariant 6).
+
+  - action_type: ha.set_switch
+    tier: 1
+    dry_run: true
+    compensating_command: ha.restore_switch
+    bounds:
+      enum:
+        state: ["on", "off"]
+      required: [entity_id, state]
+      strict_params: true
+
+  - action_type: ha.restore_switch
+    tier: 1
+    dry_run: false
+    compensating_command: ha.set_switch
+    bounds:
+      strict_params: false
+
+  - action_type: ha.set_climate
+    tier: 1
+    dry_run: true
+    compensating_command: ha.restore_climate
+    bounds:
+      numeric:
+        temperature: { min: 17, max: 23 }   # climate setpoint bounds (spec)
+      required: [entity_id, temperature]
+      strict_params: true
+
+  - action_type: ha.restore_climate
+    tier: 1
+    dry_run: false
+    compensating_command: ha.set_climate
+    bounds:
+      strict_params: false
+
+  - action_type: energy.apply_battery_setpoint
+    tier: 1
+    dry_run: true
+    compensating_command: energy.restore_battery
+    bounds:
+      numeric:
+        power_kw: { min: -3.6, max: 3.6 }    # signed: +charge, -discharge, 0 idle
+      required: [power_kw]
+      strict_params: true
+
+  - action_type: energy.restore_battery
+    tier: 1
+    dry_run: false
+    compensating_command: energy.apply_battery_setpoint
+    bounds:
+      strict_params: false
+
+  # ---------------- M4 money ----------------
+  # Money movement is Tier 3 PERMANENTLY (invariant 4). Listed only to make the tier
+  # explicit; NO connector auto-executes it. Approval means a human confirms — and even
+  # then there is no wired transfer in v1. requires_step_up is the seam for a future
+  # second factor. This is the whole of money "action" in v1: propose-and-confirm only.
+  - action_type: money.transfer
+    tier: 3
+    dry_run: false
+    requires_step_up: true
+    bounds:
+      strict_params: false

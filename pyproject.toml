@@ -1,0 +1,29 @@
+[project]
+name = "niyam"
+version = "0.1.0"
+description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Shamik Saha" }]
+dependencies = [
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "mypy>=1.14", "ruff>=0.8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["niyam*"]
