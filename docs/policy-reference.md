@@ -48,8 +48,45 @@ policies:
 - **requires_step_up** — recorded on the policy today; enforcement of a
   second factor at approval time is a v0.4 item.
 
+## Effects — aliasing-resistant governance
+
+Policy binds to action *names*, but the same real-world effect is reachable
+through many tools (`send_payment` vs a generic `http_request` to the bank).
+Effects give the engine a second, name-independent binding:
+
+```yaml
+effects:                       # top-level: effect-level governance
+  money.egress:
+    min_tier: 3                # tier floor: any action carrying this label
+                               # is at least propose-and-confirm
+    caps:
+      daily_rate: 20           # ONE budget shared by every carrier
+
+policies:
+  - action_type: billing.charge
+    tier: 1
+    compensating_command: billing.refund
+    effects: [money.egress]    # declared label
+
+  - action_type: net.http      # generic tool: effect depends on params
+    tier: 1
+    compensating_command: onedoor.noop
+    param_effects:             # deterministic rules, no model calls
+      - param: url
+        pattern: "https://(bank|pay)\\.example\\.com/.*"
+        add_effects: [money.egress]
+```
+
+Semantics: an action's effects are its declared labels plus every
+`param_effects` match (full-match regex on the parameter's string form).
+Effect caps are reserved in the same transaction as action caps — all or
+nothing, race-free, shared across every carrier. Tier floors escalate with
+reason `effect_floor`. Measured coverage of this deterministic layer (and the
+honest residue it cannot see — encodings, redirectors, obfuscated shell):
+`python -m experiments.aliasing_benchmark`.
+
 ## Reason codes you will see in decisions and the audit log
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
 `dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` ·
-`kill_switch` · `observe`
+`kill_switch` · `observe` · `effect_floor`

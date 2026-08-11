@@ -24,6 +24,7 @@ door is installed.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from sqlite3 import Connection
@@ -97,6 +98,17 @@ def decide_and_reserve(
         policy = store.get(conn, request.action_type)
         nominal_tier = policy.tier
 
+        # 2b. EFFECT RESOLUTION — declared labels plus deterministic parameter
+        #     rules (a generic tool's effect can depend on its arguments).
+        effects: list[str] = list(policy.effects)
+        for rule in policy.param_effects:
+            value = request.params.get(rule.param)
+            if value is not None and re.fullmatch(rule.pattern, str(value)):
+                effects.extend(e for e in rule.add_effects if e not in effects)
+        effect_policies = [
+            ep for e in effects if (ep := store.get_effect(conn, e)) is not None
+        ]
+
         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
         reason_confirm = CheckId.TIER_CONFIRM
         if approved_override:
@@ -123,6 +135,14 @@ def decide_and_reserve(
             effective_tier = policy.tier
             if policy.is_default_deny:
                 reason_confirm = CheckId.DEFAULT_DENY
+            # Effect tier floors: an action inherits the strictest floor of its
+            # effects — aliasing-resistant escalation ("moves money" is Tier 3
+            # no matter which tool name moved it).
+            for ep in effect_policies:
+                if ep.min_tier is not None and int(ep.min_tier) > int(effective_tier):
+                    effective_tier = ep.min_tier
+                    if effective_tier == Tier.CONFIRM:
+                        reason_confirm = CheckId.EFFECT_FLOOR
 
         # Tier-1 integrity: an auto action with no reversal cannot auto-execute.
         if (
@@ -211,8 +231,11 @@ def decide_and_reserve(
             bus.publish(conn, "action.dry_run", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
-        # 9. CAPS — check and reserve atomically inside this transaction.
-        cap_result = caps.check_and_reserve(conn, policy, request, now, config.tz)
+        # 9. CAPS — action caps AND effect-shared caps, all-or-nothing.
+        cap_result = caps.check_and_reserve(
+            conn, policy, request, now, config.tz,
+            effect_caps=[(ep.effect, ep.caps) for ep in effect_policies],
+        )
         if cap_result.exceeded:
             assert cap_result.reason is not None
             decision = PolicyDecision(

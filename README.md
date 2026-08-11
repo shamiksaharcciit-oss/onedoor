@@ -41,6 +41,11 @@ agent may *do* — and it takes positions most frameworks leave as wishes:
   and a crash leaves an honest "intended, unconfirmed" trail.
 - **The audit log is append-only** — decisions, results, denials, dry-runs,
   and kill-switch blocks, all with typed reason codes, never updated in place.
+- **Effects, not just names.** The same real-world effect through
+  differently-named tools shares one budget and one tier floor
+  (`effects: [money.egress]` + deterministic `param_effects` rules for
+  generic tools) — measured coverage and honest residue in
+  `experiments/aliasing_benchmark.py`.
 - **Policies are data, not code** (`config/policies.yaml`): tiers, bounds,
   caps, undo windows, dry-run flags. Changing what's allowed never means
   changing the engine.

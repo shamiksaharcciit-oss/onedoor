@@ -1,4 +1,4 @@
-"""PolicyStore — read/lookup policies, with default-deny synthesis.
+"""PolicyStore — read/lookup policies and effect policies, with default-deny synthesis.
 
 An action type absent from the table resolves to a synthesized Tier-3 policy
 (``is_default_deny=True``): default-deny (invariant 2). Nothing self-promotes.
@@ -6,9 +6,10 @@ An action type absent from the table resolves to a synthesized Tier-3 policy
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
-from onedoor.guardrail.models import Bounds, Caps, Policy, Tier
+from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, ParamEffectRule, Policy, Tier
 from onedoor.store.clock import from_iso
 
 
@@ -18,6 +19,10 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         tier=Tier(row["tier"]),
         bounds=Bounds.model_validate_json(row["bounds_json"]),
         caps=Caps.model_validate_json(row["caps_json"]),
+        effects=json.loads(row["effects_json"]) if "effects_json" in row.keys() else [],
+        param_effects=[ParamEffectRule.model_validate(r)
+                       for r in json.loads(row["param_effects_json"])]
+        if "param_effects_json" in row.keys() else [],
         dry_run=bool(row["dry_run"]),
         dry_run_until=from_iso(row["dry_run_until"]) if row["dry_run_until"] else None,
         compensating_command=row["compensating_command"],
@@ -44,6 +49,18 @@ class PolicyStore:
                 is_default_deny=True,
             )
         return _row_to_policy(row)
+
+    def get_effect(self, conn: sqlite3.Connection, effect: str) -> EffectPolicy | None:
+        row = conn.execute(
+            "SELECT * FROM effect_policies WHERE effect=?", (effect,)
+        ).fetchone()
+        if row is None:
+            return None
+        return EffectPolicy(
+            effect=row["effect"],
+            min_tier=Tier(row["min_tier"]) if row["min_tier"] is not None else None,
+            caps=Caps.model_validate_json(row["caps_json"]),
+        )
 
     def all(self, conn: sqlite3.Connection) -> list[Policy]:
         return [

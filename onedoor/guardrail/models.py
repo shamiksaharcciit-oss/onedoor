@@ -60,6 +60,7 @@ class CheckId(StrEnum):
     NO_COMPENSATION = "no_compensating_command"
     OBSERVE = "observe"
     PASSED = "passed"
+    EFFECT_FLOOR = "effect_floor"
 
 
 class ApprovalState(StrEnum):
@@ -95,6 +96,29 @@ class Caps(BaseModel):
     eur_month: Decimal | None = None
 
 
+class ParamEffectRule(BaseModel):
+    """Deterministic rule: a parameter value matching a regex adds effects.
+
+    For generic tools (http, shell) whose real-world effect depends on their
+    arguments: `param` names the parameter, `pattern` is a full-match regex
+    against its string form, `add_effects` are the labels gained on match.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    param: str
+    pattern: str
+    add_effects: list[str]
+
+
+class EffectPolicy(BaseModel):
+    """Effect-level governance shared by every action carrying the label."""
+
+    model_config = ConfigDict(extra="forbid")
+    effect: str
+    min_tier: Tier | None = None
+    caps: Caps = Field(default_factory=Caps)
+
+
 class Policy(BaseModel):
     """One row of the policy table."""
 
@@ -103,6 +127,8 @@ class Policy(BaseModel):
     tier: Tier
     bounds: Bounds = Field(default_factory=Bounds)
     caps: Caps = Field(default_factory=Caps)
+    effects: list[str] = Field(default_factory=list)
+    param_effects: list[ParamEffectRule] = Field(default_factory=list)
     dry_run: bool = True
     dry_run_until: datetime | None = None
     compensating_command: str | None = None

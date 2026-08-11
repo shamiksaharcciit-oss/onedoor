@@ -61,43 +61,70 @@ def _bump(
     )
 
 
+def _check_one(
+    conn: sqlite3.Connection,
+    key: str,
+    caps: "Caps",
+    request: ActionRequest,
+    day: str,
+    month: str,
+    label: str,
+) -> CapResult:
+    if caps.daily_rate is not None:
+        count, _ = _read(conn, key, "rate", day)
+        if count + 1 > caps.daily_rate:
+            return CapResult(
+                True, CheckId.CAP_DAILY_RATE, f"daily rate {caps.daily_rate} reached{label}"
+            )
+    if caps.eur_day is not None:
+        _, total = _read(conn, key, "eur_day", day)
+        if total + request.cost_eur > caps.eur_day:
+            return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached{label}")
+    if caps.eur_month is not None:
+        _, total = _read(conn, key, "eur_month", month)
+        if total + request.cost_eur > caps.eur_month:
+            return CapResult(
+                True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached{label}"
+            )
+    return CapResult(False)
+
+
+def _reserve_one(
+    conn: sqlite3.Connection, key: str, caps: "Caps", request: ActionRequest, day: str, month: str
+) -> None:
+    if caps.daily_rate is not None:
+        _bump(conn, key, "rate", day, count_delta=1)
+    if caps.eur_day is not None:
+        _bump(conn, key, "eur_day", day, eur_delta=request.cost_eur)
+    if caps.eur_month is not None:
+        _bump(conn, key, "eur_month", month, eur_delta=request.cost_eur)
+
+
 def check_and_reserve(
     conn: sqlite3.Connection,
     policy: Policy,
     request: ActionRequest,
     now: datetime,
     tz: ZoneInfo,
+    effect_caps: list[tuple[str, "Caps"]] | None = None,
 ) -> CapResult:
-    """Check every configured cap; if all pass, reserve (increment) and return ok.
+    """Check the action's caps AND every effect-level cap; reserve all or none.
 
-    Must be called inside an IMMEDIATE transaction. On any failure nothing is
-    incremented.
+    Effect counters share the cap_counters table under the key
+    ``effect:<name>`` — so every action carrying the label draws from the same
+    budget, atomically, inside the caller's IMMEDIATE transaction. Checks run
+    over all sources before any reservation, so a failure reserves nothing.
     """
-    caps = policy.caps
     day = _day_key(now, tz)
     month = _month_key(now, tz)
+    sources: list[tuple[str, Caps, str]] = [(policy.action_type, policy.caps, "")]
+    for name, ecaps in effect_caps or []:
+        sources.append((f"effect:{name}", ecaps, f" (effect {name})"))
 
-    if caps.daily_rate is not None:
-        count, _ = _read(conn, policy.action_type, "rate", day)
-        if count + 1 > caps.daily_rate:
-            return CapResult(True, CheckId.CAP_DAILY_RATE, f"daily rate {caps.daily_rate} reached")
-
-    if caps.eur_day is not None:
-        _, total = _read(conn, policy.action_type, "eur_day", day)
-        if total + request.cost_eur > caps.eur_day:
-            return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached")
-
-    if caps.eur_month is not None:
-        _, total = _read(conn, policy.action_type, "eur_month", month)
-        if total + request.cost_eur > caps.eur_month:
-            return CapResult(True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached")
-
-    # All checks passed — reserve.
-    if caps.daily_rate is not None:
-        _bump(conn, policy.action_type, "rate", day, count_delta=1)
-    if caps.eur_day is not None:
-        _bump(conn, policy.action_type, "eur_day", day, eur_delta=request.cost_eur)
-    if caps.eur_month is not None:
-        _bump(conn, policy.action_type, "eur_month", month, eur_delta=request.cost_eur)
-
+    for key, caps, label in sources:  # check everything first
+        result = _check_one(conn, key, caps, request, day, month, label)
+        if result.exceeded:
+            return result
+    for key, caps, _ in sources:  # then reserve everything
+        _reserve_one(conn, key, caps, request, day, month)
     return CapResult(False)
