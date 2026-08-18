@@ -11,8 +11,8 @@ policies:
   - action_type: payments.transfer   # exact match against ActionRequest.action_type
     tier: 3                          # 0 observe | 1 auto | 2 auto-capped | 3 confirm
     dry_run: true                    # default true: new action types rehearse first
-    dry_run_until: 2026-09-01T00:00:00Z   # optional: dry-run until a timestamp
-    compensating_command: payments.reverse # REQUIRED for tier 1 (loader refuses otherwise)
+    dry_run_until: 2026-09-01T00:00:00Z   # optional: rehearse until this instant
+    compensating_command: payments.reverse # REQUIRED for tiers 1 and 2 (loader refuses otherwise)
     undo_window_seconds: 900         # undo availability after execution (tier 1)
     requires_step_up: false          # seam for a second factor on approval
     bounds:
@@ -35,11 +35,20 @@ policies:
   the euro caps.
 - **dry_run / dry_run_until** — a dry-run is resolved *before* caps: a
   rehearsal never spends budget. Standard practice: every new action type
-  ships in dry-run for two weeks.
+  ships in dry-run for two weeks. **The two fields are ORed**: `dry_run: true`
+  rehearses indefinitely and a `dry_run_until` date will never switch it live.
+  To rehearse until a date and then go live, set `dry_run: false` and give the
+  date. **Dry-run governs the automatic path only.** A Tier-3 action in dry-run
+  still creates a real approval request, and approving it executes for real —
+  the approved resumption bypasses the rehearsal, because a human said yes to
+  this specific action. Rehearsing a Tier-3 action type means watching what gets
+  proposed, not watching nothing happen.
 - **compensating_command** — the reversibility rule. Must name another
   registered action type; the undo is submitted through the same pipeline,
-  linked to its parent in the audit log. Tier-1 entries without one fail at
-  load; an auto action that loses its reversal demotes to Tier 3 at runtime.
+  linked to its parent in the audit log. **Every auto-executing tier needs one**
+  — tier 1 and tier 2 alike, since a budget does not make an irreversible action
+  safe to automate. Entries without one fail at load; an auto action that loses
+  its reversal demotes to Tier 3 at runtime.
 - **bounds** — validated for *every* tier before proposals are created, so
   approvers only ever see sane requests. `strict_params: true` rejects any
   parameter not mentioned in `numeric`/`enum`/`required`.
@@ -89,4 +98,4 @@ honest residue it cannot see — encodings, redirectors, obfuscated shell):
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
 `dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` ·
-`kill_switch` · `observe` · `effect_floor`
+`kill_switch` · `observe` · `effect_floor` · `malformed`

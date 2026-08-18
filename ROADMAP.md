@@ -51,6 +51,30 @@ gateways and content-safety tools; it does not compete with them.
 - **RBAC for governance operations.** Named approver roles, proposer ≠
   approver enforcement, per-tenant admin scopes.
 
+## v0.4 — hardening the effect layer (same release)
+
+- **Canonicalize URL-valued parameters before matching them.** `param_effects`
+  full-matches a regex against a parameter's string form, which is the right
+  shape for effect derivation and the wrong parser for a URL. A pattern like
+  `https://(pay|bank)\.example\.com/.*` is defeated by percent-encoding, a
+  `user@host` prefix, IDN homographs, a trailing-dot host, case, and open
+  redirectors — the residue the aliasing benchmark already prints as 0/4 on
+  evasive cases. A URL-typed matcher should canonicalize first (scheme
+  normalization, IDNA, host lowercasing, explicit subdomain semantics, CIDR
+  awareness) and **deny on canonicalization failure**, so a parse differential
+  is a denial rather than a bypass. Prior art worth reading and citing rather
+  than reinventing: `scopegate` (Apache-2.0, D. Mellafe Zuvic), a fail-closed
+  network scope gate built on exactly this argument — a scope gate must
+  interpret a target at least as strictly as the networking stack that will
+  later connect to it.
+- **Effect labels for unanticipated actions.** Today an action carrying a label
+  with no matching effect policy simply draws on no shared budget. Whether that
+  is fail-open needs measuring before it needs fixing.
+- **Assisted label authoring.** Propose candidate effect labels from MCP tool
+  schemas (names, parameter names, descriptions) for a human to ratify. Never
+  auto-applied, and never a model in the decision path — proposal only, with
+  the ratifier recorded.
+
 ## v0.5 — more doorways, full documentation
 
 - **MCP streamable-HTTP transport** for the proxy (stdio remains).
