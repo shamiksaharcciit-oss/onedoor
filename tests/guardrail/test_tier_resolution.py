@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from sqlite3 import Connection
 
 from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
@@ -52,7 +53,12 @@ def test_tier0_observe_is_noop(
 def test_tier2_capped_executes(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    req = make_request("demo.tier2")
+    # The demo.tier2 fixture carries euro caps, so a request against it must
+    # declare an amount. It previously did not, and executed anyway -- because
+    # an unset cost was read as zero and every euro cap passed. That was F7.
+    # This test is about tier resolution, so it now supplies a real amount
+    # rather than relying on the behaviour that turned out to be the defect.
+    req = make_request("demo.tier2", cost_eur=Decimal("1.00"))
     result = evaluate_and_execute(
         req, conn=conn, registry=registry, config=config, now=req.created_at
     )

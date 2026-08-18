@@ -26,6 +26,7 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         dry_run=bool(row["dry_run"]),
         dry_run_until=from_iso(row["dry_run_until"]) if row["dry_run_until"] else None,
         compensating_command=row["compensating_command"],
+        cost_param=row["cost_param"] if "cost_param" in row.keys() else None,
         undo_window_seconds=int(row["undo_window_seconds"]),
         requires_step_up=bool(row["requires_step_up"]),
         is_default_deny=False,

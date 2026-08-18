@@ -62,6 +62,7 @@ class CheckId(StrEnum):
     PASSED = "passed"
     EFFECT_FLOOR = "effect_floor"
     MALFORMED = "malformed"
+    COST_UNKNOWN = "cost_unknown"
 
 
 class ApprovalState(StrEnum):
@@ -133,6 +134,13 @@ class Policy(BaseModel):
     dry_run: bool = True
     dry_run_until: datetime | None = None
     compensating_command: str | None = None
+    # Which parameter carries the money. A euro cap is a statement about an
+    # amount, and the engine has no way to know which parameter holds it. If a
+    # euro cap applies and this is unset, the request must declare `cost_eur`
+    # itself -- and if neither is available the decision is a denial, never an
+    # assumed zero. An unknown amount that silently passes a budget check is
+    # the whole defect.
+    cost_param: str | None = None
     undo_window_seconds: int = 900
     requires_step_up: bool = False
     is_default_deny: bool = False

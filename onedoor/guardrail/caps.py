@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from onedoor.guardrail.models import ActionRequest, Caps, CheckId, Policy
@@ -85,11 +85,44 @@ def _read_all(
     }
 
 
+
+def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
+    """The amount this request will move, or None if it cannot be determined.
+
+    None is not zero. A euro cap evaluated against an assumed zero permits
+    everything forever, which is exactly what happened to every integration
+    that did not set `cost_eur` by hand. Callers must treat None as a denial.
+
+    Order: the policy's declared parameter wins, because policy is the trusted
+    input; otherwise the request's own `cost_eur`, for callers that compute it.
+    """
+    if policy.cost_param is not None:
+        raw = request.params.get(policy.cost_param)
+        if isinstance(raw, bool) or not isinstance(raw, int | float | str):
+            return None
+        try:
+            value = Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            return None
+        if not value.is_finite() or value < 0:
+            return None
+        return value
+    # No declared parameter: fall back to what the caller computed. A caller
+    # that never set `cost_eur` is indistinguishable from one that set it to
+    # zero, so under a euro cap both must be treated as unknown -- the whole
+    # defect was reading "unset" as "free".
+    return request.cost_eur if request.cost_eur > 0 else None
+
+
+def _has_euro_cap(caps: Caps) -> bool:
+    return caps.eur_day is not None or caps.eur_month is not None
+
+
 def _check_one(
     counters: dict[tuple[str, str, str], tuple[int, Decimal]],
     key: str,
     caps: Caps,
-    request: ActionRequest,
+    cost: Decimal,
     day: str,
     month: str,
     label: str,
@@ -102,11 +135,11 @@ def _check_one(
             )
     if caps.eur_day is not None:
         _, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
-        if total + request.cost_eur > caps.eur_day:
+        if total + cost > caps.eur_day:
             return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached{label}")
     if caps.eur_month is not None:
         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
-        if total + request.cost_eur > caps.eur_month:
+        if total + cost > caps.eur_month:
             return CapResult(
                 True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached{label}"
             )
@@ -117,7 +150,7 @@ def _reserve_all(
     conn: sqlite3.Connection,
     counters: dict[tuple[str, str, str], tuple[int, Decimal]],
     sources: list[tuple[str, Caps, str]],
-    request: ActionRequest,
+    cost: Decimal,
     day: str,
     month: str,
 ) -> None:
@@ -129,10 +162,10 @@ def _reserve_all(
             rows.append((key, "rate", day, count + 1, str(total)))
         if caps.eur_day is not None:
             count, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
-            rows.append((key, "eur_day", day, count, str(total + request.cost_eur)))
+            rows.append((key, "eur_day", day, count, str(total + cost)))
         if caps.eur_month is not None:
             count, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
-            rows.append((key, "eur_month", month, count, str(total + request.cost_eur)))
+            rows.append((key, "eur_month", month, count, str(total + cost)))
     if rows:
         conn.executemany(
             "INSERT INTO cap_counters (action_type, window_kind, window_key, count, eur_total) "
@@ -164,10 +197,23 @@ def check_and_reserve(
     for name, ecaps in effect_caps or []:
         sources.append((f"effect:{name}", ecaps, f" (effect {name})"))
 
+    cost = resolve_cost(policy, request)
+    if cost is None and any(_has_euro_cap(caps) for _, caps, _ in sources):
+        # A budget we cannot measure against is not a budget. Deny rather than
+        # assume zero -- assuming zero is what made every euro cap inert for
+        # callers that never set cost_eur.
+        where = (f"policy declares cost_param '{policy.cost_param}' but the request "
+                 "carries no usable value for it"
+                 if policy.cost_param is not None
+                 else "no cost_param declared and the request carries no cost_eur")
+        return CapResult(True, CheckId.COST_UNKNOWN,
+                         f"euro cap applies but the amount is unknown ({where})")
+    amount = cost if cost is not None else Decimal(0)
+
     counters = _read_all(conn, [k for k, _, _ in sources], day, month)
     for key, caps, label in sources:  # check everything first
-        result = _check_one(counters, key, caps, request, day, month, label)
+        result = _check_one(counters, key, caps, amount, day, month, label)
         if result.exceeded:
             return result
-    _reserve_all(conn, counters, sources, request, day, month)  # then reserve everything
+    _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything
     return CapResult(False)

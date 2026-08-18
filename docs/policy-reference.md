@@ -54,6 +54,15 @@ policies:
   parameter not mentioned in `numeric`/`enum`/`required`.
 - **caps** — `daily_rate` counts executions (reserved at decide time,
   race-free); the euro caps apply to Tier 2 and are reserved the same way.
+- **cost_param** — which parameter carries the money. **Any action with a euro
+  cap needs one** (or a caller that sets `cost_eur` on the request itself).
+  The engine cannot guess which parameter is the amount, and an amount it
+  cannot resolve is a denial with reason `cost_unknown`, never an assumed zero.
+  Until v0.3.3 an unresolved amount was read as zero, which made every euro cap
+  inert for callers that did not set `cost_eur` by hand -- including the
+  LangGraph tool wrapper in `examples/`. The parameter must also appear under
+  `bounds.required`, since a parameter that may be absent is not a source of
+  truth for money.
 - **requires_step_up** — recorded on the policy today; enforcement of a
   second factor at approval time is a v0.4 item.
 
@@ -97,5 +106,5 @@ honest residue it cannot see — encodings, redirectors, obfuscated shell):
 ## Reason codes you will see in decisions and the audit log
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
-`dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` ·
+`dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` · `cost_unknown` ·
 `kill_switch` · `observe` · `effect_floor` · `malformed`

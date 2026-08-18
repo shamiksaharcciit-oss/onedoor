@@ -33,6 +33,16 @@ def validate_policy(policy: Policy) -> None:
             f"policy '{policy.action_type}' is Tier {int(policy.tier)} (auto-executing) "
             "but has no compensating_command (no reversal => cannot auto-execute)"
         )
+    # A euro cap needs a resolvable amount. Declaring `cost_param` is the only
+    # way policy can supply one, and a parameter that may be absent is not a
+    # source -- so it must also be required. The alternative, an amount the
+    # engine cannot find, was silently treated as zero and passed every budget.
+    if policy.cost_param is not None and policy.cost_param not in policy.bounds.required:
+        raise ValueError(
+            f"policy '{policy.action_type}' declares cost_param "
+            f"'{policy.cost_param}' but does not list it under bounds.required "
+            "(an absent amount is not a zero amount)"
+        )
     for rule in policy.param_effects:
         try:
             re.compile(rule.pattern)
@@ -61,13 +71,15 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
         "INSERT INTO policies ("
         " action_type, tier, bounds_json, caps_json, effects_json, param_effects_json,"
         " dry_run, dry_run_until,"
-        " compensating_command, undo_window_seconds, requires_step_up, updated_at"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) "
+        " compensating_command, cost_param, undo_window_seconds, requires_step_up,"
+        " updated_at"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(action_type) DO UPDATE SET "
         " tier=excluded.tier, bounds_json=excluded.bounds_json, caps_json=excluded.caps_json,"
         " effects_json=excluded.effects_json, param_effects_json=excluded.param_effects_json,"
         " dry_run=excluded.dry_run, dry_run_until=excluded.dry_run_until,"
         " compensating_command=excluded.compensating_command,"
+        " cost_param=excluded.cost_param,"
         " undo_window_seconds=excluded.undo_window_seconds,"
         " requires_step_up=excluded.requires_step_up, updated_at=excluded.updated_at",
         (
@@ -80,6 +92,7 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
             int(policy.dry_run),
             to_iso(policy.dry_run_until) if policy.dry_run_until else None,
             policy.compensating_command,
+            policy.cost_param,
             policy.undo_window_seconds,
             int(policy.requires_step_up),
             to_iso(now_utc()),

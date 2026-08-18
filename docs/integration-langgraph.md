@@ -14,6 +14,13 @@ bounds on arguments, caps shared across the whole graph per action type,
 dry-run for new tools, the kill switch over the entire workflow, and the
 decide → enforce → report audit trail. Neither reaches into the other.
 
+**If a tool moves money, its policy must declare `cost_param`.** The wrapper
+passes the tool's arguments through as the action's params; it does not and
+cannot know which of them is an amount. Before v0.3.3 an undeclared amount was
+treated as zero, so a euro cap on a wrapped tool silently permitted everything.
+An unresolvable amount is now a denial with reason `cost_unknown`. There is a
+worked example in `examples/langgraph_finance.py`.
+
 ## Wrapping tools
 
 ```python
