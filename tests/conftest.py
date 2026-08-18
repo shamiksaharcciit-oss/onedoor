@@ -36,6 +36,11 @@ def _seed_test_policies(conn: Connection) -> None:
             action_type="demo.tier2",
             tier=Tier.AUTO_CAPPED,
             dry_run=False,
+            # A tier-2 action executes without a human, so the reversibility
+            # precondition applies to it exactly as it does to tier 1. This
+            # fixture predates that rule being enforced above Tier.AUTO; the
+            # tests using it are about cap accounting, not reversibility.
+            compensating_command="demo.restore",
             caps=Caps(daily_rate=5, eur_day=Decimal("10"), eur_month=Decimal("50")),
             bounds=Bounds(strict_params=False),
         ),

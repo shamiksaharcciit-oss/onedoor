@@ -32,37 +32,81 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
     )
 
 
+class _Snapshot:
+    """Every policy and effect policy, reconstructed once per policy generation."""
+
+    __slots__ = ("policies", "effects", "version")
+
+    def __init__(self, conn: sqlite3.Connection, version: int) -> None:
+        self.version = version
+        self.policies: dict[str, Policy] = {
+            r["action_type"]: _row_to_policy(r) for r in conn.execute("SELECT * FROM policies")
+        }
+        self.effects: dict[str, EffectPolicy] = {
+            r["effect"]: EffectPolicy(
+                effect=r["effect"],
+                min_tier=Tier(r["min_tier"]) if r["min_tier"] is not None else None,
+                caps=Caps.model_validate_json(r["caps_json"]),
+            )
+            for r in conn.execute("SELECT * FROM effect_policies")
+        }
+
+
+def invalidate(conn: sqlite3.Connection | None = None) -> None:
+    """Drop the cached policy snapshot. Called by the loader after any write.
+
+    ``PRAGMA data_version`` only changes for commits by *other* connections, so a
+    process that edits policy through the same connection it decides on would
+    otherwise keep reading its own stale snapshot.
+    """
+    if conn is not None:
+        try:
+            del conn._policy_snapshot  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
+
+
+def _snapshot(conn: sqlite3.Connection) -> _Snapshot:
+    version = int(conn.execute("PRAGMA data_version").fetchone()[0])
+    cached = getattr(conn, "_policy_snapshot", None)
+    if cached is not None and cached.version == version:
+        return cached
+    fresh = _Snapshot(conn, version)
+    try:
+        conn._policy_snapshot = fresh  # type: ignore[attr-defined]
+    except AttributeError:
+        pass  # a plain sqlite3.Connection cannot hold the cache; correctness is unaffected
+    return fresh
+
+
 class PolicyStore:
-    """Thin read layer over the ``policies`` table."""
+    """Thin read layer over the ``policies`` table, backed by a per-connection cache.
+
+    The cache is invalidated by ``PRAGMA data_version`` (another connection
+    committed) or explicitly by the loader (this connection wrote). Policy is read
+    on every decision and changes rarely, which is the shape a cache is for — but
+    the kill switch is deliberately NOT cached: a stale kill switch permits actions
+    after a stop was ordered, and no latency saving is worth that.
+    """
 
     def get(self, conn: sqlite3.Connection, action_type: str) -> Policy:
-        row = conn.execute("SELECT * FROM policies WHERE action_type=?", (action_type,)).fetchone()
-        if row is None:
-            # Default-deny: unlisted action types are Tier 3, never auto-executing.
-            # No declared schema exists, so bounds cannot check params — the human
-            # approval is the check; disable strict_params so approval can proceed.
-            return Policy(
-                action_type=action_type,
-                tier=Tier.CONFIRM,
-                bounds=Bounds(strict_params=False),
-                dry_run=False,
-                is_default_deny=True,
-            )
-        return _row_to_policy(row)
-
-    def get_effect(self, conn: sqlite3.Connection, effect: str) -> EffectPolicy | None:
-        row = conn.execute(
-            "SELECT * FROM effect_policies WHERE effect=?", (effect,)
-        ).fetchone()
-        if row is None:
-            return None
-        return EffectPolicy(
-            effect=row["effect"],
-            min_tier=Tier(row["min_tier"]) if row["min_tier"] is not None else None,
-            caps=Caps.model_validate_json(row["caps_json"]),
+        policy = _snapshot(conn).policies.get(action_type)
+        if policy is not None:
+            return policy
+        # Default-deny: unlisted action types are Tier 3, never auto-executing.
+        # No declared schema exists, so bounds cannot check params — the human
+        # approval is the check; disable strict_params so approval can proceed.
+        return Policy(
+            action_type=action_type,
+            tier=Tier.CONFIRM,
+            bounds=Bounds(strict_params=False),
+            dry_run=False,
+            is_default_deny=True,
         )
 
+    def get_effect(self, conn: sqlite3.Connection, effect: str) -> EffectPolicy | None:
+        return _snapshot(conn).effects.get(effect)
+
     def all(self, conn: sqlite3.Connection) -> list[Policy]:
-        return [
-            _row_to_policy(r) for r in conn.execute("SELECT * FROM policies ORDER BY action_type")
-        ]
+        snap = _snapshot(conn)
+        return [snap.policies[k] for k in sorted(snap.policies)]

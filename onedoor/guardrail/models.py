@@ -11,7 +11,7 @@ from decimal import Decimal
 from enum import IntEnum, StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # A constrained recursive JSON value — keeps params typed under mypy --strict and
 # makes the (untrusted) params surface explicit.
@@ -61,6 +61,7 @@ class CheckId(StrEnum):
     OBSERVE = "observe"
     PASSED = "passed"
     EFFECT_FLOOR = "effect_floor"
+    MALFORMED = "malformed"
 
 
 class ApprovalState(StrEnum):
@@ -137,6 +138,29 @@ class Policy(BaseModel):
     is_default_deny: bool = False
 
 
+def _reject_non_json(value: object, path: str = "params") -> None:
+    """Refuse types that are not JSON values even though Pydantic would coerce them.
+
+    ``bytes`` is decoded to ``str`` and ``set``/``tuple`` are converted to ``list``
+    by lax validation, which means the decision point would validate and audit a
+    *different object* from the one the enforcement point holds. The evidence
+    record must describe what will actually be acted on.
+    """
+    if isinstance(value, str | int | float | bool | None.__class__):
+        return
+    if isinstance(value, list):
+        for i, item in enumerate(value):
+            _reject_non_json(item, f"{path}[{i}]")
+        return
+    if isinstance(value, dict):
+        for k, item in value.items():
+            if not isinstance(k, str):
+                raise ValueError(f"{path}: non-string key {k!r}")
+            _reject_non_json(item, f"{path}.{k}")
+        return
+    raise ValueError(f"{path}: {type(value).__name__} is not a JSON value")
+
+
 class ActionRequest(BaseModel):
     """The universal envelope every source produces. Frozen once built."""
 
@@ -150,6 +174,12 @@ class ActionRequest(BaseModel):
     cost_eur: Decimal = Decimal(0)
     created_at: datetime
     parent_audit_id: int | None = None
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def _params_are_json(cls, v: object) -> object:
+        _reject_non_json(v)
+        return v
 
 
 class PolicyDecision(BaseModel):

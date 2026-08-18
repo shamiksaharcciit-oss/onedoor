@@ -49,6 +49,10 @@ class EngineConfig:
     approval_ttl_seconds: int
     connector_timeout_seconds: float
     tz: ZoneInfo
+    # Group-commit batch size for RESULT audit rows. 0 = off (default): every
+    # report is its own durable transaction. Intent rows are never buffered —
+    # invariant 9 requires them durable before the permit is returned.
+    audit_group_commit: int = 0
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:
@@ -125,7 +129,8 @@ def evaluate_and_execute(
             connector_ok, error, payload = False, _redact(str(exc)), None
 
     return decision_mod.report_result(
-        outcome, conn=conn, ok=connector_ok, payload=payload, error=error, now=now
+        outcome, conn=conn, config=config, ok=connector_ok, payload=payload,
+        error=error, now=now
     )
 
 

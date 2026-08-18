@@ -24,10 +24,13 @@ door is installed.
 
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from sqlite3 import Connection
+from uuid import UUID
 
 from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
 from onedoor.guardrail.models import (
@@ -144,9 +147,12 @@ def decide_and_reserve(
                     if effective_tier == Tier.CONFIRM:
                         reason_confirm = CheckId.EFFECT_FLOOR
 
-        # Tier-1 integrity: an auto action with no reversal cannot auto-execute.
+        # Reversibility precondition: ANY tier that may execute without a human
+        # (auto and auto_capped alike) requires a registered means of reversal.
+        # Scoping this to Tier.AUTO alone let an irreversible action auto-execute
+        # merely because it also carried a budget.
         if (
-            effective_tier == Tier.AUTO
+            effective_tier in (Tier.AUTO, Tier.AUTO_CAPPED)
             and not approved_override
             and not policy.compensating_command
         ):
@@ -287,6 +293,7 @@ def report_result(
     intent: PermittedIntent,
     *,
     conn: Connection,
+    config: "object" = None,
     ok: bool,
     payload: dict[str, JsonValue] | None,
     error: str | None,
@@ -298,14 +305,21 @@ def report_result(
     enforcement outcome — success, failure, or timeout. The audit log stays
     append-only: this adds a second row linked to the intent, never edits it.
     """
-    with tx(conn):
-        result_decision = PolicyDecision(
-            decision=Decision.EXECUTED if ok else Decision.FAILED,
-            effective_tier=intent.effective_tier,
-            nominal_tier=intent.nominal_tier,
-            reason_code=CheckId.PASSED,
-        )
-        audit.append(
+    result_decision = PolicyDecision(
+        decision=Decision.EXECUTED if ok else Decision.FAILED,
+        effective_tier=intent.effective_tier,
+        nominal_tier=intent.nominal_tier,
+        reason_code=CheckId.PASSED,
+    )
+    topic = "action.executed" if ok else "action.failed"
+    event = {"request_id": str(intent.request.request_id), "connector_ok": ok}
+    batch = int(getattr(config, "audit_group_commit", 0) or 0)
+
+    if batch > 0:
+        # Buffered path: the row is queued and written with its neighbours. A crash
+        # before the flush leaves an intent with no result — the recoverable state
+        # invariant 9 already requires — never a permit that looks discharged.
+        audit.append_buffered(
             conn,
             intent.request,
             result_decision,
@@ -316,12 +330,26 @@ def report_result(
             error=error,
             payload=payload,
             undo_of=intent.undo_of,
+            event_topic=topic,
+            event_payload=json.dumps(event, default=str),
         )
-        bus.publish(
-            conn,
-            "action.executed" if ok else "action.failed",
-            {"request_id": str(intent.request.request_id), "connector_ok": ok},
-        )
+        if audit.buffered_len(conn) >= batch:
+            audit.flush(conn)
+    else:
+        with tx(conn):
+            audit.append(
+                conn,
+                intent.request,
+                result_decision,
+                kind="exec_result",
+                now=now,
+                parent_id=intent.intent_audit_id,
+                connector_ok=ok,
+                error=error,
+                payload=payload,
+                undo_of=intent.undo_of,
+            )
+            bus.publish(conn, topic, event)
 
     return ActionResult(
         request_id=intent.request.request_id,
@@ -332,4 +360,57 @@ def report_result(
         error=error,
         audit_id=intent.intent_audit_id,
         undo_available_until=intent.undo_until if ok else None,
+    )
+
+
+NIL_REQUEST_ID = UUID(int=0)
+
+
+def decide_raw(
+    raw: Mapping[str, object],
+    *,
+    conn: Connection,
+    config: "object",
+    now: datetime,
+    policy_store: PolicyStore | None = None,
+) -> ActionResult | PermittedIntent:
+    """Total form of :func:`decide_and_reserve` — never raises on a malformed request.
+
+    ``decide_and_reserve`` takes a validated :class:`ActionRequest`, so a caller
+    that hands it attacker-shaped input gets a ``ValidationError`` rather than a
+    verdict. Fail-closed behaviour then depends on whether *that caller* wraps the
+    call, i.e. on code the decision point does not own.
+
+    ``decide_raw`` accepts the unvalidated mapping and turns a validation failure
+    into an ordinary denial with reason ``malformed``, so the guarantee belongs to
+    the decision point.
+
+    Internal errors are deliberately **not** swallowed: an exception from the
+    policy store, the database or the cap ledger propagates, because converting a
+    bug into a routine denial would hide it. From an enforcement point's view an
+    unreachable or erroring PDP is already governed by its configured
+    unreachability behaviour.
+    """
+    try:
+        request = ActionRequest.model_validate(raw)
+    except Exception as exc:  # noqa: BLE001 - any validation failure is a denial
+        request_id = raw.get("request_id") if isinstance(raw, Mapping) else None
+        try:
+            resolved = UUID(str(request_id))
+        except (TypeError, ValueError):
+            resolved = NIL_REQUEST_ID
+        return ActionResult(
+            request_id=resolved,
+            decision=PolicyDecision(
+                decision=Decision.DENIED,
+                # No policy was resolved, so no tier applies; report the most
+                # restrictive one rather than inventing a permissive default.
+                effective_tier=Tier.CONFIRM,
+                nominal_tier=Tier.CONFIRM,
+                reason_code=CheckId.MALFORMED,
+                detail=f"request failed validation: {type(exc).__name__}",
+            ),
+        )
+    return decide_and_reserve(
+        request, conn=conn, config=config, now=now, policy_store=policy_store
     )

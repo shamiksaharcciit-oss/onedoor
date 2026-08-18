@@ -7,6 +7,7 @@ idempotent (upsert), so repeated boots converge to the file's contents.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -15,6 +16,7 @@ from typing import Any
 
 import yaml
 
+from onedoor.guardrail import policy as policy_module
 from onedoor.guardrail.models import Caps, EffectPolicy, Policy, Tier
 from onedoor.store.clock import now_utc, to_iso
 
@@ -24,10 +26,12 @@ def _policy_from_entry(entry: dict[str, Any]) -> Policy:
 
 
 def validate_policy(policy: Policy) -> None:
-    if policy.tier == Tier.AUTO and not policy.compensating_command:
+    # Every tier that executes without a human needs a registered reversal, not
+    # just Tier 1. A budget does not make an irreversible action safe to automate.
+    if policy.tier in (Tier.AUTO, Tier.AUTO_CAPPED) and not policy.compensating_command:
         raise ValueError(
-            f"policy '{policy.action_type}' is Tier 1 but has no compensating_command "
-            "(invariant 10: no reversal => cannot be Tier 1)"
+            f"policy '{policy.action_type}' is Tier {int(policy.tier)} (auto-executing) "
+            "but has no compensating_command (no reversal => cannot auto-execute)"
         )
     for rule in policy.param_effects:
         try:
@@ -48,6 +52,7 @@ def upsert_effect(conn: sqlite3.Connection, ep: EffectPolicy) -> None:
         (ep.effect, int(ep.min_tier) if ep.min_tier is not None else None,
          ep.caps.model_dump_json(), to_iso(now_utc())),
     )
+    record_snapshot(conn)
 
 
 def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
@@ -80,6 +85,7 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
             to_iso(now_utc()),
         ),
     )
+    record_snapshot(conn)
 
 
 def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
@@ -105,3 +111,67 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
     for ep in effect_policies:
         upsert_effect(conn, ep)
     return len(policies)
+
+
+def _normalized_snapshot(conn: sqlite3.Connection) -> str:
+    """The whole policy set as canonical JSON: sorted keys, stable ordering.
+
+    Canonical form matters — the hash must change when the *rules* change and not
+    when a dict happens to serialize in a different order.
+    """
+    policies = [
+        {k: row[k] for k in row.keys() if k != "updated_at"}
+        for row in conn.execute("SELECT * FROM policies ORDER BY action_type")
+    ]
+    effects = [
+        {k: row[k] for k in row.keys() if k != "updated_at"}
+        for row in conn.execute("SELECT * FROM effect_policies ORDER BY effect")
+    ]
+    return json.dumps(
+        {"policies": policies, "effects": effects}, sort_keys=True, separators=(",", ":")
+    )
+
+
+def record_snapshot(conn: sqlite3.Connection) -> str:
+    """Record the current policy set as a version and return its hash.
+
+    Idempotent: an unchanged policy set yields the same hash and inserts nothing.
+    Reverting an edit therefore re-uses the original version row, which is correct —
+    the rules genuinely are the same — while the audit log still shows every
+    decision made in between under the intervening hash.
+    """
+    snapshot = _normalized_snapshot(conn)
+    version = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
+    policy_module.invalidate(conn)   # this connection just wrote; data_version will not tell it
+    stamp = to_iso(now_utc())
+    conn.execute(
+        "INSERT OR IGNORE INTO policy_versions (version_hash, snapshot_json, created_at) "
+        "VALUES (?,?,?)",
+        (version, snapshot, stamp),
+    )
+    conn.execute(
+        "INSERT INTO policy_current (id, version_hash, updated_at) VALUES (1,?,?) "
+        "ON CONFLICT(id) DO UPDATE SET version_hash=excluded.version_hash,"
+        " updated_at=excluded.updated_at",
+        (version, stamp),
+    )
+    return version
+
+
+def current_version(conn: sqlite3.Connection) -> str | None:
+    """The hash of the policy set currently in force, or None if never recorded.
+
+    Reads the pointer rather than the newest ``policy_versions`` row: an edit that
+    is reverted re-uses the original version, and "most recently inserted" would
+    then name the intervening one.
+    """
+    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
+    return row["version_hash"] if row else None
+
+
+def snapshot_for(conn: sqlite3.Connection, version_hash: str) -> str | None:
+    """The exact policy set behind a recorded version — the re-derivation input."""
+    row = conn.execute(
+        "SELECT snapshot_json FROM policy_versions WHERE version_hash=?", (version_hash,)
+    ).fetchone()
+    return row["snapshot_json"] if row else None

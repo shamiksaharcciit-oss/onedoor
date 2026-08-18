@@ -11,6 +11,7 @@ import sqlite3
 from datetime import datetime
 from uuid import UUID
 
+from onedoor.store.db import tx
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -19,7 +20,7 @@ from onedoor.guardrail.models import (
     PolicyDecision,
     Tier,
 )
-from onedoor.store.clock import from_iso, to_iso
+from onedoor.store.clock import from_iso, now_utc, to_iso
 
 
 def append(
@@ -37,13 +38,22 @@ def append(
     undo_until: datetime | None = None,
     undo_of: int | None = None,
 ) -> int:
-    """Insert one audit row and return its id."""
+    """Insert one audit row and return its id.
+
+    Every row carries the hash of the policy set in force, so a verdict can be
+    re-derived against the exact rules that produced it (AADP section 10). The
+    policy table is upserted in place; without this stamp, editing policy silently
+    destroys the ability to check any earlier decision.
+    """
+    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
+    policy_version = row["version_hash"] if row else None
     cur = conn.execute(
         "INSERT INTO actions_audit ("
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
-        " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
+        " policy_version"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -63,6 +73,7 @@ def append(
             to_iso(undo_until) if undo_until else None,
             undo_of,
             to_iso(now),
+            policy_version,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -128,3 +139,108 @@ def result_for_request_id(conn: sqlite3.Connection, request_id: UUID) -> ActionR
         approval_id=primary["approval_id"],
         undo_available_until=undo_until if executed else None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Group commit for RESULT rows only.
+#
+# Invariant 9 requires the *intent* to be durable before the permit is returned,
+# so intent writes stay synchronous and are never buffered. Result rows are a
+# different risk: losing one on a crash leaves an intent with no result, which is
+# exactly the recoverable, detectable state the invariant already demands. The
+# failure direction is "we do not know yet", never "this was authorized".
+#
+# Exactly-once reporting is preserved: a duplicate is caught in the buffer by the
+# same (request_id, kind) key the database UNIQUE constraint enforces, so the
+# second report is rejected at call time rather than at flush time.
+#
+# Off by default. Buffering trades durability for throughput and that is an
+# operator's decision, not a default.
+# ---------------------------------------------------------------------------
+
+
+class _ResultBuffer:
+    __slots__ = ("rows", "events", "keys")
+
+    def __init__(self) -> None:
+        self.rows: list[tuple[object, ...]] = []
+        self.events: list[tuple[str, str]] = []
+        self.keys: set[tuple[str, str]] = set()
+
+
+def _buffer(conn: sqlite3.Connection) -> _ResultBuffer:
+    buf = getattr(conn, "_audit_buffer", None)
+    if buf is None:
+        buf = _ResultBuffer()
+        conn._audit_buffer = buf  # type: ignore[attr-defined]
+    return buf
+
+
+def buffered_len(conn: sqlite3.Connection) -> int:
+    return len(_buffer(conn).rows)
+
+
+def append_buffered(
+    conn: sqlite3.Connection,
+    request: ActionRequest,
+    decision: PolicyDecision,
+    *,
+    kind: str,
+    now: datetime,
+    parent_id: int | None = None,
+    connector_ok: bool | None = None,
+    error: str | None = None,
+    payload: dict[str, JsonValue] | None = None,
+    undo_of: int | None = None,
+    event_topic: str | None = None,
+    event_payload: str | None = None,
+) -> None:
+    """Queue a result row. Raises on a duplicate report, as the UNIQUE constraint would."""
+    buf = _buffer(conn)
+    key = (str(request.request_id), kind)
+    if key in buf.keys:
+        raise sqlite3.IntegrityError(
+            f"UNIQUE constraint failed: actions_audit.request_id, actions_audit.kind "
+            f"({key[0]}, {kind}) already reported"
+        )
+    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
+    buf.keys.add(key)
+    buf.rows.append(
+        (
+            str(request.request_id), kind, parent_id, request.action_type,
+            request.source.value, json.dumps(request.params, default=str),
+            decision.decision.value, decision.reason_code.value,
+            int(decision.nominal_tier), int(decision.effective_tier), decision.detail,
+            None if connector_ok is None else int(connector_ok), error,
+            None if payload is None else json.dumps(payload, default=str),
+            None, None, undo_of, to_iso(now), row["version_hash"] if row else None,
+        )
+    )
+    if event_topic is not None and event_payload is not None:
+        buf.events.append((event_topic, event_payload))
+
+
+def flush(conn: sqlite3.Connection) -> int:
+    """Write every queued result row in one transaction. Returns rows written."""
+    buf = _buffer(conn)
+    if not buf.rows:
+        return 0
+    rows, events = buf.rows, buf.events
+    buf.rows, buf.events, buf.keys = [], [], set()
+    with tx(conn):
+        conn.executemany(
+            "INSERT INTO actions_audit ("
+            " request_id, kind, parent_id, action_type, source, params_json,"
+            " decision, reason_code, nominal_tier, effective_tier, detail,"
+            " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
+            " created_at, policy_version"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        if events:
+            stamp = to_iso(now_utc())
+            conn.executemany(
+                "INSERT INTO events (topic, payload_json, created_at) VALUES (?, ?, ?)",
+                [(t, p, stamp) for t, p in events],
+            )
+    return len(rows)

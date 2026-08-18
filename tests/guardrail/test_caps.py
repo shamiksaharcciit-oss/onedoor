@@ -76,6 +76,9 @@ def test_eur_month_cap(conn: Connection, registry: ConnectorRegistry, config: En
             action_type="demo.month",
             tier=Tier.AUTO_CAPPED,
             dry_run=False,
+            # The reversibility precondition applies to every auto-executing tier;
+            # this test is about the month cap, not about reversibility.
+            compensating_command="demo.restore",
             caps=Caps(eur_day=Decimal("1000"), eur_month=Decimal("5")),
             bounds=Bounds(strict_params=False),
         ),

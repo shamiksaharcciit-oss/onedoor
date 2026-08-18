@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from onedoor.guardrail.models import Bounds, JsonValue
@@ -34,14 +35,22 @@ def validate(bounds: Bounds, params: dict[str, JsonValue]) -> BoundsResult:
         value = params[key]
         if not isinstance(value, int | float) or isinstance(value, bool):
             return BoundsResult(False, f"param '{key}' must be numeric")
-        if bound.min is not None and value < bound.min:
+        # Affirmative range check. The negative form (`value < min` / `value > max`)
+        # is False for NaN, so NaN slips through it into the allowed path. Every
+        # bound that is set must be provably satisfied, and the value must be finite.
+        if not math.isfinite(value):
+            return BoundsResult(False, f"param '{key}'={value} is not a finite number")
+        if bound.min is not None and not value >= bound.min:
             return BoundsResult(False, f"param '{key}'={value} below min {bound.min}")
-        if bound.max is not None and value > bound.max:
+        if bound.max is not None and not value <= bound.max:
             return BoundsResult(False, f"param '{key}'={value} above max {bound.max}")
 
     for key, allowed_values in bounds.enum.items():
+        # Absence is a value, not a skip: a param constrained to an allowlist that
+        # is simply missing must not reach the allowed path because the policy
+        # author forgot to repeat the key under `required`.
         if key not in params:
-            continue
+            return BoundsResult(False, f"param '{key}' is constrained but absent")
         value = params[key]
         if value not in allowed_values:
             return BoundsResult(False, f"param '{key}'={value!r} not in whitelist")

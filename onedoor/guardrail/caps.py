@@ -13,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from onedoor.guardrail.models import ActionRequest, CheckId, Policy
+from onedoor.guardrail.models import ActionRequest, Caps, CheckId, Policy
 
 
 @dataclass(frozen=True)
@@ -61,27 +61,51 @@ def _bump(
     )
 
 
+def _read_all(
+    conn: sqlite3.Connection, keys: list[str], day: str, month: str
+) -> dict[tuple[str, str, str], tuple[int, Decimal]]:
+    """Every counter these keys could touch, in ONE statement.
+
+    The previous form issued a SELECT per (key, window) — four round trips for an
+    action with one effect label, before any reservation. The check is still
+    check-everything-before-reserving-anything; only the number of statements
+    changes, and it all still happens inside the caller's IMMEDIATE transaction.
+    """
+    if not keys:
+        return {}
+    placeholders = ",".join("?" * len(keys))
+    rows = conn.execute(
+        f"SELECT action_type, window_kind, window_key, count, eur_total FROM cap_counters "
+        f"WHERE action_type IN ({placeholders}) AND window_key IN (?, ?)",
+        (*keys, day, month),
+    ).fetchall()
+    return {
+        (r["action_type"], r["window_kind"], r["window_key"]): (int(r["count"]), Decimal(r["eur_total"]))
+        for r in rows
+    }
+
+
 def _check_one(
-    conn: sqlite3.Connection,
+    counters: dict[tuple[str, str, str], tuple[int, Decimal]],
     key: str,
-    caps: "Caps",
+    caps: Caps,
     request: ActionRequest,
     day: str,
     month: str,
     label: str,
 ) -> CapResult:
     if caps.daily_rate is not None:
-        count, _ = _read(conn, key, "rate", day)
+        count, _ = counters.get((key, "rate", day), (0, Decimal(0)))
         if count + 1 > caps.daily_rate:
             return CapResult(
                 True, CheckId.CAP_DAILY_RATE, f"daily rate {caps.daily_rate} reached{label}"
             )
     if caps.eur_day is not None:
-        _, total = _read(conn, key, "eur_day", day)
+        _, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
         if total + request.cost_eur > caps.eur_day:
             return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached{label}")
     if caps.eur_month is not None:
-        _, total = _read(conn, key, "eur_month", month)
+        _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
         if total + request.cost_eur > caps.eur_month:
             return CapResult(
                 True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached{label}"
@@ -89,15 +113,34 @@ def _check_one(
     return CapResult(False)
 
 
-def _reserve_one(
-    conn: sqlite3.Connection, key: str, caps: "Caps", request: ActionRequest, day: str, month: str
+def _reserve_all(
+    conn: sqlite3.Connection,
+    counters: dict[tuple[str, str, str], tuple[int, Decimal]],
+    sources: list[tuple[str, Caps, str]],
+    request: ActionRequest,
+    day: str,
+    month: str,
 ) -> None:
-    if caps.daily_rate is not None:
-        _bump(conn, key, "rate", day, count_delta=1)
-    if caps.eur_day is not None:
-        _bump(conn, key, "eur_day", day, eur_delta=request.cost_eur)
-    if caps.eur_month is not None:
-        _bump(conn, key, "eur_month", month, eur_delta=request.cost_eur)
+    """Write every reservation in one executemany — all or nothing, one round trip."""
+    rows: list[tuple[str, str, str, int, str]] = []
+    for key, caps, _ in sources:
+        if caps.daily_rate is not None:
+            count, total = counters.get((key, "rate", day), (0, Decimal(0)))
+            rows.append((key, "rate", day, count + 1, str(total)))
+        if caps.eur_day is not None:
+            count, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
+            rows.append((key, "eur_day", day, count, str(total + request.cost_eur)))
+        if caps.eur_month is not None:
+            count, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
+            rows.append((key, "eur_month", month, count, str(total + request.cost_eur)))
+    if rows:
+        conn.executemany(
+            "INSERT INTO cap_counters (action_type, window_kind, window_key, count, eur_total) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(action_type, window_kind, window_key) "
+            "DO UPDATE SET count=excluded.count, eur_total=excluded.eur_total",
+            rows,
+        )
 
 
 def check_and_reserve(
@@ -106,7 +149,7 @@ def check_and_reserve(
     request: ActionRequest,
     now: datetime,
     tz: ZoneInfo,
-    effect_caps: list[tuple[str, "Caps"]] | None = None,
+    effect_caps: list[tuple[str, Caps]] | None = None,
 ) -> CapResult:
     """Check the action's caps AND every effect-level cap; reserve all or none.
 
@@ -121,10 +164,10 @@ def check_and_reserve(
     for name, ecaps in effect_caps or []:
         sources.append((f"effect:{name}", ecaps, f" (effect {name})"))
 
+    counters = _read_all(conn, [k for k, _, _ in sources], day, month)
     for key, caps, label in sources:  # check everything first
-        result = _check_one(conn, key, caps, request, day, month, label)
+        result = _check_one(counters, key, caps, request, day, month, label)
         if result.exceeded:
             return result
-    for key, caps, _ in sources:  # then reserve everything
-        _reserve_one(conn, key, caps, request, day, month)
+    _reserve_all(conn, counters, sources, request, day, month)  # then reserve everything
     return CapResult(False)

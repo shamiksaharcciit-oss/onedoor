@@ -15,6 +15,18 @@ from pathlib import Path
 _MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
+class Connection(sqlite3.Connection):
+    """A connection that can carry per-connection caches.
+
+    ``sqlite3.Connection`` is a C type: it has no ``__dict__`` and cannot be
+    weak-referenced, so a cache cannot be keyed on it from outside. Subclassing
+    gives it an instance dict, which means a cache lives and dies exactly with the
+    connection it belongs to — no global registry, no id reuse, nothing to clean up.
+    """
+
+    __slots__ = ("_policy_snapshot", "_audit_buffer")
+
+
 def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open a configured connection. Caller owns its lifecycle.
 
@@ -23,7 +35,11 @@ def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connecti
     the engine's transactions remain the concurrency mechanism either way.
     """
     conn = sqlite3.connect(
-        db_path, isolation_level=None, timeout=10.0, check_same_thread=check_same_thread
+        db_path,
+        isolation_level=None,
+        timeout=10.0,
+        check_same_thread=check_same_thread,
+        factory=Connection,
     )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
