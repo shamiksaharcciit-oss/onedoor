@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.3.1"
+version = "0.3.2"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,6 +10,8 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "pyyaml>=6.0",
+    # Windows ships no IANA tz database, so zoneinfo cannot resolve even "UTC".
+    "tzdata; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]

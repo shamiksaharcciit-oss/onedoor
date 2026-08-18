@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -57,12 +58,26 @@ def _tool_text(text: str) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": False}
 
 
+def split_command(cmd: str, *, windows: bool | None = None) -> list[str] | str:
+    """Turn a command line into whatever Popen wants on this platform.
+
+    ``shlex.split`` is POSIX by default, which treats a backslash as an escape
+    character -- so a Windows path like ``C:\\Python\\python.exe`` is silently
+    mangled into ``C:Pythonpython.exe`` and the spawn fails with "file not
+    found". On Windows, hand the raw string to Popen and let CreateProcess do
+    the parsing it defines.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    return cmd if windows else shlex.split(cmd)
+
+
 class Downstream:
     """The real MCP server, spawned and spoken to over pipes."""
 
     def __init__(self, cmd: str) -> None:
         self.proc = subprocess.Popen(
-            shlex.split(cmd),
+            split_command(cmd),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
