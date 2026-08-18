@@ -1,0 +1,98 @@
+# Policy for an accounts-payable agent. Tool calls arrive as "tool.<name>".
+#
+# The company rule this file encodes, in English:
+#   "The agent may settle small supplier invoices on its own, up to EUR 500 a
+#    day in total. Anything larger, and anything that cannot be reversed, is a
+#    human's decision."
+#
+# Note what is NOT here: a per-call limit as the only control. A per-call limit
+# is a statement about one payment. The rule above is a statement about a day.
+
+policies:
+  # --- reads: free, but still recorded -------------------------------------
+  - action_type: tool.list_overdue_invoices
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop      # a read is trivially reversible
+    bounds:
+      required: [vendor]
+      strict_params: true
+
+  # --- the ordinary payment path -------------------------------------------
+  # Tier 2: auto-executes, but only inside the caps, and only because a
+  # compensating command exists (a SEPA credit transfer can be recalled inside
+  # the same business day). Without one the loader refuses to start.
+  - action_type: tool.pay_invoice
+    tier: 2
+    dry_run: false
+    compensating_command: tool.recall_payment
+    undo_window_seconds: 3600
+    effects: [money_out]                    # shares the budget below
+    cost_param: amount_eur                  # where the engine reads the amount
+    caps:
+      eur_day: "500.00"
+      daily_rate: 40
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 100 }
+      required: [invoice_id, payee, amount_eur]
+      strict_params: true
+
+  # --- a second way to move money ------------------------------------------
+  # Different tool, different name, same real-world effect. The `money_out`
+  # label is what stops "use the other tool" from being a budget reset.
+  - action_type: tool.pay_supplier_batch
+    tier: 2
+    dry_run: false
+    compensating_command: tool.recall_payment
+    undo_window_seconds: 3600
+    effects: [money_out]
+    cost_param: amount_eur
+    caps:
+      eur_day: "500.00"
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 100 }
+      required: [payee, amount_eur]
+      strict_params: true
+
+  # --- the irreversible one ------------------------------------------------
+  # A same-day international wire cannot be recalled. It has no compensating
+  # command, so it can never auto-execute at any tier: it is Tier 3, and the
+  # engine would refuse to load it as Tier 1 or 2 regardless of what is written
+  # here. Reversibility is a precondition for autonomy, not a preference.
+  - action_type: tool.send_wire
+    tier: 3
+    effects: [money_out]
+    cost_param: amount_eur
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 50000 }
+      required: [beneficiary, amount_eur, reference]
+      strict_params: true
+
+  # --- the undo path --------------------------------------------------------
+  - action_type: tool.recall_payment
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop
+    bounds:
+      strict_params: false
+
+  - action_type: onedoor.noop
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop
+    bounds:
+      strict_params: false
+
+# The shared budget. Both payment tools carry `money_out`, so both draw on this
+# same counter. Renaming the tool does not create a second wallet.
+effects:
+  money_out:
+    caps:
+      eur_day: "500.00"
+      eur_month: "5000.00"
+
+# Anything not listed above default-denies to Tier 3. A tool the policy author
+# never anticipated is not a tool the agent may use unsupervised.
