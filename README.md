@@ -75,7 +75,7 @@ Requires Python ≥ 3.12.
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # 63 tests — the guardrail suite is the release blocker
+pytest                    # 111 tests — the guardrail suite is the release blocker
 python -m scripts.demo    # one of everything, end to end, zero external deps
 ```
 
