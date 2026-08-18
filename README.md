@@ -180,3 +180,9 @@ contribution.
 ## License
 
 Apache-2.0.
+
+## Links
+
+- Source: <https://github.com/shamiksaharcciit-oss/onedoor>
+- Package: <https://pypi.org/project/onedoor/>
+- Licence: Apache-2.0
