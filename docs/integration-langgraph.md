@@ -21,6 +21,9 @@ treated as zero, so a euro cap on a wrapped tool silently permitted everything.
 An unresolvable amount is now a denial with reason `cost_unknown`. There is a
 worked example in `examples/langgraph_finance.py`.
 
+The examples need LangGraph, which the engine itself does not:
+`pip install "onedoor[examples]"`.
+
 ## Wrapping tools
 
 ```python
