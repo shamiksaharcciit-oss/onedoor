@@ -8,8 +8,8 @@ OTEL_* environment variables is all it takes to light up.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 try:  # pragma: no cover - exercised only when otel is installed
     from opentelemetry import metrics, trace

@@ -43,7 +43,7 @@ from zoneinfo import ZoneInfo
 from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
@@ -89,7 +89,8 @@ class Downstream:
         self.proc.stdin.write(json.dumps(msg) + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
-        return json.loads(line)
+        parsed: dict[str, Any] = json.loads(line)
+        return parsed
 
     def notify(self, msg: dict[str, Any]) -> None:
         assert self.proc.stdin
@@ -124,7 +125,7 @@ class Proxy:
             raise
         result = resp.get("result", {})
         ok = not result.get("isError", False) and "error" not in resp
-        payload = {"mcp_result": json.dumps(result)[:2000]}
+        payload: dict[str, JsonValue] = {"mcp_result": json.dumps(result)[:2000]}
         report_result(
             intent,
             conn=self.conn,

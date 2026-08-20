@@ -70,19 +70,44 @@ def _config() -> EngineConfig:
 
 
 def _seed(conn: Connection) -> None:
-    policy_loader.upsert(conn, Policy(
-        action_type="tool.refund", tier=Tier.AUTO, dry_run=False,
-        compensating_command="tool.refund", bounds=Bounds(strict_params=False)))
-    policy_loader.upsert(conn, Policy(
-        action_type="tool.pay_invoice", tier=Tier.AUTO_CAPPED, dry_run=False,
-        compensating_command="tool.refund", cost_param="amount_eur",
-        caps=Caps(eur_day=Decimal("250.00")),
-        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)},
-                      required=["invoice_id", "amount_eur"], strict_params=True)))
-    policy_loader.upsert(conn, Policy(
-        action_type="tool.send_wire", tier=Tier.CONFIRM,
-        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
-                      required=["beneficiary", "amount_eur"], strict_params=True)))
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="tool.refund",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="tool.refund",
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="tool.pay_invoice",
+            tier=Tier.AUTO_CAPPED,
+            dry_run=False,
+            compensating_command="tool.refund",
+            cost_param="amount_eur",
+            caps=Caps(eur_day=Decimal("250.00")),
+            bounds=Bounds(
+                numeric={"amount_eur": NumericBound(min=0.01, max=100)},
+                required=["invoice_id", "amount_eur"],
+                strict_params=True,
+            ),
+        ),
+    )
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="tool.send_wire",
+            tier=Tier.CONFIRM,
+            bounds=Bounds(
+                numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
+                required=["beneficiary", "amount_eur"],
+                strict_params=True,
+            ),
+        ),
+    )
 
 
 class _ScriptedModel(GenericFakeChatModel):
@@ -114,8 +139,10 @@ def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1")],
+            ),
             AIMessage(content="done"),
         ),
         tools=[pay_invoice],
@@ -123,9 +150,7 @@ def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None
     )
     out = agent.invoke({"messages": [("user", "clear A1")]})
     assert PAID == [90.0]
-    rows = agent_conn.execute(
-        "SELECT kind FROM actions_audit ORDER BY id"
-    ).fetchall()
+    rows = agent_conn.execute("SELECT kind FROM actions_audit ORDER BY id").fetchall()
     kinds = [r[0] for r in rows]
     assert "exec_intent" in kinds and "exec_result" in kinds
     assert out["messages"]
@@ -136,10 +161,14 @@ def test_cumulative_cap_denies_the_call_that_would_cross_it(agent_conn: Connecti
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1"),
-                _call("pay_invoice", {"invoice_id": "A2", "amount_eur": 90.0}, "c2"),
-                _call("pay_invoice", {"invoice_id": "A3", "amount_eur": 90.0}, "c3")]),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1"),
+                    _call("pay_invoice", {"invoice_id": "A2", "amount_eur": 90.0}, "c2"),
+                    _call("pay_invoice", {"invoice_id": "A3", "amount_eur": 90.0}, "c3"),
+                ],
+            ),
             AIMessage(content="done"),
         ),
         tools=[pay_invoice],
@@ -156,8 +185,10 @@ def test_denial_is_a_tool_message_not_an_exception(agent_conn: Connection) -> No
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")],
+            ),
             AIMessage(content="ok, that is over the limit"),
         ),
         tools=[pay_invoice],
@@ -173,8 +204,12 @@ def test_tier3_proposes_as_a_message_by_default(agent_conn: Connection) -> None:
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
+                ],
+            ),
             AIMessage(content="waiting for approval"),
         ),
         tools=[send_wire],
@@ -193,8 +228,12 @@ def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connec
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
+                ],
+            ),
             AIMessage(content="sent"),
         ),
         tools=[send_wire],
@@ -220,8 +259,12 @@ def test_interrupt_declined_does_not_execute(agent_conn: Connection) -> None:
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
+                ],
+            ),
             AIMessage(content="declined"),
         ),
         tools=[send_wire],
@@ -239,8 +282,10 @@ async def test_async_path_reaches_the_same_verdict(agent_conn: Connection) -> No
     _seed(agent_conn)
     agent = create_agent(
         model=_model(
-            AIMessage(content="", tool_calls=[
-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
+            AIMessage(
+                content="",
+                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")],
+            ),
             AIMessage(content="over the limit"),
         ),
         tools=[pay_invoice],

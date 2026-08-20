@@ -84,10 +84,12 @@ def _read_all(
         (*keys, day, month),
     ).fetchall()
     return {
-        (r["action_type"], r["window_kind"], r["window_key"]): (int(r["count"]), Decimal(r["eur_total"]))
+        (r["action_type"], r["window_kind"], r["window_key"]): (
+            int(r["count"]),
+            Decimal(r["eur_total"]),
+        )
         for r in rows
     }
-
 
 
 def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
@@ -242,12 +244,15 @@ def check_and_reserve(
         # A budget we cannot measure against is not a budget. Deny rather than
         # assume zero -- assuming zero is what made every euro cap inert for
         # callers that never set cost_eur.
-        where = (f"policy declares cost_param '{policy.cost_param}' but the request "
-                 "carries no usable value for it"
-                 if policy.cost_param is not None
-                 else "no cost_param declared and the request carries no cost_eur")
-        return CapResult(True, CheckId.COST_UNKNOWN,
-                         f"euro cap applies but the amount is unknown ({where})")
+        where = (
+            f"policy declares cost_param '{policy.cost_param}' but the request "
+            "carries no usable value for it"
+            if policy.cost_param is not None
+            else "no cost_param declared and the request carries no cost_eur"
+        )
+        return CapResult(
+            True, CheckId.COST_UNKNOWN, f"euro cap applies but the amount is unknown ({where})"
+        )
     amount = cost if cost is not None else Decimal(0)
 
     counters = _read_all(conn, [k for k, _, _ in sources], day, month)

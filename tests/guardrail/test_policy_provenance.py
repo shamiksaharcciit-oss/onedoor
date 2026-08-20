@@ -14,10 +14,10 @@ from sqlite3 import Connection
 from uuid import uuid4
 
 import pytest
+
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_raw
 from onedoor.guardrail.models import Bounds, NumericBound, Policy, Tier
-
 from tests.conftest import FROZEN_NOW
 
 
@@ -53,9 +53,10 @@ def _call(conn: Connection, config: object, amount: int):
 
 
 def _versions(conn: Connection) -> list[str]:
-    return [r["policy_version"] for r in conn.execute(
-        "SELECT policy_version FROM actions_audit ORDER BY id"
-    )]
+    return [
+        r["policy_version"]
+        for r in conn.execute("SELECT policy_version FROM actions_audit ORDER BY id")
+    ]
 
 
 def test_every_audit_row_carries_a_policy_version(conn: Connection, config: object) -> None:
@@ -113,8 +114,9 @@ def test_policy_versions_is_append_only(conn: Connection) -> None:
     policy_loader.upsert(conn, _policy(100))
     version = policy_loader.current_version(conn)
     with pytest.raises(Exception, match="append-only"):
-        conn.execute("UPDATE policy_versions SET snapshot_json='{}' WHERE version_hash=?",
-                     (version,))
+        conn.execute(
+            "UPDATE policy_versions SET snapshot_json='{}' WHERE version_hash=?", (version,)
+        )
     with pytest.raises(Exception, match="append-only"):
         conn.execute("DELETE FROM policy_versions WHERE version_hash=?", (version,))
 

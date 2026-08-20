@@ -24,22 +24,17 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from onedoor.config import Settings
-from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
+from onedoor.guardrail import approvals
 from onedoor.guardrail import decision as decision_mod
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
-    CheckId,
-    Decision,
     JsonValue,
-    PolicyDecision,
     Source,
-    Tier,
 )
 from onedoor.guardrail.policy import PolicyStore
 from onedoor.guardrail.registry import ConnectorRegistry
-from onedoor.store import bus
 from onedoor.store.clock import now_utc
 from onedoor.store.db import tx
 
@@ -134,8 +129,7 @@ def evaluate_and_execute(
             connector_ok, error, payload = False, _redact(str(exc)), None
 
     return decision_mod.report_result(
-        outcome, conn=conn, config=config, ok=connector_ok, payload=payload,
-        error=error, now=now
+        outcome, conn=conn, config=config, ok=connector_ok, payload=payload, error=error, now=now
     )
 
 

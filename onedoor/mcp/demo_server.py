@@ -86,7 +86,11 @@ def main() -> None:
         else:
             sys.stdout.write(
                 json.dumps(
-                    {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "no such method"}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": mid,
+                        "error": {"code": -32601, "message": "no such method"},
+                    }
                 )
                 + "\n"
             )

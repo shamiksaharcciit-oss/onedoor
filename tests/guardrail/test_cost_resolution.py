@@ -68,8 +68,13 @@ def _refund_policy() -> Policy:
 def _request(amount: float | str | None, *, cost_eur: Decimal = Decimal(0)) -> ActionRequest:
     params: dict = {} if amount is None else {"amount_eur": amount}
     return ActionRequest(
-        request_id=uuid4(), action_type=PAY, params=params, source=Source.LLM,
-        rationale="test", cost_eur=cost_eur, created_at=now_utc(),
+        request_id=uuid4(),
+        action_type=PAY,
+        params=params,
+        source=Source.LLM,
+        rationale="test",
+        cost_eur=cost_eur,
+        created_at=now_utc(),
     )
 
 
@@ -125,23 +130,24 @@ def test_explicit_cost_eur_still_works_without_cost_param(conn: Connection) -> N
     """Back-compat: callers that compute the cost themselves are unaffected."""
     _load(conn, _policy(cost_param=None))
     outcome = _decide(conn, _request(99.00, cost_eur=Decimal("99.00")))
-    assert not hasattr(outcome, "decision") or \
-        outcome.decision.decision != Decision.DENIED
+    assert not hasattr(outcome, "decision") or outcome.decision.decision != Decision.DENIED
 
 
 def test_no_euro_cap_means_no_cost_needed(conn: Connection) -> None:
     """An action without a euro cap must not start failing for want of an amount."""
     _load(conn, _policy(cost_param=None, eur_day=None))
     outcome = _decide(conn, _request(99.00))
-    assert not hasattr(outcome, "decision") or \
-        outcome.decision.decision != Decision.DENIED
+    assert not hasattr(outcome, "decision") or outcome.decision.decision != Decision.DENIED
 
 
 def test_cost_param_must_be_required(conn: Connection) -> None:
     """A parameter that may be absent is not a source of truth for money."""
     bad = Policy(
-        action_type=PAY, tier=Tier.AUTO_CAPPED, dry_run=False,
-        compensating_command="test.refund", cost_param="amount_eur",
+        action_type=PAY,
+        tier=Tier.AUTO_CAPPED,
+        dry_run=False,
+        compensating_command="test.refund",
+        cost_param="amount_eur",
         caps=Caps(eur_day=Decimal("500.00")),
         bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)}),
     )

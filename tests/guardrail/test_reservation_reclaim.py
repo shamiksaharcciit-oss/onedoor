@@ -142,6 +142,4 @@ def test_ttl_zero_disables_reclamation(conn: Connection) -> None:
     )
     # no reservation row was written, so nothing is ever reclaimed
     assert reclaim_expired_reservations(conn, cfg, now + timedelta(days=1)) == 0
-    assert (
-        conn.execute("SELECT COUNT(*) AS n FROM cap_reservations").fetchone()["n"] == 0
-    )
+    assert conn.execute("SELECT COUNT(*) AS n FROM cap_reservations").fetchone()["n"] == 0

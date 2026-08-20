@@ -23,11 +23,22 @@ class Client:
     def __init__(self) -> None:
         db = tempfile.mktemp(suffix=".db")
         self.proc = subprocess.Popen(
-            [sys.executable, "-m", "onedoor.mcp.proxy",
-             "--downstream", f"{sys.executable} -m onedoor.mcp.demo_server",
-             "--policies", str(ROOT / "config" / "mcp_policies.yaml"),
-             "--db", db],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1, cwd=ROOT,
+            [
+                sys.executable,
+                "-m",
+                "onedoor.mcp.proxy",
+                "--downstream",
+                f"{sys.executable} -m onedoor.mcp.demo_server",
+                "--policies",
+                str(ROOT / "config" / "mcp_policies.yaml"),
+                "--db",
+                db,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            cwd=ROOT,
         )
         self._id = 0
 
@@ -48,8 +59,14 @@ class Client:
 
 def main() -> None:
     c = Client()
-    c.request("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
-                             "clientInfo": {"name": "demo-agent", "version": "0"}})
+    c.request(
+        "initialize",
+        {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "demo-agent", "version": "0"},
+        },
+    )
     tools = [t["name"] for t in c.request("tools/list")["result"]["tools"]]
     print(f"downstream tools: {tools}\n")
 

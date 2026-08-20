@@ -16,15 +16,15 @@ import threading
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
+
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, Policy, Tier
 from onedoor.store.db import Database
-from uuid import uuid4
-
 from tests.conftest import FROZEN_NOW
 
 BUDGET = 60  # EUR/day; 1 EUR per call => exactly 60 permits, whatever the racers do
@@ -85,9 +85,7 @@ def _race(db: Database, config: EngineConfig, threads: int, per_thread: int) -> 
                     now=FROZEN_NOW,
                 )
                 if isinstance(out, PermittedIntent):
-                    report_result(
-                        out, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW
-                    )
+                    report_result(out, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW)
                     local["PERMIT"] += 1
                 else:
                     local[str(out.decision.reason_code)] += 1

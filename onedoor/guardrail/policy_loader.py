@@ -59,8 +59,12 @@ def upsert_effect(conn: sqlite3.Connection, ep: EffectPolicy) -> None:
         "VALUES (?,?,?,?) "
         "ON CONFLICT(effect) DO UPDATE SET min_tier=excluded.min_tier,"
         " caps_json=excluded.caps_json, updated_at=excluded.updated_at",
-        (ep.effect, int(ep.min_tier) if ep.min_tier is not None else None,
-         ep.caps.model_dump_json(), to_iso(now_utc())),
+        (
+            ep.effect,
+            int(ep.min_tier) if ep.min_tier is not None else None,
+            ep.caps.model_dump_json(),
+            to_iso(now_utc()),
+        ),
     )
     record_snapshot(conn)
 
@@ -114,9 +118,11 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
         validate_policy(policy)
     effect_entries = raw.get("effects", {}) or {}
     effect_policies = [
-        EffectPolicy(effect=name,
-                     min_tier=Tier(int(cfg["min_tier"])) if cfg.get("min_tier") is not None else None,
-                     caps=Caps.model_validate(cfg.get("caps", {}) or {}))
+        EffectPolicy(
+            effect=name,
+            min_tier=Tier(int(cfg["min_tier"])) if cfg.get("min_tier") is not None else None,
+            caps=Caps.model_validate(cfg.get("caps", {}) or {}),
+        )
         for name, cfg in effect_entries.items()
     ]
     for policy in policies:  # then write
@@ -155,7 +161,7 @@ def record_snapshot(conn: sqlite3.Connection) -> str:
     """
     snapshot = _normalized_snapshot(conn)
     version = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
-    policy_module.invalidate(conn)   # this connection just wrote; data_version will not tell it
+    policy_module.invalidate(conn)  # this connection just wrote; data_version will not tell it
     stamp = to_iso(now_utc())
     conn.execute(
         "INSERT OR IGNORE INTO policy_versions (version_hash, snapshot_json, created_at) "

@@ -57,12 +57,19 @@ outcome = decide_and_reserve(request, conn=conn, config=config, now=now)
 
 if isinstance(outcome, PermittedIntent):
     try:
-        result = my_crm.update(**request.params)        # <- your enforcement
-        report_result(outcome, conn=conn, ok=True,
-                      payload={"crm_result": str(result)[:500]}, error=None, now=now_utc())
+        result = my_crm.update(**request.params)  # <- your enforcement
+        report_result(
+            outcome,
+            conn=conn,
+            ok=True,
+            payload={"crm_result": str(result)[:500]},
+            error=None,
+            now=now_utc(),
+        )
     except Exception as exc:
-        report_result(outcome, conn=conn, ok=False,
-                      payload=None, error=str(exc)[:200], now=now_utc())
+        report_result(
+            outcome, conn=conn, ok=False, payload=None, error=str(exc)[:200], now=now_utc()
+        )
         raise
 else:
     d = outcome.decision
@@ -87,11 +94,15 @@ from onedoor.guardrail.executor import evaluate_and_execute, propose_action
 from onedoor.guardrail.registry import ConnectorRegistry
 
 registry = ConnectorRegistry()
-registry.register("crm.update_record", my_crm_act_fn)   # (params: dict) -> dict
+registry.register("crm.update_record", my_crm_act_fn)  # (params: dict) -> dict
 
 result = propose_action(
-    "crm.update_record", {"record_id": "A-113", "field": "status", "value": "closed"},
-    rationale="agent proposal", conn=conn, registry=registry, config=config,
+    "crm.update_record",
+    {"record_id": "A-113", "field": "status", "value": "closed"},
+    rationale="agent proposal",
+    conn=conn,
+    registry=registry,
+    config=config,
 )
 ```
 
@@ -102,12 +113,12 @@ from onedoor.guardrail.executor import resume_approval, deny_approval
 from onedoor.guardrail import approvals, undo
 
 pending = approvals.list_pending(conn)
-result = resume_approval(pending[0].approval_id, "session-ui-1",
-                         conn=conn, registry=registry, config=config)
+result = resume_approval(
+    pending[0].approval_id, "session-ui-1", conn=conn, registry=registry, config=config
+)
 
 # Undo an executed Tier-1 action (within its window):
-undo.undo(result.audit_id, conn=conn, registry=registry, config=config,
-          session_id="session-ui-1")
+undo.undo(result.audit_id, conn=conn, registry=registry, config=config, session_id="session-ui-1")
 ```
 
 ## Threading

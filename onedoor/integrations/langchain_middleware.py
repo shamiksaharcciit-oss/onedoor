@@ -95,8 +95,7 @@ def _import_middleware_base() -> type:
         from langchain.agents.middleware import AgentMiddleware
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise ImportError(
-            "OneDoorMiddleware needs LangChain v1 or later: "
-            'pip install "onedoor[langchain]"'
+            'OneDoorMiddleware needs LangChain v1 or later: pip install "onedoor[langchain]"'
         ) from exc
     return AgentMiddleware
 
@@ -161,9 +160,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             created_at=now,
         )
         with self._lock:
-            return decide_and_reserve(
-                action, conn=self._conn, config=self._config, now=now
-            )
+            return decide_and_reserve(action, conn=self._conn, config=self._config, now=now)
 
     def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:
         with self._lock:
@@ -196,8 +193,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         if not isinstance(outcome, PermittedIntent):
             return self._tool_message(
                 request,
-                f"onedoor: approved action still blocked "
-                f"({outcome.decision.reason_code.value})",
+                f"onedoor: approved action still blocked ({outcome.decision.reason_code.value})",
             )
         return self._run(outcome, request, handler)
 
@@ -234,9 +230,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             )
             if resume == "approved":
                 return self._execute_approved(outcome.approval_id, request, handler)
-            return self._tool_message(
-                request, f"onedoor: '{name}' was not approved ({resume})."
-            )
+            return self._tool_message(request, f"onedoor: '{name}' was not approved ({resume}).")
         return self._tool_message(
             request,
             f"onedoor: '{name}' requires human approval "
@@ -274,9 +268,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             try:
                 result = await handler(request)
             except Exception as exc:
-                await asyncio.to_thread(
-                    self._report, outcome, False, None, str(exc)[:200]
-                )
+                await asyncio.to_thread(self._report, outcome, False, None, str(exc)[:200])
                 raise
             await asyncio.to_thread(
                 self._report, outcome, True, {"result": str(result)[:500]}, None

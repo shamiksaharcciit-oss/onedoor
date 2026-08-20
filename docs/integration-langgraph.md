@@ -30,8 +30,8 @@ The examples need LangGraph, which the engine itself does not:
 from examples.langgraph_tools import governed, make_engine
 
 conn, config = make_engine("guardrail.db", Path("policies.yaml"))
-weather = governed(get_weather, conn, config)          # a @tool from langchain
-pay     = governed(send_payment, conn, config)
+weather = governed(get_weather, conn, config)  # a @tool from langchain
+pay = governed(send_payment, conn, config)
 ```
 
 A wrapped tool keeps its name, description and args schema, so agents and
@@ -62,7 +62,7 @@ paused["__interrupt__"][0].value
 # {'approval_id': 1, 'action_type': 'tool.send_payment',
 #  'params': {'payee': 'acme', 'amount_eur': 120.0}, 'reason': 'tier_confirm'}
 
-app.invoke(Command(resume="approved"), cfg)   # human said yes -> executes + reports
+app.invoke(Command(resume="approved"), cfg)  # human said yes -> executes + reports
 ```
 
 What each layer contributes: LangGraph provides the pause/resume machinery;

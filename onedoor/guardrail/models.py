@@ -9,7 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import IntEnum, StrEnum
+from typing import Protocol
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -232,3 +234,34 @@ class Approval(BaseModel):
     decided_at: datetime | None = None
     decided_by_session: str | None = None
     resulting_audit_id: int | None = None
+
+
+class EngineConfigLike(Protocol):
+    """The engine-config surface the decision pipeline actually reads.
+
+    ``EngineConfig`` lives in ``executor``, which imports ``decision`` -- so
+    ``decision`` cannot name the concrete class without a cycle. The previous
+    workaround annotated the parameter as ``object``, which silenced the cycle by
+    silencing the type checker: every attribute access on it was unchecked, and
+    ``mypy --strict`` reported exactly that (ND-025). A Protocol keeps the
+    dependency pointing one way and still checks the attributes.
+
+    Members are declared read-only (properties, not variables): ``EngineConfig`` is
+    a frozen dataclass, and a Protocol variable member is implicitly settable, which
+    a frozen attribute cannot satisfy.
+    """
+
+    @property
+    def approval_ttl_seconds(self) -> int: ...
+
+    @property
+    def connector_timeout_seconds(self) -> float: ...
+
+    @property
+    def tz(self) -> ZoneInfo: ...
+
+    @property
+    def audit_group_commit(self) -> int: ...
+
+    @property
+    def reservation_ttl_seconds(self) -> int: ...

@@ -1,4 +1,9 @@
--- Sutradhar M0 schema. Forward-only migration.
+-- onedoor initial schema. Forward-only migration.
+--
+-- Historical note: this file was inherited from the pre-onedoor product
+-- (Sutradhar M0) and creates three tables no onedoor module reads --
+-- intake_policy, preferences, sessions. They are dropped in 0006, not edited
+-- out of here: forward-only means the past stays legible.
 -- The actions_audit table is APPEND-ONLY, enforced structurally by triggers below
 -- (CLAUDE.md invariant 5: no UPDATE or DELETE on actions_audit, ever).
 
@@ -100,6 +105,9 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_created ON events (created_at);
 
 -- Web Push subscriptions.
+-- Reserved for ND-026 (web-push delivery). Intentionally unread today: Tier-3
+-- approvals are Slack-only, and this is the plumbing for the second channel.
+-- Deliberately NOT dropped by 0006 -- do not mistake it for vestigial.
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     endpoint   TEXT NOT NULL UNIQUE,

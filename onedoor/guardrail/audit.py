@@ -11,7 +11,6 @@ import sqlite3
 from datetime import datetime
 from uuid import UUID
 
-from onedoor.store.db import tx
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -22,6 +21,7 @@ from onedoor.guardrail.models import (
     Tier,
 )
 from onedoor.store.clock import from_iso, now_utc, to_iso
+from onedoor.store.db import tx
 
 
 def append(
@@ -256,13 +256,25 @@ def append_buffered(
     buf.keys.add(key)
     buf.rows.append(
         (
-            str(request.request_id), kind, parent_id, request.action_type,
-            request.source.value, json.dumps(request.params, default=str),
-            decision.decision.value, decision.reason_code.value,
-            int(decision.nominal_tier), int(decision.effective_tier), decision.detail,
-            None if connector_ok is None else int(connector_ok), error,
+            str(request.request_id),
+            kind,
+            parent_id,
+            request.action_type,
+            request.source.value,
+            json.dumps(request.params, default=str),
+            decision.decision.value,
+            decision.reason_code.value,
+            int(decision.nominal_tier),
+            int(decision.effective_tier),
+            decision.detail,
+            None if connector_ok is None else int(connector_ok),
+            error,
             None if payload is None else json.dumps(payload, default=str),
-            None, None, undo_of, to_iso(now), row["version_hash"] if row else None,
+            None,
+            None,
+            undo_of,
+            to_iso(now),
+            row["version_hash"] if row else None,
         )
     )
     if event_topic is not None and event_payload is not None:

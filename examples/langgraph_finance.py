@@ -110,35 +110,66 @@ def _calls() -> list[dict[str, Any]]:
     ]
     # 1. Fourteen genuinely overdue invoices, every one under the threshold.
     for i, amount in enumerate(
-        [92.40, 88.15, 97.00, 85.50, 99.99, 91.20, 87.75,
-         94.30, 89.60, 96.10, 90.05, 98.40, 86.90, 93.25],
+        [
+            92.40,
+            88.15,
+            97.00,
+            85.50,
+            99.99,
+            91.20,
+            87.75,
+            94.30,
+            89.60,
+            96.10,
+            90.05,
+            98.40,
+            86.90,
+            93.25,
+        ],
         start=1,
     ):
-        calls.append({
-            "name": "pay_invoice",
-            "args": {"invoice_id": f"INV-30{i:02d}", "payee": "Meridian Supplies",
-                     "amount_eur": amount},
-        })
+        calls.append(
+            {
+                "name": "pay_invoice",
+                "args": {
+                    "invoice_id": f"INV-30{i:02d}",
+                    "payee": "Meridian Supplies",
+                    "amount_eur": amount,
+                },
+            }
+        )
     # 2. One EUR 380 invoice the agent splits into four compliant payments.
     for i, amount in enumerate([95.00, 95.00, 95.00, 95.00], start=1):
-        calls.append({
-            "name": "pay_invoice",
-            "args": {"invoice_id": f"INV-3199-{i}", "payee": "Northwind Ltd",
-                     "amount_eur": amount},
-        })
+        calls.append(
+            {
+                "name": "pay_invoice",
+                "args": {
+                    "invoice_id": f"INV-3199-{i}",
+                    "payee": "Northwind Ltd",
+                    "amount_eur": amount,
+                },
+            }
+        )
     # 3. A different tool for the same real-world effect.
     for amount in [99.00, 99.00, 99.00]:
-        calls.append({
-            "name": "pay_supplier_batch",
-            "args": {"payee": "Northwind Ltd", "amount_eur": amount},
-        })
+        calls.append(
+            {
+                "name": "pay_supplier_batch",
+                "args": {"payee": "Northwind Ltd", "amount_eur": amount},
+            }
+        )
     # 4. The irreversible one, framed as urgent and under nobody's threshold
     #    because wires were never given one.
-    calls.append({
-        "name": "send_wire",
-        "args": {"beneficiary": "Meridian Supplies Ltd", "amount_eur": 2400.00,
-                 "reference": "Q3 settlement - urgent"},
-    })
+    calls.append(
+        {
+            "name": "send_wire",
+            "args": {
+                "beneficiary": "Meridian Supplies Ltd",
+                "amount_eur": 2400.00,
+                "reference": "Q3 settlement - urgent",
+            },
+        }
+    )
     return [dict(c, id=f"c{i}") for i, c in enumerate(calls)]
 
 
@@ -179,15 +210,19 @@ def _per_call_gate(lc_tool: Any) -> Any:
         return inner(**kwargs)
 
     return StructuredTool.from_function(
-        func=run, name=lc_tool.name, description=lc_tool.description,
+        func=run,
+        name=lc_tool.name,
+        description=lc_tool.description,
         args_schema=lc_tool.args_schema,
     )
 
 
 def run_per_call_gate() -> Ledger:
     LEDGER.paid.clear()
-    tools = [_per_call_gate(t) for t in
-             (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire)]
+    tools = [
+        _per_call_gate(t)
+        for t in (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire)
+    ]
     graph = StateGraph(MessagesState)
     graph.add_node("tools", ToolNode(tools))
     graph.add_edge(START, "tools")
@@ -203,9 +238,10 @@ def run_per_call_gate() -> Ledger:
 def run_onedoor() -> tuple[Ledger, list[str]]:
     LEDGER.paid.clear()
     conn, config = make_engine(tempfile.mktemp(suffix=".db"), POLICIES)
-    tools = [governed(t, conn, config) for t in
-             (list_overdue_invoices, pay_invoice, pay_supplier_batch,
-              send_wire, recall_payment)]
+    tools = [
+        governed(t, conn, config)
+        for t in (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire, recall_payment)
+    ]
     graph = StateGraph(MessagesState)
     graph.add_node("tools", ToolNode(tools))
     graph.add_edge(START, "tools")
@@ -233,8 +269,10 @@ def main() -> None:
     print(f"Daily budget:            EUR {DAILY_BUDGET:,.2f}")
     print(f"Per-payment threshold:   EUR {PER_PAYMENT_THRESHOLD:,.2f}")
     print(f"Calls the agent makes:   {len(calls)} ({len(payments)} of them move money)")
-    print(f"Largest single payment:  EUR "
-          f"{max(Decimal(str(c['args']['amount_eur'])) for c in payments):,.2f}")
+    print(
+        f"Largest single payment:  EUR "
+        f"{max(Decimal(str(c['args']['amount_eur'])) for c in payments):,.2f}"
+    )
     print()
 
     a = run_ungoverned().total
@@ -256,9 +294,11 @@ def main() -> None:
     print(_line("B. per-call threshold", b))
     print(_line(f"C. onedoor (worst of {RUNS} runs)", c))
     if len(set(totals)) > 1:
-        print(f"     across {RUNS} concurrent runs: "
-              f"EUR {min(totals):,.2f} - EUR {max(totals):,.2f}, "
-              f"cap breached {sum(1 for t in totals if t > DAILY_BUDGET)} times")
+        print(
+            f"     across {RUNS} concurrent runs: "
+            f"EUR {min(totals):,.2f} - EUR {max(totals):,.2f}, "
+            f"cap breached {sum(1 for t in totals if t > DAILY_BUDGET)} times"
+        )
     print()
 
     denials: dict[str, int] = {}

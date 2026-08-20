@@ -170,9 +170,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
     )
 
 
-def create_app(
-    db_path: str | None = None, policies: str | None = None
-) -> FastAPI:
+def create_app(db_path: str | None = None, policies: str | None = None) -> FastAPI:
     state = EngineState(
         db_path or os.environ.get("ONEDOOR_DB", "onedoor-service.db"),
         Path(policies or os.environ.get("ONEDOOR_POLICIES", "config/policies.yaml")),
@@ -198,13 +196,13 @@ def create_app(
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:
-            outcome = decide_and_reserve(
-                request, conn=state.conn, config=state.config, now=now
-            )
+            outcome = decide_and_reserve(request, conn=state.conn, config=state.config, now=now)
         reply = _decide_reply(outcome, state)
         record_decision(body.action_type, reply.decision, reply.reason, reply.effective_tier)
         if reply.decision == Decision.PROPOSED.value and reply.approval_id is not None:
-            state.notifier.proposed(reply.approval_id, body.action_type, body.params, body.rationale)
+            state.notifier.proposed(
+                reply.approval_id, body.action_type, body.params, body.rationale
+            )
         return reply
 
     @app.post("/v1/report", response_model=DecideReply)
@@ -214,12 +212,18 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown or already-reported intent")
         with span("onedoor.report", intent.request.action_type), state.lock:
             result = report_result(
-                intent, conn=state.conn, ok=body.ok,
-                payload=body.payload, error=body.error, now=now_utc(),
+                intent,
+                conn=state.conn,
+                ok=body.ok,
+                payload=body.payload,
+                error=body.error,
+                now=now_utc(),
             )
         record_decision(
-            intent.request.action_type, result.decision.decision.value,
-            "reported", int(intent.effective_tier),
+            intent.request.action_type,
+            result.decision.decision.value,
+            "reported",
+            int(intent.effective_tier),
         )
         return _decide_reply(result, state)
 
@@ -229,9 +233,12 @@ def create_app(
             rows = approvals.list_pending(state.conn)
         return [
             ApprovalView(
-                id=a.approval_id, action_type=a.request.action_type,
-                params=dict(a.request.params), rationale=a.request.rationale,
-                state=a.state.value, expires_at=a.expires_at,
+                id=a.approval_id,
+                action_type=a.request.action_type,
+                params=dict(a.request.params),
+                rationale=a.request.rationale,
+                state=a.state.value,
+                expires_at=a.expires_at,
             )
             for a in rows
         ]

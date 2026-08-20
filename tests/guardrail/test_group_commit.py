@@ -16,11 +16,11 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+
 from onedoor.guardrail import audit, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import Bounds, Policy, Tier
-
 from tests.conftest import FROZEN_NOW
 
 
@@ -68,9 +68,9 @@ def _permit(conn: Connection, config: EngineConfig) -> PermittedIntent:
 
 
 def _rows(conn: Connection, kind: str) -> int:
-    return conn.execute(
-        "SELECT count(*) c FROM actions_audit WHERE kind=?", (kind,)
-    ).fetchone()["c"]
+    return conn.execute("SELECT count(*) c FROM actions_audit WHERE kind=?", (kind,)).fetchone()[
+        "c"
+    ]
 
 
 def test_intent_rows_are_never_buffered(seeded: Connection) -> None:
@@ -85,8 +85,13 @@ def test_results_are_written_when_the_batch_fills(seeded: Connection) -> None:
     intents = [_permit(seeded, config) for _ in range(3)]
     for i, intent in enumerate(intents):
         report_result(
-            intent, conn=seeded, config=config, ok=True, payload=None,
-            error=None, now=FROZEN_NOW,
+            intent,
+            conn=seeded,
+            config=config,
+            ok=True,
+            payload=None,
+            error=None,
+            now=FROZEN_NOW,
         )
         expected = 3 if i == 2 else 0
         assert _rows(seeded, "exec_result") == expected
@@ -112,8 +117,13 @@ def test_duplicate_report_still_rejected_while_buffered(seeded: Connection) -> N
     )
     with pytest.raises(sqlite3.IntegrityError):
         report_result(
-            intent, conn=seeded, config=config, ok=True, payload=None,
-            error=None, now=FROZEN_NOW,
+            intent,
+            conn=seeded,
+            config=config,
+            ok=True,
+            payload=None,
+            error=None,
+            now=FROZEN_NOW,
         )
 
 

@@ -11,7 +11,8 @@ from onedoor.integrations.langchain_middleware import OneDoorMiddleware, open_en
 conn, config = open_engine("agent.db", "policies.yaml")
 
 agent = create_agent(
-    model, tools,
+    model,
+    tools,
     middleware=[OneDoorMiddleware(conn, config)],
 )
 ```
@@ -53,14 +54,15 @@ Two modes. The default returns the approval notice as the tool's output and lets
 the agent carry on:
 
 ```python
-OneDoorMiddleware(conn, config)                      # on_proposed="message"
+OneDoorMiddleware(conn, config)  # on_proposed="message"
 ```
 
 With a checkpointer, `interrupt` pauses the graph instead:
 
 ```python
 agent = create_agent(
-    model, tools,
+    model,
+    tools,
     middleware=[OneDoorMiddleware(conn, config, on_proposed="interrupt")],
     checkpointer=MemorySaver(),
 )

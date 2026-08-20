@@ -23,6 +23,7 @@ from sqlite3 import Connection
 from uuid import UUID, uuid4
 
 import pytest
+
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.bounds import validate
 from onedoor.guardrail.decision import NIL_REQUEST_ID, PermittedIntent, decide_raw
@@ -35,7 +36,6 @@ from onedoor.guardrail.models import (
     Source,
     Tier,
 )
-
 from tests.conftest import FROZEN_NOW
 
 MONEY = Bounds(numeric={"amount": NumericBound(min=0, max=100_000)}, strict_params=False)
@@ -246,8 +246,7 @@ def test_f5_irreversible_never_auto_executes(conn: Connection, config: object) -
         "dry_run_until, compensating_command, undo_window_seconds, requires_step_up, "
         "updated_at, effects_json, param_effects_json) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (action, int(tier), "{}", "{}", 0, None, None, 900, 0,
-         FROZEN_NOW.isoformat(), "[]", "[]"),
+        (action, int(tier), "{}", "{}", 0, None, None, 900, 0, FROZEN_NOW.isoformat(), "[]", "[]"),
     )
     conn.commit()
     result = decide_raw(
@@ -271,9 +270,7 @@ def test_f5_irreversible_never_auto_executes(conn: Connection, config: object) -
 
 
 @pytest.mark.parametrize("tier", [Tier.AUTO, Tier.AUTO_CAPPED])
-def test_f5_reversible_action_still_permitted(
-    conn: Connection, config: object, tier: Tier
-) -> None:
+def test_f5_reversible_action_still_permitted(conn: Connection, config: object, tier: Tier) -> None:
     action = f"regress.rev_{int(tier)}"
     policy_loader.upsert(
         conn,

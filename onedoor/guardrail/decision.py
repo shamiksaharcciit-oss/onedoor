@@ -38,6 +38,7 @@ from onedoor.guardrail.models import (
     ActionResult,
     CheckId,
     Decision,
+    EngineConfigLike,
     JsonValue,
     PolicyDecision,
     Source,
@@ -75,7 +76,7 @@ def decide_and_reserve(
     request: ActionRequest,
     *,
     conn: Connection,
-    config: "object",
+    config: EngineConfigLike,
     now: datetime,
     policy_store: PolicyStore | None = None,
     approved_override: bool = False,
@@ -113,9 +114,7 @@ def decide_and_reserve(
             value = request.params.get(rule.param)
             if value is not None and re.fullmatch(rule.pattern, str(value)):
                 effects.extend(e for e in rule.add_effects if e not in effects)
-        effect_policies = [
-            ep for e in effects if (ep := store.get_effect(conn, e)) is not None
-        ]
+        effect_policies = [ep for e in effects if (ep := store.get_effect(conn, e)) is not None]
 
         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
         reason_confirm = CheckId.TIER_CONFIRM
@@ -244,7 +243,11 @@ def decide_and_reserve(
 
         # 9. CAPS — action caps AND effect-shared caps, all-or-nothing.
         cap_result = caps.check_and_reserve(
-            conn, policy, request, now, config.tz,
+            conn,
+            policy,
+            request,
+            now,
+            config.tz,
             effect_caps=[(ep.effect, ep.caps) for ep in effect_policies],
         )
         if cap_result.exceeded:
@@ -314,9 +317,7 @@ def decide_and_reserve(
     )
 
 
-def reclaim_expired_reservations(
-    conn: Connection, config: "object", now: datetime
-) -> int:
+def reclaim_expired_reservations(conn: Connection, config: EngineConfigLike, now: datetime) -> int:
     """Release the budget of every permit past its deadline with no report.
 
     A permit that reserved budget but was never reported holds that budget until
@@ -343,9 +344,7 @@ def reclaim_expired_reservations(
         ).fetchall()
         for r in rows:
             rid = int(r["intent_audit_id"])
-            intent_row = conn.execute(
-                "SELECT * FROM actions_audit WHERE id=?", (rid,)
-            ).fetchone()
+            intent_row = conn.execute("SELECT * FROM actions_audit WHERE id=?", (rid,)).fetchone()
             if intent_row is not None:
                 caps.release(conn, [tuple(d) for d in json.loads(r["deltas_json"])])
                 audit.append_expiry(
@@ -371,7 +370,7 @@ def report_result(
     intent: PermittedIntent,
     *,
     conn: Connection,
-    config: "object" = None,
+    config: EngineConfigLike | None = None,
     ok: bool,
     payload: dict[str, JsonValue] | None,
     error: str | None,
@@ -460,7 +459,7 @@ def decide_raw(
     raw: Mapping[str, object],
     *,
     conn: Connection,
-    config: "object",
+    config: EngineConfigLike,
     now: datetime,
     policy_store: PolicyStore | None = None,
 ) -> ActionResult | PermittedIntent:
@@ -501,6 +500,4 @@ def decide_raw(
                 detail=f"request failed validation: {type(exc).__name__}",
             ),
         )
-    return decide_and_reserve(
-        request, conn=conn, config=config, now=now, policy_store=policy_store
-    )
+    return decide_and_reserve(request, conn=conn, config=config, now=now, policy_store=policy_store)

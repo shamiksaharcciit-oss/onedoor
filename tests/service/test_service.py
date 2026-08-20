@@ -31,8 +31,7 @@ def _h(key: str) -> dict[str, str]:
 def test_auth_is_required_and_roles_split(client: TestClient) -> None:
     assert client.post("/v1/decide", json={"action_type": "demo.toggle"}).status_code == 401
     assert (
-        client.post("/v1/killswitch", json={"engaged": True}, headers=_h("dkey")).status_code
-        == 403
+        client.post("/v1/killswitch", json={"engaged": True}, headers=_h("dkey")).status_code == 403
     )  # decide key lacks admin
 
 

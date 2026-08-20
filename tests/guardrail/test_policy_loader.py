@@ -4,6 +4,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 import pytest
+
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.policy import PolicyStore
 from tests.conftest import _CONFIG_DIR

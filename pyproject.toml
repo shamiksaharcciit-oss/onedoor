@@ -31,8 +31,30 @@ examples = ["langgraph>=1.0", "langchain-core>=1.0"]
 # The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
 # does not exist before it.
 langchain = ["langchain>=1.0"]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14", "ruff>=0.8",
-       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0"]
+# ruff is PINNED, not floated. Lint rule sets change between ruff releases, so an
+# unpinned linter makes CI non-deterministic: the job can go red on a morning
+# nobody touched the code. Bump it deliberately, as its own commit (ND-025).
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
+       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
+       "types-PyYAML>=6.0"]
+
+# ND-025. Lint rules are a decision, not a default. Without this block `ruff check`
+# lints against whatever rule set the newest ruff ships with, so a CI job can go red
+# on a morning nobody touched the code. Pinned versions in [dev] close the other half.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+# BLE001 (blind except) is deliberately NOT selected: fail-soft on connector failure
+# is a designed behaviour of this engine, not an oversight. If it is ever selected,
+# each site needs reading, not an auto-fix.
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports: the package surface is deliberate.
+"onedoor/__init__.py" = ["F401"]
+"onedoor/guardrail/__init__.py" = ["F401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -40,6 +62,13 @@ asyncio_mode = "auto"
 
 [tool.mypy]
 strict = true
+
+# OpenTelemetry is an optional extra: telemetry.py imports it inside a try/except
+# and no-ops without it. CI installs [dev], not [otel], so the import is absent by
+# design -- that is the behaviour the module is built for, not a missing dependency.
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
 
 [build-system]
 requires = ["setuptools>=68"]

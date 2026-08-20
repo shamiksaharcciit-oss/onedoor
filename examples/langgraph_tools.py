@@ -27,9 +27,11 @@ from __future__ import annotations
 import functools
 import tempfile
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from langchain_core.messages import AIMessage
 from langchain_core.tools import BaseTool, StructuredTool, tool
@@ -45,7 +47,6 @@ from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Decision, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from zoneinfo import ZoneInfo
 
 # ----------------------------- engine setup ----------------------------------
 
@@ -82,8 +83,11 @@ def governed(
     def run(**kwargs: Any) -> Any:
         now = now_utc()
         request = ActionRequest(
-            request_id=uuid4(), action_type=action_type, params=kwargs,
-            source=Source.LLM, rationale=f"langgraph tool call {lc_tool.name}",
+            request_id=uuid4(),
+            action_type=action_type,
+            params=kwargs,
+            source=Source.LLM,
+            rationale=f"langgraph tool call {lc_tool.name}",
             created_at=now,
         )
         with _LOCK:
@@ -93,8 +97,12 @@ def governed(
         d = outcome.decision
         if d.decision == Decision.PROPOSED and on_proposed == "interrupt":
             resume = interrupt(
-                {"approval_id": outcome.approval_id, "action_type": action_type,
-                 "params": kwargs, "reason": d.reason_code.value}
+                {
+                    "approval_id": outcome.approval_id,
+                    "action_type": action_type,
+                    "params": kwargs,
+                    "reason": d.reason_code.value,
+                }
             )
             if resume == "approved":
                 return _execute_approved(outcome.approval_id, inner, conn, config)
@@ -111,7 +119,9 @@ def governed(
 
     # Preserve the original schema so agents and ToolNode see identical args.
     return StructuredTool.from_function(
-        func=run, name=lc_tool.name, description=lc_tool.description,
+        func=run,
+        name=lc_tool.name,
+        description=lc_tool.description,
         args_schema=lc_tool.args_schema,
     )
 
@@ -121,12 +131,19 @@ def _enforce(intent: PermittedIntent, fn: Callable[..., Any], kwargs: dict, conn
         result = fn(**kwargs)
     except Exception as exc:
         with _LOCK:
-            report_result(intent, conn=conn, ok=False, payload=None,
-                          error=str(exc)[:200], now=now_utc())
+            report_result(
+                intent, conn=conn, ok=False, payload=None, error=str(exc)[:200], now=now_utc()
+            )
         raise
     with _LOCK:
-        report_result(intent, conn=conn, ok=True,
-                      payload={"result": str(result)[:500]}, error=None, now=now_utc())
+        report_result(
+            intent,
+            conn=conn,
+            ok=True,
+            payload={"result": str(result)[:500]},
+            error=None,
+            now=now_utc(),
+        )
     return result
 
 
@@ -193,10 +210,13 @@ def _selftest() -> None:
     g2.add_edge(START, "tools")
     g2.add_edge("tools", END)
     app2 = g2.compile()
-    msg = AIMessage(content="", tool_calls=[
-        {"name": "get_weather", "args": {"city": "Veldhoven"}, "id": "c1"},
-        {"name": "set_thermostat", "args": {"temperature": 19}, "id": "c2"},
-    ])
+    msg = AIMessage(
+        content="",
+        tool_calls=[
+            {"name": "get_weather", "args": {"city": "Veldhoven"}, "id": "c1"},
+            {"name": "set_thermostat", "args": {"temperature": 19}, "id": "c2"},
+        ],
+    )
     out = app2.invoke({"messages": [msg]})
     for m in out["messages"][1:]:
         print("   ", m.content)

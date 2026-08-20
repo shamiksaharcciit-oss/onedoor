@@ -10,11 +10,9 @@ from __future__ import annotations
 
 from sqlite3 import Connection
 
-from onedoor.guardrail import audit
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import Decision
-
 from tests.conftest import FROZEN_NOW, make_request
 
 
@@ -46,9 +44,7 @@ def test_terminal_outcome_is_a_result_not_an_obligation(
     assert outcome.decision.decision == Decision.DENIED
 
 
-def test_report_failure_marks_failed_and_no_undo(
-    conn: Connection, config: EngineConfig
-) -> None:
+def test_report_failure_marks_failed_and_no_undo(conn: Connection, config: EngineConfig) -> None:
     req = make_request("demo.toggle", {"target": "demo.lamp", "state": "on"})
     outcome = decide_and_reserve(req, conn=conn, config=config, now=FROZEN_NOW)
     assert isinstance(outcome, PermittedIntent)

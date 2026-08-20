@@ -38,6 +38,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from litellm.integrations.custom_guardrail import CustomGuardrail
 
@@ -47,7 +48,6 @@ from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Decision, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from zoneinfo import ZoneInfo
 
 
 class OneDoorRejection(Exception):
@@ -82,16 +82,18 @@ class OneDoorGuardrail(CustomGuardrail):
             rationale=rationale,
             created_at=now,
         )
-        outcome = decide_and_reserve(
-            request, conn=self.conn, config=self.engine_config, now=now
-        )
+        outcome = decide_and_reserve(request, conn=self.conn, config=self.engine_config, now=now)
         if isinstance(outcome, PermittedIntent):
             # Example simplification: the gateway executes immediately after a
             # permitted pre-call, so report here. Production: report the real
             # outcome from async_post_call_success_hook.
             report_result(
-                outcome, conn=self.conn, ok=True,
-                payload={"enforced_by": "litellm pre_call"}, error=None, now=now,
+                outcome,
+                conn=self.conn,
+                ok=True,
+                payload={"enforced_by": "litellm pre_call"},
+                error=None,
+                now=now,
             )
             return
         d = outcome.decision
@@ -101,12 +103,11 @@ class OneDoorGuardrail(CustomGuardrail):
                 f"(reason: {d.reason_code.value}, approval_id={outcome.approval_id})."
             )
         if d.decision == Decision.DRY_RUN:
-            raise OneDoorRejection(
-                f"onedoor: '{action_type}' is in dry-run — would have executed."
-            )
+            raise OneDoorRejection(f"onedoor: '{action_type}' is in dry-run — would have executed.")
         raise OneDoorRejection(
             f"onedoor: '{action_type}' denied (reason: {d.reason_code.value}"
-            + (f" — {d.detail}" if d.detail else "") + ")."
+            + (f" — {d.detail}" if d.detail else "")
+            + ")."
         )
 
     # --- LiteLLM hook -------------------------------------------------------
@@ -123,8 +124,14 @@ class OneDoorGuardrail(CustomGuardrail):
             args = data.get("arguments") or {}
             self._decide(f"mcp.{tool}", dict(args), f"litellm mcp tool call {tool}")
             return data
-        if call_type in ("completion", "acompletion", "anthropic_messages",
-                         "aanthropic_messages", "responses", "aresponses"):
+        if call_type in (
+            "completion",
+            "acompletion",
+            "anthropic_messages",
+            "aanthropic_messages",
+            "responses",
+            "aresponses",
+        ):
             self._decide(
                 "llm.completion",
                 {"model": data.get("model", "")},
@@ -135,6 +142,7 @@ class OneDoorGuardrail(CustomGuardrail):
 
 
 # --------------------------- self-test ---------------------------------------
+
 
 def _selftest() -> None:
     import asyncio
@@ -158,10 +166,14 @@ def _selftest() -> None:
             ("completion", {"model": "gpt-4o-mini"}),
             ("completion", {"model": "gpt-4o-experimental"}),
             ("call_mcp_tool", {"name": "get_weather", "arguments": {"city": "Utrecht"}}),
-            ("call_mcp_tool", {"name": "send_payment",
-                               "arguments": {"payee": "webshop", "amount_eur": 49.99}}),
-            ("call_mcp_tool", {"name": "send_payment",
-                               "arguments": {"payee": "webshop", "amount_eur": 5000}}),
+            (
+                "call_mcp_tool",
+                {"name": "send_payment", "arguments": {"payee": "webshop", "amount_eur": 49.99}},
+            ),
+            (
+                "call_mcp_tool",
+                {"name": "send_payment", "arguments": {"payee": "webshop", "amount_eur": 5000}},
+            ),
             ("call_mcp_tool", {"name": "delete_everything", "arguments": {}}),
         ]
         for call_type, data in cases:

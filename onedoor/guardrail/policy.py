@@ -20,9 +20,11 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         bounds=Bounds.model_validate_json(row["bounds_json"]),
         caps=Caps.model_validate_json(row["caps_json"]),
         effects=json.loads(row["effects_json"]) if "effects_json" in row.keys() else [],
-        param_effects=[ParamEffectRule.model_validate(r)
-                       for r in json.loads(row["param_effects_json"])]
-        if "param_effects_json" in row.keys() else [],
+        param_effects=[
+            ParamEffectRule.model_validate(r) for r in json.loads(row["param_effects_json"])
+        ]
+        if "param_effects_json" in row.keys()
+        else [],
         dry_run=bool(row["dry_run"]),
         dry_run_until=from_iso(row["dry_run_until"]) if row["dry_run_until"] else None,
         compensating_command=row["compensating_command"],
@@ -69,7 +71,7 @@ def invalidate(conn: sqlite3.Connection | None = None) -> None:
 
 def _snapshot(conn: sqlite3.Connection) -> _Snapshot:
     version = int(conn.execute("PRAGMA data_version").fetchone()[0])
-    cached = getattr(conn, "_policy_snapshot", None)
+    cached: _Snapshot | None = getattr(conn, "_policy_snapshot", None)
     if cached is not None and cached.version == version:
         return cached
     fresh = _Snapshot(conn, version)
