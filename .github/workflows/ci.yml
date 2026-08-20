@@ -1,0 +1,62 @@
+name: CI
+
+# ND-025. The suite is the contract: onedoor is the reference implementation of
+# AADP, so "135 passing and rising" has to be a fact CI enforces, not a claim a
+# maintainer remembers to check. Every conformance ticket lands with tests; none
+# of them are protected until this file exists.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python = ">=3.12". Both supported minors
+        # are tested so a 3.13-only regression cannot reach main unnoticed.
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        # [dev] already pulls fastapi, httpx, langchain and langgraph, so the
+        # service and integration tests are covered by this one extra.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Types (mypy strict)
+        # Scoped to the package. [tool.mypy] strict = true applies repo-wide;
+        # holding tests/ and examples/ to strict is a separate decision, so it
+        # is not silently smuggled in here. See ND-025 note in BACKLOG.md.
+        run: mypy onedoor
+
+      - name: Tests
+        run: pytest -q
