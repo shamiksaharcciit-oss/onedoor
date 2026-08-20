@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.3.4"
+version = "0.3.5"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -28,10 +28,15 @@ otel = ["opentelemetry-api>=1.27"]
 # require it -- but the examples are documented artifacts and a reader who
 # follows the docs should not have to guess what to install.
 examples = ["langgraph>=1.0", "langchain-core>=1.0"]
-dev = ["pytest>=8.3", "mypy>=1.14", "ruff>=0.8", "fastapi>=0.115", "httpx>=0.27"]
+# The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
+# does not exist before it.
+langchain = ["langchain>=1.0"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14", "ruff>=0.8",
+       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.mypy]
 strict = true
