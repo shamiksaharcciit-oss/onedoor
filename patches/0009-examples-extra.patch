@@ -1,0 +1,56 @@
+From 3f225938eae9cf6b63806fa0ea2100d779ba1473 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 18:18:25 +0000
+Subject: [PATCH] packaging: declare what the examples need
+
+`examples/langgraph_finance.py` and `examples/langgraph_tools.py` import
+langgraph and langchain-core. Nothing declared them, so following the
+integration guide produced `ModuleNotFoundError: No module named
+'langchain_core'` -- on a clean install of the package the guide is
+about.
+
+`pip install "onedoor[examples]"`. They stay out of the runtime
+dependencies: onedoor governs LangGraph, it does not require it.
+
+Third undeclared-dependency defect in two days (migrations missing from
+the wheel, tzdata on Windows, now this). The pattern is the same each
+time: it works in the environment where it was written, and the
+declaration that would make it work elsewhere is the thing nobody tests.
+---
+ docs/integration-langgraph.md | 3 +++
+ pyproject.toml                | 5 +++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/docs/integration-langgraph.md b/docs/integration-langgraph.md
+index 97b99a2..f6d0989 100644
+--- a/docs/integration-langgraph.md
++++ b/docs/integration-langgraph.md
+@@ -21,6 +21,9 @@ treated as zero, so a euro cap on a wrapped tool silently permitted everything.
+ An unresolvable amount is now a denial with reason `cost_unknown`. There is a
+ worked example in `examples/langgraph_finance.py`.
+ 
++The examples need LangGraph, which the engine itself does not:
++`pip install "onedoor[examples]"`.
++
+ ## Wrapping tools
+ 
+ ```python
+diff --git a/pyproject.toml b/pyproject.toml
+index d91fffc..d13833e 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -17,6 +17,11 @@ dependencies = [
+ [project.optional-dependencies]
+ service = ["fastapi>=0.115", "uvicorn>=0.34"]
+ otel = ["opentelemetry-api>=1.27"]
++# Everything under examples/ needs these. They are not runtime
++# dependencies of the engine -- onedoor governs LangGraph, it does not
++# require it -- but the examples are documented artifacts and a reader who
++# follows the docs should not have to guess what to install.
++examples = ["langgraph>=1.0", "langchain-core>=1.0"]
+ dev = ["pytest>=8.3", "mypy>=1.14", "ruff>=0.8", "fastapi>=0.115", "httpx>=0.27"]
+ 
+ [tool.pytest.ini_options]
+-- 
+2.43.0
+

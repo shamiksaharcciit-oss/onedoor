@@ -1,0 +1,56 @@
+From 0c3e94bb6648e5f0f4438b6bd7aeed2aa85826c6 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 17:25:32 +0000
+Subject: [PATCH] =?UTF-8?q?v0.3.1=20=E2=80=94=20release=20the=20packaging?=
+ =?UTF-8?q?=20fix?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+0.3.0 is unusable from PyPI: the wheel carries no
+`store/migrations/*.sql`, so the first call fails with
+`no such table: policies`. The fix landed in the repo but a repo fix
+helps nobody until it is released.
+
+Verified rather than assumed: built the wheel, installed it into a clean
+3.12 virtualenv outside the source tree, and ran migrations. All three
+migrations apply and both `policies` and `policy_versions` exist. That is
+the exact path that fails on 0.3.0.
+
+README test count corrected, 63 -> 111.
+
+0.3.0 should be yanked once this is up, so pip stops resolving to a
+release that cannot start.
+---
+ README.md      | 2 +-
+ pyproject.toml | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index bb30c21..9fc32e7 100644
+--- a/README.md
++++ b/README.md
+@@ -75,7 +75,7 @@ Requires Python ≥ 3.12.
+ 
+ ```bash
+ pip install -e ".[dev]"
+-pytest                    # 63 tests — the guardrail suite is the release blocker
++pytest                    # 111 tests — the guardrail suite is the release blocker
+ python -m scripts.demo    # one of everything, end to end, zero external deps
+ ```
+ 
+diff --git a/pyproject.toml b/pyproject.toml
+index ed84700..d61ecfa 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,6 +1,6 @@
+ [project]
+ name = "onedoor"
+-version = "0.3.0"
++version = "0.3.1"
+ description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
+ readme = "README.md"
+ requires-python = ">=3.12"
+-- 
+2.43.0
+

@@ -53,6 +53,10 @@ class EngineConfig:
     # report is its own durable transaction. Intent rows are never buffered —
     # invariant 9 requires them durable before the permit is returned.
     audit_group_commit: int = 0
+    # How long a permit may hold its budget reservation before, absent a report,
+    # the reservation is reclaimed and the permit voided (AADP section 6). This
+    # is the "execute_within" deadline. 0 disables reclamation.
+    reservation_ttl_seconds: int = 3600
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:
@@ -60,6 +64,7 @@ class EngineConfig:
             approval_ttl_seconds=settings.approval_ttl_seconds,
             connector_timeout_seconds=settings.connector_timeout_seconds,
             tz=ZoneInfo(settings.timezone),
+            reservation_ttl_seconds=getattr(settings, "reservation_ttl_seconds", 3600),
         )
 
 

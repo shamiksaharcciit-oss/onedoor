@@ -21,6 +21,10 @@ class CapResult:
     exceeded: bool
     reason: CheckId | None = None
     detail: str = ""
+    # On a successful reservation, the exact counter deltas applied, so the
+    # reservation can be reversed later if the permit is never reported. Each
+    # entry is (counter_key, window_kind, window_key, count_delta, eur_delta).
+    deltas: tuple[tuple[str, str, str, int, str], ...] = ()
 
 
 def _day_key(now: datetime, tz: ZoneInfo) -> str:
@@ -153,19 +157,28 @@ def _reserve_all(
     cost: Decimal,
     day: str,
     month: str,
-) -> None:
-    """Write every reservation in one executemany — all or nothing, one round trip."""
+) -> tuple[tuple[str, str, str, int, str], ...]:
+    """Write every reservation in one executemany -- all or nothing, one round trip.
+
+    Returns the per-counter *deltas* applied (not the resulting totals), so a
+    caller can persist them and reverse the exact reservation later
+    (:func:`release`) if the permit is never reported.
+    """
     rows: list[tuple[str, str, str, int, str]] = []
+    deltas: list[tuple[str, str, str, int, str]] = []
     for key, caps, _ in sources:
         if caps.daily_rate is not None:
             count, total = counters.get((key, "rate", day), (0, Decimal(0)))
             rows.append((key, "rate", day, count + 1, str(total)))
+            deltas.append((key, "rate", day, 1, "0"))
         if caps.eur_day is not None:
             count, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
             rows.append((key, "eur_day", day, count, str(total + cost)))
+            deltas.append((key, "eur_day", day, 0, str(cost)))
         if caps.eur_month is not None:
             count, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
             rows.append((key, "eur_month", month, count, str(total + cost)))
+            deltas.append((key, "eur_month", month, 0, str(cost)))
     if rows:
         conn.executemany(
             "INSERT INTO cap_counters (action_type, window_kind, window_key, count, eur_total) "
@@ -173,6 +186,33 @@ def _reserve_all(
             "ON CONFLICT(action_type, window_kind, window_key) "
             "DO UPDATE SET count=excluded.count, eur_total=excluded.eur_total",
             rows,
+        )
+    return tuple(deltas)
+
+
+def release(
+    conn: sqlite3.Connection,
+    deltas: list[tuple[str, str, str, int, str]] | tuple[tuple[str, str, str, int, str], ...],
+) -> None:
+    """Subtract a previously-applied reservation back out of the counters.
+
+    The inverse of the reservation written by :func:`_reserve_all`. Counters are
+    clamped at zero: a release can never drive a counter negative, so a double
+    release (or a release after the window rolled) is harmless rather than
+    corrupting. Callers run this inside their own transaction.
+    """
+    for key, kind, wkey, count_delta, eur_delta in deltas:
+        count, total = _read(conn, key, kind, wkey)
+        new_count = max(0, count - int(count_delta))
+        new_total = total - Decimal(str(eur_delta))
+        if new_total < 0:
+            new_total = Decimal(0)
+        conn.execute(
+            "INSERT INTO cap_counters (action_type, window_kind, window_key, count, eur_total) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(action_type, window_kind, window_key) "
+            "DO UPDATE SET count=excluded.count, eur_total=excluded.eur_total",
+            (key, kind, wkey, new_count, str(new_total)),
         )
 
 
@@ -215,5 +255,5 @@ def check_and_reserve(
         result = _check_one(counters, key, caps, amount, day, month, label)
         if result.exceeded:
             return result
-    _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything
-    return CapResult(False)
+    deltas = _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything
+    return CapResult(False, deltas=deltas)

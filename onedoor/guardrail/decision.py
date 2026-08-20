@@ -45,6 +45,7 @@ from onedoor.guardrail.models import (
 )
 from onedoor.guardrail.policy import PolicyStore
 from onedoor.store import bus
+from onedoor.store.clock import to_iso
 from onedoor.store.db import tx
 
 # EngineConfig lives in executor.py for backwards compatibility; import lazily
@@ -92,6 +93,10 @@ def decide_and_reserve(
     prior = audit.result_for_request_id(conn, request.request_id)
     if prior is not None:
         return prior
+
+    # Reclaim any reservation abandoned past its deadline before evaluating, so
+    # budget a never-reported permit is still holding is freed for this request.
+    reclaim_expired_reservations(conn, config, now)
 
     with tx(conn):
         # 1. KILL-SWITCH FIRST (invariant: before policy lookup).
@@ -276,6 +281,26 @@ def decide_and_reserve(
             undo_until=undo_until,
             undo_of=undo_of,
         )
+
+        # 10b. RESERVATION LEDGER — if this permit reserved budget, record the
+        #      exact deltas and a deadline so the reservation can be reclaimed
+        #      (AADP section 6) should the permit never be reported. No caps
+        #      reserved (tier-1, unbudgeted) means nothing to reclaim.
+        ttl = int(getattr(config, "reservation_ttl_seconds", 3600) or 0)
+        if cap_result.deltas and ttl > 0:
+            deadline = now + timedelta(seconds=ttl)
+            conn.execute(
+                "INSERT INTO cap_reservations "
+                "(intent_audit_id, request_id, deadline_utc, deltas_json, status, created_utc) "
+                "VALUES (?, ?, ?, ?, 'held', ?)",
+                (
+                    intent_id,
+                    str(request.request_id),
+                    to_iso(deadline),
+                    json.dumps([list(d) for d in cap_result.deltas]),
+                    to_iso(now),
+                ),
+            )
     # ==== Tx A committed: caps reserved + intent recorded ====
 
     return PermittedIntent(
@@ -287,6 +312,59 @@ def decide_and_reserve(
         undo_until=undo_until,
         undo_of=undo_of,
     )
+
+
+def reclaim_expired_reservations(
+    conn: Connection, config: "object", now: datetime
+) -> int:
+    """Release the budget of every permit past its deadline with no report.
+
+    A permit that reserved budget but was never reported holds that budget until
+    reclaimed. Once the reservation's deadline (``execute_within``) has passed,
+    this subtracts the reserved deltas back out of the cap counters, appends a
+    ``reservation_expired`` row to the audit log, and voids the reservation.
+    Per AADP section 6 the release is an audited event, not a silent timeout.
+
+    Returns the number of reservations reclaimed. Safe to call on every decide
+    (the open-reservation lookup is indexed and normally empty) or from a
+    maintenance loop. A deadline in the future, or a reservation already settled
+    or expired, is left untouched.
+    """
+    ttl = int(getattr(config, "reservation_ttl_seconds", 3600) or 0)
+    if ttl <= 0:
+        return 0
+    now_iso = to_iso(now)
+    reclaimed = 0
+    with tx(conn):
+        rows = conn.execute(
+            "SELECT intent_audit_id, deltas_json FROM cap_reservations "
+            "WHERE status='held' AND deadline_utc <= ? ORDER BY intent_audit_id",
+            (now_iso,),
+        ).fetchall()
+        for r in rows:
+            rid = int(r["intent_audit_id"])
+            intent_row = conn.execute(
+                "SELECT * FROM actions_audit WHERE id=?", (rid,)
+            ).fetchone()
+            if intent_row is not None:
+                caps.release(conn, [tuple(d) for d in json.loads(r["deltas_json"])])
+                audit.append_expiry(
+                    conn,
+                    intent_row,
+                    now,
+                    detail="reservation reclaimed: deadline passed with no report",
+                )
+                bus.publish(
+                    conn,
+                    "action.reservation_expired",
+                    {"request_id": intent_row["request_id"], "intent_audit_id": rid},
+                )
+            conn.execute(
+                "UPDATE cap_reservations SET status='expired' WHERE intent_audit_id=?",
+                (rid,),
+            )
+            reclaimed += 1
+    return reclaimed
 
 
 def report_result(
@@ -305,6 +383,18 @@ def report_result(
     enforcement outcome — success, failure, or timeout. The audit log stays
     append-only: this adds a second row linked to the intent, never edits it.
     """
+    # Settle the reservation so the reclaimer leaves its budget spent. If the
+    # permit was already reclaimed (deadline passed before this report), the
+    # reservation is 'expired', this matches nothing, and the released budget
+    # stays released: the permit was void, and a late report is recorded for
+    # audit but does not silently re-charge the counter.
+    with tx(conn):
+        conn.execute(
+            "UPDATE cap_reservations SET status='settled' "
+            "WHERE intent_audit_id=? AND status='held'",
+            (intent.intent_audit_id,),
+        )
+
     result_decision = PolicyDecision(
         decision=Decision.EXECUTED if ok else Decision.FAILED,
         effective_tier=intent.effective_tier,

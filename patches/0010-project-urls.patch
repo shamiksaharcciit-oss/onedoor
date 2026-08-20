@@ -1,0 +1,47 @@
+From 0e0edfd465c725464cdcfc8e0e7a1a6ce5d46b20 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 18:33:42 +0000
+Subject: [PATCH] packaging: project URLs so PyPI links back to the repo
+
+A PyPI page with no Homepage or Repository link is a dead end: someone who
+finds the package cannot find the source, the issues, or the licence in
+context. Adds [project.urls] and a Links section in the README.
+---
+ README.md      | 6 ++++++
+ pyproject.toml | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/README.md b/README.md
+index 9fc32e7..3d2e5a3 100644
+--- a/README.md
++++ b/README.md
+@@ -180,3 +180,9 @@ contribution.
+ ## License
+ 
+ Apache-2.0.
++
++## Links
++
++- Source: <https://github.com/shamiksaharcciit-oss/onedoor>
++- Package: <https://pypi.org/project/onedoor/>
++- Licence: Apache-2.0
+diff --git a/pyproject.toml b/pyproject.toml
+index d13833e..1c055c2 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -14,6 +14,12 @@ dependencies = [
+     "tzdata; platform_system == 'Windows'",
+ ]
+ 
++[project.urls]
++Homepage = "https://github.com/shamiksaharcciit-oss/onedoor"
++Repository = "https://github.com/shamiksaharcciit-oss/onedoor"
++Issues = "https://github.com/shamiksaharcciit-oss/onedoor/issues"
++Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/releases"
++
+ [project.optional-dependencies]
+ service = ["fastapi>=0.115", "uvicorn>=0.34"]
+ otel = ["opentelemetry-api>=1.27"]
+-- 
+2.43.0
+

@@ -1,0 +1,535 @@
+From ce5e0700745f158503dc23601f43e4b08f0fff18 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 18:13:43 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?v0.3.3=20=E2=80=94=20F7:=20every=20euro=20c?=
+ =?UTF-8?q?ap=20was=20inert=20unless=20the=20caller=20set=20cost=5Feur=20b?=
+ =?UTF-8?q?y=20hand?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Euro caps are evaluated against `request.cost_eur`. Nothing derived that
+from the action's parameters, and the LangGraph tool wrapper shipped in
+`examples/` -- the one `docs/integration-langgraph.md` instructs people
+to use -- never set it. So every request declared a cost of zero, every
+euro cap compared `0 + 0 > limit`, and every payment passed.
+
+Found by building an accounts-payable demo for a blog post. A EUR 500
+daily budget, 22 payments, all under a EUR 100 per-payment threshold:
+
+  no gate                EUR 4,367.59
+  naive per-call limit   EUR 1,967.59
+  onedoor (before)       EUR 1,967.59   <- identical to the naive gate
+  onedoor (after)        EUR   462.65
+
+This is worse than the five defects the bypass suite found. Those needed
+adversarial input. This one is the documented happy path, it is silent,
+and the audit trail it produces looks correct. Anyone who wrapped their
+tools as the docs instruct and set a euro budget did not have one.
+
+The fix, in the shape the rest of the engine already uses:
+
+- `Policy.cost_param` names the parameter carrying the money, so the
+  amount comes from policy -- the trusted input -- rather than from every
+  integrator remembering an optional argument.
+- An amount that cannot be resolved is a denial (`cost_unknown`), never
+  an assumed zero. That includes an unset `cost_eur`, because a caller
+  who never set it is indistinguishable from one who set it to zero.
+- `cost_param` must also appear under `bounds.required`: a parameter that
+  may be absent is not a source of truth for money.
+
+Breaking, deliberately. A policy with a euro cap whose requests carry no
+resolvable amount now denies where it previously permitted. That is the
+same trade as F2 -- an unsafe default that depends on the author
+remembering is the defect, not the ergonomics.
+
+One existing test changed: `test_tier2_capped_executes` used a fixture
+with euro caps and a request with no amount, and executed because of the
+bug. It now supplies a real amount. That is the fourth test I have
+changed to make a fix pass in this cycle, and each one deserves the same
+hostile reading.
+
+Seven regression tests. 122 pass. mypy unchanged at 7 pre-existing
+errors. ruff gains one SIM118 on a `row.keys()` membership test, matching
+the three identical lines beside it -- `sqlite3.Row` has no key-wise
+`__contains__`, so the suggested rewrite would be wrong.
+---
+ docs/integration-langgraph.md                |   7 +
+ docs/policy-reference.md                     |  11 +-
+ onedoor/guardrail/caps.py                    |  64 ++++++--
+ onedoor/guardrail/models.py                  |   8 +
+ onedoor/guardrail/policy.py                  |   1 +
+ onedoor/guardrail/policy_loader.py           |  17 ++-
+ onedoor/store/migrations/0004_cost_param.sql |  13 ++
+ pyproject.toml                               |   2 +-
+ tests/guardrail/test_cost_resolution.py      | 149 +++++++++++++++++++
+ tests/guardrail/test_tier_resolution.py      |   8 +-
+ 10 files changed, 266 insertions(+), 14 deletions(-)
+ create mode 100644 onedoor/store/migrations/0004_cost_param.sql
+ create mode 100644 tests/guardrail/test_cost_resolution.py
+
+diff --git a/docs/integration-langgraph.md b/docs/integration-langgraph.md
+index c8f79fe..97b99a2 100644
+--- a/docs/integration-langgraph.md
++++ b/docs/integration-langgraph.md
+@@ -14,6 +14,13 @@ bounds on arguments, caps shared across the whole graph per action type,
+ dry-run for new tools, the kill switch over the entire workflow, and the
+ decide → enforce → report audit trail. Neither reaches into the other.
+ 
++**If a tool moves money, its policy must declare `cost_param`.** The wrapper
++passes the tool's arguments through as the action's params; it does not and
++cannot know which of them is an amount. Before v0.3.3 an undeclared amount was
++treated as zero, so a euro cap on a wrapped tool silently permitted everything.
++An unresolvable amount is now a denial with reason `cost_unknown`. There is a
++worked example in `examples/langgraph_finance.py`.
++
+ ## Wrapping tools
+ 
+ ```python
+diff --git a/docs/policy-reference.md b/docs/policy-reference.md
+index 6c5c917..fab212a 100644
+--- a/docs/policy-reference.md
++++ b/docs/policy-reference.md
+@@ -54,6 +54,15 @@ policies:
+   parameter not mentioned in `numeric`/`enum`/`required`.
+ - **caps** — `daily_rate` counts executions (reserved at decide time,
+   race-free); the euro caps apply to Tier 2 and are reserved the same way.
++- **cost_param** — which parameter carries the money. **Any action with a euro
++  cap needs one** (or a caller that sets `cost_eur` on the request itself).
++  The engine cannot guess which parameter is the amount, and an amount it
++  cannot resolve is a denial with reason `cost_unknown`, never an assumed zero.
++  Until v0.3.3 an unresolved amount was read as zero, which made every euro cap
++  inert for callers that did not set `cost_eur` by hand -- including the
++  LangGraph tool wrapper in `examples/`. The parameter must also appear under
++  `bounds.required`, since a parameter that may be absent is not a source of
++  truth for money.
+ - **requires_step_up** — recorded on the policy today; enforcement of a
+   second factor at approval time is a v0.4 item.
+ 
+@@ -97,5 +106,5 @@ honest residue it cannot see — encodings, redirectors, obfuscated shell):
+ ## Reason codes you will see in decisions and the audit log
+ 
+ `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
+-`dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` ·
++`dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` · `cost_unknown` ·
+ `kill_switch` · `observe` · `effect_floor` · `malformed`
+diff --git a/onedoor/guardrail/caps.py b/onedoor/guardrail/caps.py
+index 962097a..e222b06 100644
+--- a/onedoor/guardrail/caps.py
++++ b/onedoor/guardrail/caps.py
+@@ -10,7 +10,7 @@ from __future__ import annotations
+ import sqlite3
+ from dataclasses import dataclass
+ from datetime import datetime
+-from decimal import Decimal
++from decimal import Decimal, InvalidOperation
+ from zoneinfo import ZoneInfo
+ 
+ from onedoor.guardrail.models import ActionRequest, Caps, CheckId, Policy
+@@ -85,11 +85,44 @@ def _read_all(
+     }
+ 
+ 
++
++def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
++    """The amount this request will move, or None if it cannot be determined.
++
++    None is not zero. A euro cap evaluated against an assumed zero permits
++    everything forever, which is exactly what happened to every integration
++    that did not set `cost_eur` by hand. Callers must treat None as a denial.
++
++    Order: the policy's declared parameter wins, because policy is the trusted
++    input; otherwise the request's own `cost_eur`, for callers that compute it.
++    """
++    if policy.cost_param is not None:
++        raw = request.params.get(policy.cost_param)
++        if isinstance(raw, bool) or not isinstance(raw, int | float | str):
++            return None
++        try:
++            value = Decimal(str(raw))
++        except (InvalidOperation, ValueError):
++            return None
++        if not value.is_finite() or value < 0:
++            return None
++        return value
++    # No declared parameter: fall back to what the caller computed. A caller
++    # that never set `cost_eur` is indistinguishable from one that set it to
++    # zero, so under a euro cap both must be treated as unknown -- the whole
++    # defect was reading "unset" as "free".
++    return request.cost_eur if request.cost_eur > 0 else None
++
++
++def _has_euro_cap(caps: Caps) -> bool:
++    return caps.eur_day is not None or caps.eur_month is not None
++
++
+ def _check_one(
+     counters: dict[tuple[str, str, str], tuple[int, Decimal]],
+     key: str,
+     caps: Caps,
+-    request: ActionRequest,
++    cost: Decimal,
+     day: str,
+     month: str,
+     label: str,
+@@ -102,11 +135,11 @@ def _check_one(
+             )
+     if caps.eur_day is not None:
+         _, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
+-        if total + request.cost_eur > caps.eur_day:
++        if total + cost > caps.eur_day:
+             return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached{label}")
+     if caps.eur_month is not None:
+         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
+-        if total + request.cost_eur > caps.eur_month:
++        if total + cost > caps.eur_month:
+             return CapResult(
+                 True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached{label}"
+             )
+@@ -117,7 +150,7 @@ def _reserve_all(
+     conn: sqlite3.Connection,
+     counters: dict[tuple[str, str, str], tuple[int, Decimal]],
+     sources: list[tuple[str, Caps, str]],
+-    request: ActionRequest,
++    cost: Decimal,
+     day: str,
+     month: str,
+ ) -> None:
+@@ -129,10 +162,10 @@ def _reserve_all(
+             rows.append((key, "rate", day, count + 1, str(total)))
+         if caps.eur_day is not None:
+             count, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
+-            rows.append((key, "eur_day", day, count, str(total + request.cost_eur)))
++            rows.append((key, "eur_day", day, count, str(total + cost)))
+         if caps.eur_month is not None:
+             count, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
+-            rows.append((key, "eur_month", month, count, str(total + request.cost_eur)))
++            rows.append((key, "eur_month", month, count, str(total + cost)))
+     if rows:
+         conn.executemany(
+             "INSERT INTO cap_counters (action_type, window_kind, window_key, count, eur_total) "
+@@ -164,10 +197,23 @@ def check_and_reserve(
+     for name, ecaps in effect_caps or []:
+         sources.append((f"effect:{name}", ecaps, f" (effect {name})"))
+ 
++    cost = resolve_cost(policy, request)
++    if cost is None and any(_has_euro_cap(caps) for _, caps, _ in sources):
++        # A budget we cannot measure against is not a budget. Deny rather than
++        # assume zero -- assuming zero is what made every euro cap inert for
++        # callers that never set cost_eur.
++        where = (f"policy declares cost_param '{policy.cost_param}' but the request "
++                 "carries no usable value for it"
++                 if policy.cost_param is not None
++                 else "no cost_param declared and the request carries no cost_eur")
++        return CapResult(True, CheckId.COST_UNKNOWN,
++                         f"euro cap applies but the amount is unknown ({where})")
++    amount = cost if cost is not None else Decimal(0)
++
+     counters = _read_all(conn, [k for k, _, _ in sources], day, month)
+     for key, caps, label in sources:  # check everything first
+-        result = _check_one(counters, key, caps, request, day, month, label)
++        result = _check_one(counters, key, caps, amount, day, month, label)
+         if result.exceeded:
+             return result
+-    _reserve_all(conn, counters, sources, request, day, month)  # then reserve everything
++    _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything
+     return CapResult(False)
+diff --git a/onedoor/guardrail/models.py b/onedoor/guardrail/models.py
+index 133e86d..cd4a215 100644
+--- a/onedoor/guardrail/models.py
++++ b/onedoor/guardrail/models.py
+@@ -62,6 +62,7 @@ class CheckId(StrEnum):
+     PASSED = "passed"
+     EFFECT_FLOOR = "effect_floor"
+     MALFORMED = "malformed"
++    COST_UNKNOWN = "cost_unknown"
+ 
+ 
+ class ApprovalState(StrEnum):
+@@ -133,6 +134,13 @@ class Policy(BaseModel):
+     dry_run: bool = True
+     dry_run_until: datetime | None = None
+     compensating_command: str | None = None
++    # Which parameter carries the money. A euro cap is a statement about an
++    # amount, and the engine has no way to know which parameter holds it. If a
++    # euro cap applies and this is unset, the request must declare `cost_eur`
++    # itself -- and if neither is available the decision is a denial, never an
++    # assumed zero. An unknown amount that silently passes a budget check is
++    # the whole defect.
++    cost_param: str | None = None
+     undo_window_seconds: int = 900
+     requires_step_up: bool = False
+     is_default_deny: bool = False
+diff --git a/onedoor/guardrail/policy.py b/onedoor/guardrail/policy.py
+index a4dfa58..624717a 100644
+--- a/onedoor/guardrail/policy.py
++++ b/onedoor/guardrail/policy.py
+@@ -26,6 +26,7 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
+         dry_run=bool(row["dry_run"]),
+         dry_run_until=from_iso(row["dry_run_until"]) if row["dry_run_until"] else None,
+         compensating_command=row["compensating_command"],
++        cost_param=row["cost_param"] if "cost_param" in row.keys() else None,
+         undo_window_seconds=int(row["undo_window_seconds"]),
+         requires_step_up=bool(row["requires_step_up"]),
+         is_default_deny=False,
+diff --git a/onedoor/guardrail/policy_loader.py b/onedoor/guardrail/policy_loader.py
+index c47ae9e..e58a150 100644
+--- a/onedoor/guardrail/policy_loader.py
++++ b/onedoor/guardrail/policy_loader.py
+@@ -33,6 +33,16 @@ def validate_policy(policy: Policy) -> None:
+             f"policy '{policy.action_type}' is Tier {int(policy.tier)} (auto-executing) "
+             "but has no compensating_command (no reversal => cannot auto-execute)"
+         )
++    # A euro cap needs a resolvable amount. Declaring `cost_param` is the only
++    # way policy can supply one, and a parameter that may be absent is not a
++    # source -- so it must also be required. The alternative, an amount the
++    # engine cannot find, was silently treated as zero and passed every budget.
++    if policy.cost_param is not None and policy.cost_param not in policy.bounds.required:
++        raise ValueError(
++            f"policy '{policy.action_type}' declares cost_param "
++            f"'{policy.cost_param}' but does not list it under bounds.required "
++            "(an absent amount is not a zero amount)"
++        )
+     for rule in policy.param_effects:
+         try:
+             re.compile(rule.pattern)
+@@ -61,13 +71,15 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
+         "INSERT INTO policies ("
+         " action_type, tier, bounds_json, caps_json, effects_json, param_effects_json,"
+         " dry_run, dry_run_until,"
+-        " compensating_command, undo_window_seconds, requires_step_up, updated_at"
+-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) "
++        " compensating_command, cost_param, undo_window_seconds, requires_step_up,"
++        " updated_at"
++        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+         "ON CONFLICT(action_type) DO UPDATE SET "
+         " tier=excluded.tier, bounds_json=excluded.bounds_json, caps_json=excluded.caps_json,"
+         " effects_json=excluded.effects_json, param_effects_json=excluded.param_effects_json,"
+         " dry_run=excluded.dry_run, dry_run_until=excluded.dry_run_until,"
+         " compensating_command=excluded.compensating_command,"
++        " cost_param=excluded.cost_param,"
+         " undo_window_seconds=excluded.undo_window_seconds,"
+         " requires_step_up=excluded.requires_step_up, updated_at=excluded.updated_at",
+         (
+@@ -80,6 +92,7 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
+             int(policy.dry_run),
+             to_iso(policy.dry_run_until) if policy.dry_run_until else None,
+             policy.compensating_command,
++            policy.cost_param,
+             policy.undo_window_seconds,
+             int(policy.requires_step_up),
+             to_iso(now_utc()),
+diff --git a/onedoor/store/migrations/0004_cost_param.sql b/onedoor/store/migrations/0004_cost_param.sql
+new file mode 100644
+index 0000000..4a287ca
+--- /dev/null
++++ b/onedoor/store/migrations/0004_cost_param.sql
+@@ -0,0 +1,13 @@
++-- Which parameter carries the money, per action type.
++--
++-- Euro caps are evaluated against a cost. Until now that cost could only come
++-- from the caller setting `cost_eur` on the request, and an integration that
++-- did not set it -- including the LangGraph tool wrapper shipped in examples --
++-- produced a cost of zero for every call. Every euro cap then compared
++-- 0 + 0 > limit and permitted everything, silently, with a clean audit trail.
++--
++-- Declaring the parameter in policy puts the money control where every other
++-- bound already lives, and lets the engine refuse when it cannot resolve an
++-- amount instead of assuming there is none.
++
++ALTER TABLE policies ADD COLUMN cost_param TEXT;
+diff --git a/pyproject.toml b/pyproject.toml
+index ba17c1a..d91fffc 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,6 +1,6 @@
+ [project]
+ name = "onedoor"
+-version = "0.3.2"
++version = "0.3.3"
+ description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
+ readme = "README.md"
+ requires-python = ">=3.12"
+diff --git a/tests/guardrail/test_cost_resolution.py b/tests/guardrail/test_cost_resolution.py
+new file mode 100644
+index 0000000..8ffb1e2
+--- /dev/null
++++ b/tests/guardrail/test_cost_resolution.py
+@@ -0,0 +1,149 @@
++"""F7: a euro cap is only a budget if the engine can learn the amount.
++
++Euro caps were evaluated against `request.cost_eur`. Nothing derived that from
++the action's parameters, and the LangGraph tool wrapper shipped in `examples/`
++-- the one `docs/integration-langgraph.md` tells people to use -- never set it.
++Every request therefore declared a cost of zero, every euro cap compared
++0 + 0 > limit, and every payment passed. No error, no warning, and an audit
++trail that looked correct.
++
++The fix has two halves and both are load-bearing:
++  * policy declares `cost_param`, so the amount comes from the trusted input
++  * an amount that cannot be resolved is a denial, never an assumed zero
++"""
++
++from __future__ import annotations
++
++from decimal import Decimal
++from uuid import uuid4
++
++import pytest
++
++from onedoor.guardrail import policy_loader
++from onedoor.guardrail.decision import decide_and_reserve
++from onedoor.guardrail.executor import EngineConfig
++from onedoor.guardrail.models import (
++    ActionRequest,
++    Bounds,
++    Caps,
++    CheckId,
++    Decision,
++    NumericBound,
++    Policy,
++    Source,
++    Tier,
++)
++from onedoor.store.clock import now_utc
++from onedoor.store.db import Connection
++
++PAY = "test.pay"
++
++
++def _policy(*, cost_param: str | None, eur_day: str | None = "500.00") -> Policy:
++    return Policy(
++        action_type=PAY,
++        tier=Tier.AUTO_CAPPED,
++        dry_run=False,
++        compensating_command="test.refund",
++        cost_param=cost_param,
++        caps=Caps(eur_day=Decimal(eur_day) if eur_day else None),
++        bounds=Bounds(
++            numeric={"amount_eur": NumericBound(min=0.01, max=100)},
++            required=["amount_eur"],
++            strict_params=True,
++        ),
++    )
++
++
++def _refund_policy() -> Policy:
++    return Policy(
++        action_type="test.refund",
++        tier=Tier.AUTO,
++        dry_run=False,
++        compensating_command="test.refund",
++        bounds=Bounds(strict_params=False),
++    )
++
++
++def _request(amount: float | str | None, *, cost_eur: Decimal = Decimal(0)) -> ActionRequest:
++    params: dict = {} if amount is None else {"amount_eur": amount}
++    return ActionRequest(
++        request_id=uuid4(), action_type=PAY, params=params, source=Source.LLM,
++        rationale="test", cost_eur=cost_eur, created_at=now_utc(),
++    )
++
++
++def _cfg() -> EngineConfig:
++    from zoneinfo import ZoneInfo
++
++    return EngineConfig(
++        approval_ttl_seconds=3600, connector_timeout_seconds=1.0, tz=ZoneInfo("UTC")
++    )
++
++
++def _load(conn: Connection, policy: Policy) -> None:
++    policy_loader.upsert(conn, _refund_policy())
++    policy_loader.upsert(conn, policy)
++
++
++def _decide(conn: Connection, request: ActionRequest):
++    return decide_and_reserve(request, conn=conn, config=_cfg(), now=now_utc())
++
++
++def test_declared_cost_param_enforces_a_cumulative_budget(conn: Connection) -> None:
++    """The defect itself: six compliant payments against a 500 cap."""
++    _load(conn, _policy(cost_param="amount_eur"))
++    permitted = 0
++    for _ in range(6):
++        outcome = _decide(conn, _request(99.00))
++        if not hasattr(outcome, "decision") or outcome.decision.decision != Decision.DENIED:
++            permitted += 1
++    assert permitted == 5, "5 x 99.00 = 495 fits; the sixth must not"
++
++
++def test_unresolvable_amount_denies_rather_than_assuming_zero(conn: Connection) -> None:
++    """No cost_param and no cost_eur: the exact configuration that was silent."""
++    _load(conn, _policy(cost_param=None))
++    outcome = _decide(conn, _request(99.00))  # amount is in params, undeclared
++    assert outcome.decision.decision == Decision.DENIED
++    assert outcome.decision.reason_code == CheckId.COST_UNKNOWN
++
++
++def test_absent_declared_param_denies(conn: Connection) -> None:
++    _load(conn, _policy(cost_param="amount_eur"))
++    outcome = _decide(conn, _request(None))
++    assert outcome.decision.decision == Decision.DENIED
++
++
++def test_non_numeric_amount_denies(conn: Connection) -> None:
++    _load(conn, _policy(cost_param="amount_eur"))
++    outcome = _decide(conn, _request("not-a-number"))
++    assert outcome.decision.decision == Decision.DENIED
++
++
++def test_explicit_cost_eur_still_works_without_cost_param(conn: Connection) -> None:
++    """Back-compat: callers that compute the cost themselves are unaffected."""
++    _load(conn, _policy(cost_param=None))
++    outcome = _decide(conn, _request(99.00, cost_eur=Decimal("99.00")))
++    assert not hasattr(outcome, "decision") or \
++        outcome.decision.decision != Decision.DENIED
++
++
++def test_no_euro_cap_means_no_cost_needed(conn: Connection) -> None:
++    """An action without a euro cap must not start failing for want of an amount."""
++    _load(conn, _policy(cost_param=None, eur_day=None))
++    outcome = _decide(conn, _request(99.00))
++    assert not hasattr(outcome, "decision") or \
++        outcome.decision.decision != Decision.DENIED
++
++
++def test_cost_param_must_be_required(conn: Connection) -> None:
++    """A parameter that may be absent is not a source of truth for money."""
++    bad = Policy(
++        action_type=PAY, tier=Tier.AUTO_CAPPED, dry_run=False,
++        compensating_command="test.refund", cost_param="amount_eur",
++        caps=Caps(eur_day=Decimal("500.00")),
++        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)}),
++    )
++    with pytest.raises(ValueError, match="bounds.required"):
++        policy_loader.validate_policy(bad)
+diff --git a/tests/guardrail/test_tier_resolution.py b/tests/guardrail/test_tier_resolution.py
+index ca588e4..16802dd 100644
+--- a/tests/guardrail/test_tier_resolution.py
++++ b/tests/guardrail/test_tier_resolution.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ 
++from decimal import Decimal
+ from sqlite3 import Connection
+ 
+ from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+@@ -52,7 +53,12 @@ def test_tier0_observe_is_noop(
+ def test_tier2_capped_executes(
+     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+ ) -> None:
+-    req = make_request("demo.tier2")
++    # The demo.tier2 fixture carries euro caps, so a request against it must
++    # declare an amount. It previously did not, and executed anyway -- because
++    # an unset cost was read as zero and every euro cap passed. That was F7.
++    # This test is about tier resolution, so it now supplies a real amount
++    # rather than relying on the behaviour that turned out to be the defect.
++    req = make_request("demo.tier2", cost_eur=Decimal("1.00"))
+     result = evaluate_and_execute(
+         req, conn=conn, registry=registry, config=config, now=req.created_at
+     )
+-- 
+2.43.0
+

@@ -1,0 +1,783 @@
+From 4a398e45b99ddcd0e49d2daaa5d47b4c49e812d1 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 19:43:13 +0000
+Subject: [PATCH] =?UTF-8?q?v0.3.4=20=E2=80=94=20onedoor=20as=20LangChain?=
+ =?UTF-8?q?=20agent=20middleware?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+LangChain v1 middleware exposes `wrap_tool_call`, which receives the
+model's proposed tool call before it executes and may return its own
+`ToolMessage` instead of invoking the handler. That is a decision point's
+shape exactly: decide first, execute only if permitted, report what
+happened.
+
+    conn, config = open_engine("agent.db", "policies.yaml")
+    agent = create_agent(model, tools,
+                         middleware=[OneDoorMiddleware(conn, config)])
+
+This does not replace the `governed()` tool wrapper -- they cover
+different graphs and share one engine and one policy file. Middleware
+attaches to `create_agent` and governs every tool the agent has,
+including ones added later, so it cannot be forgotten on one of them. The
+wrapper works in a hand-built StateGraph with a bare ToolNode, where
+there is no harness for middleware to attach to.
+
+Two questions I could not answer from the docs, now answered by tests
+that run a real `create_agent` loop against a scripted model:
+
+- `interrupt()` works from inside `wrap_tool_call`. The graph pauses, the
+  approval id comes back in `__interrupt__`, `Command(resume="approved")`
+  releases exactly that action and nothing else. No `Command` return
+  needed. Resuming re-evaluates rather than trusting the approval: an
+  approval is permission to ask a second time, not a permit.
+- `ainvoke` genuinely routes through `awrap_tool_call` -- verified by
+  instrumenting both hooks, not assumed. The engine call runs in a worker
+  thread rather than on the loop.
+
+`open_engine()` exists because of a third thing the docs do not say:
+LangGraph runs the tools node on a worker thread, and a SQLite connection
+opened with the default `check_same_thread=True` raises
+`sqlite3.ProgrammingError` there. That failure does not appear in a unit
+test calling the middleware directly -- only in a real agent run. A
+helper that opens the connection correctly is worth more than a sentence
+in the documentation nobody reads until after the traceback.
+
+Seven tests, all through the agent loop rather than against the hook in
+isolation, so the assertions are about what LangChain does with what the
+middleware returns. 129 pass. mypy unchanged at 7 pre-existing errors.
+New extra: `pip install "onedoor[langchain]"`.
+---
+ docs/index.md                                 |   3 +-
+ docs/integration-langchain-middleware.md      |  98 ++++++
+ onedoor/integrations/__init__.py              |   5 +
+ onedoor/integrations/langchain_middleware.py  | 290 ++++++++++++++++++
+ pyproject.toml                                |   9 +-
+ tests/integrations/__init__.py                |   0
+ .../integrations/test_langchain_middleware.py | 252 +++++++++++++++
+ 7 files changed, 654 insertions(+), 3 deletions(-)
+ create mode 100644 docs/integration-langchain-middleware.md
+ create mode 100644 onedoor/integrations/__init__.py
+ create mode 100644 onedoor/integrations/langchain_middleware.py
+ create mode 100644 tests/integrations/__init__.py
+ create mode 100644 tests/integrations/test_langchain_middleware.py
+
+diff --git a/docs/index.md b/docs/index.md
+index 90277f8..77b9d44 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -13,7 +13,8 @@ world. The model proposes; the policy layer disposes.
+ | Anything that speaks HTTP (gateways, services in any language) | The decision service | [Decision service](integration-service.md) |
+ | An MCP host + tool servers (Claude Desktop, any agent host) | The MCP proxy | [MCP proxy](integration-mcp.md) |
+ | A LiteLLM proxy | The custom guardrail adapter | [LiteLLM adapter](integration-litellm.md) |
+-| A LangGraph / LangChain agent | Governed tool wrapper + interrupts | [LangGraph](integration-langgraph.md) |
++| A hand-built LangGraph graph | Governed tool wrapper + interrupts | [LangGraph](integration-langgraph.md) |
++| A `create_agent` LangChain agent | Middleware over every tool call | [LangChain middleware](integration-langchain-middleware.md) |
+ 
+ Then write your policies: [Policy reference](policy-reference.md).
+ 
+diff --git a/docs/integration-langchain-middleware.md b/docs/integration-langchain-middleware.md
+new file mode 100644
+index 0000000..d2731a9
+--- /dev/null
++++ b/docs/integration-langchain-middleware.md
+@@ -0,0 +1,98 @@
++# onedoor as LangChain agent middleware
++
++LangChain v1 middleware exposes `wrap_tool_call`, which receives the model's
++proposed tool call *before* it executes and may return its own `ToolMessage`
++instead of running it. That is the shape of a decision point.
++
++```python
++from langchain.agents import create_agent
++from onedoor.integrations.langchain_middleware import OneDoorMiddleware, open_engine
++
++conn, config = open_engine("agent.db", "policies.yaml")
++
++agent = create_agent(
++    model, tools,
++    middleware=[OneDoorMiddleware(conn, config)],
++)
++```
++
++`pip install "onedoor[langchain]"`.
++
++## Middleware or the tool wrapper?
++
++Both, for different graphs. They call the same engine and read the same policy
++file, so an action type governs a tool whichever route it arrives by.
++
++| | middleware | `governed()` wrapper |
++|---|---|---|
++| attaches to | `create_agent` agents | any graph, incl. a bare `ToolNode` |
++| coverage | every tool the agent has, including ones added later | each tool you remember to wrap |
++| async | native `awrap_tool_call` | wrap the call in `asyncio.to_thread` |
++
++The middleware is the better default when you use the agent harness: a tool
++added next month is governed without anyone remembering to wrap it. The wrapper
++is what you need in a hand-built `StateGraph`, where there is no harness for
++middleware to attach to.
++
++## The three outcomes
++
++```
++permit   the handler runs, the result is reported, the ToolMessage passes back
++deny     the handler never runs; the reason returns as the tool's output
++propose  a human decides
++```
++
++A denial is a message, not an exception. The agent reads `onedoor:
++'pay_invoice' denied (cap_eur_day: EUR/day cap 500.00 reached)` and can adapt --
++tell the user, try something smaller, stop. An exception would give it nothing to
++work with.
++
++## Human approval
++
++Two modes. The default returns the approval notice as the tool's output and lets
++the agent carry on:
++
++```python
++OneDoorMiddleware(conn, config)                      # on_proposed="message"
++```
++
++With a checkpointer, `interrupt` pauses the graph instead:
++
++```python
++agent = create_agent(
++    model, tools,
++    middleware=[OneDoorMiddleware(conn, config, on_proposed="interrupt")],
++    checkpointer=MemorySaver(),
++)
++
++paused = agent.invoke({"messages": [...]}, cfg)
++paused["__interrupt__"][0].value
++# {'approval_id': 7, 'action_type': 'tool.send_wire', 'reason': 'tier_confirm'}
++
++agent.invoke(Command(resume="approved"), cfg)
++```
++
++Resuming does not trust the approval blindly. The approval is consumed
++atomically and the request is evaluated again -- the kill switch, the caps and
++the bounds all still apply. An approval is permission to ask a second time, not
++a permit.
++
++## Why `open_engine` exists
++
++LangGraph runs the tools node on a worker thread. A SQLite connection opened
++with the default `check_same_thread=True` raises `sqlite3.ProgrammingError` the
++moment it is touched there -- and not in a unit test that calls the middleware
++directly, only in a real agent run.
++
++`open_engine` opens the connection correctly, runs migrations and loads policy.
++Build your own connection if you prefer, but pass `check_same_thread=False`.
++
++One connection is shared behind a lock. For multi-process agents, run the HTTP
++decision service instead and consult it over the network --
++see `integration-service.md`.
++
++## Action naming
++
++A tool named `pay_invoice` becomes the action type `tool.pay_invoice`, matching
++the wrapper. Change it with `action_prefix=` if your policy file uses another
++convention.
+diff --git a/onedoor/integrations/__init__.py b/onedoor/integrations/__init__.py
+new file mode 100644
+index 0000000..05e518c
+--- /dev/null
++++ b/onedoor/integrations/__init__.py
+@@ -0,0 +1,5 @@
++"""Adapters that put the door in front of somebody else's tool call.
++
++Each module here imports its framework lazily, so installing onedoor never
++requires installing LangChain, and importing onedoor never imports it.
++"""
+diff --git a/onedoor/integrations/langchain_middleware.py b/onedoor/integrations/langchain_middleware.py
+new file mode 100644
+index 0000000..68f506b
+--- /dev/null
++++ b/onedoor/integrations/langchain_middleware.py
+@@ -0,0 +1,290 @@
++"""onedoor as LangChain agent middleware.
++
++`wrap_tool_call` receives the model's proposed tool call *before* it runs and
++may return its own `ToolMessage` instead of invoking the handler. That is
++exactly the shape of a decision point: decide first, execute only if permitted,
++report what happened.
++
++    from langchain.agents import create_agent
++    from onedoor.integrations.langchain_middleware import (
++        OneDoorMiddleware, open_engine,
++    )
++
++    conn, config = open_engine("agent.db", "policies.yaml")
++    agent = create_agent(
++        model, tools,
++        middleware=[OneDoorMiddleware(conn, config)],
++    )
++
++Compared with wrapping each tool by hand (`examples/langgraph_tools.py`), the
++middleware governs every tool the agent has, including ones added later, and it
++cannot be forgotten on one of them. The wrapper still has a job: it works with a
++bare `ToolNode` in a hand-built graph, where there is no agent harness for
++middleware to attach to.
++
++Three outcomes, matching the engine:
++
++  permit   the handler runs, the result is reported, the ToolMessage passes back
++  deny     the handler never runs; the reason returns as the tool's output
++  propose  a human decides -- as a message, or as a real graph interrupt
++
++Async is native: `awrap_tool_call` runs the engine in a worker thread rather
++than blocking the loop, because the engine call is synchronous and short.
++"""
++
++from __future__ import annotations
++
++import asyncio
++import threading
++from collections.abc import Callable
++from typing import TYPE_CHECKING, Any, Literal
++from uuid import uuid4
++
++from onedoor.guardrail import approvals
++from onedoor.guardrail.decision import (
++    PermittedIntent,
++    decide_and_reserve,
++    report_result,
++)
++from onedoor.guardrail.executor import EngineConfig
++from onedoor.guardrail.models import ActionRequest, Decision, Source
++from onedoor.store.clock import now_utc
++
++if TYPE_CHECKING:  # pragma: no cover - typing only
++    from langchain.agents.middleware.types import ToolCallRequest
++    from langchain_core.messages import ToolMessage
++
++
++def open_engine(
++    db_path: str,
++    policies: str | None = None,
++    *,
++    approval_ttl_seconds: int = 3600,
++    connector_timeout_seconds: float = 30.0,
++    tz: str = "UTC",
++) -> tuple[Any, EngineConfig]:
++    """Open a connection an agent can actually use, and load policy into it.
++
++    The reason this helper exists rather than a line of documentation: LangGraph
++    executes the tools node on a worker thread, and a SQLite connection opened
++    with the default ``check_same_thread=True`` raises
++    ``sqlite3.ProgrammingError`` the moment it is touched there. The failure does
++    not appear in a unit test that calls the middleware directly -- only in a
++    real agent run, which is the worst place to discover it.
++    """
++    from zoneinfo import ZoneInfo
++
++    from onedoor.guardrail import policy_loader
++    from onedoor.store.db import Database
++
++    database = Database(db_path)
++    database.init()
++    conn = database.connect(check_same_thread=False)
++    if policies is not None:
++        policy_loader.load_file(conn, policies)
++    config = EngineConfig(
++        approval_ttl_seconds=approval_ttl_seconds,
++        connector_timeout_seconds=connector_timeout_seconds,
++        tz=ZoneInfo(tz),
++    )
++    return conn, config
++
++
++def _import_middleware_base() -> type:
++    try:
++        from langchain.agents.middleware import AgentMiddleware
++    except ImportError as exc:  # pragma: no cover - depends on the environment
++        raise ImportError(
++            "OneDoorMiddleware needs LangChain v1 or later: "
++            'pip install "onedoor[langchain]"'
++        ) from exc
++    return AgentMiddleware
++
++
++_BASE = _import_middleware_base()
++
++
++class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
++    """Resolve every tool call through the decision point before it executes.
++
++    Args:
++        conn: an open onedoor connection. One connection, guarded by a lock --
++            for multi-process agents consult the HTTP decision service instead.
++        config: the engine config (tiers, approval TTL, timezone).
++        on_proposed: what a Tier-3 action does. ``"message"`` returns the
++            approval notice as the tool's output, so the agent can carry on and
++            tell the user. ``"interrupt"`` raises a LangGraph interrupt, which
++            pauses the graph until a human resumes it; that requires a
++            checkpointer.
++        action_prefix: how a tool name becomes an action type. The default
++            matches the tool wrapper, so one policy file governs both.
++    """
++
++    def __init__(
++        self,
++        conn: Any,
++        config: EngineConfig,
++        *,
++        on_proposed: Literal["message", "interrupt"] = "message",
++        action_prefix: str = "tool.",
++        source: Source = Source.LLM,
++    ) -> None:
++        super().__init__()
++        self._conn = conn
++        self._config = config
++        self._on_proposed = on_proposed
++        self._prefix = action_prefix
++        self._source = source
++        self._lock = threading.Lock()
++
++    # ---------------------------------------------------------------- helpers
++
++    def _tool_message(self, request: ToolCallRequest, text: str) -> ToolMessage:
++        from langchain_core.messages import ToolMessage
++
++        return ToolMessage(
++            content=text,
++            name=request.tool_call["name"],
++            tool_call_id=request.tool_call["id"],
++        )
++
++    def _decide(self, request: ToolCallRequest) -> Any:
++        name = request.tool_call["name"]
++        args = dict(request.tool_call.get("args") or {})
++        now = now_utc()
++        action = ActionRequest(
++            request_id=uuid4(),
++            action_type=f"{self._prefix}{name}",
++            params=args,
++            source=self._source,
++            rationale=f"langchain tool call {name}",
++            created_at=now,
++        )
++        with self._lock:
++            return decide_and_reserve(
++                action, conn=self._conn, config=self._config, now=now
++            )
++
++    def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:
++        with self._lock:
++            report_result(
++                intent,
++                conn=self._conn,
++                config=self._config,
++                ok=ok,
++                payload=payload,
++                error=error,
++                now=now_utc(),
++            )
++
++    def _execute_approved(self, approval_id: int, request: ToolCallRequest, handler: Any) -> Any:
++        """Run an action a human just approved, re-checked rather than trusted.
++
++        The approval is consumed atomically and the request is evaluated again:
++        an approval is permission to ask a second time, not a permit. The kill
++        switch, the caps and the bounds all still apply.
++        """
++        now = now_utc()
++        with self._lock:
++            original = approvals.cas_approve(self._conn, approval_id, "langchain-human", now)
++            resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
++            outcome = decide_and_reserve(
++                resumed, conn=self._conn, config=self._config, now=now, approved_override=True
++            )
++            if isinstance(outcome, PermittedIntent):
++                approvals.mark_executed(self._conn, approval_id, outcome.intent_audit_id)
++        if not isinstance(outcome, PermittedIntent):
++            return self._tool_message(
++                request,
++                f"onedoor: approved action still blocked "
++                f"({outcome.decision.reason_code.value})",
++            )
++        return self._run(outcome, request, handler)
++
++    def _run(self, intent: PermittedIntent, request: ToolCallRequest, handler: Any) -> Any:
++        try:
++            result = handler(request)
++        except Exception as exc:
++            self._report(intent, ok=False, payload=None, error=str(exc)[:200])
++            raise
++        self._report(intent, ok=True, payload={"result": str(result)[:500]}, error=None)
++        return result
++
++    def _denied_message(self, request: ToolCallRequest, outcome: Any) -> Any:
++        d = outcome.decision
++        name = request.tool_call["name"]
++        detail = f": {d.detail}" if d.detail else ""
++        return self._tool_message(
++            request,
++            f"onedoor: '{name}' {d.decision.value} ({d.reason_code.value}{detail})",
++        )
++
++    def _proposed(self, request: ToolCallRequest, outcome: Any, handler: Any) -> Any:
++        name = request.tool_call["name"]
++        if self._on_proposed == "interrupt":
++            from langgraph.types import interrupt
++
++            resume = interrupt(
++                {
++                    "approval_id": outcome.approval_id,
++                    "action_type": f"{self._prefix}{name}",
++                    "args": dict(request.tool_call.get("args") or {}),
++                    "reason": outcome.decision.reason_code.value,
++                }
++            )
++            if resume == "approved":
++                return self._execute_approved(outcome.approval_id, request, handler)
++            return self._tool_message(
++                request, f"onedoor: '{name}' was not approved ({resume})."
++            )
++        return self._tool_message(
++            request,
++            f"onedoor: '{name}' requires human approval "
++            f"(reason: {outcome.decision.reason_code.value}, "
++            f"approval_id={outcome.approval_id}).",
++        )
++
++    # ------------------------------------------------------------------ hooks
++
++    def wrap_tool_call(
++        self,
++        request: ToolCallRequest,
++        handler: Callable[[ToolCallRequest], Any],
++    ) -> Any:
++        outcome = self._decide(request)
++        if isinstance(outcome, PermittedIntent):
++            return self._run(outcome, request, handler)
++        if outcome.decision.decision == Decision.PROPOSED:
++            return self._proposed(request, outcome, handler)
++        return self._denied_message(request, outcome)
++
++    async def awrap_tool_call(
++        self,
++        request: ToolCallRequest,
++        handler: Callable[[ToolCallRequest], Any],
++    ) -> Any:
++        """Same decision, off the event loop.
++
++        The engine call is synchronous and sub-millisecond, but it touches
++        SQLite, so it belongs in a worker thread rather than on the loop. The
++        tool itself is awaited normally.
++        """
++        outcome = await asyncio.to_thread(self._decide, request)
++        if isinstance(outcome, PermittedIntent):
++            try:
++                result = await handler(request)
++            except Exception as exc:
++                await asyncio.to_thread(
++                    self._report, outcome, False, None, str(exc)[:200]
++                )
++                raise
++            await asyncio.to_thread(
++                self._report, outcome, True, {"result": str(result)[:500]}, None
++            )
++            return result
++        if outcome.decision.decision == Decision.PROPOSED:
++            return await asyncio.to_thread(self._proposed, request, outcome, handler)
++        return self._denied_message(request, outcome)
++
++
++__all__ = ["OneDoorMiddleware", "open_engine"]
+diff --git a/pyproject.toml b/pyproject.toml
+index 1c055c2..f4b1229 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,6 +1,6 @@
+ [project]
+ name = "onedoor"
+-version = "0.3.3"
++version = "0.3.4"
+ description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
+ readme = "README.md"
+ requires-python = ">=3.12"
+@@ -28,10 +28,15 @@ otel = ["opentelemetry-api>=1.27"]
+ # require it -- but the examples are documented artifacts and a reader who
+ # follows the docs should not have to guess what to install.
+ examples = ["langgraph>=1.0", "langchain-core>=1.0"]
+-dev = ["pytest>=8.3", "mypy>=1.14", "ruff>=0.8", "fastapi>=0.115", "httpx>=0.27"]
++# The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
++# does not exist before it.
++langchain = ["langchain>=1.0"]
++dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14", "ruff>=0.8",
++       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0"]
+ 
+ [tool.pytest.ini_options]
+ testpaths = ["tests"]
++asyncio_mode = "auto"
+ 
+ [tool.mypy]
+ strict = true
+diff --git a/tests/integrations/__init__.py b/tests/integrations/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/integrations/test_langchain_middleware.py b/tests/integrations/test_langchain_middleware.py
+new file mode 100644
+index 0000000..4276a73
+--- /dev/null
++++ b/tests/integrations/test_langchain_middleware.py
+@@ -0,0 +1,252 @@
++"""The middleware must reach the same verdicts as the tool wrapper.
++
++These run a real `create_agent` loop against a scripted fake model, so the
++assertions are about what LangChain actually does with what the middleware
++returns -- not about what the middleware would like to happen.
++"""
++
++from __future__ import annotations
++
++from decimal import Decimal
++from zoneinfo import ZoneInfo
++
++import pytest
++
++pytest.importorskip("langchain.agents")
++
++from langchain.agents import create_agent
++from langchain_core.language_models.fake_chat_models import (
++    GenericFakeChatModel,
++)
++from langchain_core.messages import AIMessage
++from langchain_core.tools import tool
++from langgraph.checkpoint.memory import MemorySaver
++
++from onedoor.guardrail import policy_loader
++from onedoor.guardrail.executor import EngineConfig
++from onedoor.guardrail.models import (
++    Bounds,
++    Caps,
++    NumericBound,
++    Policy,
++    Tier,
++)
++from onedoor.integrations.langchain_middleware import OneDoorMiddleware
++from onedoor.store.db import Connection, Database
++
++PAID: list[float] = []
++
++
++@pytest.fixture
++def agent_conn(tmp_path: object) -> Connection:
++    """A connection the agent's worker threads can use.
++
++    LangGraph runs the tools node off the calling thread, so the default
++    check_same_thread=True connection the rest of the suite uses would raise.
++    """
++    database = Database(str(tmp_path / "agent.db"))  # type: ignore[operator]
++    database.init()
++    return database.connect(check_same_thread=False)
++
++
++@tool
++def pay_invoice(invoice_id: str, amount_eur: float) -> str:
++    """Pay a supplier invoice."""
++    PAID.append(amount_eur)
++    return f"paid {amount_eur} for {invoice_id}"
++
++
++@tool
++def send_wire(beneficiary: str, amount_eur: float) -> str:
++    """Send an irreversible wire."""
++    PAID.append(amount_eur)
++    return f"wired {amount_eur} to {beneficiary}"
++
++
++def _config() -> EngineConfig:
++    return EngineConfig(
++        approval_ttl_seconds=3600, connector_timeout_seconds=5.0, tz=ZoneInfo("UTC")
++    )
++
++
++def _seed(conn: Connection) -> None:
++    policy_loader.upsert(conn, Policy(
++        action_type="tool.refund", tier=Tier.AUTO, dry_run=False,
++        compensating_command="tool.refund", bounds=Bounds(strict_params=False)))
++    policy_loader.upsert(conn, Policy(
++        action_type="tool.pay_invoice", tier=Tier.AUTO_CAPPED, dry_run=False,
++        compensating_command="tool.refund", cost_param="amount_eur",
++        caps=Caps(eur_day=Decimal("250.00")),
++        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)},
++                      required=["invoice_id", "amount_eur"], strict_params=True)))
++    policy_loader.upsert(conn, Policy(
++        action_type="tool.send_wire", tier=Tier.CONFIRM,
++        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
++                      required=["beneficiary", "amount_eur"], strict_params=True)))
++
++
++class _ScriptedModel(GenericFakeChatModel):
++    """A fake chat model that accepts `bind_tools`.
++
++    `create_agent` binds tools to the model; the stock fake raises
++    NotImplementedError. Nothing here needs real tool selection -- the turns are
++    scripted -- so binding is a no-op that returns the model unchanged.
++    """
++
++    def bind_tools(self, tools: object, **kwargs: object) -> _ScriptedModel:
++        return self
++
++
++def _model(*turns: AIMessage) -> _ScriptedModel:
++    return _ScriptedModel(messages=iter(turns))
++
++
++def _call(name: str, args: dict, cid: str) -> dict:
++    return {"name": name, "args": args, "id": cid, "type": "tool_call"}
++
++
++@pytest.fixture(autouse=True)
++def _clear() -> None:
++    PAID.clear()
++
++
++def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None:
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1")]),
++            AIMessage(content="done"),
++        ),
++        tools=[pay_invoice],
++        middleware=[OneDoorMiddleware(agent_conn, _config())],
++    )
++    out = agent.invoke({"messages": [("user", "clear A1")]})
++    assert PAID == [90.0]
++    rows = agent_conn.execute(
++        "SELECT kind FROM actions_audit ORDER BY id"
++    ).fetchall()
++    kinds = [r[0] for r in rows]
++    assert "exec_intent" in kinds and "exec_result" in kinds
++    assert out["messages"]
++
++
++def test_cumulative_cap_denies_the_call_that_would_cross_it(agent_conn: Connection) -> None:
++    """Three compliant payments, a 250 cap: the third must not execute."""
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1"),
++                _call("pay_invoice", {"invoice_id": "A2", "amount_eur": 90.0}, "c2"),
++                _call("pay_invoice", {"invoice_id": "A3", "amount_eur": 90.0}, "c3")]),
++            AIMessage(content="done"),
++        ),
++        tools=[pay_invoice],
++        middleware=[OneDoorMiddleware(agent_conn, _config())],
++    )
++    result = agent.invoke({"messages": [("user", "clear them")]})
++    assert sum(PAID) == 180.0, "270 would breach the 250 cap"
++    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
++    assert any("cap_eur_day" in t for t in texts), "the reason must reach the agent"
++
++
++def test_denial_is_a_tool_message_not_an_exception(agent_conn: Connection) -> None:
++    """A refusal the agent can read and adapt to, rather than a crash."""
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
++            AIMessage(content="ok, that is over the limit"),
++        ),
++        tools=[pay_invoice],
++        middleware=[OneDoorMiddleware(agent_conn, _config())],
++    )
++    result = agent.invoke({"messages": [("user", "pay A1")]})
++    assert PAID == []
++    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
++    assert any("bounds" in t for t in texts)
++
++
++def test_tier3_proposes_as_a_message_by_default(agent_conn: Connection) -> None:
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(content="waiting for approval"),
++        ),
++        tools=[send_wire],
++        middleware=[OneDoorMiddleware(agent_conn, _config())],
++    )
++    result = agent.invoke({"messages": [("user", "wire acme")]})
++    assert PAID == [], "an irreversible action must not run on the agent's authority"
++    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
++    assert any("requires human approval" in t for t in texts)
++
++
++def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connection) -> None:
++    """The open question: does a graph interrupt work from inside wrap_tool_call?"""
++    from langgraph.types import Command
++
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(content="sent"),
++        ),
++        tools=[send_wire],
++        middleware=[OneDoorMiddleware(agent_conn, _config(), on_proposed="interrupt")],
++        checkpointer=MemorySaver(),
++    )
++    cfg = {"configurable": {"thread_id": "t1"}}
++
++    paused = agent.invoke({"messages": [("user", "wire acme")]}, cfg)
++    assert "__interrupt__" in paused, "the graph must pause, not proceed"
++    payload = paused["__interrupt__"][0].value
++    assert payload["action_type"] == "tool.send_wire"
++    assert payload["reason"] == "tier_confirm"
++    assert PAID == [], "nothing runs while a human is deciding"
++
++    agent.invoke(Command(resume="approved"), cfg)
++    assert PAID == [2400.0], "approval releases exactly that action"
++
++
++def test_interrupt_declined_does_not_execute(agent_conn: Connection) -> None:
++    from langgraph.types import Command
++
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(content="declined"),
++        ),
++        tools=[send_wire],
++        middleware=[OneDoorMiddleware(agent_conn, _config(), on_proposed="interrupt")],
++        checkpointer=MemorySaver(),
++    )
++    cfg = {"configurable": {"thread_id": "t2"}}
++    agent.invoke({"messages": [("user", "wire acme")]}, cfg)
++    agent.invoke(Command(resume="declined"), cfg)
++    assert PAID == []
++
++
++@pytest.mark.asyncio
++async def test_async_path_reaches_the_same_verdict(agent_conn: Connection) -> None:
++    _seed(agent_conn)
++    agent = create_agent(
++        model=_model(
++            AIMessage(content="", tool_calls=[
++                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
++            AIMessage(content="over the limit"),
++        ),
++        tools=[pay_invoice],
++        middleware=[OneDoorMiddleware(agent_conn, _config())],
++    )
++    result = await agent.ainvoke({"messages": [("user", "pay A1")]})
++    assert PAID == []
++    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
++    assert any("bounds" in t for t in texts)
+-- 
+2.43.0
+

@@ -63,6 +63,7 @@ class CheckId(StrEnum):
     EFFECT_FLOOR = "effect_floor"
     MALFORMED = "malformed"
     COST_UNKNOWN = "cost_unknown"
+    EXPIRED = "expired"  # a permit's reservation was reclaimed past its deadline
 
 
 class ApprovalState(StrEnum):

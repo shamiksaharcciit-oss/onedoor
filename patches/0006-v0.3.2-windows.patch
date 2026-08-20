@@ -1,0 +1,171 @@
+From 56cab7e0762a9332d0bc029309b01254c9f9e019 Mon Sep 17 00:00:00 2001
+From: Shamik Saha <shamik.saha.rcciit@gmail.com>
+Date: Tue, 18 Aug 2026 17:45:45 +0000
+Subject: [PATCH] =?UTF-8?q?v0.3.2=20=E2=80=94=20onedoor=20did=20not=20work?=
+ =?UTF-8?q?=20on=20Windows?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two defects, both found by running the suite on a Windows machine for the
+first time. Neither is reachable on Linux, which is why 111 green tests
+here said nothing about them.
+
+1. `zoneinfo` reads the operating system's IANA database. Windows does
+   not ship one, so `ZoneInfo("Europe/Amsterdam")` -- and even
+   `ZoneInfo("UTC")` -- raises `ZoneInfoNotFoundError`. Since cap
+   windows, the engine config, the HTTP service and the MCP proxy all
+   construct a `ZoneInfo`, the package could not evaluate a single
+   decision on Windows. `tzdata` is now a dependency there.
+
+2. The MCP proxy split its downstream command with `shlex.split`, which
+   is POSIX by default and treats a backslash as an escape character. A
+   Windows interpreter path was silently mangled --
+   `C:\Users\a\.venv\Scripts\python.exe` became
+   `C:Usersa.venvScriptspython.exe` -- and the spawn failed with
+   WinError 2. On Windows the command string is now handed to Popen,
+   which parses it with the rules Windows actually defines.
+
+Four tests pin the splitting on both platforms, including the mangling
+itself, so the POSIX branch cannot quietly become the Windows branch
+again. 115 pass. mypy reports the same 7 pre-existing errors as before
+this change, none in the new code.
+
+`.gitignore` gains `dist/` and `build/`, which it should always have had.
+
+Worth recording why this took until now: the 0.3.1 release was verified
+by installing the wheel and running migrations, which passes on Windows
+because it never touches a timezone. The check was narrower than the
+claim it was used to support.
+---
+ .gitignore                      |  2 ++
+ onedoor/mcp/proxy.py            | 17 ++++++++++++-
+ pyproject.toml                  |  4 ++-
+ tests/mcp/test_command_split.py | 44 +++++++++++++++++++++++++++++++++
+ 4 files changed, 65 insertions(+), 2 deletions(-)
+ create mode 100644 tests/mcp/test_command_split.py
+
+diff --git a/.gitignore b/.gitignore
+index 693855d..0e7057a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,3 +8,5 @@ __pycache__/
+ .mypy_cache/
+ .ruff_cache/
+ *.egg-info/
++dist/
++build/
+diff --git a/onedoor/mcp/proxy.py b/onedoor/mcp/proxy.py
+index 99aa2e3..404c64a 100644
+--- a/onedoor/mcp/proxy.py
++++ b/onedoor/mcp/proxy.py
+@@ -29,6 +29,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import json
++import os
+ import shlex
+ import subprocess
+ import sys
+@@ -57,12 +58,26 @@ def _tool_text(text: str) -> dict[str, Any]:
+     return {"content": [{"type": "text", "text": text}], "isError": False}
+ 
+ 
++def split_command(cmd: str, *, windows: bool | None = None) -> list[str] | str:
++    """Turn a command line into whatever Popen wants on this platform.
++
++    ``shlex.split`` is POSIX by default, which treats a backslash as an escape
++    character -- so a Windows path like ``C:\\Python\\python.exe`` is silently
++    mangled into ``C:Pythonpython.exe`` and the spawn fails with "file not
++    found". On Windows, hand the raw string to Popen and let CreateProcess do
++    the parsing it defines.
++    """
++    if windows is None:
++        windows = os.name == "nt"
++    return cmd if windows else shlex.split(cmd)
++
++
+ class Downstream:
+     """The real MCP server, spawned and spoken to over pipes."""
+ 
+     def __init__(self, cmd: str) -> None:
+         self.proc = subprocess.Popen(
+-            shlex.split(cmd),
++            split_command(cmd),
+             stdin=subprocess.PIPE,
+             stdout=subprocess.PIPE,
+             text=True,
+diff --git a/pyproject.toml b/pyproject.toml
+index d61ecfa..ba17c1a 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,6 +1,6 @@
+ [project]
+ name = "onedoor"
+-version = "0.3.1"
++version = "0.3.2"
+ description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
+ readme = "README.md"
+ requires-python = ">=3.12"
+@@ -10,6 +10,8 @@ dependencies = [
+     "pydantic>=2.10",
+     "pydantic-settings>=2.7",
+     "pyyaml>=6.0",
++    # Windows ships no IANA tz database, so zoneinfo cannot resolve even "UTC".
++    "tzdata; platform_system == 'Windows'",
+ ]
+ 
+ [project.optional-dependencies]
+diff --git a/tests/mcp/test_command_split.py b/tests/mcp/test_command_split.py
+new file mode 100644
+index 0000000..f459327
+--- /dev/null
++++ b/tests/mcp/test_command_split.py
+@@ -0,0 +1,44 @@
++"""The downstream command must survive both platforms' quoting rules.
++
++`shlex.split` is POSIX by default and treats a backslash as an escape, so a
++Windows interpreter path is silently mangled into a path that does not exist.
++The spawn then fails with WinError 2 and the proxy cannot start at all. These
++tests pin both branches from either platform, since the bug is only reachable
++on one of them.
++"""
++
++from __future__ import annotations
++
++from onedoor.mcp.proxy import split_command
++
++WIN_CMD = r"C:\Users\a\.venv\Scripts\python.exe -m onedoor.mcp.demo_server"
++POSIX_CMD = "/usr/bin/python3 -m onedoor.mcp.demo_server"
++
++
++def test_windows_command_is_passed_through_unsplit() -> None:
++    """Popen on Windows parses the string itself; splitting it here corrupts it."""
++    assert split_command(WIN_CMD, windows=True) == WIN_CMD
++
++
++def test_windows_path_backslashes_are_not_eaten() -> None:
++    """The regression itself: POSIX splitting destroys the interpreter path."""
++    posix_result = split_command(WIN_CMD, windows=False)
++    assert isinstance(posix_result, list)
++    assert "\\" not in posix_result[0]  # the damage, pinned so it stays visible
++    assert split_command(WIN_CMD, windows=True) == WIN_CMD
++
++
++def test_posix_command_is_split_into_argv() -> None:
++    assert split_command(POSIX_CMD, windows=False) == [
++        "/usr/bin/python3",
++        "-m",
++        "onedoor.mcp.demo_server",
++    ]
++
++
++def test_posix_quoting_still_honoured() -> None:
++    assert split_command('/bin/sh -c "echo hi"', windows=False) == [
++        "/bin/sh",
++        "-c",
++        "echo hi",
++    ]
+-- 
+2.43.0
+

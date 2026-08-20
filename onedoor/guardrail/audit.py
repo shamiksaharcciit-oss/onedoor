@@ -15,6 +15,7 @@ from onedoor.store.db import tx
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
+    CheckId,
     Decision,
     JsonValue,
     PolicyDecision,
@@ -72,6 +73,54 @@ def append(
             approval_id,
             to_iso(undo_until) if undo_until else None,
             undo_of,
+            to_iso(now),
+            policy_version,
+        ),
+    )
+    return int(cur.lastrowid or 0)
+
+
+def append_expiry(
+    conn: sqlite3.Connection,
+    intent_row: sqlite3.Row,
+    now: datetime,
+    *,
+    detail: str = "",
+) -> int:
+    """Append a 'reservation_expired' row for an unreported permit.
+
+    Written directly from the stored exec_intent row rather than a reconstructed
+    request, because reclamation runs long after the request object is gone. It
+    is the audited record that a permit's reservation was released; it links back
+    to the intent it voids via ``parent_id``.
+    """
+    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
+    policy_version = row["version_hash"] if row else None
+    cur = conn.execute(
+        "INSERT INTO actions_audit ("
+        " request_id, kind, parent_id, action_type, source, params_json,"
+        " decision, reason_code, nominal_tier, effective_tier, detail,"
+        " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
+        " policy_version"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            intent_row["request_id"],
+            "reservation_expired",
+            int(intent_row["id"]),
+            intent_row["action_type"],
+            intent_row["source"],
+            intent_row["params_json"],
+            Decision.FAILED.value,
+            CheckId.EXPIRED.value,
+            int(intent_row["nominal_tier"]),
+            int(intent_row["effective_tier"]),
+            detail,
+            None,
+            None,
+            None,
+            None,
+            None,
+            intent_row["undo_of"],
             to_iso(now),
             policy_version,
         ),
