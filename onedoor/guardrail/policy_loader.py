@@ -168,6 +168,27 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
     return len(policies)
 
 
+SNAPSHOT_SCHEMA = "onedoor/policy-snapshot/2"
+"""Which canonicalisation produced a `version_hash` (R019).
+
+From 0.4.0 the snapshot renders decimals through the canonical renderer, so `100`,
+`100.00` and `1E+2` all record as `100` and hash identically. The consequence is that
+an UNCHANGED policy set gets a new hash once, on upgrade -- and disclosure alone does
+not make that hash diff *attributable*. Recording the schema lets a reader tell
+"renderer changed, rules did not" from "rules changed", from the record rather than
+from memory of when the upgrade happened.
+
+Absent means schema 1, by the same absent-value rule as an unstamped `protocol`
+column meaning aadp/0.1: pre-0.4.0 rows carry NULL and were hashed under Pydantic's
+default rendering, which preserved authored scale and stored numeric bounds as IEEE
+doubles.
+
+Once a hash's preimage includes a canonicalisation, the canonicalisation's identity
+is part of what the hash means -- a preimage whose definition is not recorded is
+re-derivable only by someone who already knows which definition was in force.
+"""
+
+
 def _normalized_snapshot(conn: sqlite3.Connection) -> str:
     """The whole policy set as canonical JSON: sorted keys, stable ordering.
 
@@ -200,9 +221,10 @@ def record_snapshot(conn: sqlite3.Connection) -> str:
     policy_module.invalidate(conn)  # this connection just wrote; data_version will not tell it
     stamp = to_iso(now_utc())
     conn.execute(
-        "INSERT OR IGNORE INTO policy_versions (version_hash, snapshot_json, created_at) "
-        "VALUES (?,?,?)",
-        (version, snapshot, stamp),
+        "INSERT OR IGNORE INTO policy_versions "
+        "(version_hash, snapshot_json, created_at, snapshot_schema) "
+        "VALUES (?,?,?,?)",
+        (version, snapshot, stamp, SNAPSHOT_SCHEMA),
     )
     conn.execute(
         "INSERT INTO policy_current (id, version_hash, updated_at) VALUES (1,?,?) "

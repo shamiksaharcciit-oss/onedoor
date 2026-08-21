@@ -60,7 +60,7 @@ def test_unreported_permit_holds_budget_until_reclaimed(conn: Connection) -> Non
         make_request("demo.tier2", cost_eur=Decimal("6")), conn=conn, config=cfg, now=now
     )
     assert not isinstance(blocked, PermittedIntent)
-    assert blocked.decision.reason_code.value == "cap_eur_day"
+    assert blocked.decision.reason_code.value == "cap_value"
 
 
 def test_reclaim_frees_budget_and_audits_the_release(conn: Connection) -> None:

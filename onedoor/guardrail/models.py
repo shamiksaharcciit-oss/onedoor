@@ -67,9 +67,19 @@ class CheckId(StrEnum):
     KILL_SWITCH = "kill_switch"
     DEFAULT_DENY = "default_deny"
     BOUNDS = "bounds"
-    CAP_DAILY_RATE = "cap_daily_rate"
-    CAP_EUR_DAY = "cap_eur_day"
-    CAP_EUR_MONTH = "cap_eur_month"
+    # aadp/0.2 (ND-002, E1). Unit-neutral: the window and the unit belong in the
+    # `budget` object (ND-003), not in the reason code. cap_daily_rate -> cap_rate;
+    # cap_eur_day AND cap_eur_month both -> cap_value, which is why ND-003's
+    # budget_json is not optional -- without it the evidence store can no longer
+    # tell a day-cap breach from a month-cap one, a granularity regression on 0.3.5.
+    #
+    # Clean break, no dual emission. Safe because reason codes are AUDIT vocabulary:
+    # a PEP's behaviour is fixed by the verdict, never by the reason string, so a
+    # -00 PEP that has never heard of cap_value still denies correctly. The
+    # deprecated codes are retained permanently in the IANA registry and MUST NOT be
+    # emitted by a PDP advertising aadp/0.2+.
+    CAP_RATE = "cap_rate"
+    CAP_VALUE = "cap_value"
     DRY_RUN = "dry_run"
     TIER_CONFIRM = "tier_confirm"
     NO_COMPENSATION = "no_compensating_command"
@@ -79,6 +89,11 @@ class CheckId(StrEnum):
     MALFORMED = "malformed"
     COST_UNKNOWN = "cost_unknown"
     EXPIRED = "expired"  # a permit's reservation was reclaimed past its deadline
+    # RESERVED, NEVER EMITTED until ND-005 wires the sender-binding check (E5). The
+    # code lands now so the vocabulary change is complete in ONE breaking increment;
+    # emitting it before the check exists would be a reason code for a check that
+    # never ran. tests/guardrail/test_reason_vocabulary.py holds it unemitted.
+    SENDER_MISMATCH = "sender_mismatch"
 
 
 class ApprovalState(StrEnum):

@@ -85,7 +85,7 @@ def test_effect_cap_is_shared_across_aliased_actions(
         make_request("demo.pay_direct"), conn=conn, config=config, now=FROZEN_NOW
     )
     assert not isinstance(r3, PermittedIntent)
-    assert r3.decision.reason_code == CheckId.CAP_DAILY_RATE
+    assert r3.decision.reason_code == CheckId.CAP_RATE
     assert "money.egress" in (r3.decision.detail or "")
 
 
@@ -105,7 +105,7 @@ def test_param_rule_gives_generic_tool_the_effect(conn: Connection, config: Engi
         make_request("demo.pay_direct"), conn=conn, config=config, now=FROZEN_NOW
     )
     assert not isinstance(blocked, PermittedIntent)
-    assert blocked.decision.reason_code == CheckId.CAP_DAILY_RATE
+    assert blocked.decision.reason_code == CheckId.CAP_RATE
 
 
 def test_effect_tier_floor_escalates_auto_action(conn: Connection, config: EngineConfig) -> None:

@@ -25,6 +25,16 @@ from onedoor.guardrail.models import (
 from onedoor.store.clock import from_iso, now_utc, to_iso
 from onedoor.store.db import tx
 
+AADP_PROTOCOL = "aadp/0.2"
+"""The wire vocabulary every row written by this PDP is stamped with (ND-002/E6).
+
+A row with NO protocol value MUST be read under `aadp/0.1` -- the pre-0.4.0
+vocabulary, where a cap denial says `cap_eur_day` or `cap_eur_month` rather than
+`cap_value` and carries its window only as prose in `detail`. That fallback is the
+absent-value rule, and it is why the column is nullable rather than defaulted: an
+absent stamp is a fact about when the row was written, not a value to invent.
+"""
+
 
 def dumps_json_value(value: object) -> str:
     """Serialize a params/payload tree so it ROUND-TRIPS through Decimal.
@@ -91,8 +101,8 @@ def append(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -113,6 +123,7 @@ def append(
             undo_of,
             to_iso(now),
             policy_version,
+            AADP_PROTOCOL,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -139,8 +150,8 @@ def append_expiry(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             intent_row["request_id"],
             "reservation_expired",
@@ -161,6 +172,7 @@ def append_expiry(
             intent_row["undo_of"],
             to_iso(now),
             policy_version,
+            AADP_PROTOCOL,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -317,6 +329,7 @@ def append_buffered(
             undo_of,
             to_iso(now),
             row["version_hash"] if row else None,
+            AADP_PROTOCOL,
         )
     )
     if event_topic is not None and event_payload is not None:
@@ -336,8 +349,8 @@ def flush(conn: sqlite3.Connection) -> int:
             " request_id, kind, parent_id, action_type, source, params_json,"
             " decision, reason_code, nominal_tier, effective_tier, detail,"
             " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
-            " created_at, policy_version"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " created_at, policy_version, protocol"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         if events:

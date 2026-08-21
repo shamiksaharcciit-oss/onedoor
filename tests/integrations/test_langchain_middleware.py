@@ -177,7 +177,7 @@ def test_cumulative_cap_denies_the_call_that_would_cross_it(agent_conn: Connecti
     result = agent.invoke({"messages": [("user", "clear them")]})
     assert sum(PAID) == 180.0, "270 would breach the 250 cap"
     texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
-    assert any("cap_eur_day" in t for t in texts), "the reason must reach the agent"
+    assert any("cap_value" in t for t in texts), "the reason must reach the agent"
 
 
 def test_denial_is_a_tool_message_not_an_exception(agent_conn: Connection) -> None:

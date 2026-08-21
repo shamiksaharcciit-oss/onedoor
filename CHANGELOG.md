@@ -7,8 +7,25 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased — `0.4.0` in progress
 
-### Changed
+### Changed — BREAKING for archives and readers, not for enforcement
 
+- **Reason codes are unit-neutral (`aadp/0.2`).** `cap_daily_rate` → **`cap_rate`**;
+  `cap_eur_day` **and** `cap_eur_month` → **`cap_value`**, with the window and unit
+  moving into `ND-003`'s `budget` object rather than the code. `sender_mismatch` is
+  **reserved and never emitted** until `ND-005` wires the check it reports on. Clean
+  break, **no dual emission** — safe because reason codes are *audit* vocabulary: a
+  PEP's behaviour is fixed by the verdict, never by the reason string, so an older PEP
+  that has never heard of `cap_value` still denies correctly. **If you match on reason
+  strings in dashboards or alerts, they change here.**
+- **Every audit row is stamped `aadp/0.2`.** A row with **no** stamp MUST be read
+  under `aadp/0.1` — that absence is a fact about when the row was written, not a
+  value to infer. Existing rows keep the codes they were written with; history is not
+  rewritten.
+- **The policy snapshot records which canonicalisation produced its hash**
+  (`snapshot_schema`, migration `0008`). The content-hash changes on upgrade for
+  unchanged rules, and this is what makes that diff *attributable* — "renderer
+  changed, rules did not" versus "rules changed" — from the record rather than from
+  memory of when you upgraded. Absent means schema 1.
 - **Numeric policy bounds and parameters are `Decimal`, never IEEE doubles.** Policy
   YAML numbers load as `Decimal`, JSON ingress parses with `parse_float=Decimal`, and
   bounds, cost resolution and settlement all carry the exact value through. **Two

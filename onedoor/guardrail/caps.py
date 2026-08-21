@@ -141,18 +141,16 @@ def _check_one(
     if caps.daily_rate is not None:
         count, _ = counters.get((key, "rate", day), (0, Decimal(0)))
         if count + 1 > caps.daily_rate:
-            return CapResult(
-                True, CheckId.CAP_DAILY_RATE, f"daily rate {caps.daily_rate} reached{label}"
-            )
+            return CapResult(True, CheckId.CAP_RATE, f"daily rate {caps.daily_rate} reached{label}")
     if caps.eur_day is not None:
         _, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
         if total + cost > caps.eur_day:
-            return CapResult(True, CheckId.CAP_EUR_DAY, f"€/day cap {caps.eur_day} reached{label}")
+            return CapResult(True, CheckId.CAP_VALUE, f"€/day cap {caps.eur_day} reached{label}")
     if caps.eur_month is not None:
         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
         if total + cost > caps.eur_month:
             return CapResult(
-                True, CheckId.CAP_EUR_MONTH, f"€/month cap {caps.eur_month} reached{label}"
+                True, CheckId.CAP_VALUE, f"€/month cap {caps.eur_month} reached{label}"
             )
     return CapResult(False)
 

@@ -12,6 +12,7 @@ and equally catches a well-meaning later edit to an archived one.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -112,7 +113,31 @@ def test_two_marker_lines_are_rejected_as_malformed(tmp_path: Path) -> None:
 
 
 REPO = Path(__file__).resolve().parents[2]
-_SKIP_DIRS = {".git", ".venv", "__pycache__", "dist", "node_modules", ".pytest_cache"}
+_SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "dist",
+    "node_modules",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "onedoor.egg-info",
+}
+
+
+def _our_files() -> list[Path]:
+    """Every file in the repository that is ours, pruning as we walk.
+
+    `Path.rglob("*")` filtered afterwards traverses .venv in full -- 10,788 paths
+    instead of 199, about six seconds per call and twice per run. Pruning the
+    directory list in place is what makes a whole-repo assertion cheap enough to keep.
+    """
+    out: list[Path] = []
+    for root, dirs, files in os.walk(REPO):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        out.extend(Path(root) / f for f in files)
+    return out
 
 
 def test_our_own_documents_satisfy_the_producer_obligation() -> None:
@@ -139,9 +164,7 @@ def test_our_own_documents_satisfy_the_producer_obligation() -> None:
     the channel is verifiable in both directions.
     """
     offenders = []
-    for path in REPO.rglob("*"):
-        if not path.is_file() or _SKIP_DIRS & set(path.parts):
-            continue
+    for path in _our_files():
         if ARCHIVE in path.parents:  # received memos, verified by the tests above
             continue
         try:

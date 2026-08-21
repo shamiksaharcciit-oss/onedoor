@@ -18,10 +18,13 @@ locked with both of delivery's accuracy-check clarifications adopted (R014).
 `ND-003` + `ND-039`, one breaking increment, migration `0007`, `ND-040` immediately
 behind it per R011. **Decomposition written before the code: `TICKETS-0.4.0.md`** —
 it carries the work order, the `0007` column shape, the test plan, and seven findings
-from the code survey that the backlog did not name (four of them live defects). **W1–W3 are done:** the canonical renderer is vendored and pinned by property tests
+from the code survey that the backlog did not name (four of them live defects). **W1–W4 are done:** the canonical renderer is vendored and pinned by property tests
 over generated inputs; migration `0007` lands the row format including the whole
 receipt envelope dark; and Decimal now survives ingress → bounds → cost → reservation
-→ settlement, which closes S2 (a live enforcement mis-decision) and S3.
+→ settlement, which closes S2 (a live enforcement mis-decision) and S3; and W4 lands
+the `aadp/0.2` vocabulary (`cap_rate`/`cap_value`, `sender_mismatch` reserved), the
+protocol stamp on every row, and R019's `snapshot_schema`. Remaining: W5 (budget
+object), W6 (four-value outcome), W7 (verbatim freeze).
 
 > **Sequencing correction from the decomposition.** This backlog assigns vendoring
 > `canonical.py` to `ND-001` (`0.4.1`). That is the wrong order: `ND-002`'s row format
@@ -459,7 +462,8 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0001`–`0005` | shipped in `0.3.5` | in `main` |
 | `0006` | **`ND-024`** — retire vestigial schema | **landed** `ebdef05`, `0.3.6` |
 | `0007` | **`ND-002`** — `0.4.0` row format: `protocol`, `budget_json`, `outcome`, and the full receipt envelope (`prev_hash`/`seq`/`row_hash`, `sig`/`key_id`/`alg`, four digests + `anchor_ref`) landing **dark** | **written**, `0.4.0` |
-| `0008`+ | unclaimed | — |
+| `0008` | **`ND-002`/R019** — `policy_versions.snapshot_schema`, so a content-hash change is attributable | **written**, `0.4.0` |
+| `0009`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

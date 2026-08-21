@@ -1,0 +1,26 @@
+-- ND-002 / R019. Make a policy content-hash change ATTRIBUTABLE.
+--
+-- `version_hash` is a digest over the normalised policy snapshot. From 0.4.0 that
+-- snapshot renders decimals through the canonical renderer, so `100`, `100.00` and
+-- `1E+2` all record as `100` and hash identically -- which is the point. The visible
+-- consequence is that **an unchanged policy set gets a new hash once, on upgrade**.
+--
+-- Disclosure alone is not enough for that. A reader looking at two different hashes
+-- must be able to tell "the renderer changed, the rules did not" from "the rules
+-- changed", FROM THE RECORD rather than from memory of when the upgrade happened.
+-- So the snapshot row records which canonicalisation produced its hash.
+--
+-- This is i_digest thinking applied to the policy store: once a hash's preimage
+-- includes a canonicalisation, the canonicalisation's identity is part of what the
+-- hash means, and a preimage whose definition is not recorded is re-derivable only
+-- by someone who already knows which definition was in force.
+--
+-- ABSENT means schema 1, by the same rule as an unstamped `protocol` column meaning
+-- aadp/0.1 (E6): rows written before 0.4.0 carry NULL and are read as the Pydantic
+-- default rendering (authored scale preserved, numeric bounds as IEEE doubles).
+-- Rows written from 0.4.0 always stamp it.
+--
+-- Forward-only: 0007 has already been applied to databases, so it is not edited.
+-- This is 0008.
+
+ALTER TABLE policy_versions ADD COLUMN snapshot_schema TEXT;
