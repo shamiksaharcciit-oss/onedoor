@@ -14,8 +14,19 @@ GitHub release live, artifact digests verified byte-identical to the build. `ND-
 `ND-024`, `ND-025` and `ND-036` all closed on origin. Core's §implstatus revision is
 locked with both of delivery's accuracy-check clarifications adopted (R014).
 
-**Next: `0.4.0` — `ND-002` + `ND-003` + `ND-039`, one breaking increment**, with
-`ND-040` immediately behind it per R011. Migration numbers start at `0007`.
+**`0.4.0` in progress — GO from R015, in delivery's proposed order.** `ND-002` +
+`ND-003` + `ND-039`, one breaking increment, migration `0007`, `ND-040` immediately
+behind it per R011. **Decomposition written before the code: `TICKETS-0.4.0.md`** —
+it carries the work order, the `0007` column shape, the test plan, and seven findings
+from the code survey that the backlog did not name (four of them live defects). **W1
+is done:** the canonical renderer is vendored and pinned by property tests over
+generated inputs.
+
+> **Sequencing correction from the decomposition.** This backlog assigns vendoring
+> `canonical.py` to `ND-001` (`0.4.1`). That is the wrong order: `ND-002`'s row format
+> and `ND-003`'s budget object both need the renderer, so **vendoring moved into
+> `0.4.0` as W1** — `onedoor/_vendor/canonical.py`, byte-identical to the pinned v3
+> artifact and held there by a test. `ND-001` inherits it rather than introducing it.
 
 > **Verification note.** The device's `.venv` is a Windows venv on Python 3.12.10 —
 > the same minor CI uses — and all four gates run natively. Baseline independently

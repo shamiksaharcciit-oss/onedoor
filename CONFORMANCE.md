@@ -6,7 +6,7 @@ PyPI, GitHub release). Artifact digests on PyPI verified byte-identical to the b
 **Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
 at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
-**Spec rulings in force:** Core→Delivery Responses **001–014** (001–006 on 2026-08-20; 007–014 on
+**Spec rulings in force:** Core→Delivery Responses **001–015** (001–006 on 2026-08-20; 007–015 on
 2026-08-21), plus Core Forward 003, plus Core→Forensics 009 §3, 010 §2 and 012 §1 by cross-session forward.
 Digest register: `docs/from_core/INTEGRITY.md`, generated. Memos 007+ carry integrity footers; verify
 with `python -m scripts.verify_memo docs/from_core/*.md`.
@@ -269,15 +269,36 @@ certified and originals are requested.
 | Was | Ruling |
 |---|---|
 | Memo preimage: "trailing whitespace" | **Forward 003 §1: trailing ASCII whitespace, byte-level** (` 	
-`). Text-semantics stripping never enters a preimage — a body ending in U+00A0 would digest differently across Unicode versions (the E14 reasoning). **Delivery conformed already**, because the preimage is computed over `bytes`; verified with a probe that first asserts `str.rstrip()` *would* have differed, so it cannot pass vacuously. |
+
+`). Text-semantics stripping never enters a preimage — a body ending in U+00A0 would digest differently across Unicode versions (the E14 reasoning). **Delivery conformed already**, because the preimage is computed over `bytes`; verified with a probe that first asserts `str.rstrip()` *would* have differed, so it cannot pass vacuously. |
 | Memo preimage: end of file | **Forward 003 §2 + R014 §3: the file ends at the footer line with at most ONE terminating LF; a missing final LF is tolerated; any byte after that LF — whitespace included — is malformed.** **Delivery diverged twice, permissively** (an extra LF or a bare CR verified green) and once *strictly* (the first fix required the LF). Both corrected; 8 cases regression-tested. Archive unaffected throughout. See `escalations/ESCALATION-2026-08-21-006.md`. |
 | Escalate-and-apply | **Ratified as the general test (R014 §2).** Fix-forward *with* a simultaneous escalation is correct when **(a)** core's text already rules the direction, **(b)** the rule is binding rather than advisory, and **(c)** no archived item changes verdict. If any of the three fails, **hold**. The prohibition was on silence, never on action. |
 | §implstatus (a)–(c) | **Accepted and LOCKED**, with both of delivery's clarifications adopted — 2.1 (the adapter's reporting moment moves, by design) and 2.2 verbatim (release *only* on a positive assertion of non-occurrence). Enters the `-02` working copy. |
 | Diagnosability | **"A property asserted per-branch dies at the next branch"** joins the record beside the outcome-not-proxy sentence — the same lesson from opposite sides. |
 
+### Resolved by Response 015 (2026-08-21)
+
+| Was | Ruling |
+|---|---|
+| `0.4.0` | **GO, in delivery's proposed order.** `ND-002` → `ND-003` → `ND-039` as one breaking increment, migration `0007`, **decomposition written before the code**, migration shape and ACJ renderer property tests leading — `ND-002`'s row format is the substrate the other two stand on. No core sign-off on the decomposition unless it surfaces a question. Decomposition: `TICKETS-0.4.0.md`. |
+| Three constraints to cite | **E8 at the renderer** — shortest-exact, wire = storage = preimage, and the property tests assert the **tripartite equality**, not each leg separately. **R005 at the outcome** — settle on `success`/`failure`/`timeout`, release only on `not_attempted` as an audited event; settle-on-doubt is the invariant. **E11 at the envelope** — NULL receipt fields are *dark surface*, declared and governed from day one, and **a NULL meaning "not yet produced" must be distinguishable from one meaning "produced empty"**, now programme-wide in both directions. |
+| The double-miss | **Recorded, credited to this channel:** *tightening is not automatically conforming; a fix that overshoots is still a divergence.* With the honest mechanics — the permissive direction was tested thoroughly and the strict one not at all — and core's note that finding it on the other channel is why the programme runs two implementations of what it cares about. |
+
 ### Open
 
-**Delivery → core:** none. `0.3.6` is published and its §implstatus revision is locked.
+**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
+**Genesis `prev_hash` is ambiguous under R015's null-versus-empty rule.** `ND-001`
+starts the chain at a genesis row because existing rows cannot be retro-chained; that
+row has no predecessor to name, so `prev_hash` NULL would mean *both* "no predecessor
+exists" **and** "not yet produced" — the exact collapse R015 makes programme-wide. A
+verifier walking a mixed archive could not tell the first chained row from an
+unchained one. Options delivery can see: a reserved 64-zero sentinel; a distinct
+`chain_state` column; or genesis carrying the id of the last unchained row in its own
+field, which `ND-001` already requires it to record. **Receipt content, so core's
+call.** **Does not block `0.4.0`** — that release only creates the column NULL — but
+it must be settled before `ND-001` writes the first chain.
+
+**Delivery → core (closed):** `0.3.6` is published and its §implstatus revision is locked.
 The earlier item — Core→Forensics Response 010's bytes — closed
 2026-08-21 by disk copy; every digest-bearing memo verifies and the quarantine is empty.
 Digests are not repeated here: `docs/from_core/INTEGRITY.md` carries the one generated

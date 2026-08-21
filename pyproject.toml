@@ -63,6 +63,9 @@ exclude = [
     # module CLAUDE.md says is vendored verbatim and never reimplemented, and every
     # pinned manifest would stop verifying. Do not lint core's bytes.
     "reference/rederivable-manifest",
+    # The vendored copy of the same artifact. Excluded for the identical reason: it
+    # must stay byte-identical to its origin, and `ruff format` would rewrite it.
+    "onedoor/_vendor",
     # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
     # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
     # quote matches the file it indicts (reformatting ND-021's snippet would make it
@@ -107,6 +110,13 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["opentelemetry.*"]
 ignore_missing_imports = true
+
+# Vendored verbatim from core's pinned artifact. Type-annotating it would mean
+# editing it, and the whole guarantee is that it is not edited. A test asserts it
+# stays byte-identical to reference/rederivable-manifest/canonical.py.
+[[tool.mypy.overrides]]
+module = ["onedoor._vendor.*"]
+ignore_errors = true
 
 [build-system]
 requires = ["setuptools>=68"]
