@@ -1,0 +1,40 @@
+# Line endings. Git's Windows default (core.autocrlf=true) rewrites line endings
+# on checkout. For most repositories that is cosmetic. For this one it is not:
+# reference/rederivable-manifest/ is a digest-pinned artifact, and rewriting its
+# bytes changes what SHA-256 is computed over.
+#
+# Demonstrated on a real cold clone, not assumed. CRLF-ifying that directory makes
+# all three pinned manifests fail with "e_digest mismatch: archived evidence
+# differs from frozen evidence" and moves the Merkle anchor root from
+# 4e49f63a17cf... to 576019221d5d.... The failure is indistinguishable from
+# tampering -- the worst possible way for an encoding bug to present itself in a
+# forensics tool, and a trap laid for every Windows contributor to a public repo.
+#
+# Scope check, so the comment does not overclaim: the policy content-hash on the
+# audit row is computed over a normalised snapshot read back from the database
+# (policy_loader._normalized_snapshot), not over config/*.yaml bytes, so it was
+# never exposed to this. The vendored artifact is the live exposure. The repo-wide
+# rule below is contributor hygiene and defence in depth as the crypto epic
+# (ND-001 -> ND-015 -> ND-017) lands more digest surface.
+
+# Repository-wide: LF in the repository AND in every working tree, on every
+# platform. Not merely "normalise on commit" -- eol=lf also fixes the checkout
+# side, which is where the corruption actually happens.
+* text=auto eol=lf
+
+# The vendored, digest-pinned artifact from core (pinned at v3). These bytes are
+# not ours to normalise: they are verbatim as core shipped them, and validate.py
+# recomputes SHA-256 over them. `-text` disables conversion in BOTH directions,
+# so no filter -- present or future, ours or a contributor's -- can touch them.
+#
+# Deliberately `-text` rather than `text eol=lf`: the vendoring guarantee is
+# "the bytes core shipped, unaltered", and a future artifact revision may carry
+# a fixture that legitimately contains CR (the canonicalisation rules cover
+# string handling). Normalising would eat it. This directory is replaced
+# wholesale at each revision, never hand-edited, so self-healing normalisation
+# buys nothing here and could corrupt a deliberate byte.
+reference/rederivable-manifest/** -text
+
+# Exported patches are byte-exact diffs; CRLF corruption makes `git apply` fail
+# or, worse, apply a subtly different hunk.
+patches/*.patch -text
