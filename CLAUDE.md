@@ -71,6 +71,17 @@ affected tickets. **When receiving a batch, check every file listed in the memo'
 "delivered alongside" line arrived — two crossings happened because attachments went
 missing in relay.**
 
+**Verify every memo on receipt** (Response 008, effective immediately): core memos end
+with `Integrity: sha256(body) = <hex>` over every byte above that line. Run
+`python -m scripts.verify_memo docs/from_core/*.md`; `tests/protocol/` holds it in CI.
+A third relay failure mode is live — memos have twice arrived UTF-8-decoded-as-cp1252
+with the continuation bytes discarded, which is **lossy**, so `→` and `—` are not
+mechanically recoverable. Reconstruct from context, then *prove* the reconstruction
+against the footer digest; never archive an unverified repair. Memos 001–006 predate
+the footer and cannot be checked. **Archived memos are now immutable** — any
+annotation changes `body` and breaks the digest, so provenance notes go in
+`docs/from_core/INTEGRITY.md`, never in the memo file.
+
 ## Where you are now
 
 `0.3.6` in progress: ND-025 (CI) done; ND-021 (LiteLLM report-after-act), ND-024

@@ -4,8 +4,9 @@
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
 **Test suite at this baseline:** 135 passed (Python 3.12, `pytest -q`)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
-**Spec rulings in force:** Core→Delivery Responses **001–007** (001–006 on
-2026-08-20; 007 on 2026-08-21).
+**Spec rulings in force:** Core→Delivery Responses **001–008** (001–006 on
+2026-08-20; 007–008 on 2026-08-21). Memos 007+ carry integrity footers; verify
+with `python -m scripts.verify_memo docs/from_core/*.md`.
 **Open spec questions:** **none, on either side.** Responses 001–005 ruled everything
 raised in Escalations 001–005; 006 was acknowledgment; 007 adopted one new normative
 rule from a delivery finding (anchor hygiene — see §5). **`ND-001` and `ND-039` are
@@ -217,9 +218,18 @@ escalated question. Nothing was gated on it.
 | Diagnosability of a byte-corruption failure | **Endorsed as the pattern.** A byte-level assertion that fires first and names the cause (`.gitattributes` + `core.autocrlf`) is the same discipline as the `unicode_version` mismatch message — it matters twice over here, because the raw failure (`e_digest mismatch`) *reads as compromise*. |
 | Delivery's two self-corrections | **Both endorsed, no action.** Checking the policy content-hash claim before publishing it, and the amend-on-wrong-commit recovery verified by blob-SHA identity. Ledger arithmetic is delivery's; no core interest beyond consistency. |
 
+### Resolved by Response 008 (2026-08-21)
+
+| Was | Ruling |
+|---|---|
+| Relay integrity of core's own rulings | **New protocol, effective immediately.** Every core memo from 008 onward ends with `Integrity: sha256(body) = <hex>` over every byte above the footer line — checked on receipt, so relay corruption is mechanically detectable rather than a judgment call about whether a mojibake sequence "was probably an arrow". Core's framing: *the programme that content-addresses everything else should not have been relaying its own rulings on trust.* Relay-side fix is Shamik's — memos move as downloaded files, never through a copy-paste or open-and-save. |
+| Delivery's handling of the corrupted 007 | **Endorsed as the protocol for lossy corruption:** repair by context, mark as repaired, escalate for originals. Vindicated concretely — the re-issue arrived damaged too, and the footer digest then *proved* delivery's reconstruction byte-identical to core's original. |
+| §6 residue pointer | **Core's error, owned.** Response 006 said §5; the §5 items were already gone and the live residue was §6's `Open (E10)` bullet. Delivery's find. |
+| Anchor-hygiene placement, and both judgment calls | **Endorsed without reservation** — decomposition-line placement, refusing to commit a header asserting SHAs that exist nowhere, and re-prioritising the ledger into git ahead of the patch sequence (urgency-ordering by failure-mode severity over ticket order is delivery's call to make). |
+
 ### Open
 
-**None, on either side**, as of Response 007 (2026-08-21). Escalations 001–005 are
+**None, on either side**, as of Response 008 (2026-08-21). Escalations 001–005 are
 fully ruled; 006 and 007 raised nothing requiring a delivery answer. The next expected
 contact is delivery's `0.3.6` release ping, which triggers core's §implstatus revision
 covering the LiteLLM conformance fix, the obligation-machinery gap (N6/`ND-038`), and

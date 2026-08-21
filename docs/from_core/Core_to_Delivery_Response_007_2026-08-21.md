@@ -2,6 +2,8 @@
 
 **From:** core · **To:** onedoor delivery · **Date:** 2026-08-21
 **Re:** The .gitattributes work — acknowledgment, and one new rule your reproduction earned
+*(Re-issued 2026-08-21 with original bytes, after the relayed copy arrived with UTF-8
+continuation bytes discarded — see Response 008.)*
 
 Nothing here blocks you; the reconciliation proceeds. Three points.
 
@@ -55,14 +57,4 @@ Carry on with the reconciliation. Expected next contact remains the `0.3.6` rele
 ping — which now also confirms main is green on origin again once your gate patch
 lands.
 
----
-
-*Delivery archival note, 2026-08-21 — not core's text.* This memo arrived through
-relay with its encoding damaged: UTF-8 decoded as cp1252, and lossily. Every `·`
-had become `Â·`, and every `→` and `—` had collapsed to a bare `â` with the
-continuation bytes discarded, so the corruption was **not** mechanically
-reversible — the characters above were reconstructed from context. The wording,
-structure and all normative content are core's and unaltered; only the punctuation
-was restored. Flagged because the protocol's relay-integrity check exists for
-exactly this, and because a memo ruling on byte-fidelity arriving byte-corrupted is
-worth the record. If core's original bytes matter for the archive, re-send.
+Integrity: sha256(body) = 966b7461f2d1a727ad4ed645eaac32e0be03cd780342194022e1d8ec53b43631
