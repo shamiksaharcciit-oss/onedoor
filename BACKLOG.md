@@ -9,9 +9,12 @@ on either side.** The settled spec
 surface is `CONFORMANCE.md` §6. **Nothing is gated. `ND-001` and `ND-039` are both unblocked.**
 **`0.4.0` remains one breaking increment** — the obligation surface turned out to be
 normative in `-00` already, so landing it is conformance catch-up, not a wire change.
-**`0.3.6` in progress.** `ND-025` **done** (`380019a`) and `ND-024` **done**
-(`ebdef05`) — both reconciled from patch into history on 2026-08-21, see the note
-below. Remaining: `ND-021`, `ND-036`, README fixes. Specs in `TICKETS-0.3.6.md`.
+**`0.3.6` in progress.** `ND-025` **done** (`380019a`), `ND-024` **done** (`ebdef05`)
+— both reconciled from patch into history on 2026-08-21, see the note below — and
+`ND-021` **done**: the LiteLLM example now splits decide from report across the
+pre-call and post-call hooks, so the reference implementation no longer publishes a
+two-phase-contract violation. Remaining: `ND-036`, README fixes, then the release
+ping. Specs in `TICKETS-0.3.6.md`.
 
 > **Reconciliation note, 2026-08-21 — RESOLVED.** This file previously recorded
 > `ND-024` done at `410bba5` and `ND-025`'s gate fix at `8d8f4b3`. **Neither commit

@@ -2,7 +2,8 @@
 
 **Implementation:** onedoor `0.3.5` (commit `3dfe3cd`, tag `v0.3.5`)
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
-**Test suite at this baseline:** 135 passed (Python 3.12, `pytest -q`)
+**Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
+at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
 **Spec rulings in force:** Core→Delivery Responses **001–009** (001–006 on
 2026-08-20; 007–009 on 2026-08-21), plus Core→Forensics 009 §3 by cross-session
@@ -80,7 +81,7 @@ implements it and the test file that holds it in place.
 | In-process library binding (`governed()`) | ✅ packaged | `guardrail/__init__.py` |
 | MCP stdio proxy | ✅ packaged | `mcp/proxy.py`; `tests/mcp/` |
 | LangChain agent middleware | ✅ packaged | `integrations/langchain_middleware.py`; `tests/integrations/test_langchain_middleware.py` (7 tests) |
-| LiteLLM gateway guardrail | ❌ **non-conformant** | `examples/litellm_guardrail.py:92` reports at permit-issue, before the act. Violates the two-phase contract. Ships as a documented example. See ticket `ND-021`. |
+| LiteLLM gateway guardrail | ✅ **example, conformant** | Two-hook split (`ND-021`, `0.3.6`): `async_pre_call_hook` decides and holds the permit, reporting nothing; `async_post_call_success_hook` / `async_post_call_failure_hook` report the real outcome, correlated by `data["litellm_call_id"]`. `examples/litellm_guardrail.py`; `tests/examples/test_litellm_guardrail.py` (10 tests, including the regression that fails against the pre-`0.3.6` behaviour). **Conformant, but an example and not a packaged PEP** — it lives under `examples/`, unlike the MCP proxy and the LangChain middleware. |
 | LangGraph tool wrapper | ⚠️ example | `examples/langgraph_tools.py`; interrupt-based approval demo, no packaged support |
 
 ---

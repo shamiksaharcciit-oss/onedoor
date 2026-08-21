@@ -31,6 +31,14 @@ examples = ["langgraph>=1.0", "langchain-core>=1.0"]
 # The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
 # does not exist before it.
 langchain = ["langchain>=1.0"]
+# The LiteLLM gateway guardrail example. Its own extra rather than part of
+# [examples]: litellm is a large dependency tree and a reader who wants the
+# LangGraph examples should not pay for it. Declared because
+# examples/litellm_guardrail.py imports it -- until 0.3.6 it imported a package no
+# extra installed, so anyone following the docs hit ModuleNotFoundError.
+# Deliberately NOT in [dev]: the example's tests use a stand-in for the base class,
+# so CI stays light and does not gain a heavy transitive tree it never exercises.
+litellm = ["litellm>=1.60"]
 # ruff is PINNED, not floated. Lint rule sets change between ruff releases, so an
 # unpinned linter makes CI non-deterministic: the job can go red on a morning
 # nobody touched the code. Bump it deliberately, as its own commit (ND-025).
