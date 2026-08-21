@@ -192,8 +192,8 @@ contribution.
 
 Stated here rather than left to be discovered. The full list, with the measurement
 behind each, is in [CHANGELOG.md](CHANGELOG.md) and
-[CONFORMANCE.md](CONFORMANCE.md); the two a deployer should read before trusting a
-boundary to this engine:
+[CONFORMANCE.md](CONFORMANCE.md); these are the ones a deployer should read before
+trusting a boundary to this engine:
 
 - **`param_effects` matches URL-valued parameters as strings.** A redirector, an IP
   literal or a percent-encoded host defeats a pattern like
@@ -201,6 +201,14 @@ boundary to this engine:
   0/4 on its evasive set. Use effect labels for cooperative inputs; put a fail-closed
   egress control in front of anything that matters. Canonicalization lands in `0.4.x`
   (`ND-040`).
+- **Numeric parameters pass through IEEE double precision before any check.**
+  **Workaround, available today: send money amounts as JSON *strings* —** `"500.10"`
+  is exact end to end. As JSON *numbers*, a value carrying more precision than a
+  double holds can be admitted or denied within about half an ulp of the bound
+  (~5e-14 at `500.10`, growing with magnitude — negligible for euros, material for
+  large counts). Demonstrated: policy max `500.10`, wire amount
+  `500.1000000000000000001`, verdict **allowed**. Affects `0.3.6` and earlier; fixed
+  in `0.4.0` by parsing with `parse_float=Decimal` at every ingress.
 - **No obligation machinery.** An AADP obligation attached to a permit would be
   silently ignored by onedoor's own enforcement points rather than failing closed
   (`ND-038`).
