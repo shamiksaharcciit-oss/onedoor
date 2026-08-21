@@ -101,8 +101,8 @@ def append(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol, budget_json"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -124,6 +124,10 @@ def append(
             to_iso(now),
             policy_version,
             AADP_PROTOCOL,
+            # E7: PERSISTED, not merely returned. cap_value collapses the day and
+            # month windows, so a denial that cannot name its window is not
+            # re-derivable from the evidence store alone.
+            None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
         ),
     )
     return int(cur.lastrowid or 0)
@@ -150,8 +154,8 @@ def append_expiry(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol, budget_json"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             intent_row["request_id"],
             "reservation_expired",
@@ -173,6 +177,9 @@ def append_expiry(
             to_iso(now),
             policy_version,
             AADP_PROTOCOL,
+            # No budget: a reclamation row records a permit whose deadline passed, not
+            # a cap denial. ND-003's object is present iff the verdict IS the cap.
+            None,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -330,6 +337,7 @@ def append_buffered(
             to_iso(now),
             row["version_hash"] if row else None,
             AADP_PROTOCOL,
+            None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
         )
     )
     if event_topic is not None and event_payload is not None:
@@ -349,8 +357,8 @@ def flush(conn: sqlite3.Connection) -> int:
             " request_id, kind, parent_id, action_type, source, params_json,"
             " decision, reason_code, nominal_tier, effective_tier, detail,"
             " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
-            " created_at, policy_version, protocol"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " created_at, policy_version, protocol, budget_json"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         if events:

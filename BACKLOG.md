@@ -18,13 +18,13 @@ locked with both of delivery's accuracy-check clarifications adopted (R014).
 `ND-003` + `ND-039`, one breaking increment, migration `0007`, `ND-040` immediately
 behind it per R011. **Decomposition written before the code: `TICKETS-0.4.0.md`** —
 it carries the work order, the `0007` column shape, the test plan, and seven findings
-from the code survey that the backlog did not name (four of them live defects). **W1–W4 are done:** the canonical renderer is vendored and pinned by property tests
+from the code survey that the backlog did not name (four of them live defects). **W1–W5 are done:** the canonical renderer is vendored and pinned by property tests
 over generated inputs; migration `0007` lands the row format including the whole
 receipt envelope dark; and Decimal now survives ingress → bounds → cost → reservation
 → settlement, which closes S2 (a live enforcement mis-decision) and S3; and W4 lands
 the `aadp/0.2` vocabulary (`cap_rate`/`cap_value`, `sender_mismatch` reserved), the
-protocol stamp on every row, and R019's `snapshot_schema`. Remaining: W5 (budget
-object), W6 (four-value outcome), W7 (verbatim freeze).
+protocol stamp on every row, and R019's `snapshot_schema`. W5 lands the seven-field `budget` object, closing the day-vs-month granularity gap
+W4 deliberately opened. Remaining: W6 (four-value outcome), W7 (verbatim freeze).
 
 > **Sequencing correction from the decomposition.** This backlog assigns vendoring
 > `canonical.py` to `ND-001` (`0.4.1`). That is the wrong order: `ND-002`'s row format
@@ -452,6 +452,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-046 | Documentation site | M | **Migrated from `ROADMAP.md` by `ND-036`.** Concepts (the ordered pipeline and *why* that order), policy reference, an integration guide per surface, deployment/operations, threat model. Most of the raw material exists under `docs/`. |
 | ND-047 | Audit retention policies | M 🔺 | **Migrated from `ROADMAP.md` by `ND-036`.** 🔺 **Not a simple deletion feature.** `actions_audit` is append-only by trigger and, from `ND-001`, hash-chained: any retention scheme must say what happens to the chain across a pruned prefix, or verification of a retained archive silently becomes unverifiable. Core-gated for that reason. **Do not start before `ND-001`.** **Parked (R011)** with the constraint kept: core has the pruned-prefix/chain interaction under change-list watch and it may surface in `-02`'s evidence-retention prose. No delivery action now. |
 | ND-048 | **Indirect / obfuscated command construction defeats parameter rules** | L 🔺 | **Ticketed on core's instruction (R012 §2)** so it cannot quietly age out of the disclosure. `experiments/aliasing_benchmark.py`'s fourth evasive case is `bash -c "$(echo <base64> | base64 -d)"`: the governed effect is real, the parameter carries no matchable literal, and **no deterministic parameter rule catches it** — the benchmark says so in its own output, scoring 0/4 with the shell case included at every layer. **`ND-040` does not close this**; URL canonicalization is a different mechanism, and conflating them would let the disclosure imply a fix that does not exist. Disclosed in `CHANGELOG.md` as an open gap. 🔺 Core owns the framing: the benchmark calls this "the residue a measured, escalate-only semantic layer would own", which touches A9b's research-coupled territory. Delivery does not start this without a ruling on what a conformant answer even looks like. |
+| ND-049 | **Suite runtime: diagnosed, accepted cost on Windows** | S | **Ticketed per R020, and diagnosed rather than left as "observed".** Measured: the `db` fixture costs **81 ms** (57 ms `Database.init()` over 8 migrations + 24 ms `load_file`), so ~215 tests floor at **~17 s**. A clean local run took **28 s**; earlier runs took **185–365 s**, one of them spending **82 s in a single fixture setup** doing work that costs 81 ms in isolation — and the slow tests **differ completely between runs**. Non-reproducible, Windows-only. **CI on Linux is stable at 65–73 s across four runs**, which is the number that governs the project. **Verdict: environmental, not algorithmic — an accepted cost, not a defect.** The most likely cause is real-time AV scanning of the thousands of short-lived SQLite files created under `tmp_path`; that specific cause is **unconfirmed** and is not claimed. Revisit only if CI moves. One real fix already landed in W4: two whole-repo assertions walked `.venv` (10,788 paths, ~6 s per call, twice per run) and now prune in place (199 files, ~0 s). |
 
 ---
 

@@ -259,6 +259,10 @@ def decide_and_reserve(
                 nominal_tier=nominal_tier,
                 reason_code=cap_result.reason,
                 detail=cap_result.detail,
+                # ND-003: present iff the verdict is deny and the reason is a cap.
+                # `cost_unknown` also arrives here and carries no budget -- there is
+                # no budget state to report when the amount could not be resolved.
+                budget=cap_result.budget,
             )
             aid = audit.append(conn, request, decision, kind="decision", now=now, undo_of=undo_of)
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})

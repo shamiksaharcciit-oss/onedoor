@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
-from onedoor.guardrail.models import ActionRequest, Caps, CheckId, Policy
+from onedoor._vendor.canonical import canon_datetime, canon_decimal
+from onedoor.guardrail.models import ActionRequest, Budget, Caps, CheckId, Policy
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,10 @@ class CapResult:
     # reservation can be reversed later if the permit is never reported. Each
     # entry is (counter_key, window_kind, window_key, count_delta, eur_delta).
     deltas: tuple[tuple[str, str, str, int, str], ...] = ()
+    # ND-003: machine-readable budget state, set only on a cap denial. The free-text
+    # `detail` above is what this replaces -- prose cannot say which window broke in
+    # a form an evidence reader can act on.
+    budget: Budget | None = None
 
 
 def _day_key(now: datetime, tz: ZoneInfo) -> str:
@@ -33,6 +38,28 @@ def _day_key(now: datetime, tz: ZoneInfo) -> str:
 
 def _month_key(now: datetime, tz: ZoneInfo) -> str:
     return now.astimezone(tz).strftime("%Y-%m")
+
+
+def _day_resets_at(now: datetime, tz: ZoneInfo) -> str:
+    """The instant the day window rolls, in the policy's timezone, rendered UTC.
+
+    Computed from the SAME clock and timezone that produced the window key, so the
+    budget object can never name a reset instant that disagrees with the counter it
+    describes -- two answers to one question is a disagreement waiting for its first
+    bug (X-14).
+    """
+    local = now.astimezone(tz)
+    start_of_next = (local + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return canon_datetime(start_of_next.astimezone(UTC))
+
+
+def _month_resets_at(now: datetime, tz: ZoneInfo) -> str:
+    local = now.astimezone(tz)
+    year, month = (local.year + 1, 1) if local.month == 12 else (local.year, local.month + 1)
+    start_of_next = local.replace(
+        year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    return canon_datetime(start_of_next.astimezone(UTC))
 
 
 def _read(conn: sqlite3.Connection, action_type: str, kind: str, key: str) -> tuple[int, Decimal]:
@@ -137,22 +164,63 @@ def _check_one(
     day: str,
     month: str,
     label: str,
+    now: datetime,
+    tz: ZoneInfo,
 ) -> CapResult:
     if caps.daily_rate is not None:
         count, _ = counters.get((key, "rate", day), (0, Decimal(0)))
         if count + 1 > caps.daily_rate:
-            return CapResult(True, CheckId.CAP_RATE, f"daily rate {caps.daily_rate} reached{label}")
+            return CapResult(
+                True,
+                CheckId.CAP_RATE,
+                f"daily rate {caps.daily_rate} reached{label}",
+                budget=Budget(
+                    dimension="rate",
+                    unit="calls",  # a token, not a currency: the dimension is not money
+                    window="day",
+                    limit=canon_decimal(Decimal(caps.daily_rate)),
+                    consumed=canon_decimal(Decimal(count)),
+                    remaining=canon_decimal(max(Decimal(0), Decimal(caps.daily_rate - count))),
+                    window_resets_at=_day_resets_at(now, tz),
+                ),
+            )
     if caps.eur_day is not None:
         _, total = counters.get((key, "eur_day", day), (0, Decimal(0)))
         if total + cost > caps.eur_day:
-            return CapResult(True, CheckId.CAP_VALUE, f"€/day cap {caps.eur_day} reached{label}")
+            return CapResult(
+                True,
+                CheckId.CAP_VALUE,
+                f"€/day cap {caps.eur_day} reached{label}",
+                budget=_value_budget("day", caps.eur_day, total, _day_resets_at(now, tz)),
+            )
     if caps.eur_month is not None:
         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
         if total + cost > caps.eur_month:
             return CapResult(
-                True, CheckId.CAP_VALUE, f"€/month cap {caps.eur_month} reached{label}"
+                True,
+                CheckId.CAP_VALUE,
+                f"€/month cap {caps.eur_month} reached{label}",
+                budget=_value_budget("month", caps.eur_month, total, _month_resets_at(now, tz)),
             )
     return CapResult(False)
+
+
+def _value_budget(window: str, limit: Decimal, consumed: Decimal, resets_at: str) -> Budget:
+    """A euro-dimension budget. `window` is what `cap_value` no longer says by itself.
+
+    Both euro caps now deny with the same reason code, so this object is the only
+    thing that distinguishes a day breach from a month one. That is the granularity
+    `0.3.5` carried in the reason code and `aadp/0.2` moved here on purpose.
+    """
+    return Budget(
+        dimension="value",
+        unit="EUR",  # currency lives in `unit`, never in a field name
+        window=window,
+        limit=canon_decimal(limit),
+        consumed=canon_decimal(consumed),
+        remaining=canon_decimal(max(Decimal(0), limit - consumed)),
+        window_resets_at=resets_at,
+    )
 
 
 def _reserve_all(
@@ -260,7 +328,7 @@ def check_and_reserve(
 
     counters = _read_all(conn, [k for k, _, _ in sources], day, month)
     for key, caps, label in sources:  # check everything first
-        result = _check_one(counters, key, caps, amount, day, month, label)
+        result = _check_one(counters, key, caps, amount, day, month, label, now, tz)
         if result.exceeded:
             return result
     deltas = _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything

@@ -49,7 +49,7 @@ from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Budget, Decision, Source
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
 from onedoor.store.clock import now_utc
@@ -103,6 +103,11 @@ class DecideReply(BaseModel):
     approval_id: int | None = None
     intent_audit_id: int | None = None  # present iff permitted: enforce, then report
     undo_until: datetime | None = None
+    budget: Budget | None = None
+    """ND-003. Present **iff** the verdict is a denial with reason `cap_value` or
+    `cap_rate` -- the machine-readable budget state that `aadp/0.2`'s unit-neutral
+    codes no longer carry. A PEP can act on this; it could not act on the prose in
+    `detail`."""
 
 
 class ReportBody(BaseModel):
@@ -167,6 +172,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
         request_id=outcome.request_id,
         audit_id=outcome.audit_id,
         approval_id=outcome.approval_id,
+        budget=d.budget,
     )
 
 

@@ -17,6 +17,16 @@ onedoor is the reference implementation of the AADP Internet-Draft
   PEP's behaviour is fixed by the verdict, never by the reason string, so an older PEP
   that has never heard of `cap_value` still denies correctly. **If you match on reason
   strings in dashboards or alerts, they change here.**
+- **Cap denials carry a machine-readable `budget` object.** Present **iff** the
+  verdict is a denial with reason `cap_value` or `cap_rate`, on the decide response
+  **and persisted** to `budget_json`. Seven required fields: `dimension`
+  (`value`|`rate`), `unit` (ISO 4217 for value, a token like `calls` for rate),
+  `window`, `limit`, `consumed`, `remaining`, `window_resets_at`. Currency lives in
+  `unit`, never in a field name. **This is what makes the unit-neutral codes safe:**
+  `cap_value` collapses the old `cap_eur_day`/`cap_eur_month`, so without it an
+  evidence reader could no longer tell a day breach from a month one. Numerics are
+  canonical decimal strings; `window_resets_at` is RFC3339 UTC derived from the same
+  timezone the counters are keyed in.
 - **Every audit row is stamped `aadp/0.2`.** A row with **no** stamp MUST be read
   under `aadp/0.1` — that absence is a fact about when the row was written, not a
   value to infer. Existing rows keep the codes they were written with; history is not

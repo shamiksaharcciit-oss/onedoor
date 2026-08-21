@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import IntEnum, StrEnum
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -248,6 +248,39 @@ class ActionRequest(BaseModel):
         return v
 
 
+class Budget(BaseModel):
+    """Machine-readable budget state on a cap denial (ND-003, AADP A4).
+
+    Present **iff** the verdict is `deny` and the reason is `cap_value` or
+    `cap_rate`. It exists because `aadp/0.2` made the reason codes unit-neutral:
+    `cap_value` collapses what used to be `cap_eur_day` and `cap_eur_month`, so
+    without this object the evidence store can no longer tell a day-cap breach from
+    a month-cap one -- a granularity regression against 0.3.5, where the reason code
+    alone carried it. Confirmed normative under the evidence section (E7): a
+    `cap_value` denial that cannot name its window is not re-derivable.
+
+    Persisted to `budget_json`, not merely returned. All seven fields are REQUIRED.
+    Currency lives in `unit`, never in a field name -- that is what "unit-neutral"
+    means, and it is what lets tokens or call counts use the same shape later
+    (ND-027) without another vocabulary change.
+
+    Numerics are decimal STRINGS in canonical shortest-exact form, never floats and
+    never JSON numbers: one form for wire, storage and preimage (E8).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    dimension: Literal["value", "rate"]
+    unit: str
+    """ISO 4217 for a value dimension ("EUR"); a token for a rate ("calls")."""
+    window: str
+    """"day" | "month" | an ISO-8601 duration."""
+    limit: str
+    consumed: str
+    remaining: str
+    window_resets_at: str
+    """RFC3339, UTC, canonical -- the instant the window rolls and the budget frees."""
+
+
 class PolicyDecision(BaseModel):
     """The fully-explainable verdict."""
 
@@ -260,6 +293,8 @@ class PolicyDecision(BaseModel):
     dry_run: bool = False
     requires_approval: bool = False
     compensating_command: str | None = None
+    budget: Budget | None = None
+    """Set iff `decision` is a denial and `reason_code` is `cap_value`/`cap_rate`."""
 
 
 class ActionResult(BaseModel):
