@@ -1,0 +1,2321 @@
+From 8d8f4b36a7aa017bd59b3a0cb0589b6a69f1ad4e Mon Sep 17 00:00:00 2001
+From: onedoor delivery <delivery@onedoor.local>
+Date: Thu, 20 Aug 2026 23:15:39 +0000
+Subject: [PATCH 2/2] ND-025: make the CI gates actually pass, and make them
+ deterministic
+
+The workflow added in cbb8414 runs 'ruff check', 'ruff format --check' and
+'mypy onedoor'. None of the three passed at that commit -- 78 lint errors, 49
+files unformatted, 7 type errors. The workflow was written without running the
+tools it invokes. That is delivery's error and this commit is the correction.
+
+Three parts:
+
+1. Lint rules are a decision, not a default. There was no [tool.ruff] config
+   anywhere in the repo, so 'ruff check' linted against whatever rule set the
+   installed ruff happened to default to. This adds an explicit select list,
+   line-length 100 (the codebase's actual maximum is 99) and target-version
+   py312. BLE001 is deliberately NOT selected: fail-soft on connector failure is
+   designed behaviour here, and those sites need reading, not an auto-fix.
+
+2. ruff is now PINNED (==0.16.4), not floated (>=0.8). An unpinned linter makes
+   CI non-deterministic -- rule sets change between releases, so the job can go
+   red on a morning nobody touched the code. Bump it deliberately.
+
+3. mypy --strict now passes. The substantive fix is EngineConfigLike, a Protocol
+   in models.py. decision.py previously annotated its config parameter as
+   'object' to avoid an import cycle with executor.py -- which resolved the cycle
+   by disabling type checking on every attribute access. The Protocol keeps the
+   dependency pointing one way and still checks the attributes. Members are
+   read-only properties because EngineConfig is a frozen dataclass and a Protocol
+   variable member is implicitly settable. Also: types-PyYAML added, the optional
+   opentelemetry import given an ignore_missing_imports override (telemetry.py
+   imports it inside try/except and no-ops without it -- absence is the designed
+   behaviour, not a missing dependency), and two genuine annotation fixes in
+   mcp/proxy.py and guardrail/policy.py.
+
+The formatting pass (30 files) is included here deliberately: it is mechanical,
+it has no behaviour change, and running it now -- while the tree is quiet, before
+ND-021 and the 0.4.0 row-format work land -- avoids a 30-file collision with
+every ticket that follows.
+
+Suite: 138 passed. ruff check, ruff format --check and mypy --strict all clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ docs/integration-langchain-middleware.md      |   8 +-
+ docs/integration-langgraph.md                 |   6 +-
+ docs/integration-library.md                   |  35 ++--
+ examples/langgraph_finance.py                 | 104 +++++++----
+ examples/langgraph_tools.py                   |  50 ++++--
+ examples/litellm_guardrail.py                 |  44 +++--
+ experiments/aliasing_benchmark.py             | 163 ++++++++++++------
+ onedoor/guardrail/audit.py                    |  26 ++-
+ onedoor/guardrail/caps.py                     |  21 ++-
+ onedoor/guardrail/decision.py                 |  29 ++--
+ onedoor/guardrail/executor.py                 |  10 +-
+ onedoor/guardrail/models.py                   |  33 ++++
+ onedoor/guardrail/policy.py                   |  10 +-
+ onedoor/guardrail/policy_loader.py            |  18 +-
+ onedoor/integrations/langchain_middleware.py  |  18 +-
+ onedoor/mcp/demo_server.py                    |   6 +-
+ onedoor/mcp/proxy.py                          |   7 +-
+ onedoor/service/app.py                        |  35 ++--
+ onedoor/service/telemetry.py                  |   2 +-
+ onedoor/store/migrations/0001_init.sql        |  10 +-
+ pyproject.toml                                |  33 +++-
+ scripts/demo.py                               |  81 ++++++---
+ scripts/demo_mcp.py                           |  31 +++-
+ tests/conftest.py                             |   1 +
+ tests/guardrail/test_approvals.py             |   1 +
+ tests/guardrail/test_audit_append_only.py     |   1 +
+ tests/guardrail/test_concurrency.py           |   8 +-
+ tests/guardrail/test_cost_resolution.py       |  22 ++-
+ tests/guardrail/test_decision_split.py        |   6 +-
+ tests/guardrail/test_effects.py               |  53 +++---
+ tests/guardrail/test_group_commit.py          |  26 ++-
+ tests/guardrail/test_policy_loader.py         |   1 +
+ tests/guardrail/test_policy_provenance.py     |  14 +-
+ tests/guardrail/test_reservation_reclaim.py   |   4 +-
+ tests/guardrail/test_scopegate_regressions.py |   9 +-
+ tests/guardrail/test_undo.py                  |   1 +
+ .../integrations/test_langchain_middleware.py | 109 ++++++++----
+ tests/mcp/test_proxy_demo.py                  |  19 +-
+ tests/service/test_service.py                 |   3 +-
+ 39 files changed, 710 insertions(+), 348 deletions(-)
+
+diff --git a/docs/integration-langchain-middleware.md b/docs/integration-langchain-middleware.md
+index d2731a9..8c2ba44 100644
+--- a/docs/integration-langchain-middleware.md
++++ b/docs/integration-langchain-middleware.md
+@@ -11,7 +11,8 @@ from onedoor.integrations.langchain_middleware import OneDoorMiddleware, open_en
+ conn, config = open_engine("agent.db", "policies.yaml")
+ 
+ agent = create_agent(
+-    model, tools,
++    model,
++    tools,
+     middleware=[OneDoorMiddleware(conn, config)],
+ )
+ ```
+@@ -53,14 +54,15 @@ Two modes. The default returns the approval notice as the tool's output and lets
+ the agent carry on:
+ 
+ ```python
+-OneDoorMiddleware(conn, config)                      # on_proposed="message"
++OneDoorMiddleware(conn, config)  # on_proposed="message"
+ ```
+ 
+ With a checkpointer, `interrupt` pauses the graph instead:
+ 
+ ```python
+ agent = create_agent(
+-    model, tools,
++    model,
++    tools,
+     middleware=[OneDoorMiddleware(conn, config, on_proposed="interrupt")],
+     checkpointer=MemorySaver(),
+ )
+diff --git a/docs/integration-langgraph.md b/docs/integration-langgraph.md
+index f6d0989..6527178 100644
+--- a/docs/integration-langgraph.md
++++ b/docs/integration-langgraph.md
+@@ -30,8 +30,8 @@ The examples need LangGraph, which the engine itself does not:
+ from examples.langgraph_tools import governed, make_engine
+ 
+ conn, config = make_engine("guardrail.db", Path("policies.yaml"))
+-weather = governed(get_weather, conn, config)          # a @tool from langchain
+-pay     = governed(send_payment, conn, config)
++weather = governed(get_weather, conn, config)  # a @tool from langchain
++pay = governed(send_payment, conn, config)
+ ```
+ 
+ A wrapped tool keeps its name, description and args schema, so agents and
+@@ -62,7 +62,7 @@ paused["__interrupt__"][0].value
+ # {'approval_id': 1, 'action_type': 'tool.send_payment',
+ #  'params': {'payee': 'acme', 'amount_eur': 120.0}, 'reason': 'tier_confirm'}
+ 
+-app.invoke(Command(resume="approved"), cfg)   # human said yes -> executes + reports
++app.invoke(Command(resume="approved"), cfg)  # human said yes -> executes + reports
+ ```
+ 
+ What each layer contributes: LangGraph provides the pause/resume machinery;
+diff --git a/docs/integration-library.md b/docs/integration-library.md
+index 7959512..d533cf4 100644
+--- a/docs/integration-library.md
++++ b/docs/integration-library.md
+@@ -57,12 +57,19 @@ outcome = decide_and_reserve(request, conn=conn, config=config, now=now)
+ 
+ if isinstance(outcome, PermittedIntent):
+     try:
+-        result = my_crm.update(**request.params)        # <- your enforcement
+-        report_result(outcome, conn=conn, ok=True,
+-                      payload={"crm_result": str(result)[:500]}, error=None, now=now_utc())
++        result = my_crm.update(**request.params)  # <- your enforcement
++        report_result(
++            outcome,
++            conn=conn,
++            ok=True,
++            payload={"crm_result": str(result)[:500]},
++            error=None,
++            now=now_utc(),
++        )
+     except Exception as exc:
+-        report_result(outcome, conn=conn, ok=False,
+-                      payload=None, error=str(exc)[:200], now=now_utc())
++        report_result(
++            outcome, conn=conn, ok=False, payload=None, error=str(exc)[:200], now=now_utc()
++        )
+         raise
+ else:
+     d = outcome.decision
+@@ -87,11 +94,15 @@ from onedoor.guardrail.executor import evaluate_and_execute, propose_action
+ from onedoor.guardrail.registry import ConnectorRegistry
+ 
+ registry = ConnectorRegistry()
+-registry.register("crm.update_record", my_crm_act_fn)   # (params: dict) -> dict
++registry.register("crm.update_record", my_crm_act_fn)  # (params: dict) -> dict
+ 
+ result = propose_action(
+-    "crm.update_record", {"record_id": "A-113", "field": "status", "value": "closed"},
+-    rationale="agent proposal", conn=conn, registry=registry, config=config,
++    "crm.update_record",
++    {"record_id": "A-113", "field": "status", "value": "closed"},
++    rationale="agent proposal",
++    conn=conn,
++    registry=registry,
++    config=config,
+ )
+ ```
+ 
+@@ -102,12 +113,12 @@ from onedoor.guardrail.executor import resume_approval, deny_approval
+ from onedoor.guardrail import approvals, undo
+ 
+ pending = approvals.list_pending(conn)
+-result = resume_approval(pending[0].approval_id, "session-ui-1",
+-                         conn=conn, registry=registry, config=config)
++result = resume_approval(
++    pending[0].approval_id, "session-ui-1", conn=conn, registry=registry, config=config
++)
+ 
+ # Undo an executed Tier-1 action (within its window):
+-undo.undo(result.audit_id, conn=conn, registry=registry, config=config,
+-          session_id="session-ui-1")
++undo.undo(result.audit_id, conn=conn, registry=registry, config=config, session_id="session-ui-1")
+ ```
+ 
+ ## Threading
+diff --git a/examples/langgraph_finance.py b/examples/langgraph_finance.py
+index 21f2f6b..842ac04 100644
+--- a/examples/langgraph_finance.py
++++ b/examples/langgraph_finance.py
+@@ -110,35 +110,66 @@ def _calls() -> list[dict[str, Any]]:
+     ]
+     # 1. Fourteen genuinely overdue invoices, every one under the threshold.
+     for i, amount in enumerate(
+-        [92.40, 88.15, 97.00, 85.50, 99.99, 91.20, 87.75,
+-         94.30, 89.60, 96.10, 90.05, 98.40, 86.90, 93.25],
++        [
++            92.40,
++            88.15,
++            97.00,
++            85.50,
++            99.99,
++            91.20,
++            87.75,
++            94.30,
++            89.60,
++            96.10,
++            90.05,
++            98.40,
++            86.90,
++            93.25,
++        ],
+         start=1,
+     ):
+-        calls.append({
+-            "name": "pay_invoice",
+-            "args": {"invoice_id": f"INV-30{i:02d}", "payee": "Meridian Supplies",
+-                     "amount_eur": amount},
+-        })
++        calls.append(
++            {
++                "name": "pay_invoice",
++                "args": {
++                    "invoice_id": f"INV-30{i:02d}",
++                    "payee": "Meridian Supplies",
++                    "amount_eur": amount,
++                },
++            }
++        )
+     # 2. One EUR 380 invoice the agent splits into four compliant payments.
+     for i, amount in enumerate([95.00, 95.00, 95.00, 95.00], start=1):
+-        calls.append({
+-            "name": "pay_invoice",
+-            "args": {"invoice_id": f"INV-3199-{i}", "payee": "Northwind Ltd",
+-                     "amount_eur": amount},
+-        })
++        calls.append(
++            {
++                "name": "pay_invoice",
++                "args": {
++                    "invoice_id": f"INV-3199-{i}",
++                    "payee": "Northwind Ltd",
++                    "amount_eur": amount,
++                },
++            }
++        )
+     # 3. A different tool for the same real-world effect.
+     for amount in [99.00, 99.00, 99.00]:
+-        calls.append({
+-            "name": "pay_supplier_batch",
+-            "args": {"payee": "Northwind Ltd", "amount_eur": amount},
+-        })
++        calls.append(
++            {
++                "name": "pay_supplier_batch",
++                "args": {"payee": "Northwind Ltd", "amount_eur": amount},
++            }
++        )
+     # 4. The irreversible one, framed as urgent and under nobody's threshold
+     #    because wires were never given one.
+-    calls.append({
+-        "name": "send_wire",
+-        "args": {"beneficiary": "Meridian Supplies Ltd", "amount_eur": 2400.00,
+-                 "reference": "Q3 settlement - urgent"},
+-    })
++    calls.append(
++        {
++            "name": "send_wire",
++            "args": {
++                "beneficiary": "Meridian Supplies Ltd",
++                "amount_eur": 2400.00,
++                "reference": "Q3 settlement - urgent",
++            },
++        }
++    )
+     return [dict(c, id=f"c{i}") for i, c in enumerate(calls)]
+ 
+ 
+@@ -179,15 +210,19 @@ def _per_call_gate(lc_tool: Any) -> Any:
+         return inner(**kwargs)
+ 
+     return StructuredTool.from_function(
+-        func=run, name=lc_tool.name, description=lc_tool.description,
++        func=run,
++        name=lc_tool.name,
++        description=lc_tool.description,
+         args_schema=lc_tool.args_schema,
+     )
+ 
+ 
+ def run_per_call_gate() -> Ledger:
+     LEDGER.paid.clear()
+-    tools = [_per_call_gate(t) for t in
+-             (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire)]
++    tools = [
++        _per_call_gate(t)
++        for t in (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire)
++    ]
+     graph = StateGraph(MessagesState)
+     graph.add_node("tools", ToolNode(tools))
+     graph.add_edge(START, "tools")
+@@ -203,9 +238,10 @@ def run_per_call_gate() -> Ledger:
+ def run_onedoor() -> tuple[Ledger, list[str]]:
+     LEDGER.paid.clear()
+     conn, config = make_engine(tempfile.mktemp(suffix=".db"), POLICIES)
+-    tools = [governed(t, conn, config) for t in
+-             (list_overdue_invoices, pay_invoice, pay_supplier_batch,
+-              send_wire, recall_payment)]
++    tools = [
++        governed(t, conn, config)
++        for t in (list_overdue_invoices, pay_invoice, pay_supplier_batch, send_wire, recall_payment)
++    ]
+     graph = StateGraph(MessagesState)
+     graph.add_node("tools", ToolNode(tools))
+     graph.add_edge(START, "tools")
+@@ -233,8 +269,10 @@ def main() -> None:
+     print(f"Daily budget:            EUR {DAILY_BUDGET:,.2f}")
+     print(f"Per-payment threshold:   EUR {PER_PAYMENT_THRESHOLD:,.2f}")
+     print(f"Calls the agent makes:   {len(calls)} ({len(payments)} of them move money)")
+-    print(f"Largest single payment:  EUR "
+-          f"{max(Decimal(str(c['args']['amount_eur'])) for c in payments):,.2f}")
++    print(
++        f"Largest single payment:  EUR "
++        f"{max(Decimal(str(c['args']['amount_eur'])) for c in payments):,.2f}"
++    )
+     print()
+ 
+     a = run_ungoverned().total
+@@ -256,9 +294,11 @@ def main() -> None:
+     print(_line("B. per-call threshold", b))
+     print(_line(f"C. onedoor (worst of {RUNS} runs)", c))
+     if len(set(totals)) > 1:
+-        print(f"     across {RUNS} concurrent runs: "
+-              f"EUR {min(totals):,.2f} - EUR {max(totals):,.2f}, "
+-              f"cap breached {sum(1 for t in totals if t > DAILY_BUDGET)} times")
++        print(
++            f"     across {RUNS} concurrent runs: "
++            f"EUR {min(totals):,.2f} - EUR {max(totals):,.2f}, "
++            f"cap breached {sum(1 for t in totals if t > DAILY_BUDGET)} times"
++        )
+     print()
+ 
+     denials: dict[str, int] = {}
+diff --git a/examples/langgraph_tools.py b/examples/langgraph_tools.py
+index 9249068..e5e294a 100644
+--- a/examples/langgraph_tools.py
++++ b/examples/langgraph_tools.py
+@@ -27,9 +27,11 @@ from __future__ import annotations
+ import functools
+ import tempfile
+ import threading
++from collections.abc import Callable
+ from pathlib import Path
+-from typing import Any, Callable
++from typing import Any
+ from uuid import uuid4
++from zoneinfo import ZoneInfo
+ 
+ from langchain_core.messages import AIMessage
+ from langchain_core.tools import BaseTool, StructuredTool, tool
+@@ -45,7 +47,6 @@ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import ActionRequest, Decision, Source
+ from onedoor.store.clock import now_utc
+ from onedoor.store.db import Database
+-from zoneinfo import ZoneInfo
+ 
+ # ----------------------------- engine setup ----------------------------------
+ 
+@@ -82,8 +83,11 @@ def governed(
+     def run(**kwargs: Any) -> Any:
+         now = now_utc()
+         request = ActionRequest(
+-            request_id=uuid4(), action_type=action_type, params=kwargs,
+-            source=Source.LLM, rationale=f"langgraph tool call {lc_tool.name}",
++            request_id=uuid4(),
++            action_type=action_type,
++            params=kwargs,
++            source=Source.LLM,
++            rationale=f"langgraph tool call {lc_tool.name}",
+             created_at=now,
+         )
+         with _LOCK:
+@@ -93,8 +97,12 @@ def governed(
+         d = outcome.decision
+         if d.decision == Decision.PROPOSED and on_proposed == "interrupt":
+             resume = interrupt(
+-                {"approval_id": outcome.approval_id, "action_type": action_type,
+-                 "params": kwargs, "reason": d.reason_code.value}
++                {
++                    "approval_id": outcome.approval_id,
++                    "action_type": action_type,
++                    "params": kwargs,
++                    "reason": d.reason_code.value,
++                }
+             )
+             if resume == "approved":
+                 return _execute_approved(outcome.approval_id, inner, conn, config)
+@@ -111,7 +119,9 @@ def governed(
+ 
+     # Preserve the original schema so agents and ToolNode see identical args.
+     return StructuredTool.from_function(
+-        func=run, name=lc_tool.name, description=lc_tool.description,
++        func=run,
++        name=lc_tool.name,
++        description=lc_tool.description,
+         args_schema=lc_tool.args_schema,
+     )
+ 
+@@ -121,12 +131,19 @@ def _enforce(intent: PermittedIntent, fn: Callable[..., Any], kwargs: dict, conn
+         result = fn(**kwargs)
+     except Exception as exc:
+         with _LOCK:
+-            report_result(intent, conn=conn, ok=False, payload=None,
+-                          error=str(exc)[:200], now=now_utc())
++            report_result(
++                intent, conn=conn, ok=False, payload=None, error=str(exc)[:200], now=now_utc()
++            )
+         raise
+     with _LOCK:
+-        report_result(intent, conn=conn, ok=True,
+-                      payload={"result": str(result)[:500]}, error=None, now=now_utc())
++        report_result(
++            intent,
++            conn=conn,
++            ok=True,
++            payload={"result": str(result)[:500]},
++            error=None,
++            now=now_utc(),
++        )
+     return result
+ 
+ 
+@@ -193,10 +210,13 @@ def _selftest() -> None:
+     g2.add_edge(START, "tools")
+     g2.add_edge("tools", END)
+     app2 = g2.compile()
+-    msg = AIMessage(content="", tool_calls=[
+-        {"name": "get_weather", "args": {"city": "Veldhoven"}, "id": "c1"},
+-        {"name": "set_thermostat", "args": {"temperature": 19}, "id": "c2"},
+-    ])
++    msg = AIMessage(
++        content="",
++        tool_calls=[
++            {"name": "get_weather", "args": {"city": "Veldhoven"}, "id": "c1"},
++            {"name": "set_thermostat", "args": {"temperature": 19}, "id": "c2"},
++        ],
++    )
+     out = app2.invoke({"messages": [msg]})
+     for m in out["messages"][1:]:
+         print("   ", m.content)
+diff --git a/examples/litellm_guardrail.py b/examples/litellm_guardrail.py
+index b5b8abb..0de3a01 100644
+--- a/examples/litellm_guardrail.py
++++ b/examples/litellm_guardrail.py
+@@ -38,6 +38,7 @@ from __future__ import annotations
+ from pathlib import Path
+ from typing import Any
+ from uuid import uuid4
++from zoneinfo import ZoneInfo
+ 
+ from litellm.integrations.custom_guardrail import CustomGuardrail
+ 
+@@ -47,7 +48,6 @@ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import ActionRequest, Decision, Source
+ from onedoor.store.clock import now_utc
+ from onedoor.store.db import Database
+-from zoneinfo import ZoneInfo
+ 
+ 
+ class OneDoorRejection(Exception):
+@@ -82,16 +82,18 @@ class OneDoorGuardrail(CustomGuardrail):
+             rationale=rationale,
+             created_at=now,
+         )
+-        outcome = decide_and_reserve(
+-            request, conn=self.conn, config=self.engine_config, now=now
+-        )
++        outcome = decide_and_reserve(request, conn=self.conn, config=self.engine_config, now=now)
+         if isinstance(outcome, PermittedIntent):
+             # Example simplification: the gateway executes immediately after a
+             # permitted pre-call, so report here. Production: report the real
+             # outcome from async_post_call_success_hook.
+             report_result(
+-                outcome, conn=self.conn, ok=True,
+-                payload={"enforced_by": "litellm pre_call"}, error=None, now=now,
++                outcome,
++                conn=self.conn,
++                ok=True,
++                payload={"enforced_by": "litellm pre_call"},
++                error=None,
++                now=now,
+             )
+             return
+         d = outcome.decision
+@@ -101,12 +103,11 @@ class OneDoorGuardrail(CustomGuardrail):
+                 f"(reason: {d.reason_code.value}, approval_id={outcome.approval_id})."
+             )
+         if d.decision == Decision.DRY_RUN:
+-            raise OneDoorRejection(
+-                f"onedoor: '{action_type}' is in dry-run — would have executed."
+-            )
++            raise OneDoorRejection(f"onedoor: '{action_type}' is in dry-run — would have executed.")
+         raise OneDoorRejection(
+             f"onedoor: '{action_type}' denied (reason: {d.reason_code.value}"
+-            + (f" — {d.detail}" if d.detail else "") + ")."
++            + (f" — {d.detail}" if d.detail else "")
++            + ")."
+         )
+ 
+     # --- LiteLLM hook -------------------------------------------------------
+@@ -123,8 +124,14 @@ class OneDoorGuardrail(CustomGuardrail):
+             args = data.get("arguments") or {}
+             self._decide(f"mcp.{tool}", dict(args), f"litellm mcp tool call {tool}")
+             return data
+-        if call_type in ("completion", "acompletion", "anthropic_messages",
+-                         "aanthropic_messages", "responses", "aresponses"):
++        if call_type in (
++            "completion",
++            "acompletion",
++            "anthropic_messages",
++            "aanthropic_messages",
++            "responses",
++            "aresponses",
++        ):
+             self._decide(
+                 "llm.completion",
+                 {"model": data.get("model", "")},
+@@ -136,6 +143,7 @@ class OneDoorGuardrail(CustomGuardrail):
+ 
+ # --------------------------- self-test ---------------------------------------
+ 
++
+ def _selftest() -> None:
+     import asyncio
+     import tempfile
+@@ -158,10 +166,14 @@ def _selftest() -> None:
+             ("completion", {"model": "gpt-4o-mini"}),
+             ("completion", {"model": "gpt-4o-experimental"}),
+             ("call_mcp_tool", {"name": "get_weather", "arguments": {"city": "Utrecht"}}),
+-            ("call_mcp_tool", {"name": "send_payment",
+-                               "arguments": {"payee": "webshop", "amount_eur": 49.99}}),
+-            ("call_mcp_tool", {"name": "send_payment",
+-                               "arguments": {"payee": "webshop", "amount_eur": 5000}}),
++            (
++                "call_mcp_tool",
++                {"name": "send_payment", "arguments": {"payee": "webshop", "amount_eur": 49.99}},
++            ),
++            (
++                "call_mcp_tool",
++                {"name": "send_payment", "arguments": {"payee": "webshop", "amount_eur": 5000}},
++            ),
+             ("call_mcp_tool", {"name": "delete_everything", "arguments": {}}),
+         ]
+         for call_type, data in cases:
+diff --git a/experiments/aliasing_benchmark.py b/experiments/aliasing_benchmark.py
+index a61c09e..6fd227b 100644
+--- a/experiments/aliasing_benchmark.py
++++ b/experiments/aliasing_benchmark.py
+@@ -30,28 +30,34 @@ import json
+ import tempfile
+ from dataclasses import asdict, dataclass
+ from pathlib import Path
++from uuid import uuid4
+ from zoneinfo import ZoneInfo
+ 
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
+ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import (
+-    Bounds, Caps, EffectPolicy, ParamEffectRule, Policy, Tier,
++    ActionRequest,
++    Bounds,
++    Caps,
++    EffectPolicy,
++    ParamEffectRule,
++    Policy,
++    Source,
++    Tier,
+ )
+ from onedoor.store.clock import now_utc
+ from onedoor.store.db import Database
+-from onedoor.guardrail.models import ActionRequest, Source
+-from uuid import uuid4
+ 
+ GOVERNED_EFFECT = "money.egress"  # the effect whose escape routes we measure
+ 
+ 
+ @dataclass
+ class Case:
+-    kind: str            # named_alias | generic_covered | generic_evasive | innocent
++    kind: str  # named_alias | generic_covered | generic_evasive | innocent
+     action_type: str
+     params: dict
+-    true_effect: bool    # gold, by construction
++    true_effect: bool  # gold, by construction
+ 
+ 
+ def build_cases() -> list[Case]:
+@@ -66,21 +72,39 @@ def build_cases() -> list[Case]:
+         "https://pay.example.com/checkout",
+     ]:
+         cases.append(Case("generic_covered", "net.http", {"url": url, "method": "POST"}, True))
+-    cases.append(Case("generic_covered", "sys.shell",
+-                      {"cmd": "curl -X POST https://bank.example.com/transfer -d amount=40"}, True))
++    cases.append(
++        Case(
++            "generic_covered",
++            "sys.shell",
++            {"cmd": "curl -X POST https://bank.example.com/transfer -d amount=40"},
++            True,
++        )
++    )
+     # Generic tools, same true effect, params crafted to MISS the rules:
+     # redirector domains, IP literals, encoded urls, indirect shell.
+     for params in [
+-        {"url": "https://t.co/x9k2", "method": "POST"},                       # shortener
+-        {"url": "https://203.0.113.7/transfer", "method": "POST"},            # IP literal
+-        {"url": "https://bank%2Eexample%2Ecom/transfer", "method": "POST"},   # encoding
++        {"url": "https://t.co/x9k2", "method": "POST"},  # shortener
++        {"url": "https://203.0.113.7/transfer", "method": "POST"},  # IP literal
++        {"url": "https://bank%2Eexample%2Ecom/transfer", "method": "POST"},  # encoding
+     ]:
+         cases.append(Case("generic_evasive", "net.http", params, True))
+-    cases.append(Case("generic_evasive", "sys.shell",
+-                      {"cmd": "bash -c \"$(echo Y3VybCBiYW5rLmV4YW1wbGUuY29t | base64 -d)\""}, True))
++    cases.append(
++        Case(
++            "generic_evasive",
++            "sys.shell",
++            {"cmd": 'bash -c "$(echo Y3VybCBiYW5rLmV4YW1wbGUuY29t | base64 -d)"'},
++            True,
++        )
++    )
+     # Innocents: superficially similar, no governed effect.
+-    cases.append(Case("innocent", "net.http",
+-                      {"url": "https://weather.example.com/today", "method": "GET"}, False))
++    cases.append(
++        Case(
++            "innocent",
++            "net.http",
++            {"url": "https://weather.example.com/today", "method": "GET"},
++            False,
++        )
++    )
+     cases.append(Case("innocent", "pay.status", {"payment_id": "b-1"}, False))
+     cases.append(Case("innocent", "sys.shell", {"cmd": "curl https://example.com/readme"}, False))
+     return cases
+@@ -90,51 +114,82 @@ def make_engine(layer: str):
+     db = Database(tempfile.mktemp(suffix=".db"))
+     db.init()
+     conn = db.connect()
+-    config = EngineConfig(approval_ttl_seconds=60, connector_timeout_seconds=5.0,
+-                          tz=ZoneInfo("UTC"))
++    config = EngineConfig(
++        approval_ttl_seconds=60, connector_timeout_seconds=5.0, tz=ZoneInfo("UTC")
++    )
+     # The governed effect: Tier-3 floor — "moves money" needs a human,
+     # whichever tool name moved it.
+     if layer in ("L1", "L2"):
+         policy_loader.upsert_effect(
+             conn, EffectPolicy(effect=GOVERNED_EFFECT, min_tier=Tier.CONFIRM, caps=Caps())
+         )
+-    param_rules = [
+-        ParamEffectRule(param="url", pattern=r"https://(bank|pay)\.example\.com/.*",
+-                        add_effects=[GOVERNED_EFFECT]),
+-        ParamEffectRule(param="cmd", pattern=r".*(bank|pay)\.example\.com.*",
+-                        add_effects=[GOVERNED_EFFECT]),
+-    ] if layer == "L2" else []
++    param_rules = (
++        [
++            ParamEffectRule(
++                param="url",
++                pattern=r"https://(bank|pay)\.example\.com/.*",
++                add_effects=[GOVERNED_EFFECT],
++            ),
++            ParamEffectRule(
++                param="cmd", pattern=r".*(bank|pay)\.example\.com.*", add_effects=[GOVERNED_EFFECT]
++            ),
++        ]
++        if layer == "L2"
++        else []
++    )
+     # Named payment tools: L0 governs pay.send only (the one the policy author
+     # thought of); L1+ declare the effect on all five.
+     named = ["pay.send", "billing.charge", "wallet.transfer", "payout.execute", "refund.push"]
+     for i, name in enumerate(named):
+         effects = [GOVERNED_EFFECT] if layer in ("L1", "L2") else []
+         tier = Tier.CONFIRM if (layer == "L0" and i == 0) else Tier.AUTO
+-        policy_loader.upsert(conn, Policy(
+-            action_type=name, tier=tier, dry_run=False,
+-            compensating_command=None if tier == Tier.CONFIRM else "onedoor.noop",
+-            effects=effects, bounds=Bounds(strict_params=False),
+-        ))
++        policy_loader.upsert(
++            conn,
++            Policy(
++                action_type=name,
++                tier=tier,
++                dry_run=False,
++                compensating_command=None if tier == Tier.CONFIRM else "onedoor.noop",
++                effects=effects,
++                bounds=Bounds(strict_params=False),
++            ),
++        )
+     for name in ["net.http", "sys.shell", "pay.status"]:
+-        policy_loader.upsert(conn, Policy(
+-            action_type=name, tier=Tier.AUTO, dry_run=False,
++        policy_loader.upsert(
++            conn,
++            Policy(
++                action_type=name,
++                tier=Tier.AUTO,
++                dry_run=False,
++                compensating_command="onedoor.noop",
++                param_effects=param_rules if name in ("net.http", "sys.shell") else [],
++                bounds=Bounds(strict_params=False),
++            ),
++        )
++    policy_loader.upsert(
++        conn,
++        Policy(
++            action_type="onedoor.noop",
++            tier=Tier.AUTO,
++            dry_run=False,
+             compensating_command="onedoor.noop",
+-            param_effects=param_rules if name in ("net.http", "sys.shell") else [],
+             bounds=Bounds(strict_params=False),
+-        ))
+-    policy_loader.upsert(conn, Policy(
+-        action_type="onedoor.noop", tier=Tier.AUTO, dry_run=False,
+-        compensating_command="onedoor.noop", bounds=Bounds(strict_params=False),
+-    ))
++        ),
++    )
+     return conn, config
+ 
+ 
+ def governed_verdict(conn, config, case: Case) -> bool:
+     """True if the engine did NOT silently auto-execute (i.e. governance saw it)."""
+     now = now_utc()
+-    req = ActionRequest(request_id=uuid4(), action_type=case.action_type,
+-                        params=case.params, source=Source.LLM,
+-                        rationale="benchmark", created_at=now)
++    req = ActionRequest(
++        request_id=uuid4(),
++        action_type=case.action_type,
++        params=case.params,
++        source=Source.LLM,
++        rationale="benchmark",
++        created_at=now,
++    )
+     outcome = decide_and_reserve(req, conn=conn, config=config, now=now)
+     return not isinstance(outcome, PermittedIntent)
+ 
+@@ -154,13 +209,15 @@ def main() -> None:
+         summary = {}
+         for kind, oks in per_kind.items():
+             summary[kind] = f"{sum(oks)}/{len(oks)}"
+-        # recall over true-effect cases; false alarms over innocents
+-        true_cases = [c for c in cases if c.true_effect]
++        # Recall over true-effect cases and false alarms over innocents are
++        # recomputed cleanly below, per layer -- not accumulated here.
+         summary["recall_true_effect"] = None  # filled below
+         results[layer] = summary
+ 
+     # Recompute cleanly: recall and false alarms per layer.
+-    print(f"{'layer':6s} {'named':>7s} {'generic✓':>9s} {'evasive':>8s} {'innocent-ok':>12s}   note")
++    print(
++        f"{'layer':6s} {'named':>7s} {'generic✓':>9s} {'evasive':>8s} {'innocent-ok':>12s}   note"
++    )
+     notes = {
+         "L0": "action-name policy only (status quo)",
+         "L1": "+ declared effect labels",
+@@ -168,8 +225,12 @@ def main() -> None:
+     }
+     for layer in ("L0", "L1", "L2"):
+         conn, config = make_engine(layer)
+-        tallies = {"named_alias": [0, 0], "generic_covered": [0, 0],
+-                   "generic_evasive": [0, 0], "innocent": [0, 0]}
++        tallies = {
++            "named_alias": [0, 0],
++            "generic_covered": [0, 0],
++            "generic_evasive": [0, 0],
++            "innocent": [0, 0],
++        }
+         for case in cases:
+             caught = governed_verdict(conn, config, case)
+             t = tallies[case.kind]
+@@ -177,19 +238,21 @@ def main() -> None:
+             if case.true_effect:
+                 t[0] += caught
+             else:
+-                t[0] += (not caught)  # innocents should pass ungoverned
++                t[0] += not caught  # innocents should pass ungoverned
+         conn.close()
+         row = tallies
+-        print(f"{layer:6s} {row['named_alias'][0]}/{row['named_alias'][1]:<6d}"
+-              f"{row['generic_covered'][0]}/{row['generic_covered'][1]:<8d}"
+-              f"{row['generic_evasive'][0]}/{row['generic_evasive'][1]:<7d}"
+-              f"{row['innocent'][0]}/{row['innocent'][1]:<11d}   {notes[layer]}")
++        print(
++            f"{layer:6s} {row['named_alias'][0]}/{row['named_alias'][1]:<6d}"
++            f"{row['generic_covered'][0]}/{row['generic_covered'][1]:<8d}"
++            f"{row['generic_evasive'][0]}/{row['generic_evasive'][1]:<7d}"
++            f"{row['innocent'][0]}/{row['innocent'][1]:<11d}   {notes[layer]}"
++        )
+         results[layer] = {k: f"{v[0]}/{v[1]}" for k, v in row.items()}
+ 
+     out = Path(__file__).parent / "aliasing_results.json"
+     out.write_text(json.dumps({"cases": [asdict(c) for c in cases], "results": results}, indent=2))
+-    print(f"\nThe evasive column is the honest residue: deterministic rules do not")
+-    print(f"chase encodings, redirectors or obfuscated shell — that residue is what")
++    print("\nThe evasive column is the honest residue: deterministic rules do not")
++    print("chase encodings, redirectors or obfuscated shell — that residue is what")
+     print(f"a measured, escalate-only semantic layer would own. Results -> {out.name}")
+ 
+ 
+diff --git a/onedoor/guardrail/audit.py b/onedoor/guardrail/audit.py
+index abf04d0..53c030d 100644
+--- a/onedoor/guardrail/audit.py
++++ b/onedoor/guardrail/audit.py
+@@ -11,7 +11,6 @@ import sqlite3
+ from datetime import datetime
+ from uuid import UUID
+ 
+-from onedoor.store.db import tx
+ from onedoor.guardrail.models import (
+     ActionRequest,
+     ActionResult,
+@@ -22,6 +21,7 @@ from onedoor.guardrail.models import (
+     Tier,
+ )
+ from onedoor.store.clock import from_iso, now_utc, to_iso
++from onedoor.store.db import tx
+ 
+ 
+ def append(
+@@ -256,13 +256,25 @@ def append_buffered(
+     buf.keys.add(key)
+     buf.rows.append(
+         (
+-            str(request.request_id), kind, parent_id, request.action_type,
+-            request.source.value, json.dumps(request.params, default=str),
+-            decision.decision.value, decision.reason_code.value,
+-            int(decision.nominal_tier), int(decision.effective_tier), decision.detail,
+-            None if connector_ok is None else int(connector_ok), error,
++            str(request.request_id),
++            kind,
++            parent_id,
++            request.action_type,
++            request.source.value,
++            json.dumps(request.params, default=str),
++            decision.decision.value,
++            decision.reason_code.value,
++            int(decision.nominal_tier),
++            int(decision.effective_tier),
++            decision.detail,
++            None if connector_ok is None else int(connector_ok),
++            error,
+             None if payload is None else json.dumps(payload, default=str),
+-            None, None, undo_of, to_iso(now), row["version_hash"] if row else None,
++            None,
++            None,
++            undo_of,
++            to_iso(now),
++            row["version_hash"] if row else None,
+         )
+     )
+     if event_topic is not None and event_payload is not None:
+diff --git a/onedoor/guardrail/caps.py b/onedoor/guardrail/caps.py
+index a0fb17b..8abc89a 100644
+--- a/onedoor/guardrail/caps.py
++++ b/onedoor/guardrail/caps.py
+@@ -84,12 +84,14 @@ def _read_all(
+         (*keys, day, month),
+     ).fetchall()
+     return {
+-        (r["action_type"], r["window_kind"], r["window_key"]): (int(r["count"]), Decimal(r["eur_total"]))
++        (r["action_type"], r["window_kind"], r["window_key"]): (
++            int(r["count"]),
++            Decimal(r["eur_total"]),
++        )
+         for r in rows
+     }
+ 
+ 
+-
+ def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
+     """The amount this request will move, or None if it cannot be determined.
+ 
+@@ -242,12 +244,15 @@ def check_and_reserve(
+         # A budget we cannot measure against is not a budget. Deny rather than
+         # assume zero -- assuming zero is what made every euro cap inert for
+         # callers that never set cost_eur.
+-        where = (f"policy declares cost_param '{policy.cost_param}' but the request "
+-                 "carries no usable value for it"
+-                 if policy.cost_param is not None
+-                 else "no cost_param declared and the request carries no cost_eur")
+-        return CapResult(True, CheckId.COST_UNKNOWN,
+-                         f"euro cap applies but the amount is unknown ({where})")
++        where = (
++            f"policy declares cost_param '{policy.cost_param}' but the request "
++            "carries no usable value for it"
++            if policy.cost_param is not None
++            else "no cost_param declared and the request carries no cost_eur"
++        )
++        return CapResult(
++            True, CheckId.COST_UNKNOWN, f"euro cap applies but the amount is unknown ({where})"
++        )
+     amount = cost if cost is not None else Decimal(0)
+ 
+     counters = _read_all(conn, [k for k, _, _ in sources], day, month)
+diff --git a/onedoor/guardrail/decision.py b/onedoor/guardrail/decision.py
+index 0452718..d8c100c 100644
+--- a/onedoor/guardrail/decision.py
++++ b/onedoor/guardrail/decision.py
+@@ -38,6 +38,7 @@ from onedoor.guardrail.models import (
+     ActionResult,
+     CheckId,
+     Decision,
++    EngineConfigLike,
+     JsonValue,
+     PolicyDecision,
+     Source,
+@@ -75,7 +76,7 @@ def decide_and_reserve(
+     request: ActionRequest,
+     *,
+     conn: Connection,
+-    config: "object",
++    config: EngineConfigLike,
+     now: datetime,
+     policy_store: PolicyStore | None = None,
+     approved_override: bool = False,
+@@ -113,9 +114,7 @@ def decide_and_reserve(
+             value = request.params.get(rule.param)
+             if value is not None and re.fullmatch(rule.pattern, str(value)):
+                 effects.extend(e for e in rule.add_effects if e not in effects)
+-        effect_policies = [
+-            ep for e in effects if (ep := store.get_effect(conn, e)) is not None
+-        ]
++        effect_policies = [ep for e in effects if (ep := store.get_effect(conn, e)) is not None]
+ 
+         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
+         reason_confirm = CheckId.TIER_CONFIRM
+@@ -244,7 +243,11 @@ def decide_and_reserve(
+ 
+         # 9. CAPS — action caps AND effect-shared caps, all-or-nothing.
+         cap_result = caps.check_and_reserve(
+-            conn, policy, request, now, config.tz,
++            conn,
++            policy,
++            request,
++            now,
++            config.tz,
+             effect_caps=[(ep.effect, ep.caps) for ep in effect_policies],
+         )
+         if cap_result.exceeded:
+@@ -314,9 +317,7 @@ def decide_and_reserve(
+     )
+ 
+ 
+-def reclaim_expired_reservations(
+-    conn: Connection, config: "object", now: datetime
+-) -> int:
++def reclaim_expired_reservations(conn: Connection, config: EngineConfigLike, now: datetime) -> int:
+     """Release the budget of every permit past its deadline with no report.
+ 
+     A permit that reserved budget but was never reported holds that budget until
+@@ -343,9 +344,7 @@ def reclaim_expired_reservations(
+         ).fetchall()
+         for r in rows:
+             rid = int(r["intent_audit_id"])
+-            intent_row = conn.execute(
+-                "SELECT * FROM actions_audit WHERE id=?", (rid,)
+-            ).fetchone()
++            intent_row = conn.execute("SELECT * FROM actions_audit WHERE id=?", (rid,)).fetchone()
+             if intent_row is not None:
+                 caps.release(conn, [tuple(d) for d in json.loads(r["deltas_json"])])
+                 audit.append_expiry(
+@@ -371,7 +370,7 @@ def report_result(
+     intent: PermittedIntent,
+     *,
+     conn: Connection,
+-    config: "object" = None,
++    config: EngineConfigLike | None = None,
+     ok: bool,
+     payload: dict[str, JsonValue] | None,
+     error: str | None,
+@@ -460,7 +459,7 @@ def decide_raw(
+     raw: Mapping[str, object],
+     *,
+     conn: Connection,
+-    config: "object",
++    config: EngineConfigLike,
+     now: datetime,
+     policy_store: PolicyStore | None = None,
+ ) -> ActionResult | PermittedIntent:
+@@ -501,6 +500,4 @@ def decide_raw(
+                 detail=f"request failed validation: {type(exc).__name__}",
+             ),
+         )
+-    return decide_and_reserve(
+-        request, conn=conn, config=config, now=now, policy_store=policy_store
+-    )
++    return decide_and_reserve(request, conn=conn, config=config, now=now, policy_store=policy_store)
+diff --git a/onedoor/guardrail/executor.py b/onedoor/guardrail/executor.py
+index bbae925..ea05f4d 100644
+--- a/onedoor/guardrail/executor.py
++++ b/onedoor/guardrail/executor.py
+@@ -24,22 +24,17 @@ from uuid import uuid4
+ from zoneinfo import ZoneInfo
+ 
+ from onedoor.config import Settings
+-from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
++from onedoor.guardrail import approvals
+ from onedoor.guardrail import decision as decision_mod
+ from onedoor.guardrail.errors import ApprovalError
+ from onedoor.guardrail.models import (
+     ActionRequest,
+     ActionResult,
+-    CheckId,
+-    Decision,
+     JsonValue,
+-    PolicyDecision,
+     Source,
+-    Tier,
+ )
+ from onedoor.guardrail.policy import PolicyStore
+ from onedoor.guardrail.registry import ConnectorRegistry
+-from onedoor.store import bus
+ from onedoor.store.clock import now_utc
+ from onedoor.store.db import tx
+ 
+@@ -134,8 +129,7 @@ def evaluate_and_execute(
+             connector_ok, error, payload = False, _redact(str(exc)), None
+ 
+     return decision_mod.report_result(
+-        outcome, conn=conn, config=config, ok=connector_ok, payload=payload,
+-        error=error, now=now
++        outcome, conn=conn, config=config, ok=connector_ok, payload=payload, error=error, now=now
+     )
+ 
+ 
+diff --git a/onedoor/guardrail/models.py b/onedoor/guardrail/models.py
+index d0aeecc..3a177a4 100644
+--- a/onedoor/guardrail/models.py
++++ b/onedoor/guardrail/models.py
+@@ -9,7 +9,9 @@ from __future__ import annotations
+ from datetime import datetime
+ from decimal import Decimal
+ from enum import IntEnum, StrEnum
++from typing import Protocol
+ from uuid import UUID
++from zoneinfo import ZoneInfo
+ 
+ from pydantic import BaseModel, ConfigDict, Field, field_validator
+ 
+@@ -232,3 +234,34 @@ class Approval(BaseModel):
+     decided_at: datetime | None = None
+     decided_by_session: str | None = None
+     resulting_audit_id: int | None = None
++
++
++class EngineConfigLike(Protocol):
++    """The engine-config surface the decision pipeline actually reads.
++
++    ``EngineConfig`` lives in ``executor``, which imports ``decision`` -- so
++    ``decision`` cannot name the concrete class without a cycle. The previous
++    workaround annotated the parameter as ``object``, which silenced the cycle by
++    silencing the type checker: every attribute access on it was unchecked, and
++    ``mypy --strict`` reported exactly that (ND-025). A Protocol keeps the
++    dependency pointing one way and still checks the attributes.
++
++    Members are declared read-only (properties, not variables): ``EngineConfig`` is
++    a frozen dataclass, and a Protocol variable member is implicitly settable, which
++    a frozen attribute cannot satisfy.
++    """
++
++    @property
++    def approval_ttl_seconds(self) -> int: ...
++
++    @property
++    def connector_timeout_seconds(self) -> float: ...
++
++    @property
++    def tz(self) -> ZoneInfo: ...
++
++    @property
++    def audit_group_commit(self) -> int: ...
++
++    @property
++    def reservation_ttl_seconds(self) -> int: ...
+diff --git a/onedoor/guardrail/policy.py b/onedoor/guardrail/policy.py
+index 624717a..b2fa544 100644
+--- a/onedoor/guardrail/policy.py
++++ b/onedoor/guardrail/policy.py
+@@ -20,9 +20,11 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
+         bounds=Bounds.model_validate_json(row["bounds_json"]),
+         caps=Caps.model_validate_json(row["caps_json"]),
+         effects=json.loads(row["effects_json"]) if "effects_json" in row.keys() else [],
+-        param_effects=[ParamEffectRule.model_validate(r)
+-                       for r in json.loads(row["param_effects_json"])]
+-        if "param_effects_json" in row.keys() else [],
++        param_effects=[
++            ParamEffectRule.model_validate(r) for r in json.loads(row["param_effects_json"])
++        ]
++        if "param_effects_json" in row.keys()
++        else [],
+         dry_run=bool(row["dry_run"]),
+         dry_run_until=from_iso(row["dry_run_until"]) if row["dry_run_until"] else None,
+         compensating_command=row["compensating_command"],
+@@ -69,7 +71,7 @@ def invalidate(conn: sqlite3.Connection | None = None) -> None:
+ 
+ def _snapshot(conn: sqlite3.Connection) -> _Snapshot:
+     version = int(conn.execute("PRAGMA data_version").fetchone()[0])
+-    cached = getattr(conn, "_policy_snapshot", None)
++    cached: _Snapshot | None = getattr(conn, "_policy_snapshot", None)
+     if cached is not None and cached.version == version:
+         return cached
+     fresh = _Snapshot(conn, version)
+diff --git a/onedoor/guardrail/policy_loader.py b/onedoor/guardrail/policy_loader.py
+index e58a150..9190b87 100644
+--- a/onedoor/guardrail/policy_loader.py
++++ b/onedoor/guardrail/policy_loader.py
+@@ -59,8 +59,12 @@ def upsert_effect(conn: sqlite3.Connection, ep: EffectPolicy) -> None:
+         "VALUES (?,?,?,?) "
+         "ON CONFLICT(effect) DO UPDATE SET min_tier=excluded.min_tier,"
+         " caps_json=excluded.caps_json, updated_at=excluded.updated_at",
+-        (ep.effect, int(ep.min_tier) if ep.min_tier is not None else None,
+-         ep.caps.model_dump_json(), to_iso(now_utc())),
++        (
++            ep.effect,
++            int(ep.min_tier) if ep.min_tier is not None else None,
++            ep.caps.model_dump_json(),
++            to_iso(now_utc()),
++        ),
+     )
+     record_snapshot(conn)
+ 
+@@ -114,9 +118,11 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
+         validate_policy(policy)
+     effect_entries = raw.get("effects", {}) or {}
+     effect_policies = [
+-        EffectPolicy(effect=name,
+-                     min_tier=Tier(int(cfg["min_tier"])) if cfg.get("min_tier") is not None else None,
+-                     caps=Caps.model_validate(cfg.get("caps", {}) or {}))
++        EffectPolicy(
++            effect=name,
++            min_tier=Tier(int(cfg["min_tier"])) if cfg.get("min_tier") is not None else None,
++            caps=Caps.model_validate(cfg.get("caps", {}) or {}),
++        )
+         for name, cfg in effect_entries.items()
+     ]
+     for policy in policies:  # then write
+@@ -155,7 +161,7 @@ def record_snapshot(conn: sqlite3.Connection) -> str:
+     """
+     snapshot = _normalized_snapshot(conn)
+     version = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
+-    policy_module.invalidate(conn)   # this connection just wrote; data_version will not tell it
++    policy_module.invalidate(conn)  # this connection just wrote; data_version will not tell it
+     stamp = to_iso(now_utc())
+     conn.execute(
+         "INSERT OR IGNORE INTO policy_versions (version_hash, snapshot_json, created_at) "
+diff --git a/onedoor/integrations/langchain_middleware.py b/onedoor/integrations/langchain_middleware.py
+index 68f506b..7308c64 100644
+--- a/onedoor/integrations/langchain_middleware.py
++++ b/onedoor/integrations/langchain_middleware.py
+@@ -95,8 +95,7 @@ def _import_middleware_base() -> type:
+         from langchain.agents.middleware import AgentMiddleware
+     except ImportError as exc:  # pragma: no cover - depends on the environment
+         raise ImportError(
+-            "OneDoorMiddleware needs LangChain v1 or later: "
+-            'pip install "onedoor[langchain]"'
++            'OneDoorMiddleware needs LangChain v1 or later: pip install "onedoor[langchain]"'
+         ) from exc
+     return AgentMiddleware
+ 
+@@ -161,9 +160,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
+             created_at=now,
+         )
+         with self._lock:
+-            return decide_and_reserve(
+-                action, conn=self._conn, config=self._config, now=now
+-            )
++            return decide_and_reserve(action, conn=self._conn, config=self._config, now=now)
+ 
+     def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:
+         with self._lock:
+@@ -196,8 +193,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
+         if not isinstance(outcome, PermittedIntent):
+             return self._tool_message(
+                 request,
+-                f"onedoor: approved action still blocked "
+-                f"({outcome.decision.reason_code.value})",
++                f"onedoor: approved action still blocked ({outcome.decision.reason_code.value})",
+             )
+         return self._run(outcome, request, handler)
+ 
+@@ -234,9 +230,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
+             )
+             if resume == "approved":
+                 return self._execute_approved(outcome.approval_id, request, handler)
+-            return self._tool_message(
+-                request, f"onedoor: '{name}' was not approved ({resume})."
+-            )
++            return self._tool_message(request, f"onedoor: '{name}' was not approved ({resume}).")
+         return self._tool_message(
+             request,
+             f"onedoor: '{name}' requires human approval "
+@@ -274,9 +268,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
+             try:
+                 result = await handler(request)
+             except Exception as exc:
+-                await asyncio.to_thread(
+-                    self._report, outcome, False, None, str(exc)[:200]
+-                )
++                await asyncio.to_thread(self._report, outcome, False, None, str(exc)[:200])
+                 raise
+             await asyncio.to_thread(
+                 self._report, outcome, True, {"result": str(result)[:500]}, None
+diff --git a/onedoor/mcp/demo_server.py b/onedoor/mcp/demo_server.py
+index 0134b67..6fb1fa8 100644
+--- a/onedoor/mcp/demo_server.py
++++ b/onedoor/mcp/demo_server.py
+@@ -86,7 +86,11 @@ def main() -> None:
+         else:
+             sys.stdout.write(
+                 json.dumps(
+-                    {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "no such method"}}
++                    {
++                        "jsonrpc": "2.0",
++                        "id": mid,
++                        "error": {"code": -32601, "message": "no such method"},
++                    }
+                 )
+                 + "\n"
+             )
+diff --git a/onedoor/mcp/proxy.py b/onedoor/mcp/proxy.py
+index 404c64a..ac3814f 100644
+--- a/onedoor/mcp/proxy.py
++++ b/onedoor/mcp/proxy.py
+@@ -43,7 +43,7 @@ from zoneinfo import ZoneInfo
+ from onedoor.guardrail import approvals, killswitch, policy_loader
+ from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+ from onedoor.guardrail.executor import EngineConfig
+-from onedoor.guardrail.models import ActionRequest, Decision, Source
++from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Source
+ from onedoor.store.clock import now_utc
+ from onedoor.store.db import Database
+ 
+@@ -89,7 +89,8 @@ class Downstream:
+         self.proc.stdin.write(json.dumps(msg) + "\n")
+         self.proc.stdin.flush()
+         line = self.proc.stdout.readline()
+-        return json.loads(line)
++        parsed: dict[str, Any] = json.loads(line)
++        return parsed
+ 
+     def notify(self, msg: dict[str, Any]) -> None:
+         assert self.proc.stdin
+@@ -124,7 +125,7 @@ class Proxy:
+             raise
+         result = resp.get("result", {})
+         ok = not result.get("isError", False) and "error" not in resp
+-        payload = {"mcp_result": json.dumps(result)[:2000]}
++        payload: dict[str, JsonValue] = {"mcp_result": json.dumps(result)[:2000]}
+         report_result(
+             intent,
+             conn=self.conn,
+diff --git a/onedoor/service/app.py b/onedoor/service/app.py
+index 77bf375..704a5d3 100644
+--- a/onedoor/service/app.py
++++ b/onedoor/service/app.py
+@@ -170,9 +170,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
+     )
+ 
+ 
+-def create_app(
+-    db_path: str | None = None, policies: str | None = None
+-) -> FastAPI:
++def create_app(db_path: str | None = None, policies: str | None = None) -> FastAPI:
+     state = EngineState(
+         db_path or os.environ.get("ONEDOOR_DB", "onedoor-service.db"),
+         Path(policies or os.environ.get("ONEDOOR_POLICIES", "config/policies.yaml")),
+@@ -198,13 +196,13 @@ def create_app(
+             created_at=now,
+         )
+         with span("onedoor.decide", body.action_type), state.lock:
+-            outcome = decide_and_reserve(
+-                request, conn=state.conn, config=state.config, now=now
+-            )
++            outcome = decide_and_reserve(request, conn=state.conn, config=state.config, now=now)
+         reply = _decide_reply(outcome, state)
+         record_decision(body.action_type, reply.decision, reply.reason, reply.effective_tier)
+         if reply.decision == Decision.PROPOSED.value and reply.approval_id is not None:
+-            state.notifier.proposed(reply.approval_id, body.action_type, body.params, body.rationale)
++            state.notifier.proposed(
++                reply.approval_id, body.action_type, body.params, body.rationale
++            )
+         return reply
+ 
+     @app.post("/v1/report", response_model=DecideReply)
+@@ -214,12 +212,18 @@ def create_app(
+             raise HTTPException(status_code=404, detail="unknown or already-reported intent")
+         with span("onedoor.report", intent.request.action_type), state.lock:
+             result = report_result(
+-                intent, conn=state.conn, ok=body.ok,
+-                payload=body.payload, error=body.error, now=now_utc(),
++                intent,
++                conn=state.conn,
++                ok=body.ok,
++                payload=body.payload,
++                error=body.error,
++                now=now_utc(),
+             )
+         record_decision(
+-            intent.request.action_type, result.decision.decision.value,
+-            "reported", int(intent.effective_tier),
++            intent.request.action_type,
++            result.decision.decision.value,
++            "reported",
++            int(intent.effective_tier),
+         )
+         return _decide_reply(result, state)
+ 
+@@ -229,9 +233,12 @@ def create_app(
+             rows = approvals.list_pending(state.conn)
+         return [
+             ApprovalView(
+-                id=a.approval_id, action_type=a.request.action_type,
+-                params=dict(a.request.params), rationale=a.request.rationale,
+-                state=a.state.value, expires_at=a.expires_at,
++                id=a.approval_id,
++                action_type=a.request.action_type,
++                params=dict(a.request.params),
++                rationale=a.request.rationale,
++                state=a.state.value,
++                expires_at=a.expires_at,
+             )
+             for a in rows
+         ]
+diff --git a/onedoor/service/telemetry.py b/onedoor/service/telemetry.py
+index 123247f..cd6c724 100644
+--- a/onedoor/service/telemetry.py
++++ b/onedoor/service/telemetry.py
+@@ -8,8 +8,8 @@ OTEL_* environment variables is all it takes to light up.
+ 
+ from __future__ import annotations
+ 
++from collections.abc import Iterator
+ from contextlib import contextmanager
+-from typing import Iterator
+ 
+ try:  # pragma: no cover - exercised only when otel is installed
+     from opentelemetry import metrics, trace
+diff --git a/onedoor/store/migrations/0001_init.sql b/onedoor/store/migrations/0001_init.sql
+index 158fbec..c238e72 100644
+--- a/onedoor/store/migrations/0001_init.sql
++++ b/onedoor/store/migrations/0001_init.sql
+@@ -1,4 +1,9 @@
+--- Sutradhar M0 schema. Forward-only migration.
++-- onedoor initial schema. Forward-only migration.
++--
++-- Historical note: this file was inherited from the pre-onedoor product
++-- (Sutradhar M0) and creates three tables no onedoor module reads --
++-- intake_policy, preferences, sessions. They are dropped in 0006, not edited
++-- out of here: forward-only means the past stays legible.
+ -- The actions_audit table is APPEND-ONLY, enforced structurally by triggers below
+ -- (CLAUDE.md invariant 5: no UPDATE or DELETE on actions_audit, ever).
+ 
+@@ -100,6 +105,9 @@ CREATE TABLE IF NOT EXISTS events (
+ CREATE INDEX IF NOT EXISTS idx_events_created ON events (created_at);
+ 
+ -- Web Push subscriptions.
++-- Reserved for ND-026 (web-push delivery). Intentionally unread today: Tier-3
++-- approvals are Slack-only, and this is the plumbing for the second channel.
++-- Deliberately NOT dropped by 0006 -- do not mistake it for vestigial.
+ CREATE TABLE IF NOT EXISTS push_subscriptions (
+     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+     endpoint   TEXT NOT NULL UNIQUE,
+diff --git a/pyproject.toml b/pyproject.toml
+index 90641f6..62bcdc8 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -31,8 +31,30 @@ examples = ["langgraph>=1.0", "langchain-core>=1.0"]
+ # The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
+ # does not exist before it.
+ langchain = ["langchain>=1.0"]
+-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14", "ruff>=0.8",
+-       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0"]
++# ruff is PINNED, not floated. Lint rule sets change between ruff releases, so an
++# unpinned linter makes CI non-deterministic: the job can go red on a morning
++# nobody touched the code. Bump it deliberately, as its own commit (ND-025).
++dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
++       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
++       "types-PyYAML>=6.0"]
++
++# ND-025. Lint rules are a decision, not a default. Without this block `ruff check`
++# lints against whatever rule set the newest ruff ships with, so a CI job can go red
++# on a morning nobody touched the code. Pinned versions in [dev] close the other half.
++[tool.ruff]
++line-length = 100
++target-version = "py312"
++
++[tool.ruff.lint]
++select = ["E4", "E7", "E9", "F", "I", "UP"]
++# BLE001 (blind except) is deliberately NOT selected: fail-soft on connector failure
++# is a designed behaviour of this engine, not an oversight. If it is ever selected,
++# each site needs reading, not an auto-fix.
++
++[tool.ruff.lint.per-file-ignores]
++# Re-exports: the package surface is deliberate.
++"onedoor/__init__.py" = ["F401"]
++"onedoor/guardrail/__init__.py" = ["F401"]
+ 
+ [tool.pytest.ini_options]
+ testpaths = ["tests"]
+@@ -41,6 +63,13 @@ asyncio_mode = "auto"
+ [tool.mypy]
+ strict = true
+ 
++# OpenTelemetry is an optional extra: telemetry.py imports it inside a try/except
++# and no-ops without it. CI installs [dev], not [otel], so the import is absent by
++# design -- that is the behaviour the module is built for, not a missing dependency.
++[[tool.mypy.overrides]]
++module = ["opentelemetry.*"]
++ignore_missing_imports = true
++
+ [build-system]
+ requires = ["setuptools>=68"]
+ build-backend = "setuptools.build_meta"
+diff --git a/scripts/demo.py b/scripts/demo.py
+index 34633fb..d7db7d6 100644
+--- a/scripts/demo.py
++++ b/scripts/demo.py
+@@ -17,11 +17,10 @@ from uuid import uuid4
+ from zoneinfo import ZoneInfo
+ 
+ from onedoor.connectors import mock
+-from onedoor.guardrail import approvals, killswitch, policy_loader
++from onedoor.guardrail import killswitch, policy_loader
+ from onedoor.guardrail import undo as undo_mod
+ from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute, resume_approval
+ from onedoor.guardrail.models import ActionRequest, Source
+-from onedoor.guardrail.registry import ConnectorRegistry
+ from onedoor.store.db import Database
+ 
+ NOW = datetime(2026, 8, 11, 12, 0, 0, tzinfo=UTC)
+@@ -34,14 +33,20 @@ CONFIG = EngineConfig(
+ 
+ def req(action_type: str, source: Source = Source.RULE, **params: object) -> ActionRequest:
+     return ActionRequest(
+-        request_id=uuid4(), action_type=action_type, params=dict(params), source=source,
+-        rationale="demo walkthrough", created_at=NOW,
++        request_id=uuid4(),
++        action_type=action_type,
++        params=dict(params),
++        source=source,
++        rationale="demo walkthrough",
++        created_at=NOW,
+     )
+ 
+ 
+ def show(label: str, result: object) -> None:
+     d = result.decision  # type: ignore[attr-defined]
+-    print(f"  {label:34s} -> {d.decision.value:9s} (tier {int(d.effective_tier)}, reason {d.reason_code.value})")
++    print(
++        f"  {label:34s} -> {d.decision.value:9s} (tier {int(d.effective_tier)}, reason {d.reason_code.value})"
++    )
+ 
+ 
+ def main() -> None:
+@@ -53,45 +58,79 @@ def main() -> None:
+     registry = mock.build_registry()
+ 
+     print("1) Reversible Tier-1 action auto-executes (and registers a 15-min undo):")
+-    r1 = evaluate_and_execute(req("demo.toggle", target="demo.lamp", state="on"),
+-                              conn=conn, registry=registry, config=CONFIG, now=NOW)
++    r1 = evaluate_and_execute(
++        req("demo.toggle", target="demo.lamp", state="on"),
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        now=NOW,
++    )
+     show("demo.toggle on", r1)
+ 
+     print("2) One-tap undo — the compensating command goes through the same pipeline:")
+-    r2 = undo_mod.undo(r1.audit_id, conn=conn, registry=registry, config=CONFIG,
+-                       session_id="demo", now=NOW + timedelta(minutes=5))
++    r2 = undo_mod.undo(
++        r1.audit_id,
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        session_id="demo",
++        now=NOW + timedelta(minutes=5),
++    )
+     show("undo of (1)", r2)
+ 
+     print("3) Unlisted action type: default-deny -> Tier 3 proposal:")
+-    r3 = evaluate_and_execute(req("demo.unlisted", anything="goes"),
+-                              conn=conn, registry=registry, config=CONFIG, now=NOW)
++    r3 = evaluate_and_execute(
++        req("demo.unlisted", anything="goes"), conn=conn, registry=registry, config=CONFIG, now=NOW
++    )
+     show("demo.unlisted", r3)
+ 
+     print("4) A human approves it — only then does it execute:")
+-    r4 = resume_approval(r3.approval_id, "demo-session", conn=conn, registry=registry,
+-                         config=CONFIG, now=NOW + timedelta(minutes=1))
++    r4 = resume_approval(
++        r3.approval_id,
++        "demo-session",
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        now=NOW + timedelta(minutes=1),
++    )
+     show("demo.unlisted (approved)", r4)
+ 
+     print("5) Bounds: an out-of-range parameter is denied before any human sees it:")
+-    r5 = evaluate_and_execute(req("demo.toggle", target="demo.lamp", state="sideways"),
+-                              conn=conn, registry=registry, config=CONFIG, now=NOW)
++    r5 = evaluate_and_execute(
++        req("demo.toggle", target="demo.lamp", state="sideways"),
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        now=NOW,
++    )
+     show("demo.toggle state=sideways", r5)
+ 
+     print("6) Caps: third call of a 2/day-capped action is denied:")
+     for i in range(3):
+-        r6 = evaluate_and_execute(req("demo.capped", n=i),
+-                                  conn=conn, registry=registry, config=CONFIG, now=NOW)
++        r6 = evaluate_and_execute(
++            req("demo.capped", n=i), conn=conn, registry=registry, config=CONFIG, now=NOW
++        )
+     show("demo.capped (3rd today)", r6)
+ 
+     print("7) Dry-run: a new action type rehearses without executing or spending caps:")
+-    r7 = evaluate_and_execute(req("demo.dry", target="demo.lamp", state="on"),
+-                              conn=conn, registry=registry, config=CONFIG, now=NOW)
++    r7 = evaluate_and_execute(
++        req("demo.dry", target="demo.lamp", state="on"),
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        now=NOW,
++    )
+     show("demo.dry", r7)
+ 
+     print("8) Kill switch: engaged, even a Tier-1 action becomes propose-and-confirm:")
+     killswitch.set_engaged(conn, True, origin="demo")
+-    r8 = evaluate_and_execute(req("demo.toggle", target="demo.lamp", state="off"),
+-                              conn=conn, registry=registry, config=CONFIG, now=NOW)
++    r8 = evaluate_and_execute(
++        req("demo.toggle", target="demo.lamp", state="off"),
++        conn=conn,
++        registry=registry,
++        config=CONFIG,
++        now=NOW,
++    )
+     show("demo.toggle (killed)", r8)
+ 
+     conn.close()
+diff --git a/scripts/demo_mcp.py b/scripts/demo_mcp.py
+index dc59611..b067864 100644
+--- a/scripts/demo_mcp.py
++++ b/scripts/demo_mcp.py
+@@ -23,11 +23,22 @@ class Client:
+     def __init__(self) -> None:
+         db = tempfile.mktemp(suffix=".db")
+         self.proc = subprocess.Popen(
+-            [sys.executable, "-m", "onedoor.mcp.proxy",
+-             "--downstream", f"{sys.executable} -m onedoor.mcp.demo_server",
+-             "--policies", str(ROOT / "config" / "mcp_policies.yaml"),
+-             "--db", db],
+-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1, cwd=ROOT,
++            [
++                sys.executable,
++                "-m",
++                "onedoor.mcp.proxy",
++                "--downstream",
++                f"{sys.executable} -m onedoor.mcp.demo_server",
++                "--policies",
++                str(ROOT / "config" / "mcp_policies.yaml"),
++                "--db",
++                db,
++            ],
++            stdin=subprocess.PIPE,
++            stdout=subprocess.PIPE,
++            text=True,
++            bufsize=1,
++            cwd=ROOT,
+         )
+         self._id = 0
+ 
+@@ -48,8 +59,14 @@ class Client:
+ 
+ def main() -> None:
+     c = Client()
+-    c.request("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+-                             "clientInfo": {"name": "demo-agent", "version": "0"}})
++    c.request(
++        "initialize",
++        {
++            "protocolVersion": "2025-06-18",
++            "capabilities": {},
++            "clientInfo": {"name": "demo-agent", "version": "0"},
++        },
++    )
+     tools = [t["name"] for t in c.request("tools/list")["result"]["tools"]]
+     print(f"downstream tools: {tools}\n")
+ 
+diff --git a/tests/conftest.py b/tests/conftest.py
+index 1f85b06..ce3403f 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -16,6 +16,7 @@ from uuid import uuid4
+ from zoneinfo import ZoneInfo
+ 
+ import pytest
++
+ from onedoor.connectors import mock
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.executor import EngineConfig
+diff --git a/tests/guardrail/test_approvals.py b/tests/guardrail/test_approvals.py
+index b8ddaef..0d594cd 100644
+--- a/tests/guardrail/test_approvals.py
++++ b/tests/guardrail/test_approvals.py
+@@ -4,6 +4,7 @@ from datetime import timedelta
+ from sqlite3 import Connection
+ 
+ import pytest
++
+ from onedoor.guardrail import approvals, killswitch
+ from onedoor.guardrail.errors import ApprovalError
+ from onedoor.guardrail.executor import (
+diff --git a/tests/guardrail/test_audit_append_only.py b/tests/guardrail/test_audit_append_only.py
+index 2dc0492..65b79fb 100644
+--- a/tests/guardrail/test_audit_append_only.py
++++ b/tests/guardrail/test_audit_append_only.py
+@@ -4,6 +4,7 @@ import sqlite3
+ from sqlite3 import Connection
+ 
+ import pytest
++
+ from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+ from onedoor.guardrail.registry import ConnectorRegistry
+ from tests.conftest import make_request
+diff --git a/tests/guardrail/test_concurrency.py b/tests/guardrail/test_concurrency.py
+index f6c78c9..e328e96 100644
+--- a/tests/guardrail/test_concurrency.py
++++ b/tests/guardrail/test_concurrency.py
+@@ -16,15 +16,15 @@ import threading
+ from collections import Counter
+ from decimal import Decimal
+ from pathlib import Path
++from uuid import uuid4
+ 
+ import pytest
++
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
+ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, Policy, Tier
+ from onedoor.store.db import Database
+-from uuid import uuid4
+-
+ from tests.conftest import FROZEN_NOW
+ 
+ BUDGET = 60  # EUR/day; 1 EUR per call => exactly 60 permits, whatever the racers do
+@@ -85,9 +85,7 @@ def _race(db: Database, config: EngineConfig, threads: int, per_thread: int) ->
+                     now=FROZEN_NOW,
+                 )
+                 if isinstance(out, PermittedIntent):
+-                    report_result(
+-                        out, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW
+-                    )
++                    report_result(out, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW)
+                     local["PERMIT"] += 1
+                 else:
+                     local[str(out.decision.reason_code)] += 1
+diff --git a/tests/guardrail/test_cost_resolution.py b/tests/guardrail/test_cost_resolution.py
+index 8ffb1e2..f240303 100644
+--- a/tests/guardrail/test_cost_resolution.py
++++ b/tests/guardrail/test_cost_resolution.py
+@@ -68,8 +68,13 @@ def _refund_policy() -> Policy:
+ def _request(amount: float | str | None, *, cost_eur: Decimal = Decimal(0)) -> ActionRequest:
+     params: dict = {} if amount is None else {"amount_eur": amount}
+     return ActionRequest(
+-        request_id=uuid4(), action_type=PAY, params=params, source=Source.LLM,
+-        rationale="test", cost_eur=cost_eur, created_at=now_utc(),
++        request_id=uuid4(),
++        action_type=PAY,
++        params=params,
++        source=Source.LLM,
++        rationale="test",
++        cost_eur=cost_eur,
++        created_at=now_utc(),
+     )
+ 
+ 
+@@ -125,23 +130,24 @@ def test_explicit_cost_eur_still_works_without_cost_param(conn: Connection) -> N
+     """Back-compat: callers that compute the cost themselves are unaffected."""
+     _load(conn, _policy(cost_param=None))
+     outcome = _decide(conn, _request(99.00, cost_eur=Decimal("99.00")))
+-    assert not hasattr(outcome, "decision") or \
+-        outcome.decision.decision != Decision.DENIED
++    assert not hasattr(outcome, "decision") or outcome.decision.decision != Decision.DENIED
+ 
+ 
+ def test_no_euro_cap_means_no_cost_needed(conn: Connection) -> None:
+     """An action without a euro cap must not start failing for want of an amount."""
+     _load(conn, _policy(cost_param=None, eur_day=None))
+     outcome = _decide(conn, _request(99.00))
+-    assert not hasattr(outcome, "decision") or \
+-        outcome.decision.decision != Decision.DENIED
++    assert not hasattr(outcome, "decision") or outcome.decision.decision != Decision.DENIED
+ 
+ 
+ def test_cost_param_must_be_required(conn: Connection) -> None:
+     """A parameter that may be absent is not a source of truth for money."""
+     bad = Policy(
+-        action_type=PAY, tier=Tier.AUTO_CAPPED, dry_run=False,
+-        compensating_command="test.refund", cost_param="amount_eur",
++        action_type=PAY,
++        tier=Tier.AUTO_CAPPED,
++        dry_run=False,
++        compensating_command="test.refund",
++        cost_param="amount_eur",
+         caps=Caps(eur_day=Decimal("500.00")),
+         bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)}),
+     )
+diff --git a/tests/guardrail/test_decision_split.py b/tests/guardrail/test_decision_split.py
+index f336734..a195578 100644
+--- a/tests/guardrail/test_decision_split.py
++++ b/tests/guardrail/test_decision_split.py
+@@ -10,11 +10,9 @@ from __future__ import annotations
+ 
+ from sqlite3 import Connection
+ 
+-from onedoor.guardrail import audit
+ from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import Decision
+-
+ from tests.conftest import FROZEN_NOW, make_request
+ 
+ 
+@@ -46,9 +44,7 @@ def test_terminal_outcome_is_a_result_not_an_obligation(
+     assert outcome.decision.decision == Decision.DENIED
+ 
+ 
+-def test_report_failure_marks_failed_and_no_undo(
+-    conn: Connection, config: EngineConfig
+-) -> None:
++def test_report_failure_marks_failed_and_no_undo(conn: Connection, config: EngineConfig) -> None:
+     req = make_request("demo.toggle", {"target": "demo.lamp", "state": "on"})
+     outcome = decide_and_reserve(req, conn=conn, config=config, now=FROZEN_NOW)
+     assert isinstance(outcome, PermittedIntent)
+diff --git a/tests/guardrail/test_effects.py b/tests/guardrail/test_effects.py
+index 731b366..e3f27fb 100644
+--- a/tests/guardrail/test_effects.py
++++ b/tests/guardrail/test_effects.py
+@@ -8,7 +8,6 @@ parameter rules for generic tools.
+ 
+ from __future__ import annotations
+ 
+-from decimal import Decimal
+ from sqlite3 import Connection
+ 
+ from onedoor.guardrail import policy_loader
+@@ -24,7 +23,6 @@ from onedoor.guardrail.models import (
+     Policy,
+     Tier,
+ )
+-
+ from tests.conftest import FROZEN_NOW, make_request
+ 
+ 
+@@ -42,19 +40,26 @@ def _seed_effects(conn: Connection) -> None:
+         policy_loader.upsert(
+             conn,
+             Policy(
+-                action_type=name, tier=Tier.AUTO, dry_run=False,
++                action_type=name,
++                tier=Tier.AUTO,
++                dry_run=False,
+                 compensating_command="demo.restore",
+-                effects=["money.egress"], bounds=Bounds(strict_params=False),
++                effects=["money.egress"],
++                bounds=Bounds(strict_params=False),
+             ),
+         )
+     policy_loader.upsert(
+         conn,
+         Policy(
+-            action_type="demo.http", tier=Tier.AUTO, dry_run=False,
+-            compensating_command="demo.restore", bounds=Bounds(strict_params=False),
++            action_type="demo.http",
++            tier=Tier.AUTO,
++            dry_run=False,
++            compensating_command="demo.restore",
++            bounds=Bounds(strict_params=False),
+             param_effects=[
+                 ParamEffectRule(
+-                    param="url", pattern=r"https://bank\.example\.com/.*",
++                    param="url",
++                    pattern=r"https://bank\.example\.com/.*",
+                     add_effects=["money.egress"],
+                 ),
+                 ParamEffectRule(
+@@ -73,9 +78,7 @@ def test_effect_cap_is_shared_across_aliased_actions(
+     r1 = decide_and_reserve(
+         make_request("demo.pay_direct"), conn=conn, config=config, now=FROZEN_NOW
+     )
+-    r2 = decide_and_reserve(
+-        make_request("demo.pay_http"), conn=conn, config=config, now=FROZEN_NOW
+-    )
++    r2 = decide_and_reserve(make_request("demo.pay_http"), conn=conn, config=config, now=FROZEN_NOW)
+     assert isinstance(r1, PermittedIntent) and isinstance(r2, PermittedIntent)
+     # ...so the third, via either name, is denied by the effect's cap.
+     r3 = decide_and_reserve(
+@@ -86,16 +89,16 @@ def test_effect_cap_is_shared_across_aliased_actions(
+     assert "money.egress" in (r3.decision.detail or "")
+ 
+ 
+-def test_param_rule_gives_generic_tool_the_effect(
+-    conn: Connection, config: EngineConfig
+-) -> None:
++def test_param_rule_gives_generic_tool_the_effect(conn: Connection, config: EngineConfig) -> None:
+     _seed_effects(conn)
+     # A generic http call to the bank domain carries money.egress: it shares
+     # the same budget as the named payment tools.
+     for _ in range(2):
+         r = decide_and_reserve(
+             make_request("demo.http", {"url": "https://bank.example.com/transfer"}),
+-            conn=conn, config=config, now=FROZEN_NOW,
++            conn=conn,
++            config=config,
++            now=FROZEN_NOW,
+         )
+         assert isinstance(r, PermittedIntent)
+     blocked = decide_and_reserve(
+@@ -105,15 +108,15 @@ def test_param_rule_gives_generic_tool_the_effect(
+     assert blocked.decision.reason_code == CheckId.CAP_DAILY_RATE
+ 
+ 
+-def test_effect_tier_floor_escalates_auto_action(
+-    conn: Connection, config: EngineConfig
+-) -> None:
++def test_effect_tier_floor_escalates_auto_action(conn: Connection, config: EngineConfig) -> None:
+     _seed_effects(conn)
+     # demo.http is Tier 1, but a /delete/ URL carries state.destructive whose
+     # floor is Tier 3: proposed, with the effect_floor reason.
+     r = decide_and_reserve(
+         make_request("demo.http", {"url": "https://api.example.com/delete/users"}),
+-        conn=conn, config=config, now=FROZEN_NOW,
++        conn=conn,
++        config=config,
++        now=FROZEN_NOW,
+     )
+     assert not isinstance(r, PermittedIntent)
+     assert r.decision.decision == Decision.PROPOSED
+@@ -124,7 +127,9 @@ def test_innocent_params_gain_no_effects(conn: Connection, config: EngineConfig)
+     _seed_effects(conn)
+     r = decide_and_reserve(
+         make_request("demo.http", {"url": "https://weather.example.com/today"}),
+-        conn=conn, config=config, now=FROZEN_NOW,
++        conn=conn,
++        config=config,
++        now=FROZEN_NOW,
+     )
+     assert isinstance(r, PermittedIntent)  # no label, no floor, no shared cap
+ 
+@@ -144,9 +149,13 @@ def test_effect_cap_failure_reserves_nothing(conn: Connection, config: EngineCon
+     policy_loader.upsert(
+         conn,
+         Policy(
+-            action_type="demo.pay_capped", tier=Tier.AUTO, dry_run=False,
+-            compensating_command="demo.restore", caps=Caps(daily_rate=5),
+-            effects=["money.egress"], bounds=Bounds(strict_params=False),
++            action_type="demo.pay_capped",
++            tier=Tier.AUTO,
++            dry_run=False,
++            compensating_command="demo.restore",
++            caps=Caps(daily_rate=5),
++            effects=["money.egress"],
++            bounds=Bounds(strict_params=False),
+         ),
+     )
+     denied = decide_and_reserve(
+diff --git a/tests/guardrail/test_group_commit.py b/tests/guardrail/test_group_commit.py
+index 9061124..2e41df3 100644
+--- a/tests/guardrail/test_group_commit.py
++++ b/tests/guardrail/test_group_commit.py
+@@ -16,11 +16,11 @@ from uuid import uuid4
+ from zoneinfo import ZoneInfo
+ 
+ import pytest
++
+ from onedoor.guardrail import audit, policy_loader
+ from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
+ from onedoor.guardrail.executor import EngineConfig
+ from onedoor.guardrail.models import Bounds, Policy, Tier
+-
+ from tests.conftest import FROZEN_NOW
+ 
+ 
+@@ -68,9 +68,9 @@ def _permit(conn: Connection, config: EngineConfig) -> PermittedIntent:
+ 
+ 
+ def _rows(conn: Connection, kind: str) -> int:
+-    return conn.execute(
+-        "SELECT count(*) c FROM actions_audit WHERE kind=?", (kind,)
+-    ).fetchone()["c"]
++    return conn.execute("SELECT count(*) c FROM actions_audit WHERE kind=?", (kind,)).fetchone()[
++        "c"
++    ]
+ 
+ 
+ def test_intent_rows_are_never_buffered(seeded: Connection) -> None:
+@@ -85,8 +85,13 @@ def test_results_are_written_when_the_batch_fills(seeded: Connection) -> None:
+     intents = [_permit(seeded, config) for _ in range(3)]
+     for i, intent in enumerate(intents):
+         report_result(
+-            intent, conn=seeded, config=config, ok=True, payload=None,
+-            error=None, now=FROZEN_NOW,
++            intent,
++            conn=seeded,
++            config=config,
++            ok=True,
++            payload=None,
++            error=None,
++            now=FROZEN_NOW,
+         )
+         expected = 3 if i == 2 else 0
+         assert _rows(seeded, "exec_result") == expected
+@@ -112,8 +117,13 @@ def test_duplicate_report_still_rejected_while_buffered(seeded: Connection) -> N
+     )
+     with pytest.raises(sqlite3.IntegrityError):
+         report_result(
+-            intent, conn=seeded, config=config, ok=True, payload=None,
+-            error=None, now=FROZEN_NOW,
++            intent,
++            conn=seeded,
++            config=config,
++            ok=True,
++            payload=None,
++            error=None,
++            now=FROZEN_NOW,
+         )
+ 
+ 
+diff --git a/tests/guardrail/test_policy_loader.py b/tests/guardrail/test_policy_loader.py
+index cb38a3b..2bd9704 100644
+--- a/tests/guardrail/test_policy_loader.py
++++ b/tests/guardrail/test_policy_loader.py
+@@ -4,6 +4,7 @@ from pathlib import Path
+ from sqlite3 import Connection
+ 
+ import pytest
++
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.policy import PolicyStore
+ from tests.conftest import _CONFIG_DIR
+diff --git a/tests/guardrail/test_policy_provenance.py b/tests/guardrail/test_policy_provenance.py
+index a3ce53c..6bfbf03 100644
+--- a/tests/guardrail/test_policy_provenance.py
++++ b/tests/guardrail/test_policy_provenance.py
+@@ -14,10 +14,10 @@ from sqlite3 import Connection
+ from uuid import uuid4
+ 
+ import pytest
++
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.decision import PermittedIntent, decide_raw
+ from onedoor.guardrail.models import Bounds, NumericBound, Policy, Tier
+-
+ from tests.conftest import FROZEN_NOW
+ 
+ 
+@@ -53,9 +53,10 @@ def _call(conn: Connection, config: object, amount: int):
+ 
+ 
+ def _versions(conn: Connection) -> list[str]:
+-    return [r["policy_version"] for r in conn.execute(
+-        "SELECT policy_version FROM actions_audit ORDER BY id"
+-    )]
++    return [
++        r["policy_version"]
++        for r in conn.execute("SELECT policy_version FROM actions_audit ORDER BY id")
++    ]
+ 
+ 
+ def test_every_audit_row_carries_a_policy_version(conn: Connection, config: object) -> None:
+@@ -113,8 +114,9 @@ def test_policy_versions_is_append_only(conn: Connection) -> None:
+     policy_loader.upsert(conn, _policy(100))
+     version = policy_loader.current_version(conn)
+     with pytest.raises(Exception, match="append-only"):
+-        conn.execute("UPDATE policy_versions SET snapshot_json='{}' WHERE version_hash=?",
+-                     (version,))
++        conn.execute(
++            "UPDATE policy_versions SET snapshot_json='{}' WHERE version_hash=?", (version,)
++        )
+     with pytest.raises(Exception, match="append-only"):
+         conn.execute("DELETE FROM policy_versions WHERE version_hash=?", (version,))
+ 
+diff --git a/tests/guardrail/test_reservation_reclaim.py b/tests/guardrail/test_reservation_reclaim.py
+index 3e205d5..f21f063 100644
+--- a/tests/guardrail/test_reservation_reclaim.py
++++ b/tests/guardrail/test_reservation_reclaim.py
+@@ -142,6 +142,4 @@ def test_ttl_zero_disables_reclamation(conn: Connection) -> None:
+     )
+     # no reservation row was written, so nothing is ever reclaimed
+     assert reclaim_expired_reservations(conn, cfg, now + timedelta(days=1)) == 0
+-    assert (
+-        conn.execute("SELECT COUNT(*) AS n FROM cap_reservations").fetchone()["n"] == 0
+-    )
++    assert conn.execute("SELECT COUNT(*) AS n FROM cap_reservations").fetchone()["n"] == 0
+diff --git a/tests/guardrail/test_scopegate_regressions.py b/tests/guardrail/test_scopegate_regressions.py
+index 14b8a5c..5667a0b 100644
+--- a/tests/guardrail/test_scopegate_regressions.py
++++ b/tests/guardrail/test_scopegate_regressions.py
+@@ -23,6 +23,7 @@ from sqlite3 import Connection
+ from uuid import UUID, uuid4
+ 
+ import pytest
++
+ from onedoor.guardrail import policy_loader
+ from onedoor.guardrail.bounds import validate
+ from onedoor.guardrail.decision import NIL_REQUEST_ID, PermittedIntent, decide_raw
+@@ -35,7 +36,6 @@ from onedoor.guardrail.models import (
+     Source,
+     Tier,
+ )
+-
+ from tests.conftest import FROZEN_NOW
+ 
+ MONEY = Bounds(numeric={"amount": NumericBound(min=0, max=100_000)}, strict_params=False)
+@@ -246,8 +246,7 @@ def test_f5_irreversible_never_auto_executes(conn: Connection, config: object) -
+         "dry_run_until, compensating_command, undo_window_seconds, requires_step_up, "
+         "updated_at, effects_json, param_effects_json) "
+         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-        (action, int(tier), "{}", "{}", 0, None, None, 900, 0,
+-         FROZEN_NOW.isoformat(), "[]", "[]"),
++        (action, int(tier), "{}", "{}", 0, None, None, 900, 0, FROZEN_NOW.isoformat(), "[]", "[]"),
+     )
+     conn.commit()
+     result = decide_raw(
+@@ -271,9 +270,7 @@ def test_f5_irreversible_never_auto_executes(conn: Connection, config: object) -
+ 
+ 
+ @pytest.mark.parametrize("tier", [Tier.AUTO, Tier.AUTO_CAPPED])
+-def test_f5_reversible_action_still_permitted(
+-    conn: Connection, config: object, tier: Tier
+-) -> None:
++def test_f5_reversible_action_still_permitted(conn: Connection, config: object, tier: Tier) -> None:
+     action = f"regress.rev_{int(tier)}"
+     policy_loader.upsert(
+         conn,
+diff --git a/tests/guardrail/test_undo.py b/tests/guardrail/test_undo.py
+index e351fa5..8775d3e 100644
+--- a/tests/guardrail/test_undo.py
++++ b/tests/guardrail/test_undo.py
+@@ -4,6 +4,7 @@ from datetime import timedelta
+ from sqlite3 import Connection
+ 
+ import pytest
++
+ from onedoor.guardrail import undo
+ from onedoor.guardrail.errors import UndoError
+ from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
+diff --git a/tests/integrations/test_langchain_middleware.py b/tests/integrations/test_langchain_middleware.py
+index 4276a73..4a87abb 100644
+--- a/tests/integrations/test_langchain_middleware.py
++++ b/tests/integrations/test_langchain_middleware.py
+@@ -70,19 +70,44 @@ def _config() -> EngineConfig:
+ 
+ 
+ def _seed(conn: Connection) -> None:
+-    policy_loader.upsert(conn, Policy(
+-        action_type="tool.refund", tier=Tier.AUTO, dry_run=False,
+-        compensating_command="tool.refund", bounds=Bounds(strict_params=False)))
+-    policy_loader.upsert(conn, Policy(
+-        action_type="tool.pay_invoice", tier=Tier.AUTO_CAPPED, dry_run=False,
+-        compensating_command="tool.refund", cost_param="amount_eur",
+-        caps=Caps(eur_day=Decimal("250.00")),
+-        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100)},
+-                      required=["invoice_id", "amount_eur"], strict_params=True)))
+-    policy_loader.upsert(conn, Policy(
+-        action_type="tool.send_wire", tier=Tier.CONFIRM,
+-        bounds=Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
+-                      required=["beneficiary", "amount_eur"], strict_params=True)))
++    policy_loader.upsert(
++        conn,
++        Policy(
++            action_type="tool.refund",
++            tier=Tier.AUTO,
++            dry_run=False,
++            compensating_command="tool.refund",
++            bounds=Bounds(strict_params=False),
++        ),
++    )
++    policy_loader.upsert(
++        conn,
++        Policy(
++            action_type="tool.pay_invoice",
++            tier=Tier.AUTO_CAPPED,
++            dry_run=False,
++            compensating_command="tool.refund",
++            cost_param="amount_eur",
++            caps=Caps(eur_day=Decimal("250.00")),
++            bounds=Bounds(
++                numeric={"amount_eur": NumericBound(min=0.01, max=100)},
++                required=["invoice_id", "amount_eur"],
++                strict_params=True,
++            ),
++        ),
++    )
++    policy_loader.upsert(
++        conn,
++        Policy(
++            action_type="tool.send_wire",
++            tier=Tier.CONFIRM,
++            bounds=Bounds(
++                numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
++                required=["beneficiary", "amount_eur"],
++                strict_params=True,
++            ),
++        ),
++    )
+ 
+ 
+ class _ScriptedModel(GenericFakeChatModel):
+@@ -114,8 +139,10 @@ def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1")],
++            ),
+             AIMessage(content="done"),
+         ),
+         tools=[pay_invoice],
+@@ -123,9 +150,7 @@ def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None
+     )
+     out = agent.invoke({"messages": [("user", "clear A1")]})
+     assert PAID == [90.0]
+-    rows = agent_conn.execute(
+-        "SELECT kind FROM actions_audit ORDER BY id"
+-    ).fetchall()
++    rows = agent_conn.execute("SELECT kind FROM actions_audit ORDER BY id").fetchall()
+     kinds = [r[0] for r in rows]
+     assert "exec_intent" in kinds and "exec_result" in kinds
+     assert out["messages"]
+@@ -136,10 +161,14 @@ def test_cumulative_cap_denies_the_call_that_would_cross_it(agent_conn: Connecti
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1"),
+-                _call("pay_invoice", {"invoice_id": "A2", "amount_eur": 90.0}, "c2"),
+-                _call("pay_invoice", {"invoice_id": "A3", "amount_eur": 90.0}, "c3")]),
++            AIMessage(
++                content="",
++                tool_calls=[
++                    _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c1"),
++                    _call("pay_invoice", {"invoice_id": "A2", "amount_eur": 90.0}, "c2"),
++                    _call("pay_invoice", {"invoice_id": "A3", "amount_eur": 90.0}, "c3"),
++                ],
++            ),
+             AIMessage(content="done"),
+         ),
+         tools=[pay_invoice],
+@@ -156,8 +185,10 @@ def test_denial_is_a_tool_message_not_an_exception(agent_conn: Connection) -> No
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")],
++            ),
+             AIMessage(content="ok, that is over the limit"),
+         ),
+         tools=[pay_invoice],
+@@ -173,8 +204,12 @@ def test_tier3_proposes_as_a_message_by_default(agent_conn: Connection) -> None:
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[
++                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
++                ],
++            ),
+             AIMessage(content="waiting for approval"),
+         ),
+         tools=[send_wire],
+@@ -193,8 +228,12 @@ def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connec
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[
++                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
++                ],
++            ),
+             AIMessage(content="sent"),
+         ),
+         tools=[send_wire],
+@@ -220,8 +259,12 @@ def test_interrupt_declined_does_not_execute(agent_conn: Connection) -> None:
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[
++                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
++                ],
++            ),
+             AIMessage(content="declined"),
+         ),
+         tools=[send_wire],
+@@ -239,8 +282,10 @@ async def test_async_path_reaches_the_same_verdict(agent_conn: Connection) -> No
+     _seed(agent_conn)
+     agent = create_agent(
+         model=_model(
+-            AIMessage(content="", tool_calls=[
+-                _call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")]),
++            AIMessage(
++                content="",
++                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 500.0}, "c1")],
++            ),
+             AIMessage(content="over the limit"),
+         ),
+         tools=[pay_invoice],
+diff --git a/tests/mcp/test_proxy_demo.py b/tests/mcp/test_proxy_demo.py
+index d0be11b..4c8fd84 100644
+--- a/tests/mcp/test_proxy_demo.py
++++ b/tests/mcp/test_proxy_demo.py
+@@ -12,14 +12,17 @@ ROOT = Path(__file__).parent.parent.parent
+ def test_mcp_demo_end_to_end() -> None:
+     out = subprocess.run(
+         [sys.executable, "-m", "scripts.demo_mcp"],
+-        cwd=ROOT, capture_output=True, text=True, timeout=120,
++        cwd=ROOT,
++        capture_output=True,
++        text=True,
++        timeout=120,
+     )
+     assert out.returncode == 0, out.stderr
+     text = out.stdout
+-    assert "Weather in Amsterdam" in text                     # permitted read forwarded
+-    assert "Thermostat set to 21.0" in text                   # bounded actuation
+-    assert "above max 23.0" in text                           # bounds denial at the proxy
+-    assert "requires approval" in text and "approval_id=1" in text   # tier 3 money
+-    assert "Sent €49.99 to webshop" in text                   # approval released it
+-    assert "default_deny" in text                             # unknown tool escalated
+-    assert "kill_switch" in text                              # kill switch clamps reads' tier
++    assert "Weather in Amsterdam" in text  # permitted read forwarded
++    assert "Thermostat set to 21.0" in text  # bounded actuation
++    assert "above max 23.0" in text  # bounds denial at the proxy
++    assert "requires approval" in text and "approval_id=1" in text  # tier 3 money
++    assert "Sent €49.99 to webshop" in text  # approval released it
++    assert "default_deny" in text  # unknown tool escalated
++    assert "kill_switch" in text  # kill switch clamps reads' tier
+diff --git a/tests/service/test_service.py b/tests/service/test_service.py
+index 86a03fa..9c00888 100644
+--- a/tests/service/test_service.py
++++ b/tests/service/test_service.py
+@@ -31,8 +31,7 @@ def _h(key: str) -> dict[str, str]:
+ def test_auth_is_required_and_roles_split(client: TestClient) -> None:
+     assert client.post("/v1/decide", json={"action_type": "demo.toggle"}).status_code == 401
+     assert (
+-        client.post("/v1/killswitch", json={"engaged": True}, headers=_h("dkey")).status_code
+-        == 403
++        client.post("/v1/killswitch", json={"engaged": True}, headers=_h("dkey")).status_code == 403
+     )  # decide key lacks admin
+ 
+ 
+-- 
+2.43.0
+

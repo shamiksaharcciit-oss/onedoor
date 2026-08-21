@@ -1,0 +1,155 @@
+From 410bba5251687d91bcb259f8f38fb9c6b0a4b17d Mon Sep 17 00:00:00 2001
+From: onedoor delivery <delivery@onedoor.local>
+Date: Thu, 20 Aug 2026 23:15:22 +0000
+Subject: [PATCH 1/2] ND-024: retire vestigial Sutradhar schema (intake_policy,
+ preferences, sessions)
+
+Three tables created by 0001 have never been read by any module under onedoor/.
+Dead schema in a governance product is not inert: a reader who opens the database
+sees tables implying governed surfaces -- an intake/sensing policy, a preference
+store, a session model -- that this engine does not have.
+
+Migrations are forward-only, so 0001 keeps its CREATE statements and the history
+stays legible; 0006 drops the tables rather than editing them out of the past.
+push_subscriptions is explicitly NOT dropped -- it is unread today but reserved for
+ND-026 (web-push delivery), and now says so in a comment.
+
+Tests assert the fresh schema, forward migration from a pre-0006 database, and --
+the one that matters -- that the append-only triggers on actions_audit and
+policy_versions survive the migration and still bite.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ .../migrations/0006_retire_vestigial.sql      | 18 ++++
+ tests/store/__init__.py                       |  0
+ tests/store/test_migration_0006_vestigial.py  | 89 +++++++++++++++++++
+ 3 files changed, 107 insertions(+)
+ create mode 100644 onedoor/store/migrations/0006_retire_vestigial.sql
+ create mode 100644 tests/store/__init__.py
+ create mode 100644 tests/store/test_migration_0006_vestigial.py
+
+diff --git a/onedoor/store/migrations/0006_retire_vestigial.sql b/onedoor/store/migrations/0006_retire_vestigial.sql
+new file mode 100644
+index 0000000..b1f5bfa
+--- /dev/null
++++ b/onedoor/store/migrations/0006_retire_vestigial.sql
+@@ -0,0 +1,18 @@
++-- ND-024. Retire schema inherited from the pre-onedoor product (Sutradhar M0).
++--
++-- `intake_policy`, `preferences` and `sessions` were created by 0001 and have never
++-- been read by any module under onedoor/. Dead schema in a governance product is not
++-- inert: a reader who opens the database sees tables implying governed surfaces --
++-- an intake/sensing policy, a preference store, a session model -- that do not exist
++-- in this engine. That is the same class of defect as an example demonstrating a
++-- contract violation: a published artifact implying something untrue.
++--
++-- Migrations are forward-only, so 0001 keeps its CREATE statements and the history
++-- stays legible; the tables are dropped here rather than edited out of the past.
++--
++-- `push_subscriptions` is NOT dropped. It is unread today but genuinely planned
++-- (ND-026, web-push delivery for Tier-3 approvals, which are Slack-only right now).
++
++DROP TABLE IF EXISTS intake_policy;
++DROP TABLE IF EXISTS preferences;
++DROP TABLE IF EXISTS sessions;
+diff --git a/tests/store/__init__.py b/tests/store/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/store/test_migration_0006_vestigial.py b/tests/store/test_migration_0006_vestigial.py
+new file mode 100644
+index 0000000..517afdd
+--- /dev/null
++++ b/tests/store/test_migration_0006_vestigial.py
+@@ -0,0 +1,89 @@
++"""ND-024: the vestigial Sutradhar tables are retired, push_subscriptions is not.
++
++Two things are asserted, and the second matters more than the first: a fresh
++database must not carry the dead tables, AND an existing 0.3.5 database must
++migrate forward without losing the append-only guarantees. A migration that
++quietly dropped a trigger would be far worse than the dead schema it removes.
++"""
++
++from __future__ import annotations
++
++import sqlite3
++from pathlib import Path
++
++import pytest
++
++from onedoor.store.db import Database
++
++RETIRED = ("intake_policy", "preferences", "sessions")
++KEPT = "push_subscriptions"
++
++
++def _names(conn: sqlite3.Connection, kind: str) -> set[str]:
++    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type=?", (kind,))}
++
++
++def test_fresh_database_has_no_vestigial_tables(tmp_path: Path) -> None:
++    db = Database(str(tmp_path / "fresh.db"))
++    db.init()
++    conn = db.connect()
++    try:
++        tables = _names(conn, "table")
++        assert not (tables & set(RETIRED)), f"vestigial tables survived: {tables & set(RETIRED)}"
++        assert KEPT in tables, "push_subscriptions is reserved for ND-026, not vestigial"
++    finally:
++        conn.close()
++
++
++def test_existing_database_migrates_forward(tmp_path: Path) -> None:
++    """A pre-0006 database upgrades cleanly and loses the dead table."""
++    path = str(tmp_path / "upgrade.db")
++    Database(path).init()
++
++    conn = Database(path).connect()
++    try:
++        conn.execute("CREATE TABLE IF NOT EXISTS preferences (key TEXT PRIMARY KEY)")
++        conn.execute("INSERT INTO preferences (key) VALUES ('stale')")
++        conn.execute("DELETE FROM schema_migrations WHERE version LIKE '0006%'")
++        conn.commit()
++        assert "preferences" in _names(conn, "table")
++    finally:
++        conn.close()
++
++    applied = Database(path).init()
++    assert any("0006" in name for name in applied), f"0006 did not re-apply: {applied}"
++
++    conn = Database(path).connect()
++    try:
++        assert "preferences" not in _names(conn, "table")
++    finally:
++        conn.close()
++
++
++def test_append_only_triggers_survive_the_migration(tmp_path: Path) -> None:
++    """The migration must not disturb the structural append-only enforcement."""
++    db = Database(str(tmp_path / "triggers.db"))
++    db.init()
++    conn = db.connect()
++    try:
++        triggers = _names(conn, "trigger")
++        for required in (
++            "actions_audit_no_update",
++            "actions_audit_no_delete",
++            "policy_versions_no_update",
++            "policy_versions_no_delete",
++        ):
++            assert required in triggers, f"missing trigger after 0006: {required}"
++
++        conn.execute(
++            "INSERT INTO actions_audit (request_id, kind, action_type, source,"
++            " params_json, decision, reason_code, nominal_tier, effective_tier,"
++            " created_at) VALUES ('r','decision','a','llm','{}','denied','x',1,1,'t')"
++        )
++        conn.commit()
++        with pytest.raises(sqlite3.IntegrityError):
++            conn.execute("UPDATE actions_audit SET reason_code='y'")
++        with pytest.raises(sqlite3.IntegrityError):
++            conn.execute("DELETE FROM actions_audit")
++    finally:
++        conn.close()
+-- 
+2.43.0
+

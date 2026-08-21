@@ -33,6 +33,13 @@
 # string handling). Normalising would eat it. This directory is replaced
 # wholesale at each revision, never hand-edited, so self-healing normalisation
 # buys nothing here and could corrupt a deliberate byte.
+#
+# Do not "tidy" this into `text eol=lf`. Named by core in Response 007: this is
+# E10's two-discipline rule operating at the version-control layer. The vendored
+# artifact is RECEIVED data -- core's bytes, frozen verbatim, never normalised --
+# exactly as params_json/payload_json are frozen verbatim at ingress. Our own
+# source above is GENERATED data, and generated data normalises. Same rule, two
+# layers.
 reference/rederivable-manifest/** -text
 
 # Exported patches are byte-exact diffs; CRLF corruption makes `git apply` fail

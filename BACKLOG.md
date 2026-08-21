@@ -1,0 +1,482 @@
+# BACKLOG.md — onedoor delivery
+
+**Baseline:** `0.3.5` @ `3dfe3cd`, 135 tests passing.
+**Source:** `onedoor_Roadmap_20260820.md` §2–§6, corrected by the code survey
+recorded in `CONFORMANCE.md` §3–§4.
+**Owner:** delivery. Standard-coupled decisions marked 🔺 go to core first.
+**Rulings in force:** Core→Delivery Responses 001–005 (2026-08-20). **No open questions
+on either side.** The settled spec
+surface is `CONFORMANCE.md` §6. **Nothing is gated. `ND-001` and `ND-039` are both unblocked.**
+**`0.4.0` remains one breaking increment** — the obligation surface turned out to be
+normative in `-00` already, so landing it is conformance catch-up, not a wire change.
+**`0.3.6` in progress.** `ND-025` and `ND-024` are **written but not landed** — see
+the reconciliation note below before trusting any status here. Remaining: `ND-021`,
+`ND-036`. Specs in `TICKETS-0.3.6.md`.
+
+> **⚠ Reconciliation note, 2026-08-21 — read before believing a "done" above.**
+> This file previously recorded `ND-024` **done** at `410bba5` and `ND-025`'s gate fix
+> verified at `8d8f4b3`. **Neither commit exists in the repository or on `origin`.**
+> The previous session ran its gates against a fresh cloud clone and exported the work
+> as patches; the relay carried the patch files but not the commits. The work survives
+> only as `patches/0001-ND-024-retire-vestigial-schema.patch` and
+> `patches/0002-ND-025-ci-gates-actually-pass.patch` (both verified to apply clean).
+> Consequence: **`main` is red on `origin`** — both CI runs failed, and all three gates
+> still fail at `227a682` (83 ruff errors, 54 files unformatted, 7 mypy errors; 83 vs
+> the recorded 78 because ruff was unpinned, which is what the patch fixes). The SHAs
+> here are corrected to real ones as each patch lands. *Same failure mode as the two
+> memo crossings, one layer down: work that lives outside git does not survive relay.*
+
+> **Verification note.** The device's `.venv` is a Windows venv on Python 3.12.10 —
+> the same minor CI uses — and the suite runs natively now. Baseline independently
+> confirmed at `227a682`: **135 passed** (the venv had been missing `langchain`, which
+> module-skips 7 tests and shows a misleading 128+1skip until `pip install -e ".[dev]"`).
+> Now **150**, after the `.gitattributes` byte-fidelity guard (`+15`). Target once both
+> patches land: **153** (`ND-024` adds 3).
+
+## How to read this
+
+- **Size** is relative, not calendar time. **S** = one sitting, one module, few
+  tests. **M** = several modules or a migration, a day's focused work. **L** =
+  multi-module with a design decision inside it. **XL** = an epic; decompose
+  before starting.
+- 🔺 **core-gated**: has a wire-observable or research-coupled decision inside it.
+  Do not start implementation until core answers. The question is stated on the
+  ticket.
+- Every ticket's Definition of Done is the same and is not repeated per row:
+  *implementation + tests + suite green + `CONFORMANCE.md` row updated + docs
+  touched where the behaviour is user-visible.*
+
+## Ticket index
+
+| Phase | Tickets |
+|---|---|
+| P0 — hygiene, unblocks everything | ND-025, ND-021, ND-024, ND-036 |
+| P1 — conformance + trust (roadmap §6 near term) | ND-001 … ND-010 |
+| P2 — product surface (roadmap §6 mid term) | ND-015 … ND-019 |
+| P3 — reach + enterprise (roadmap §6 long term) | ND-020 … ND-037 |
+
+---
+
+## Phase 0 — hygiene (do first, small, unblocks the rest)
+
+### ND-025 — CI: run the suite, mypy strict, and ruff on every push · **S**
+`pyproject.toml` already configures `mypy strict` and `ruff`; nothing runs them.
+Add a GitHub Actions workflow: Python 3.12 + 3.13 matrix, `pytest`, `mypy`,
+`ruff check`. Branch protection on `main`.
+**Why first:** the brief's discipline #2 ("the suite stays green, 135 and rising")
+is currently enforced by hand. Every ticket below adds tests; none of them are
+protected until this exists.
+**DoD extra:** add a CI status badge to `README.md` (there is none today).
+
+### ND-021 — LiteLLM example: make it conformant or retire it · **S**
+`examples/litellm_guardrail.py:92` calls `report_result` immediately after
+`decide_and_reserve`, before the gateway acts. That is a published, documented
+demonstration of a two-phase-contract violation by the standard's own reference
+implementation.
+Options: (a) move reporting to `async_post_call_success_hook` as the file's own
+docstring says production should; (b) retire the example and the doc page.
+**Recommend (a)**, with a test that asserts no report is written before the
+post-call hook fires.
+**Answered (D1): the draft *does* cite it, and cites it honestly** — §implstatus
+already calls it "not conformant as written… included as evidence that the gateway
+hook point is viable, not as a conformant PEP." So the citation is accurate today
+and becomes **false** the moment this ticket lands. **Take option (a), and ping core
+on `0.3.6`** so §implstatus is revised in the same beat.
+**Blocks:** nothing, but it is the cheapest credibility fix on the list.
+
+### ND-024 — Remove or document vestigial schema · **S**
+`0001_init.sql` still identifies as "Sutradhar M0 schema" and creates
+`intake_policy`, `preferences`, `sessions` — no module in `onedoor/` reads any of
+them. `push_subscriptions` is genuinely planned (ND-026), keep it.
+Forward-only migrations mean these cannot simply be dropped without a `0006`;
+decide between dropping them and commenting them as reserved. Rename the header
+comment either way.
+**Depends on:** ND-001 if both add migrations — sequence the numbers.
+
+---
+
+## Phase 1 — conformance + trust
+
+*Roadmap §6 order, amended: ND-002/003 (A4) now precede ND-001 (P1), because the
+reason-code rename changes what a chained audit row contains. Chaining first
+means hashing a format that is about to change.* **Core assent granted (C1),
+2026-08-20 — the reorder is confirmed, not proposed.**
+
+*Second change since the survey: **E2 decoupled `ND-009` from `ND-002`.**
+`approval_ref` handling introduces no new reason codes, so resumption no longer
+waits on the vocabulary release and can run in parallel with it.*
+
+### ND-002 — Unit-neutral reason codes + `aadp/0.2` protocol stamp · **M** · AADP A4
+**Unblocked — E1 settled every question.**
+- `CheckId.CAP_DAILY_RATE` → **`cap_rate`**; `CAP_EUR_DAY` **and** `CAP_EUR_MONTH`
+  → **`cap_value`** (one code; the window moves into `ND-003`'s budget object).
+- Add **`sender_mismatch`** to the enum now, so the vocabulary change is complete in
+  one breaking increment. It cannot fire until `ND-005` wires the check — reserve
+  the code, ship the check later.
+- Extend the **report response** with an optional `reason` field (E5) — also part of
+  this one wire increment.
+- **Bump the protocol string to `aadp/0.2`** so the wire self-identifies its
+  vocabulary.
+- **From E6 (ruled):** add a **`protocol` column to `actions_audit`** and stamp it on
+  every row. Document the fallback in onedoor's own docs now, ahead of `-02`: *an
+  evidence row with no `protocol` value MUST be read under `aadp/0.1`.*
+- **From E8 (ruled):** route every decimal and datetime through a canonical renderer —
+  shortest exact form, one form for wire, storage and preimage. `str(Decimal)` is not
+  it. Property test per `CONFORMANCE.md` §6.
+- **From [reconcile-01]:** land the **whole receipt envelope** in this migration —
+  `prev_hash`/`seq`/`row_hash`, `sig`/`key_id`/`alg`, `e_digest`/`i_digest`/`t_digest`/
+  `v_digest`/`anchor_ref` — later fields NULL, so `0.4.1` and `ND-017` never re-migrate.
+- **From E10 (ruled, final):** freeze `params_json` / `payload_json` **verbatim at
+  ingress** — abolish the `parse → json.dumps(default=str)` round trip; the stored bytes
+  are the received bytes. Generated columns (`budget_json`, receipt fields) are ACJ.
+  The in-process binding receives no bytes, so its frozen form is **one** ACJ
+  serialization at ingress and the row must make that provenance distinguishable.
+  No `received_digest` column — the frozen bytes are stored, so the digest is derivable.
+- **From E10 (ruled):** parse with **`parse_float=Decimal`**, including **policy YAML
+  loading** — otherwise numeric bounds compare a Decimal against a float and the
+  money-through-a-float defect reopens. Duplicate keys / NaN / Infinity / non-UTF-8 ⇒
+  deny `malformed` (no new vocabulary; §decidereq already covers it).
+  **Property test:** `250` / `250.00` / key-order permutations ⇒ identical canonical
+  bytes and identical `row_hash`.
+- **From E11 (ruled):** land the obligation surface — `obligations` on the decide
+  response, `not_attempted` in the outcome vocabulary, discharge evidence **in the
+  payload** (no new field; `-02` adds a RECOMMENDED `payload.obligations` convention).
+  **This is conformance catch-up, not a wire break** — all three are normative in `-00`.
+  Ships **dark**: see `ND-038`'s enforcement-before-emission rule.
+- **Also in `0.4.0`:** `ND-039` (report outcome rework) — the enum edit alone is not
+  the fix; it would record lies more precisely.
+- **Test discipline (from the v3 intake):** the ACJ property test uses **generated**
+  inputs — equal-value/different-spelling numbers, key-order permutations, string normal
+  forms — not three hand-picked examples. Spot-checks find only the violations you
+  thought of; that is exactly how the nested-`additionalProperties` defect survived two
+  independent probes of the manifest artifact.
+- Clean break: **no dual-emission.** Safe because reason codes are audit vocabulary;
+  a PEP's behaviour is fixed by the verdict, so a `-00` PEP still denies correctly.
+  The break is audit-only.
+Touches `models.py`, `caps.py:139–149`, every test asserting a reason string, and
+`docs/policy-reference.md`.
+**DoD extra:** a test that reads a fixture DB containing old-form rows with no
+`protocol` stamp and still renders them correctly under the `aadp/0.1` reading.
+
+### ND-003 — Structured `budget` object on `PolicyDecision` · **M** · AADP A4
+**Unblocked — shape pinned by E1.2, reproduced in `CONFORMANCE.md` §6.** Seven
+REQUIRED fields: `dimension` ("value"|"rate"), `unit`, `window`, `limit`,
+`consumed`, `remaining`, `window_resets_at`. Currency lives in `unit`, never in a
+field name. All numerics are decimal strings.
+Present **iff** verdict is `deny` and reason ∈ {`cap_value`, `cap_rate`}.
+**Persist it on the audit row (`budget_json`), don't just return it.** Escalation
+002/E7: `cap_value` collapses `cap_eur_day` and `cap_eur_month`, so without
+persistence the evidence store can no longer tell a day-cap breach from a
+month-cap one — a granularity regression against `0.3.5`, where the reason code
+alone carried it. Today the window survives only as prose in `detail`
+(`caps.py:141`), which is exactly what this ticket replaces. Core asked to confirm
+this is a §evidence requirement; delivery builds it either way.
+**Depends on:** ND-002 (same enum, same `0.4.0` breaking change — land together).
+**Note for ND-018:** because `budget` is deny-only, the GUI's gauges need a
+separate read path; they cannot be fed from the decision stream alone.
+
+### ND-001 — Hash-chained audit entries · **L** 🔺 · Veto-parity P1
+Migration `0006`: add `prev_hash` and `entry_hash` to `actions_audit`. Each row
+hashes its canonical content plus its predecessor's `entry_hash`, so any deletion
+or in-place edit breaks the chain. Add a `verify_chain()` walker and expose it.
+**Design constraints — read before starting:**
+- **Group commit.** `audit.append_buffered` / `flush` writes result rows via one
+  `executemany`. A chain is inherently sequential. The chain must be computed
+  inside `flush` in row order *before* the insert, or group commit must be
+  refused when chaining is enabled. Decide explicitly; test both paths.
+  (`CONFORMANCE.md` N2.)
+- **Genesis and back-fill.** Existing rows have no hash and the table's triggers
+  forbid `UPDATE`, so the chain cannot be retro-fitted. It must start at a genesis
+  row that records the id of the last unchained row. Verification of a mixed
+  archive must state honestly which prefix is unchained rather than reporting the
+  whole log as verified.
+- **Canonicalisation.** The bytes that get hashed must be defined once and
+  frozen — column order, JSON key order, decimal and datetime rendering. Get this
+  wrong and every later verifier disagrees. This same canonical form is what
+  ND-015 signs and ND-017 addresses.
+**Envelope frozen by E3 — assent granted.** Land the full shape in the `0.4.0`
+migration with later fields present-but-empty, so P1 does not re-migrate:
+`prev_hash`, `seq`, `row_hash` (this ticket) · `sig`, `key_id`, `alg` (ND-015) ·
+`E`, `I`, `T`, `v` digests + Merkle anchor (ND-017).
+- **Carry `E`/`I`/`T` as opaque content-addressed digests, never inlined
+  structures.** Core's hard exception: `I`'s preimage will generalise from
+  verdict-instruments to stage-attribution instruments, and inlining its structure
+  would re-hash frozen rows — fatal on an append-only store. This materially
+  simplifies the ticket.
+**Both Response-001 gates cleared.** E8 fixed the decimal rule (shortest exact form,
+uniform, wire = storage = preimage) and [reconcile-01] fixed the digest columns by
+ruling — `e_digest`, `i_digest`, `t_digest`, `v_digest`, `anchor_ref`, all nullable
+SHA-256 lowercase hex, NULL until `ND-017`. Full canonical form in `CONFORMANCE.md` §6.
+🔺 **One new gate, from Escalation 003:**
+- **E10 — `params_json` / `payload_json` are in the preimage and outside the
+  canonicalisation** (`CONFORMANCE.md` N7). They are written with `default=str` and no
+  `sort_keys`, so key order follows the PEP's arrival order and JSON numbers render as
+  IEEE doubles. Until core rules on received-vs-normalised evidence and the canonical
+  JSON form, a chained row would hash bytes that no second implementation reproduces.
+  **The fix lands in `ND-002`'s row format, not here** — same "rename before you chain"
+  logic as C1, one level down.
+**Depends on:** ND-002, ND-003 (chain a stable row format).
+**DoD extra:** a tamper test — mutate a row via a direct SQLite write with triggers
+bypassed, assert `verify_chain()` localises the break to that row.
+
+### ND-004 — Transport security: satisfy the property mandate · **M** · AADP A1
+No TLS surface exists at all today. Deliver: uvicorn TLS + client-cert config,
+certificate verification on the service side, principal extraction from the client
+cert, deployment docs, and a test using a self-signed fixture CA that asserts an
+unverified client is refused.
+**Settled (E4): the mandate is on the *properties*, mTLS is the RECOMMENDED
+profile.** So the deliverable is both, not either:
+- onedoor **MUST refuse to serve** decide/report over a channel lacking
+  confidentiality, integrity, and mutual authentication. **The test asserts refusal
+  of a channel lacking the properties — not refusal of "not-mTLS".** Getting this
+  test wrong is how a property mandate silently becomes a mechanism mandate.
+- mTLS per RFC 9325 (BCP 195) ships as the documented, tested default.
+- A mutual-auth service mesh, or the §uds local socket with peer credentials, remain
+  conformant alternatives — which is why **ND-023 is no longer a mere convenience**.
+**[reconcile-01]:** if `-01` §12.1 currently says "mTLS MUST", core relaxes it in
+`-02`. Build to the property mandate regardless.
+**Enables:** ND-005 — a sender-constrained permit needs a verified sender identity
+to bind to.
+
+### ND-005 — Sender-constrained permits · **L** · AADP A2
+Bind each permit to the identity of the PEP that requested it, so possession
+alone is insufficient to report. With ND-004 landed, the natural binding is the
+client-certificate thumbprint; the alternative is a PEP-held key with a
+proof-of-possession on report.
+**Settled (E5):**
+- **Binding = client-certificate thumbprint** from ND-004's mTLS, RFC 8705 style.
+- **The check is at *report* time** — the permit binds the sender who will report.
+- **A mismatch is refused in the decision pipeline with an audited
+  `sender_mismatch` entry and a `reason` on the report response — never a silent
+  transport-layer drop.** Mirrors the existing "second report → `accepted: false`"
+  rule (§idem). A refused report is exactly the event the audit exists to capture.
+- **Do not build DPoP.** Proof-of-possession with a PEP-held key (RFC 9449) *is*
+  A10, not a step toward A2 — it belongs to ND-016 and to the terminating-
+  intermediary case, which is still draft future work.
+**Depends on:** ND-004. The reason code itself ships earlier, in ND-002.
+**Relates to:** ND-015 (signed receipts) reuses the key-management layer built here.
+
+### ND-008 — Downstream idempotency-key propagation · **M** 🔺 · AADP A3
+`request_id` gives exactly-once *decision*. Exactly-once *effect* needs a
+permit-derived key handed to the target system (e.g. `Idempotency-Key` on an HTTP
+call, the equivalent field on a payment API). Derive it deterministically from the
+permit, expose it on `PermittedIntent`, and thread it through the packaged PEPs —
+MCP proxy first, then LangChain middleware.
+**Ruled early by core (E9) — and the answer re-sizes this ticket M → L.**
+- The draft specifies neither the derivation nor the header; `-02` adds both.
+- The key MUST be a deterministic function of **the permit alone**, never of the
+  request params (equivalent params can be re-encoded, which would break exactly the
+  determinism the key exists to provide). RECOMMENDED: **`permit_id` verbatim**, or
+  **UUIDv5 over `permit_id`** where the target constrains the format.
+- **The field/header name is the adapter's contract, documented per adapter.** The wire
+  standard does not own third-party header names.
+- **A target that cannot honour the key is handled by an obligation, not by a denial or
+  a caveat.** `-02` adds obligation type **`idempotency_key`**; a PEP that cannot
+  discharge it **MUST NOT perform the action** and reports `not_attempted`.
+- **Policy decides when exactly-once effect matters.** Where the obligation is attached
+  the guarantee is enforced; elsewhere adapters MAY propagate best-effort and the docs
+  say "exactly-once decision, key offered" — never "exactly-once effect". This resolves
+  the overclaiming risk structurally: the strong claim is made only where it is true.
+**Depends on `ND-038`.** Escalation 003/E11: core's "old PEPs are safe by construction"
+holds for the standard but not for onedoor, whose PEPs have no obligation code path at
+all and would silently ignore the obligation and execute.
+**Note:** connectors are pluggable (`connectors/mock.py`), so the engine can only
+*offer* the key. Whether the connector uses it is the adapter's contract — say so
+in the docs rather than implying exactly-once end-to-end.
+
+### ND-009 — PEP-driven resumption via `approval_ref` · **L** · AADP A6
+**Re-estimated upward from the roadmap.** `approval_ref` does not exist in the
+codebase — the roadmap's "field exists in the model" is incorrect
+(`CONFORMANCE.md` §3.1). Full scope: add the field to `ActionRequest`, accept it on
+`/v1/decide`, verify it against the `approvals` table, enforce single-use
+atomically alongside the existing PDP-driven path, and keep the kill switch
+winning after approval.
+**Settled (E2) — and the semantics are already normative in `-00`. Build to the
+draft; do not invent.**
+- **Binding is by action-equivalence, not `request_id`.** A resumption is a *new*
+  decide with a *new* `request_id` carrying the ref. A PEP presenting it on a
+  different `request_id` is doing the required thing, not a violation. Delivery's
+  escalation assumed the opposite — worth reading §idem before coding.
+- **Single-use**, marked consumed when a resumed request is decided against it.
+- **Expired / consumed / unknown / forged / action-mismatch / principal-mismatch
+  are uniform: evaluate as though no approval had been supplied.** The action
+  re-evaluates on its own merits, so a proposal-tier action just proposes again.
+  **A bad ref never grants — permission stands or falls on the re-evaluation.**
+- **Kill switch still wins** after a valid ref (§invariants #1, §approvals).
+- Record **`approval_ref_status`** on the evidence entry — {absent, honored,
+  expired, consumed, unknown, action_mismatch, principal_mismatch} — so the
+  forensic distinction survives without polluting the verdict vocabulary.
+- **Approvals are principal-scoped** (a gap this escalation surfaced): a ref under a
+  different principal is `unknown` for the verdict, `principal_mismatch` in evidence.
+**Introduces zero new reason codes ⇒ no longer depends on ND-002.** Can be built in
+parallel with the vocabulary release.
+**DoD extra:** a concurrency test — two simultaneous resumptions with the same
+`approval_ref` must yield exactly one execution.
+
+### ND-010 — Rebuild pending intents from the audit log, not memory · **M**
+Not in the roadmap; found in the source. `service/app.py`'s own docstring: *"The
+service keeps the pending-intent state in memory (single-process, self-hosted
+v0.3); a restart between decide and report leaves the honest 'intended,
+unconfirmed' row in the audit log, and v0.4 rebuilds intents from that row instead
+of memory."* That rebuild has not landed. Today a PDP restart strands every
+in-flight permit.
+The `exec_intent` row plus `cap_reservations` already hold everything needed.
+**Why it belongs in P1:** it is a promise the code makes to its reader and does not
+keep, and in-memory intent state blocks the multi-replica goal (ND-019) outright.
+**Green-lit by core (C2)** — not wire-observable, so it stays delivery's call.
+**One binding constraint from core:** reconstructed intents are **the same durable
+rows** (`exec_intent` + `cap_reservations`), **not new ones** — no new evidence
+identity, no budget re-reservation. §invariants #9 (intent precedes action) and
+§idem (no re-reserve on a known request) both bind. Reconstruct in place; don't
+double-count.
+**DoD extra:** a restart test — decide, drop and rebuild the app object, report,
+assert the report is accepted and the reservation settles. Assert the audit gains
+**no** new rows and the reservation total is unchanged across the restart.
+
+---
+
+## Phase 2 — product surface
+
+### ND-015 — Signed decision receipts (Ed25519) · **L** 🔺 · P2 / AADP A2, A10
+PDP signs each verdict over the canonical form frozen in ND-001; PEPs and auditors
+verify. Needs a key-management story (generation, rotation, distribution,
+compromise) — the part that is easy to under-build.
+**Depends on:** ND-001 (canonical form), ND-005 (key layer).
+
+### ND-016 — Action-bound signed permits · **M** 🔺 · AADP A10 (draft future work)
+ND-005 extended cross-domain, for terminating intermediaries.
+🔺 **Core:** this is named *future work* in the draft. Delivery does not implement
+ahead of the standard. Core decides whether `-02` normalises it.
+
+### ND-017 — Content-addressed re-derivable receipts + Merkle anchoring · **XL** 🔺 · P3
+Paper 3's verdict manifest (`E`, `I`, `T`, `v`) on each decision, periodic Merkle
+root anchored to an external transparency log. This is what *passes* Veto rather
+than matching it: their receipts prove "the PDP said this"; these let anyone
+recompute the decision and check archive integrity independently.
+**Reference shape delivered and checked** (Escalation 004): `rederivable-manifest/`
+conforms to Response 002; `canonical.py` is **vendored directly as `ND-001`'s
+canonicalisation module** rather than reimplemented — same bytes by construction.
+**Four constraints, all in the anchoring layer.** Three carried in from the
+Escalation-004 check; the fourth is normative from Response 007.
+- **Anchor only what you have re-verified (R007, `-02` change item 22).** Before
+  computing and publishing an anchor root, the implementation **MUST re-verify the
+  receipt set it covers** — chain verification *and* manifest verification over the
+  actual bytes at hand. A root derived from bytes that fail verification **MUST NOT
+  be anchored**; the failure is surfaced, not the root. Cheap, because anchoring is
+  periodic. **Adopted from delivery's `.gitattributes` reproduction:** a CRLF-corrupted
+  checkout silently moved the anchor root from `4e49f63a17cf…` to `576019221d5d…`
+  while every *internal* consistency check still passed, so the corrupted root would
+  have been published to an external transparency log with full confidence. The rule
+  generalises past CRLF to any local byte corruption — encoding, disk, a partial
+  vendor update. Binds the forensics session's P2-05/P3 anchoring too; core relays.
+- **E12/E13 — `merkle_root` must be replaced before anything is anchored.** The
+  shipped construction has the duplicate-last-node collision *and* no leaf/internal
+  domain separation. RFC 6962 patch written and exhaustively tested:
+  `patches/merkle_rfc6962.py`.
+- **Inclusion proofs are missing entirely.** A root alone lets a holder of the whole
+  set recompute it; it does not let a third party check *their* receipt — which is
+  the claim §3.2 makes. `inclusion_proof` / `verify_inclusion` ship in the same patch.
+- **E14 — record the Unicode version** in the receipt and fold it into instrument
+  identity, or the re-derivability guarantee is runtime-scoped.
+**Decompose before starting.** Preimage definitions (what constitutes `E` for an
+onedoor decision) need core sign-off at decomposition. **Carry the re-verify-before-
+anchor rule into the decomposition** — it is a constraint on the anchoring component's
+interface, not a test to bolt on afterwards.
+🔺 **Core owns the whether and why.** Delivery owns how and when.
+
+### ND-018 — GUI: live monitor · **XL** · roadmap §4.2
+Decision stream over SSE, budget gauges (reading ND-003's `budget` object),
+approval queue, guarded kill switch, audit explorer with a *re-derive this verdict*
+button once ND-017 lands. React SPA over the existing FastAPI service, RBAC reusing
+the decide/admin split, shipped as `onedoor[ui]`.
+**Sequence:** monitor before policy studio — highest visible value, read-only,
+lower blast radius.
+**Depends on:** ND-003 for machine-readable budget state.
+
+### ND-019 — Postgres backend with linearizable budget state · **L** · roadmap §5
+Pluggable store behind the current SQLite implementation so a logical PDP can run
+as several replicas. The atomicity guarantees in `caps.py` currently rest on
+SQLite `IMMEDIATE` transactions; the concurrency tests
+(`test_concurrency.py`) must pass identically against both backends.
+**Depends on:** ND-010 — in-memory intent state defeats replicas regardless of the
+store.
+
+### ND-020 — GUI: policy studio · **XL** · roadmap §4.1
+Visual editor for `policies.yaml`, effect catalog, policy diff against the
+content-hash history, starter templates. Gains most of its value after ND-028
+(simulation) can preview a change's blast radius.
+
+---
+
+## Phase 3 — reach + enterprise
+
+Held at epic granularity; decompose when a phase-2 slot frees up.
+
+| # | Item | Size | Note |
+|---|---|---|---|
+| ND-022 | PEP `fail_static` / `fail_open` on PDP unreachability (A7) | M 🔺 | At 0% — `test_fail_soft.py` covers connector failure, a different thing. Core: is the default `fail_static`? |
+| ND-023 | Unix-socket binding for same-host PEPs (A8) | S | **Reclassified after E4.** With A1 written as a *property* mandate, a UDS binding with peer credentials is a **conforming transport profile**, not just a convenience — it is how a co-located PEP satisfies A1 without certificates. Still cheap once ND-004 factors the transport layer; now worth more. |
+| ND-026 | Finish web-push delivery; add email and a mobile approval path | M | `push_subscriptions` schema exists, delivery unwired — Tier-3 approvals are Slack-only today |
+| ND-027 | Unit-neutral budgets (tokens, calls, custom dimensions) | L 🔺 | Generalises ND-003's object; core owns the dimension vocabulary |
+| ND-028 | Policy simulation / what-if against recorded traffic | L | Reuses the audit log; high value, no standard coupling |
+| ND-029 | GitOps policy: version control, CI validation, staged promotion | M | Content-hash snapshotting already makes this natural |
+| ND-030 | `isolate` obligation with a real isolation PEP (A5) | XL 🔺 | Needs a micro-VM/container PEP; largest unstarted conformance item |
+| ND-031 | Broader PEP catalog: egress proxy, Envoy/Kong plugin, K8s admission, OpenAI/Anthropic native, AutoGen, CrewAI | XL | Split per adapter |
+| ND-032 | Compliance evidence packs (EU AI Act, ISO/IEC 42001) from the audit | L | Differentiated enterprise feature; rides on re-derivability |
+| ND-033 | SIEM export to Splunk/Datadog | M | OTel is already partial (`service/telemetry.py`) |
+| ND-034 | Identity composition (WIMSE / OAuth agent identity) | L 🔺 | Standards-coupled positioning; core owns the framing |
+| ND-035 | Sliding-window and per-principal rate limits beyond `daily_rate` | M | |
+| ND-039 | **Report outcome vocabulary** — replace `report_result(..., ok: bool)` with a four-value outcome (`success\|failure\|timeout\|not_attempted`), thread it through both packaged PEPs and `/v1/report`, and make reservation settlement outcome-dependent | M | **New, from Escalation 005 (`CONFORMANCE.md` A4b).** Live conformance defect: the report API has no outcome parameter, so `not_attempted` and `timeout` collapse to `failed` — the audit asserts an attempt that never happened, and the reservation is settled unconditionally, **charging budget for an action that never occurred**. **Lands in `0.4.0`, before `ND-038` emits any obligation.** **Ruled (R005):** `success`/`failure`/`timeout` → settle; **`not_attempted` → release, as an AUDITED event** (symmetric with `append_expiry`, never a silent adjustment). `/v1/report` must accept the wire `outcome` field — already normative in `-00`, so this is catch-up, not a break. |
+| ND-038 | **Obligation machinery** — obligation envelope on `PermittedIntent`, registry check, **PEP-side unknown-obligation fail-closed in both packaged PEPs**, discharge evidence on the report, `not_attempted` outcome | L 🔺 | **New, from Escalation 003/E11 (`CONFORMANCE.md` N6).** onedoor has none: all five uses of "obligation" in the package are prose. §obligations' fail-closed guarantee is a property of *conformant* PEPs, and onedoor's would silently ignore an obligation and execute. **`ND-008` (A3), `ND-030` (A5), and `ND-037` (A9a) all depend on this** — it is the shared substrate the roadmap made invisible by listing them as three unrelated items. Promote into P1 alongside `ND-008`. **Core constraints (R003):** **(0)** *report-path completeness first* — `ND-039` lands before this emits anything, or a PEP that correctly refuses an obligation drains the tenant's budget for an action that never ran (Escalation 005); **(1)** *enforcement before emission* — the PDP MUST NOT attach any obligation beyond `report_result` in a release whose own packaged PEPs do not yet fail closed on unknown types, so the reserved surface **ships dark** during any gap; **(2)** *§implstatus discloses the gap now*, in the `0.3.6` ping, not at `0.5.0`. |
+| ND-037 | Obligation-type registry hygiene (A9a) | S | **Blocked on ND-038.** Core's B3 called this checkable, and it is — but neither duty (emit only registered types, enforce unknown-obligation-fail-closed) can be *enforced* against machinery that does not exist. Small once `ND-038` lands; not before. |
+| ND-036 | Reconcile the repo's `ROADMAP.md` with this backlog | S | Two roadmap docs now exist and will diverge; make the public one a pointer to `BACKLOG.md` + `CONFORMANCE.md` (`CONFORMANCE.md` N4) |
+
+---
+
+## Migration-number register
+
+| Number | Ticket | Status |
+|---|---|---|
+| `0001`–`0005` | shipped in `0.3.5` | in `main` |
+| `0006` | **`ND-024`** — retire vestigial schema | reserved, `0.3.6` |
+| `0007`+ | **`ND-002`** — `0.4.0` row format (protocol column, `budget_json`, full receipt envelope, verbatim-freeze columns) | reserved, `0.4.0` |
+
+Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
+renumbering after the fact. Claim a number here before writing one.
+
+## Sequencing notes
+
+**P1 order:** ND-025 → ND-021 → **ND-002 + ND-003 together as one `0.4.0`** →
+ND-001 → ND-010 → ND-004 → ND-005 → ND-008. **ND-009 runs in parallel** from any
+point after `0.4.0` — E2 removed its dependency on the vocabulary change.
+
+Both deviations from roadmap §6 now have core's assent (Response 001):
+
+1. **A4 before P1 — assent granted (C1).** Chaining first means freezing a hash over
+   a row format that ND-002/ND-003 are about to change, and the audit table is
+   append-only, so the old rows can never be re-chained. Rename first costs nothing;
+   rename second is a permanent seam at the exact point tamper-evidence must be
+   strongest.
+2. **ND-010 pulled into P1 — green-lit (C2).** Not a roadmap item. It is an unkept
+   promise in the shipped code and a hard blocker on ND-019.
+
+**Not delivery's, and not to be picked up:** the multi-dependency trust base (A9b —
+research-coupled), DPoP / A10 (draft future work), and lifting the T-set into the
+wire (core's call). Implement the §evidence floor only.
+
+Everything else follows §6. The crypto epic (ND-001 → ND-015 → ND-017) stays
+sequenced as a single arc with its design frozen up front; per the brief it is not
+to be quietly deprioritised, and splitting it across phases is safe only if the
+receipt entry shape is designed once at ND-001.
+
+## Release mapping
+
+| Release | Contents | AADP status change |
+|---|---|---|
+| `0.3.6` | ND-025, ND-021, ND-024 | None — hygiene. LiteLLM example becomes conformant. |
+| `0.4.0` | ND-002, ND-003, ND-039 | **Breaking for archives and readers, not for PEP enforcement.** Reason codes → `cap_rate`/`cap_value`; `sender_mismatch` reserved; `budget` object added and persisted; `reason` on the report response; protocol → **`aadp/0.2`**; `protocol` column on the audit; report outcome reworked to the four-value vocabulary with outcome-dependent settlement (`ND-039`); obligation surface landed **dark** (conformance catch-up, already normative in `-00`); **receipt envelope migrated with later fields present-but-empty** so `0.4.1` does not re-migrate. A4 closed. Ping core. |
+| `0.4.1` | ND-001, ND-010 | P1 (Veto parity, partial). Tamper-evidence claim becomes true. Gated on **E8**. |
+| `0.5.0` | ND-004, ND-005, ND-038, ND-008, ND-009 | A1, A2, A3, A6, A9a closed. The largest conformance jump. **Breaking unless E11 reserves the obligation surface in `0.4.0`** — `not_attempted` and discharge evidence are wire-observable. Core handles §implstatus centrally — ping on release. |
+
+Version↔draft mapping is maintained in `CONFORMANCE.md`'s header and must be
+updated in the same PR as any release.
