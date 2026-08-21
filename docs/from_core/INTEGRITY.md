@@ -46,6 +46,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 <!-- BEGIN GENERATED digests: python -m scripts.verify_memo --table docs/from_core/*.md -->
 | Memo | Body digest (`Integrity:` register) |
 |---|---|
+| `Core_Forward_003_Protocol_Clarification_2026-08-21.md` | `a3f0170a11508c8a5b432c7bf12c2493d5048b956ea707be8f16d01aab96253e` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none (predates the footer) |

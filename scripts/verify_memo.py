@@ -20,7 +20,19 @@ Usage:
 
 Exit 0 if every memo carrying a footer verifies; 1 otherwise.
 
-Two traps, both walked into rather than foreseen, both now regression-tested:
+Forward 003 clarified two readings of that definition, both binding:
+
+  - "trailing whitespace stripped" means trailing **ASCII** whitespace, byte-level:
+    the set ` \t\n\r\f\v`. Text-semantics stripping never enters a preimage -- a body
+    ending in U+00A0 would otherwise digest differently across Unicode versions, the
+    same reasoning that removed normalisation from ACJ preimages (E14). Operating on
+    `bytes` is what makes this true here.
+  - The file **ends** at the footer line's terminating LF. Any byte after it is
+    malformed, never ignorable: a passing verification must attest every byte in the
+    file, and the permissive reading lets unattested content ride under a green
+    verdict.
+
+Four traps, all walked into rather than foreseen, all now regression-tested:
 
 1. FINAL line, not first match. Response 008 quotes its own footer format in its
    prose, so the marker occurs twice in that file. A first-match parser truncates
@@ -42,6 +54,13 @@ Two traps, both walked into rather than foreseen, both now regression-tested:
    protocol -- a silent pass on exactly the corruption the footer exists to catch.
    Absence of the marker means "predates the protocol"; presence of a marker that
    does not verify means "damaged", and the two must never collapse.
+4. Trailing CR/LF after the footer was tolerated. The footer was parsed as
+   `raw[start:].rstrip(b"\r\n")`, which silently accepted any number of trailing
+   newline bytes -- a divergence from Forward 003 section 2 in the permissive
+   direction, found by probing the clause rather than by re-reading the code, and
+   escalated to core rather than quietly patched. Adding the check then moved
+   CRLF files onto a new branch and dropped the encoding diagnosis, so the hint now
+   attaches to the *outcome* rather than to one route.
 """
 
 from __future__ import annotations
@@ -83,28 +102,56 @@ def preimage(raw: bytes, footer_start: int) -> bytes:
 
 def verify(path: Path) -> Result:
     raw = path.read_bytes()
+
+    def damaged(detail: str) -> Result:
+        """Every damaged verdict names the encoding cause when CRLF is present.
+
+        The hint used to hang off the digest-mismatch branch alone. Adding the
+        Forward 003 §2 trailing-byte check moved CRLF files onto a different branch,
+        which silently dropped the diagnosis -- a diagnosability regression in the
+        very property core endorsed as the pattern. Attaching it to the outcome
+        rather than to one route is what makes it survive the next new branch.
+        """
+        if b"\r\n" in raw:
+            detail += (
+                " -- file contains CRLF; check .gitattributes and core.autocrlf "
+                "BEFORE suspecting core"
+            )
+        return Result("damaged", detail)
+
     starts = _marker_lines(raw)
     if not starts:
         return Result("no-footer")
     if len(starts) > 1:
-        return Result(
-            "damaged",
+        return damaged(
             f"{len(starts)} lines begin with `Integrity:`; exactly one is permitted. "
-            f"Ambiguity is surfaced, never resolved (Response 010).",
+            f"Ambiguity is surfaced, never resolved (Response 010)."
         )
     start = starts[0]
-    footer = raw[start:].rstrip(b"\r\n")
+    # Forward 003 §2: the file ends at the footer line's terminating LF. Any byte
+    # after it makes the file malformed, never ignorable -- a passing verification
+    # must attest EVERY byte in the file, and the permissive reading lets unattested
+    # content ride under a green verdict. This checker previously did
+    # `raw[start:].rstrip(b"\r\n")`, which silently tolerated any number of trailing
+    # CR/LF bytes; found by probing the clause rather than by reading the code.
+    line_end = raw.find(b"\n", start)
+    if line_end == -1:
+        return damaged("footer line has no terminating LF; the file must end with it")
+    if line_end + 1 != len(raw):
+        extra = len(raw) - (line_end + 1)
+        return damaged(
+            f"{extra} byte(s) after the footer's terminating LF; the file must end "
+            f"there. Unattested trailing content is malformed, not ignorable."
+        )
+    footer = raw[start:line_end]
     if not footer.startswith(PREFIX):
-        return Result("damaged", "footer line is malformed")
+        return damaged("footer line is malformed")
     claimed = footer[len(PREFIX) :]
     if len(claimed) != 64 or not all(c in b"0123456789abcdef" for c in claimed):
-        return Result("damaged", "claimed digest is not 64 lowercase hex chars")
+        return damaged("claimed digest is not 64 lowercase hex chars")
     actual = hashlib.sha256(preimage(raw, start)).hexdigest()
     if actual != claimed.decode():
-        hint = ""
-        if b"\r\n" in raw:
-            hint = " -- file contains CRLF; check .gitattributes and core.autocrlf BEFORE suspecting core"
-        return Result("damaged", f"claimed {claimed.decode()[:12]}..., got {actual[:12]}...{hint}")
+        return damaged(f"claimed {claimed.decode()[:12]}..., got {actual[:12]}...")
     return Result("ok")
 
 

@@ -211,3 +211,62 @@ def test_no_whole_file_hash_is_recorded_beside_a_body_digest() -> None:
         f"digests recorded outside the generated register: {offenders}. The register "
         f"is the only place a digest is written, and it is generated."
     )
+
+
+def test_preimage_strips_ascii_whitespace_only_never_unicode(tmp_path: Path) -> None:
+    """Forward 003 §1: the strip is byte-level ASCII, never text semantics.
+
+    The preimage is defined over bytes, and the strip set is ` \t\n\r\f\v`.
+    `str.rstrip()` consults the Unicode database and would eat U+00A0, so a body
+    ending in a non-breaking space would digest differently across UCD versions --
+    the same reasoning that removed Unicode normalisation from ACJ preimages (E14).
+    Operating on bytes is what makes this true here, so it gets a test rather than a
+    comment.
+    """
+    import hashlib
+
+    text = "# Memo\n\nEnds with a non-breaking space:  "
+    assert text.rstrip() != text, "the probe is pointless unless str.rstrip() would strip it"
+
+    body = text.encode("utf-8").rstrip() + b"\n"
+    assert b"\xc2\xa0" in body, "the NBSP must survive a byte-level strip"
+
+    memo = tmp_path / "nbsp.md"
+    digest = hashlib.sha256(body).hexdigest()
+    memo.write_bytes(body + f"\nIntegrity: sha256(body) = {digest}\n".encode())
+    assert verify(memo).status == "ok"
+
+
+def test_the_footer_line_ends_the_file(tmp_path: Path) -> None:
+    """Forward 003 §2: any byte after the footer's terminating LF is malformed.
+
+    Binding, not advisory: a passing verification must attest every byte in the
+    file, so the permissive reading would let unattested content ride under a green
+    verdict. This checker used to do `raw[start:].rstrip(b"\r\n")`, which tolerated
+    any number of trailing CR/LF bytes -- a divergence in the permissive direction,
+    found by probing the clause rather than by re-reading the code, and escalated
+    rather than quietly patched.
+    """
+    body = b"# Memo\n\nA ruling.\n"
+    good = _memo("# Memo\n\nA ruling.\n")
+    assert body in good
+    ok = tmp_path / "ok.md"
+    ok.write_bytes(good)
+    assert verify(ok).status == "ok", "the canonical form must still verify"
+
+    for label, trailing in [
+        ("content", b"trailing junk\n"),
+        ("one extra LF", b"\n"),
+        ("a NUL", b"\x00"),
+        ("a bare CR", b"\r"),
+    ]:
+        bad = tmp_path / f"bad_{label.replace(' ', '_')}.md"
+        bad.write_bytes(good + trailing)
+        result = verify(bad)
+        assert result.status == "damaged", f"{label} after the footer must be malformed"
+        assert "after the footer" in result.detail
+
+    missing_lf = tmp_path / "no_lf.md"
+    missing_lf.write_bytes(good.rstrip(b"\n"))
+    assert verify(missing_lf).status == "damaged"
+    assert "terminating LF" in verify(missing_lf).detail
