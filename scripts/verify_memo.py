@@ -6,10 +6,13 @@ ratified by Response 009 and is implemented here exactly as written, because a
 digest whose preimage each side guesses at is verifiable only by luck -- the third
 instance of that class in this programme, after E8 decimals and Q-11 uids:
 
-    body = every byte of the file strictly before the FINAL line beginning
-           `Integrity:`, with all trailing whitespace (including newlines)
-           stripped, followed by exactly one LF (0x0A). Bytes as stored, UTF-8.
-           Digest is SHA-256 over body, lowercase hex.
+    body = every byte of the file strictly before THE line beginning `Integrity:`,
+           with all trailing whitespace (including newlines) stripped, followed by
+           exactly one LF (0x0A). Bytes as stored, UTF-8. SHA-256, lowercase hex.
+
+    Exactly one line of a memo may begin with `Integrity:` -- a producer obligation
+    (quotations are indented or kept mid-line). A verifier encountering more than one
+    such line MUST reject the file as malformed.
 
 Usage:
 
@@ -24,7 +27,16 @@ Two traps, both walked into rather than foreseen, both now regression-tested:
    body at the quotation and reports a mismatch indistinguishable from relay
    corruption -- the worst diagnostic shape available. Response 009 amended the
    definition to say FINAL for this reason.
-2. A malformed footer is a FAILURE, never a skip. An earlier version of this script
+2. Two marker lines is MALFORMED, not a tie to break. Response 009 amended the
+   definition to anchor on the FINAL such line; Response 010 superseded that, because
+   the forensics session's independent verifier *raised* on two markers instead. Two
+   checkers disagreeing on the same file is the E005 defect class reproduced inside
+   the memo protocol -- a receipt "verified" by one and invalid to the other. The
+   grounding was already ours: ACJ rules duplicate keys `malformed`, never
+   last-one-wins. Silently resolving an ambiguity the definition exists to close is
+   the move this programme forbids everywhere else, and final-line anchoring was that
+   move. Mid-line quotations are fine and Response 008 depends on it.
+3. A malformed footer is a FAILURE, never a skip. An earlier version of this script
    matched the footer with a regex anchored on `
 ...\Z`, so a CRLF-corrupted memo
    did not match, fell through to "no footer", and was reported as predating the
@@ -54,15 +66,15 @@ class Result:
         return self.status != "damaged"
 
 
-def _final_footer_start(raw: bytes) -> int | None:
-    """Offset of the FINAL line beginning `Integrity:`, or None if there is none."""
-    best = None
+def _marker_lines(raw: bytes) -> list[int]:
+    """Offsets of every line beginning `Integrity:`. Mid-line occurrences do not count."""
+    out = []
     start = 0
     while (i := raw.find(MARKER, start)) != -1:
         if i == 0 or raw[i - 1 : i] == b"\n":  # must begin a line
-            best = i
+            out.append(i)
         start = i + 1
-    return best
+    return out
 
 
 def preimage(raw: bytes, footer_start: int) -> bytes:
@@ -72,9 +84,16 @@ def preimage(raw: bytes, footer_start: int) -> bytes:
 
 def verify(path: Path) -> Result:
     raw = path.read_bytes()
-    start = _final_footer_start(raw)
-    if start is None:
+    starts = _marker_lines(raw)
+    if not starts:
         return Result("no-footer")
+    if len(starts) > 1:
+        return Result(
+            "damaged",
+            f"{len(starts)} lines begin with `Integrity:`; exactly one is permitted. "
+            f"Ambiguity is surfaced, never resolved (Response 010).",
+        )
+    start = starts[0]
     footer = raw[start:].rstrip(b"\r\n")
     if not footer.startswith(PREFIX):
         return Result("damaged", "footer line is malformed")

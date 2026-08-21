@@ -46,18 +46,28 @@ protection on `main` requires both jobs green.
 
 1. **Conformance-first.** Nothing ships that isn't in the spec; `CONFORMANCE.md`
    updates in the same PR as the change. Nothing is ✅ without a passing test.
-2. **Tests with every change; suite stays green** (CI enforces it now). Property
+2. **A verification claim about a gate must come from the gate's own commands,
+   verbatim** (programme-wide rule, R010, adopted from delivery's own error). A
+   cold-clone check that ran `python -m pytest` while CI ran bare `pytest` reported
+   four green gates and CI went red on both jobs: `python -m` prepends CWD to
+   `sys.path` and bare `pytest` does not. Simulating a gate with a different command
+   than the gate uses is not verification.
+3. **Three outcomes, never two** (programme-wide rule, R010, same origin). *Absent*,
+   *unverifiable* and *failed* are distinct and must never collapse — unverifiable and
+   malformed are failures to **surface**, never skips. The memo checker once reported a
+   CRLF-corrupted file as "predates the protocol" and passed it.
+4. **Tests with every change; suite stays green** (CI enforces it now). Property
    tests use **generated** inputs — equal-value/different-spelling numbers,
    key-order permutations, string normal forms — not hand-picked examples;
    spot-checks find only the violations you thought of.
-3. **Verify, don't trust** — including artifacts from core. Probe adversarially;
+5. **Verify, don't trust** — including artifacts from core. Probe adversarially;
    run, don't read. Both directions of every check (a fix can overshoot).
-4. **The feedback loop is real.** Implementation contact keeps finding spec gaps
+6. **The feedback loop is real.** Implementation contact keeps finding spec gaps
    (reservation reclamation, E10, E11, A4b). When you hit one: escalation memo,
    never a workaround.
-5. **No overclaiming.** READMEs, changelogs, and `CONFORMANCE.md` state what is
+7. **No overclaiming.** READMEs, changelogs, and `CONFORMANCE.md` state what is
    implemented and tested, with gaps named.
-6. **Release hygiene.** Bump, tag, publish, changelog; ping core on any release that
+8. **Release hygiene.** Bump, tag, publish, changelog; ping core on any release that
    changes conformance status. Claim migration numbers in `BACKLOG.md`'s register
    before writing one.
 

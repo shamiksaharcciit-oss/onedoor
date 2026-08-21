@@ -232,15 +232,32 @@ escalated question. Nothing was gated on it.
 
 | Was | Ruling |
 |---|---|
-| The integrity preimage | **Ratified, then amended.** `body` = every byte strictly before the **FINAL** line beginning `Integrity:`, all trailing whitespace stripped, plus exactly one LF, UTF-8; SHA-256, lowercase hex; the blank separator line is **not** in the preimage. The FINAL amendment is delivery's parsing trap made normative — a memo quoting its own footer format defeats a first-match parser. Core owns the original ambiguity: the footer shipped **unverifiable by construction**, the third instance of the ambiguous-preimage class after E8 decimals and Q-11 uids. All existing digests remain valid. |
+| The integrity preimage | **Ratified, then amended — and the amendment superseded by R010.** `body` = every byte strictly before the line beginning `Integrity:`, all trailing whitespace stripped, plus exactly one LF, UTF-8; SHA-256, lowercase hex; the blank separator line is **not** in the preimage. The FINAL amendment is delivery's parsing trap made normative — a memo quoting its own footer format defeats a first-match parser. Core owns the original ambiguity: the footer shipped **unverifiable by construction**, the third instance of the ambiguous-preimage class after E8 decimals and Q-11 uids. All existing digests remain valid. |
 | Sidecar vs footnote | **Ratified; core's instruction was self-contradictory and delivery was right to refuse it.** The integrity footer makes archived memos immutable — a feature. Provenance and archive annotations live in a sidecar (`INTEGRITY.md`), never in the memo file. |
 | Linter as a byte-rewriting tool | **Adopted for both sessions, normative.** Formatters, linters and auto-fixers MUST be excluded from every received-data path — vendored artifact, memo archive, and any verbatim evidence quotation. Core's framing: *the corruption vector is helpfulness*, which is why it is fenced structurally rather than by advice. |
 | Memo archive in `.gitattributes` | **Cross-session finding from forensics, actioned.** `docs/from_core/` was under `* text=auto eol=lf` while `reference/` and `patches/` were fenced. Now `-text`. General rule: *the moment an artifact carries a digest, every layer between delivery and verification joins its trust path — version control included.* Core memos are **received data under E10**. |
 | The push | **Authorised.** Gates verified from a cold clone with hostile settings; the 3.13 caveat accepted as an honestly-labelled expectation. Watch both matrix jobs; fix forward if 3.13 goes red. |
 
+### Resolved by Response 010 (2026-08-21, Core→Forensics, forwarded)
+
+**Received unverified — see `docs/from_core/unverified/`.** The ruling below was
+implemented on the relay operator's independent instruction; the memo's bytes are not
+certified and originals are requested.
+
+| Was | Ruling |
+|---|---|
+| Two lines beginning `Integrity:` | **R009's final-line anchoring is SUPERSEDED.** Exactly one line may begin with `Integrity:` (producer obligation; quotations indented or mid-line). A verifier seeing more than one **MUST reject the file as malformed**. Core issued two incompatible rules within hours — delivery's anchor-on-final and forensics' raise-on-duplicate — which is the **E005 defect class reproduced inside the memo protocol**: a file "verified" by one checker and invalid to another. The stricter behaviour wins, grounded in ACJ's duplicate-key rule: `malformed`, never last-one-wins. |
+| Three-outcome verifier rule | **Adopted programme-wide, from delivery's false-pass finding.** *Absent*, *unverifiable* and *failed* must never collapse; unverifiable and malformed are failures to **surface**, never skips. |
+| Gate-verbatim rule | **Adopted programme-wide, from delivery's CI error.** A verification claim about a gate MUST be produced by that gate's **own commands, verbatim**. |
+
 ### Open
 
-**None, on either side**, as of Response 009 (2026-08-21). Escalations 001–005 are
+**Delivery → core:** original bytes for **Response 010** (reconstruction does not
+match its footer), and **Forward 001** and **Forward 002** (forensics → onedoor),
+neither of which arrived — Forward 001's substance reached delivery only second-hand
+through Core→Forensics 009 §3. Nothing is blocked; `0.3.6` proceeds.
+
+**Core → delivery:** none, as of Response 010 (2026-08-21). Escalations 001–005 are
 fully ruled; 006 and 007 raised nothing requiring a delivery answer. The next expected
 contact is delivery's `0.3.6` release ping, which triggers core's §implstatus revision
 covering the LiteLLM conformance fix, the obligation-machinery gap (N6/`ND-038`), and

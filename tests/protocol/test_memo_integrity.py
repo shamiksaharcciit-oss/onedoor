@@ -80,10 +80,27 @@ def test_absent_footer_is_reported_as_absent_not_damaged(tmp_path: Path) -> None
     assert verify(old).status == "no-footer"
 
 
-def test_footer_is_read_from_the_final_line_not_the_first_match(tmp_path: Path) -> None:
-    """Response 008 quotes its own footer format; Response 009 amended the rule."""
+def test_midline_quotation_of_the_marker_is_fine(tmp_path: Path) -> None:
+    """Response 008 quotes its own footer format mid-line; that must still verify."""
     quoting = tmp_path / "quoting.md"
-    quoting.write_bytes(
-        _memo("# Memo\n\nEvery memo ends with `Integrity: sha256(body) = <hex>`.\n")
-    )
-    assert verify(quoting).status == "ok", "must anchor on the FINAL Integrity: line"
+    quoting.write_bytes(_memo("# Memo\n\nEnds with `Integrity: sha256(body) = <hex>`.\n"))
+    assert verify(quoting).status == "ok", "a mid-line marker is not a second footer"
+
+
+def test_two_marker_lines_are_rejected_as_malformed(tmp_path: Path) -> None:
+    """Response 010 superseded 009's final-line anchoring: ambiguity is an error.
+
+    009 said anchor on the FINAL such line. The forensics session's independent
+    verifier raised instead, and core ruled the stricter behaviour is the rule --
+    two checkers returning different verdicts on one file is the E005 defect class
+    reproduced inside the memo protocol. ACJ already rules duplicate keys malformed
+    rather than last-one-wins; resolving the ambiguity silently was the move this
+    programme forbids everywhere else.
+    """
+    duplicated = tmp_path / "two.md"
+    good = _memo("# Memo\n\nA ruling.\n")
+    duplicated.write_bytes(b"Integrity: sha256(body) = " + b"0" * 64 + b"\n" + good)
+    result = verify(duplicated)
+    assert result.status == "damaged"
+    assert not result
+    assert "exactly one is permitted" in result.detail

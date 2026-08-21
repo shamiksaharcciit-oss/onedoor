@@ -5,13 +5,21 @@ Core memos carry `Integrity: sha256(body) = <hex>` as their final line from Resp
 must brute-force is verifiable only by luck — and was ratified by Response 009 after
 the forensics session tried sixty candidates to find the true one:
 
-> **The integrity preimage.** `body` = every byte of the file strictly before the
-> **FINAL** line beginning `Integrity:`, with all trailing whitespace (including
+> **The integrity preimage.** `body` = every byte of the file strictly before **the**
+> line beginning `Integrity:`, with all trailing whitespace (including
 > newlines) stripped, followed by exactly one LF (0x0A). Bytes as stored, UTF-8.
 > SHA-256 over `body`, lowercase hex. The blank separator line before the
 > `Integrity:` line is **not** part of the preimage.
 
-`scripts/verify_memo.py` implements exactly that, FINAL included. Check the archive:
+**Exactly one line may begin with `Integrity:`** — a producer obligation; quotations
+are indented or kept mid-line. A verifier seeing more than one **MUST reject the file
+as malformed**. Response 009 had amended the preimage to anchor on the *final* such
+line; Response 010 **superseded that**, because the forensics session's independent
+verifier raised instead — and two checkers returning different verdicts on one file is
+the E005 defect class reproduced inside the memo protocol. The grounding was already
+ours: ACJ rules duplicate keys `malformed`, never last-one-wins.
+
+`scripts/verify_memo.py` implements exactly that. Check the archive:
 
 ```bash
 python -m scripts.verify_memo docs/from_core/*.md
@@ -39,6 +47,7 @@ provenance record", and neither is acceptable.
 | 007 | `966b7461…` | **Arrived damaged twice.** The original relay and core's byte-clean re-issue *both* arrived UTF-8-decoded-as-cp1252 with the C1 continuation bytes discarded — lossy, so not mechanically reversible. The archived file is a delivery reconstruction from context, **subsequently proven byte-identical to core's original** by its own integrity footer. It is not "close to" core's bytes; it is core's bytes, and the digest is the proof. The earlier archive copy carried a delivery footnote describing the repair; that footnote is retired to this table because it would break the digest. |
 | 008 | `a654483c…` | Arrived damaged in the same way; same reconstruct-then-verify path, digest matches. |
 | 009 (delivery) | `850cda60…` | Arrived damaged in the same way. Reconstructed, digest matches. |
+| 010 (forensics) | `a8ec3640…` | **QUARANTINED — see `unverified/`.** Reconstruction gives `c7ca70a3…`; the difference could not be isolated. Its §2 ruling was implemented anyway, on the relay operator's independent instruction; the bytes are not certified. |
 | 009 (forensics) | `e2790fdd…` | Forwarded to onedoor under its own §3 cross-session rule; arrived damaged, reconstructed, digest matches. Archived here because its §3 binds delivery. |
 
 ## The parsing trap, recorded because delivery walked into it
