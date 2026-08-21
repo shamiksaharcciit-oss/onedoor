@@ -11,10 +11,12 @@ toward it. Files are deleted from here once core supplies bytes that verify.
 ## Resolved: Core → Forensics · Response 010
 
 Quarantined 2026-08-21, resolved the same day. Now archived as
-`../Core_to_Forensics_Response_010_2026-08-21.md` — body digest `a8ec3640…`,
-whole-file `fdc68968…`. Renamed from forensics' `20260821` dateform to delivery's
-`2026-08-21` convention; **the digest is the identity, not the filename**, and both
-are recorded in `../INTEGRITY.md`.
+`../Core_to_Forensics_Response_010_2026-08-21.md`; its body digest is in the generated
+register in `../INTEGRITY.md`, which is the only place this repository records one
+(R012). Renamed from forensics' `20260821` dateform to delivery's `2026-08-21`
+convention — **the digest is the identity, not the filename.** The whole-file hash used
+to prove the disk copy is deliberately not recorded: it is a transfer aid, and mixing
+it into a ledger is exactly the defect R012 closes.
 
 ### What resolved it
 

@@ -37,8 +37,7 @@ Two traps, both walked into rather than foreseen, both now regression-tested:
    the move this programme forbids everywhere else, and final-line anchoring was that
    move. Mid-line quotations are fine and Response 008 depends on it.
 3. A malformed footer is a FAILURE, never a skip. An earlier version of this script
-   matched the footer with a regex anchored on `
-...\Z`, so a CRLF-corrupted memo
+   matched the footer with a regex anchored on `\n...\Z`, so a CRLF-corrupted memo
    did not match, fell through to "no footer", and was reported as predating the
    protocol -- a silent pass on exactly the corruption the footer exists to catch.
    Absence of the marker means "predates the protocol"; presence of a marker that
@@ -109,8 +108,61 @@ def verify(path: Path) -> Result:
     return Result("ok")
 
 
+BEGIN_MARK = "<!-- BEGIN GENERATED digests"
+END_MARK = "<!-- END GENERATED digests -->"
+# Files in the archive directory that are OURS, not received. Excluded by NAME,
+# per Forward 001 -- and shared with tests/protocol/ so the generator and the
+# checker cannot drift apart about what counts as a memo.
+GENERATED_FILES = frozenset({"INTEGRITY.md"})
+
+
+def digest_of(path: Path) -> str | None:
+    """The recorded identity of a memo: its verified body digest, or None."""
+    raw = path.read_bytes()
+    starts = _marker_lines(raw)
+    if len(starts) != 1 or verify(path).status != "ok":
+        return None
+    return hashlib.sha256(preimage(raw, starts[0])).hexdigest()
+
+
+def table(paths: list[Path]) -> str:
+    """Emit the ledger's digest rows.
+
+    R012: *a digest in a ledger is generated, never transcribed.* Any recorded
+    digest must be emitted into its cell by the verifier that computes it -- a
+    hand-copied digest is a claim with no guard, and it will drift while staying
+    green. So this function, not a human, writes those cells.
+
+    Full 64 hex characters, never truncated: an elided digest is a transcription
+    hazard of its own, and the ellipsis is where the two registers got mixed.
+    """
+    rows = ["| Memo | Body digest (`Integrity:` register) |", "|---|---|"]
+    for path in sorted(paths):
+        if path.name in GENERATED_FILES:
+            continue
+        d = digest_of(path)
+        # ASCII only. A generated cell that has to survive a round trip is the last
+        # place to put a character an encoding can eat.
+        cell = f"`{d}`" if d else "none (predates the footer)"
+        rows.append(f"| `{path.name}` | {cell} |")
+    return "\n".join(rows) + "\n"
+
+
+def render_block(paths: list[Path]) -> str:
+    cmd = "python -m scripts.verify_memo --table docs/from_core/*.md"
+    return f"{BEGIN_MARK}: {cmd} -->\n{table(paths)}{END_MARK}"
+
+
 def main(argv: list[str]) -> int:
-    paths = [Path(a) for a in argv[1:]]
+    args = argv[1:]
+    if args and args[0] == "--table":
+        paths = [Path(a) for a in args[1:]]
+        if not paths:
+            print("usage: --table <memo>...", file=sys.stderr)
+            return 2
+        print(render_block(paths))
+        return 0
+    paths = [Path(a) for a in args]
     if not paths:
         print(__doc__)
         return 2

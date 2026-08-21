@@ -12,6 +12,7 @@ and equally catches a well-meaning later edit to an archived one.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -156,4 +157,57 @@ def test_our_own_documents_satisfy_the_producer_obligation() -> None:
         "these files start a line with the integrity marker but are not well-formed "
         f"memos: {offenders}. Either indent the quotation / keep it mid-line, or give "
         f"the file a single correct footer."
+    )
+
+
+def test_the_digest_register_is_generated_not_transcribed() -> None:
+    """R012: a digest in a ledger is generated, never transcribed.
+
+    `docs/from_core/INTEGRITY.md` records every memo's body digest. Those cells are
+    emitted by the verifier that computes them, and this asserts the committed block
+    still matches what it emits -- which is the guard a hand-copied digest does not
+    have. Core's own ledger drifted exactly this way: a whole-file hash, circulated as
+    a transfer aid, was hand-copied into a cell meant for the protocol body digest and
+    sat there green.
+
+    Regenerate with:  python -m scripts.verify_memo --table docs/from_core/*.md
+    """
+    from scripts.verify_memo import BEGIN_MARK, END_MARK, render_block
+
+    ledger = (ARCHIVE / "INTEGRITY.md").read_text(encoding="utf-8")
+    start = ledger.find(BEGIN_MARK)
+    end = ledger.find(END_MARK)
+    assert start != -1 and end != -1, "the generated digest block is missing from INTEGRITY.md"
+
+    committed = ledger[start : end + len(END_MARK)]
+    expected = render_block(sorted(ARCHIVE.glob("*.md")))
+    assert committed == expected, (
+        "the digest register in INTEGRITY.md has drifted from what the verifier "
+        "emits. Do not hand-edit it -- regenerate with "
+        "`python -m scripts.verify_memo --table docs/from_core/*.md`."
+    )
+
+
+def test_no_whole_file_hash_is_recorded_beside_a_body_digest() -> None:
+    """The two registers must never mix (R012).
+
+    A body digest is a memo's recorded identity; a whole-file hash is an ephemeral
+    transfer aid, used to prove a copy operation and then discarded. Mixing them is
+    how core's ledger came to carry the wrong number, and the only defence is that
+    delivery's ledgers record exactly one register. Any 64-hex string in our own
+    ledger files that is not in the generated block is a transcribed digest.
+    """
+    from scripts.verify_memo import BEGIN_MARK, END_MARK
+
+    hex64 = re.compile(r"\b[0-9a-f]{64}\b")
+    offenders = []
+    for name in ("INTEGRITY.md", "unverified/README.md"):
+        path = ARCHIVE / name
+        text = path.read_text(encoding="utf-8")
+        start, end = text.find(BEGIN_MARK), text.find(END_MARK)
+        outside = text[:start] + text[end:] if start != -1 and end != -1 else text
+        offenders += [f"{name}: {m}" for m in hex64.findall(outside)]
+    assert not offenders, (
+        f"digests recorded outside the generated register: {offenders}. The register "
+        f"is the only place a digest is written, and it is generated."
     )

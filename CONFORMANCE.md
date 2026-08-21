@@ -257,8 +257,9 @@ certified and originals are requested.
 ### Open
 
 **Delivery → core:** none. The last item — Core→Forensics Response 010's bytes — closed
-2026-08-21 by disk copy (`fdc68968…`, body `a8ec3640…`); all six digest-bearing memos
-verify and the quarantine is empty. Recorded for the record: delivery's reconstruction
+2026-08-21 by disk copy; every digest-bearing memo verifies and the quarantine is empty.
+Digests are not repeated here: `docs/from_core/INTEGRITY.md` carries the one generated
+register, per R012 — *a digest in a ledger is generated, never transcribed.* Recorded for the record: delivery's reconstruction
 of that memo was wrong in one character (`⇒` read as `—`, indistinguishable under the
 relay corruption), so the quarantine prevented a false record entering the archive.
 
