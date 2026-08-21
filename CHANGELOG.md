@@ -67,6 +67,29 @@ Ten new tests, including the regression that fails against the old behaviour.
   may never have occurred. Fixed in `0.4.0`.
 - Transport security (A1), sender-constrained permits (A2) and hash-chained audit
   entries (P1) are not implemented.
+- **URL-valued parameters are matched as strings, and known evasions defeat that**
+  (`ND-040`). `param_effects` full-matches a regex against a parameter's string form,
+  so a pattern like `https://(pay|bank)\.example\.com/.*` does not survive contact
+  with an adversarial URL. **Measured, not suspected:**
+  `experiments/aliasing_benchmark.py` scores **0/4 on its evasive set at every layer**,
+  including the layer with deterministic parameter rules. The four cases are a
+  redirector/shortener (`https://t.co/...`), an **IP literal**, a **percent-encoded
+  host** (`bank%2Eexample%2Ecom`), and a **base64-obfuscated shell command**.
+  **Three of those four are URL-shaped and are what `ND-040` addresses** — canonicalize
+  first (scheme normalization, IDNA, host lowercasing, explicit subdomain semantics,
+  CIDR awareness) and deny on canonicalization failure, so a parse differential is a
+  denial rather than a bypass. Scheduled for `0.4.x`, immediately after `0.4.0`.
+  Reasoned from the matcher's design rather than individually measured, the same
+  string-matching weakness also covers IDN homographs, a `user@host` prefix, a
+  trailing-dot host and case variation.
+- **The fourth evasive case is a separate gap that `ND-040` does not close.**
+  Indirect or obfuscated command construction (`bash -c "$(echo <base64> | base64 -d)"`)
+  is not a URL-canonicalization problem, and no deterministic parameter rule catches
+  it; the benchmark says so in its own output. Nothing in this release addresses it.
+- **What follows for a deployer, plainly:** do not rely on `param_effects` patterns as
+  a network scope control against an adversarial input. Use them to label effects of
+  cooperative inputs, and put a fail-closed egress control in front of anything that
+  matters. Known evasions are published here rather than left to be discovered.
 
 ## Earlier releases
 

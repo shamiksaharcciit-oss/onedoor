@@ -69,7 +69,14 @@ protection on `main` requires both jobs green.
    implemented and tested, with gaps named.
 8. **Release hygiene.** Bump, tag, publish, changelog; ping core on any release that
    changes conformance status. Claim migration numbers in `BACKLOG.md`'s register
-   before writing one.
+   before writing one. **From `v0.3.6` (R011): every tag gets a GitHub release in the
+   same motion**, with notes drawn from `CHANGELOG.md` verbatim rather than rewritten.
+   **Do not backfill releases onto older tags** — a retroactive release carries a date
+   that misstates when the artifact was published, and this project does not
+   manufacture provenance. Verify artifacts before handing them over: `twine check`,
+   migrations present in the wheel, and a clean-venv install exercising
+   `Database.init()` (0.3.0 shipped a wheel with no migrations and failed on first
+   query).
 
 ## Protocol with core
 

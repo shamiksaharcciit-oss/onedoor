@@ -188,6 +188,23 @@ single-process, synchronous; PDP/PEP split with an MCP proxy as the first
 external enforcement point. Deliberately boring technology; the design is the
 contribution.
 
+## Known limitations
+
+Stated here rather than left to be discovered. The full list, with the measurement
+behind each, is in [CHANGELOG.md](CHANGELOG.md) and
+[CONFORMANCE.md](CONFORMANCE.md); the two a deployer should read before trusting a
+boundary to this engine:
+
+- **`param_effects` matches URL-valued parameters as strings.** A redirector, an IP
+  literal or a percent-encoded host defeats a pattern like
+  `https://(pay|bank)\.example\.com/.*` — `experiments/aliasing_benchmark.py` scores
+  0/4 on its evasive set. Use effect labels for cooperative inputs; put a fail-closed
+  egress control in front of anything that matters. Canonicalization lands in `0.4.x`
+  (`ND-040`).
+- **No obligation machinery.** An AADP obligation attached to a permit would be
+  silently ignored by onedoor's own enforcement points rather than failing closed
+  (`ND-038`).
+
 ## License
 
 Apache-2.0.
