@@ -57,3 +57,9 @@ patches/*.patch -text
 # CRLF memo would fail its own digest and present as CORE SENDING A BAD DIGEST -- the
 # same tampering-shaped diagnosis as the artifact, aimed at the wrong party.
 docs/from_core/** -text
+
+# The relay's byte-preserving drop point. Disk-copying the file is what finally
+# delivered Core->Forensics 010 intact after two renderings of it arrived corrupted,
+# so this path is now part of the received-data trust path and is fenced before it is
+# used again rather than after.
+docs/incoming/** -text

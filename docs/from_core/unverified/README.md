@@ -1,55 +1,61 @@
 # Unverified memos — quarantine
 
-Memos here **failed integrity verification** and are NOT part of the archive. They
-are kept because losing a ruling is worse than holding a doubtful copy, and deleted
-once core supplies bytes that verify.
+**Currently empty.** Kept, with its record, because the protocol it documents is live.
 
-`scripts/verify_memo.py` and `tests/protocol/` deliberately do not scan this
-directory: the archive's guarantee is that everything in it verifies, and a
-quarantine that counted toward that guarantee would dissolve it.
+Memos land here when they **fail integrity verification**. They are not part of the
+archive and do not count toward its guarantee: `scripts/verify_memo.py` and
+`tests/protocol/` deliberately do not scan this directory, because an archive whose
+guarantee is "everything here verifies" dissolves the moment a quarantine counts
+toward it. Files are deleted from here once core supplies bytes that verify.
 
-## Core → Forensics · Response 010 (`Core_to_Forensics_Response_010_20260821.md`)
+## Resolved: Core → Forensics · Response 010
 
-| | |
-|---|---|
-| Claimed | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
-| Reconstruction | `c7ca70a3935cef664ff79611c263432c6ad493c39b9f00d6466a26c001f55f6e` |
-| Status | **UNVERIFIED — original bytes requested** |
+Quarantined 2026-08-21, resolved the same day. Now archived as
+`../Core_to_Forensics_Response_010_2026-08-21.md` — body digest `a8ec3640…`,
+whole-file `fdc68968…`. Renamed from forensics' `20260821` dateform to delivery's
+`2026-08-21` convention; **the digest is the identity, not the filename**, and both
+are recorded in `../INTEGRITY.md`.
 
-Arrived through the same lossy relay corruption as 007/008/009 (UTF-8 decoded as
-cp1252, C1 continuation bytes discarded). For those four, reconstruction-from-context
-reproduced core's bytes exactly and the footer proved it. **For this one it did not**,
-and the search was not casual before concluding so:
+### What resolved it
 
-- every 1-, 2- and 3-character substitution across all 15 ambiguous positions, over
-  the full set of characters that collapse to the same mojibake (`—` `–` `→` `…` and
-  all four curly quotes);
-- six preimage interpretations (ratified `rstrip()`+LF, `rstrip("\n")`+LF, as-is,
-  as-is+LF, no trailing LF, CRLF body);
-- single and double trailing-space variants on every line, and every single
-  blank-line insertion or deletion.
+Not another rendering. Three deliveries of this memo arrived as text through the
+lossy relay and **all three were byte-identical to each other** — including a zipped
+"byte-exact re-issue" whose whole purpose was to defeat that path. What worked was a
+disk copy of the file from the forensics repository's verified archive.
 
-None reproduce the claimed digest, so the difference is somewhere in the prose and
-cannot be isolated without the originals. **This is the protocol working, not
-failing** — it is refusing to certify a repair that earlier good luck might have let
-through unnoticed.
+### What delivery got wrong, which is the part worth keeping
 
-**What was acted on anyway, and why that is not a contradiction.** §2's ruling
-(replace anchor-on-final with reject-on-duplicate) was implemented immediately. Its
-*meaning* survives the corruption intact — the damage is to punctuation, not words —
-and the same instruction arrived independently through the relay operator, so it does
-not rest on these bytes. What cannot be done on an unverified copy is treat it as the
-authoritative record. Acting on a legible instruction and certifying a byte-exact
-archive are different claims, and only the second one needs the digest.
+The reconstruction differed from core's bytes in **exactly one character**, on line 37:
 
-**Re-issue attempted 2026-08-21, and it did not help.** Core re-sent both Response
-010s as a zip specifically to force a download-and-move path, stating both reproduce
-their original digests. `Core_to_Delivery_Response_010` **verified** (`b8f4038a…`) —
-so the reconstruction method is sound, and five of six digest-bearing memos now
-verify. But the Forensics 010 text that reached delivery was **byte-identical to the
-copy that had already failed**: the same lossy corruption, unchanged. The zip is the
-right structural fix; it simply is not yet what reaches this session.
+```
+mine:  ACJ rules duplicate keys — `malformed`, not
+core:  ACJ rules duplicate keys ⇒ `malformed`, not
+```
 
-**Requested from core:** the Response 010 file itself, by a path that preserves bytes
-— not another rendering of it. Everything short of the actual bytes has now been
-tried.
+`⇒` (U+21D2) encodes as `E2 87 92` and collapses to the same bare `â` as an em dash,
+so it was invisible at the corruption layer. The brute-force search that failed to
+find it covered 1-, 2- and 3-character substitutions across all 15 ambiguous
+positions — but over a **hand-picked** candidate set of eight characters (`—` `–` `→`
+`…` and four curly quotes), assembled from what previous memos happened to contain.
+U+2000–U+21FF alone holds 512 characters that collapse identically.
+
+Worse: `⇒` appears **five times in this repository's own `CONFORMANCE.md`**, including
+`non-UTF-8 ⇒ deny malformed` — the same implication-arrow construction core used. The
+character was already here, in a semantically identical sentence, and still was not in
+the search space.
+
+This is `CLAUDE.md` discipline 4 turned on its author: *spot-checks find only the
+violations you thought of.* A candidate set drawn from observed data reproduces the
+bias of that data. It is the same failure as the nested-`additionalProperties` defect
+surviving two independent probes of the manifest artifact.
+
+### Why the quarantine was not pedantry
+
+Had the reconstruction been archived as instructed, `docs/from_core/` would now hold a
+memo whose normative sentence reads `duplicate keys — malformed` instead of
+`duplicate keys ⇒ malformed`, certified as core's bytes. The meaning survives here by
+luck. **The digest is the only reason anyone knows the reconstruction was wrong** — and
+by extension, the only reason to believe the five that verified were right.
+
+**Standing rule, reinforced:** never archive an unverified repair, and never treat
+reconstruction as recovery. Reconstruction produces a *candidate*; the footer decides.

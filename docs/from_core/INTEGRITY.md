@@ -49,7 +49,7 @@ provenance record", and neither is acceptable.
 | 009 (delivery) | `850cda60…` | Arrived damaged in the same way. Reconstructed, digest matches. |
 | 010 (delivery) | `b8f4038a…` | Arrived damaged; reconstructed, digest matches. |
 | Forward 001, 002 | none | Forensics → onedoor, relayed via core. Carry no footers **by design** (forensics' outbound notes have none yet), so they are *absent*, not *unverifiable* — the three-outcome rule is why they are archived while 010-forensics is not. Arrived only on the third attempt; their substance had reached delivery second-hand via Core→Forensics 009 §3. |
-| 010 (forensics) | `a8ec3640…` | **QUARANTINED — see `unverified/`.** Reconstruction gives `c7ca70a3…`; the difference could not be isolated. Its §2 ruling was implemented anyway, on the relay operator's independent instruction; the bytes are not certified. |
+| 010 (forensics) | `a8ec3640…` | **Resolved.** Quarantined first: three text deliveries all arrived identically corrupted, including a zipped "byte-exact re-issue". Delivered intact only as a **disk copy** from the forensics repo (whole-file `fdc68968…`). Filename normalised from forensics' `20260821` to delivery's dateform — the digest is the identity, not the name. The reconstruction was wrong in **one character**: `⇒` (U+21D2) where delivery guessed `—`; both collapse to the same mojibake. See `unverified/README.md` — the lesson is that a hand-picked candidate set reproduces the bias of the data it was drawn from. |
 | 009 (forensics) | `e2790fdd…` | Forwarded to onedoor under its own §3 cross-session rule; arrived damaged, reconstructed, digest matches. Archived here because its §3 binds delivery. |
 
 ## The parsing trap, recorded because delivery walked into it
@@ -80,3 +80,17 @@ by probing the gap rather than by reading the code; the earlier both-directions 
 had only tested a content edit, never an encoding one. Absence of a marker and a
 marker that does not verify are different facts and never collapse into one now:
 `tests/protocol/` holds all three cases, including the FINAL-line rule.
+
+## What the relay has taught, so far
+
+Four failure modes, each found the hard way:
+
+1. **Missing attachments** — Forwards 001 and 002 took three attempts to arrive.
+2. **Lossy encoding** — UTF-8 decoded as cp1252 with C1 continuation bytes discarded;
+   `→` and `—` are unrecoverable, and `⇒` is indistinguishable from either.
+3. **A re-issue can arrive identically corrupted** — the fix must change the *path*,
+   not the intent. A zip pasted as text is still text.
+4. **Reconstruction can be confidently wrong** — see `unverified/README.md`.
+
+**What works: copy the file to disk.** `docs/incoming/` is fenced `-text` for this,
+before it is used again rather than after.

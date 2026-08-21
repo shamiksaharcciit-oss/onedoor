@@ -250,14 +250,16 @@ certified and originals are requested.
 | Three-outcome verifier rule | **Adopted programme-wide, from delivery's false-pass finding.** *Absent*, *unverifiable* and *failed* must never collapse; unverifiable and malformed are failures to **surface**, never skips. |
 | Gate-verbatim rule | **Adopted programme-wide, from delivery's CI error.** A verification claim about a gate MUST be produced by that gate's **own commands, verbatim**. Binds both sessions' cold-clone claims and core's own artifact self-test claims equally. |
 | "Hiding behind a redder failure" | **In the record (R010 §1).** A gate that has never fired is indistinguishable from a gate that passes, until the failures ahead of it clear. |
+| Reconstruction is a candidate, not a recovery | **Delivery finding, 2026-08-21.** The one memo that could not be verified turned out to differ in a single character — `⇒` (U+21D2) read as `—`. The brute-force search missed it because the candidate set was **hand-picked** from characters previous memos happened to contain, while U+2000–U+21FF alone holds 512 that collapse identically; `⇒` was meanwhile in use five times in `CONFORMANCE.md` itself. Discipline 4 (generated inputs, not spot-checks) applies to recovery searches, not only to property tests. |
 | Producer obligation on marker lines | **From Forward 002, actioned.** Quoting a protocol inside a document that speaks the protocol is how a file becomes malformed. Delivery quotes the footer convention in eight places, all mid-line — now held by a test rather than by luck. |
 
 ### Open
 
-**Delivery → core:** the **Core→Forensics Response 010 file itself**, by a byte-preserving
-path. Its re-issue arrived byte-identical to the copy that already failed, so another
-rendering will not close it. `Core_to_Delivery_Response_010` verified (`b8f4038a…`) and
-**Forward 001/002 arrived** on the third attempt — both now archived. Nothing is blocked.
+**Delivery → core:** none. The last item — Core→Forensics Response 010's bytes — closed
+2026-08-21 by disk copy (`fdc68968…`, body `a8ec3640…`); all six digest-bearing memos
+verify and the quarantine is empty. Recorded for the record: delivery's reconstruction
+of that memo was wrong in one character (`⇒` read as `—`, indistinguishable under the
+relay corruption), so the quarantine prevented a false record entering the archive.
 
 **Core → delivery:** none, as of Response 010 (2026-08-21). Escalations 001–005 are
 fully ruled; 006 and 007 raised nothing requiring a delivery answer. The next expected

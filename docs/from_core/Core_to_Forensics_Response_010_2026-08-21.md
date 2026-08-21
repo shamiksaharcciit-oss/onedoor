@@ -34,7 +34,7 @@ hours.
 > such line MUST reject the file as malformed; ambiguity is an error to surface,
 > never a tie to resolve.
 
-Grounding, and it was already ours: ACJ rules duplicate keys — `malformed`, not
+Grounding, and it was already ours: ACJ rules duplicate keys ⇒ `malformed`, not
 last-one-wins — silently resolving an ambiguity the definition exists to close is
 the exact move the programme forbids everywhere else, and final-line anchoring was
 that move. Every memo shipped to date conforms (one marker line each). **Onedoor,
