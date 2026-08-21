@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from decimal import Decimal
 
 from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, ParamEffectRule, Policy, Tier
 from onedoor.store.clock import from_iso
@@ -19,9 +20,14 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         tier=Tier(row["tier"]),
         bounds=Bounds.model_validate_json(row["bounds_json"]),
         caps=Caps.model_validate_json(row["caps_json"]),
-        effects=json.loads(row["effects_json"]) if "effects_json" in row.keys() else [],
+        effects=(
+            json.loads(row["effects_json"], parse_float=Decimal)
+            if "effects_json" in row.keys()
+            else []
+        ),
         param_effects=[
-            ParamEffectRule.model_validate(r) for r in json.loads(row["param_effects_json"])
+            ParamEffectRule.model_validate(r)
+            for r in json.loads(row["param_effects_json"], parse_float=Decimal)
         ]
         if "param_effects_json" in row.keys()
         else [],

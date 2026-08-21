@@ -105,7 +105,11 @@ def test_the_recorded_snapshot_re_derives_the_decision(conn: Connection, config:
     rules = json.loads(snapshot)
     row = next(p for p in rules["policies"] if p["action_type"] == "prov.pay")
     bounds = json.loads(row["bounds_json"])
-    assert bounds["numeric"]["amount"]["max"] == 100, (
+    # A canonical decimal STRING from 0.4.0, not a JSON number: numeric bounds are
+    # Decimal (E10 -- no IEEE double on the evaluation path) and serialise through the
+    # canonical renderer, so `100`, `100.00` and `1E+2` all record as "100" and hash
+    # identically. The rule is what the content-hash must track, not its spelling.
+    assert bounds["numeric"]["amount"]["max"] == "100", (
         "recovered rules do not match those in force when the decision was made"
     )
 
@@ -141,4 +145,4 @@ def test_edit_act_revert_leaves_a_trace(conn: Connection, config: object) -> Non
     assert loose in stamps, "the permissive window left no trace"
     recovered = json.loads(policy_loader.snapshot_for(conn, loose))
     row = next(p for p in recovered["policies"] if p["action_type"] == "prov.pay")
-    assert json.loads(row["bounds_json"])["numeric"]["amount"]["max"] == 10_000
+    assert json.loads(row["bounds_json"])["numeric"]["amount"]["max"] == "10000"

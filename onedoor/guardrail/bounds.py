@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 from onedoor.guardrail.models import Bounds, JsonValue
 
@@ -33,12 +34,17 @@ def validate(bounds: Bounds, params: dict[str, JsonValue]) -> BoundsResult:
         if key not in params:
             continue
         value = params[key]
-        if not isinstance(value, int | float) or isinstance(value, bool):
+        # Decimal is numeric here, and must be: E10 parses JSON numbers with
+        # parse_float=Decimal, so every numeric parameter arriving over the wire is a
+        # Decimal. Omitting it from this check while landing that ingress change
+        # would deny EVERY numeric action -- the half-landed fix that is worse than
+        # the defect. tests/guardrail/test_decimal_ingress.py asserts the whole path.
+        if not isinstance(value, int | float | Decimal) or isinstance(value, bool):
             return BoundsResult(False, f"param '{key}' must be numeric")
         # Affirmative range check. The negative form (`value < min` / `value > max`)
         # is False for NaN, so NaN slips through it into the allowed path. Every
         # bound that is set must be provably satisfied, and the value must be finite.
-        if not math.isfinite(value):
+        if not (value.is_finite() if isinstance(value, Decimal) else math.isfinite(value)):
             return BoundsResult(False, f"param '{key}'={value} is not a finite number")
         if bound.min is not None and not value >= bound.min:
             return BoundsResult(False, f"param '{key}'={value} below min {bound.min}")

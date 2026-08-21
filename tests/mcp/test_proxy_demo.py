@@ -21,7 +21,9 @@ def test_mcp_demo_end_to_end() -> None:
     text = out.stdout
     assert "Weather in Amsterdam" in text  # permitted read forwarded
     assert "Thermostat set to 21.0" in text  # bounded actuation
-    assert "above max 23.0" in text  # bounds denial at the proxy
+    # "23", not "23.0": bounds are Decimal from 0.4.0, so the denial reason no
+    # longer carries a float artefact the policy author never wrote.
+    assert "above max 23" in text  # bounds denial at the proxy
     assert "requires approval" in text and "approval_id=1" in text  # tier 3 money
     assert "Sent €49.99 to webshop" in text  # approval released it
     assert "default_deny" in text  # unknown tool escalated

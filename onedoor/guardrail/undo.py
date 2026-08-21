@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from sqlite3 import Connection
 from uuid import uuid4
 
@@ -63,7 +64,7 @@ def undo(
     if not policy.compensating_command:
         raise UndoError("no compensating command registered")
 
-    original_params: dict[str, JsonValue] = json.loads(intent["params_json"])
+    original_params: dict[str, JsonValue] = json.loads(intent["params_json"], parse_float=Decimal)
     reverse = ActionRequest(
         request_id=uuid4(),
         action_type=policy.compensating_command,

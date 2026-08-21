@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import json
 import sys
+from decimal import Decimal
 from typing import Any
+
+from onedoor.guardrail.audit import dumps_json_value
 
 TOOLS = [
     {
@@ -67,7 +70,7 @@ def main() -> None:
         line = line.strip()
         if not line:
             continue
-        msg = json.loads(line)
+        msg = json.loads(line, parse_float=Decimal)
         mid = msg.get("id")
         method = msg.get("method")
         if method == "initialize":
@@ -85,7 +88,7 @@ def main() -> None:
             continue  # notification: no response
         else:
             sys.stdout.write(
-                json.dumps(
+                dumps_json_value(
                     {
                         "jsonrpc": "2.0",
                         "id": mid,
@@ -96,7 +99,7 @@ def main() -> None:
             )
             sys.stdout.flush()
             continue
-        sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": mid, "result": result}) + "\n")
+        sys.stdout.write(dumps_json_value({"jsonrpc": "2.0", "id": mid, "result": result}) + "\n")
         sys.stdout.flush()
 
 

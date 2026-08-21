@@ -13,11 +13,24 @@ from typing import Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+
+from onedoor._vendor.canonical import canon_decimal
 
 # A constrained recursive JSON value — keeps params typed under mypy --strict and
 # makes the (untrusted) params surface explicit.
-type JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+#
+# `Decimal` is here because E10 rules that JSON numbers are parsed with
+# `parse_float=Decimal`: nothing on the evaluation path may become an IEEE double, so
+# a number that arrives over the wire arrives as a Decimal and must be representable
+# in the envelope that records it. `float` remains accepted for the in-process
+# binding, whose callers hand Python objects directly rather than bytes; a float
+# param now compares exactly against a Decimal bound, which is strictly better than
+# the float-versus-float comparison it replaces. Whether the in-process boundary
+# should refuse floats outright is a live question with core, not assumed here.
+type JsonValue = (
+    str | int | float | Decimal | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+)
 
 
 class Tier(IntEnum):
@@ -77,9 +90,31 @@ class ApprovalState(StrEnum):
 
 
 class NumericBound(BaseModel):
+    """An inclusive numeric range for a parameter.
+
+    `Decimal`, not `float`. These bounds are compared against parameter values that
+    arrive over the wire, and E10 forbids an IEEE double anywhere on the evaluation
+    path: a float bound admits any value that rounds onto it, so a request could
+    exceed the policy maximum by up to half an ulp and be allowed (S2, disclosed
+    against <=0.3.6). Pydantic coerces int/float/str literals in policy YAML to
+    Decimal here, so a policy written `max: 500.10` gets exactly 500.10.
+    """
+
     model_config = ConfigDict(extra="forbid")
-    min: float | None = None
-    max: float | None = None
+    min: Decimal | None = None
+    max: Decimal | None = None
+
+    @field_serializer("min", "max")
+    def _canonical(self, value: Decimal | None) -> str | None:
+        """Serialize through the canonical renderer, never `str(Decimal)`.
+
+        `bounds_json` is part of the policy snapshot, and the snapshot is hashed into
+        `version_hash`. Pydantic's default for Decimal is `str()`, which preserves
+        authored scale -- so `max: 100.00` and `max: 100` would hash differently while
+        meaning the same rule (E8's named trap, S3 in the policy hash). One form, or
+        the content-hash stops meaning "the rules changed".
+        """
+        return None if value is None else canon_decimal(value)
 
 
 class Bounds(BaseModel):
@@ -99,6 +134,11 @@ class Caps(BaseModel):
     daily_rate: int | None = None
     eur_day: Decimal | None = None
     eur_month: Decimal | None = None
+
+    @field_serializer("eur_day", "eur_month")
+    def _canonical(self, value: Decimal | None) -> str | None:
+        """Same reason as `NumericBound`: `caps_json` is hashed into the policy version."""
+        return None if value is None else canon_decimal(value)
 
 
 class ParamEffectRule(BaseModel):
@@ -157,7 +197,7 @@ def _reject_non_json(value: object, path: str = "params") -> None:
     *different object* from the one the enforcement point holds. The evidence
     record must describe what will actually be acted on.
     """
-    if isinstance(value, str | int | float | bool | None.__class__):
+    if isinstance(value, str | int | float | Decimal | bool | None.__class__):
         return
     if isinstance(value, list):
         for i, item in enumerate(value):

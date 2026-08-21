@@ -104,10 +104,15 @@ def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
     """
     if policy.cost_param is not None:
         raw = request.params.get(policy.cost_param)
-        if isinstance(raw, bool) or not isinstance(raw, int | float | str):
+        # Decimal belongs here for the same reason it belongs in bounds.py: E10 parses
+        # JSON numbers with parse_float=Decimal, so the amount arrives as a Decimal.
+        # Omitting it does not fail open -- resolve_cost returning None denies with
+        # cost_unknown -- but it denies EVERY euro-capped action, which is the
+        # half-landed fix wearing its other face. Found by the end-to-end guard test.
+        if isinstance(raw, bool) or not isinstance(raw, int | float | str | Decimal):
             return None
         try:
-            value = Decimal(str(raw))
+            value = raw if isinstance(raw, Decimal) else Decimal(str(raw))
         except (InvalidOperation, ValueError):
             return None
         if not value.is_finite() or value < 0:

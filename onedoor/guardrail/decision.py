@@ -29,6 +29,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from sqlite3 import Connection
 from uuid import UUID
 
@@ -346,7 +347,10 @@ def reclaim_expired_reservations(conn: Connection, config: EngineConfigLike, now
             rid = int(r["intent_audit_id"])
             intent_row = conn.execute("SELECT * FROM actions_audit WHERE id=?", (rid,)).fetchone()
             if intent_row is not None:
-                caps.release(conn, [tuple(d) for d in json.loads(r["deltas_json"])])
+                caps.release(
+                    conn,
+                    [tuple(d) for d in json.loads(r["deltas_json"], parse_float=Decimal)],
+                )
                 audit.append_expiry(
                     conn,
                     intent_row,

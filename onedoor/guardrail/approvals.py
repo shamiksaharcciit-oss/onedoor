@@ -10,9 +10,12 @@ lives in :mod:`app.guardrail.executor` (which imports this), avoiding a cycle.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timedelta
+from decimal import Decimal
 
+from onedoor.guardrail import audit
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.models import ActionRequest, Approval, ApprovalState
 from onedoor.store.clock import from_iso, to_iso
@@ -21,7 +24,7 @@ from onedoor.store.clock import from_iso, to_iso
 def _row_to_approval(row: sqlite3.Row) -> Approval:
     return Approval(
         approval_id=int(row["id"]),
-        request=ActionRequest.model_validate_json(row["request_json"]),
+        request=loads_request(row["request_json"]),
         state=ApprovalState(row["state"]),
         created_at=from_iso(row["created_at"]),
         expires_at=from_iso(row["expires_at"]),
@@ -31,6 +34,28 @@ def _row_to_approval(row: sqlite3.Row) -> Approval:
     )
 
 
+def dumps_request(request: ActionRequest) -> str:
+    """Persist a request so its numeric params survive the round trip.
+
+    `model_dump_json()` renders a `Decimal` param as a JSON *string*, and the
+    approval resumption then re-validates it as a `str` -- which the bounds gate
+    refuses as "must be numeric", denying every approved numeric action. Found by
+    running the MCP demo end to end after E10's `parse_float=Decimal` landed: step 5,
+    "a human approves", reported `approved action did not execute (reason: bounds)`.
+
+    It fails closed, so it is a correctness break rather than a safety hole. Same
+    class as the audit serializer, at the other persistence boundary -- a numeric
+    parameter must be a JSON number wherever it is stored, or it stops being numeric
+    when read back.
+    """
+    return audit.dumps_json_value(request.model_dump())
+
+
+def loads_request(text: str) -> ActionRequest:
+    """The matching read: JSON numbers become `Decimal`, never float (E10)."""
+    return ActionRequest.model_validate(json.loads(text, parse_float=Decimal))
+
+
 def create(
     conn: sqlite3.Connection, request: ActionRequest, ttl_seconds: int, now: datetime
 ) -> int:
@@ -38,7 +63,7 @@ def create(
         "INSERT INTO approvals (request_json, action_type, state, created_at, expires_at) "
         "VALUES (?, ?, 'pending', ?, ?)",
         (
-            request.model_dump_json(),
+            dumps_request(request),
             request.action_type,
             to_iso(now),
             to_iso(now + timedelta(seconds=ttl_seconds)),
@@ -69,7 +94,7 @@ def cas_approve(
     if cur.rowcount == 0:
         raise ApprovalError(f"approval {approval_id} not pending or already expired")
     row = conn.execute("SELECT request_json FROM approvals WHERE id=?", (approval_id,)).fetchone()
-    return ActionRequest.model_validate_json(row["request_json"])
+    return loads_request(row["request_json"])
 
 
 def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime) -> None:

@@ -7,6 +7,22 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased — `0.4.0` in progress
 
+### Changed
+
+- **Numeric policy bounds and parameters are `Decimal`, never IEEE doubles.** Policy
+  YAML numbers load as `Decimal`, JSON ingress parses with `parse_float=Decimal`, and
+  bounds, cost resolution and settlement all carry the exact value through. **Two
+  visible consequences:** denial messages no longer show float artefacts (`above max
+  23`, not `above max 23.0`), and **the policy content-hash changes on upgrade even if
+  your rules did not** — `bounds_json` and `caps_json` now record decimals in canonical
+  shortest-exact form (`100`, `100.00` and `1E+2` all record as `100` and hash
+  identically), so an unchanged policy set gets a new `version_hash` once. Existing
+  audit rows keep the hash they were stamped with.
+- **Migration `0007`** adds the `0.4.0` row format to `actions_audit`: `protocol`,
+  `budget_json`, `outcome`, and the whole receipt envelope. Everything past the first
+  three lands **dark** — declared and governed, filled by later increments — so a
+  table that cannot be updated is migrated once rather than three times.
+
 ### Defects present in `0.3.6` and earlier, closed by this release
 
 Found by the `0.4.0` code survey rather than by incident, and named here because the

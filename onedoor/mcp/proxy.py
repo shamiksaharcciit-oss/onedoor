@@ -34,6 +34,7 @@ import shlex
 import subprocess
 import sys
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from sqlite3 import Connection
 from typing import Any
@@ -41,6 +42,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Source
@@ -86,15 +88,15 @@ class Downstream:
 
     def request(self, msg: dict[str, Any]) -> dict[str, Any]:
         assert self.proc.stdin and self.proc.stdout
-        self.proc.stdin.write(json.dumps(msg) + "\n")
+        self.proc.stdin.write(dumps_json_value(msg) + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
-        parsed: dict[str, Any] = json.loads(line)
+        parsed: dict[str, Any] = json.loads(line, parse_float=Decimal)
         return parsed
 
     def notify(self, msg: dict[str, Any]) -> None:
         assert self.proc.stdin
-        self.proc.stdin.write(json.dumps(msg) + "\n")
+        self.proc.stdin.write(dumps_json_value(msg) + "\n")
         self.proc.stdin.flush()
 
 
@@ -125,7 +127,7 @@ class Proxy:
             raise
         result = resp.get("result", {})
         ok = not result.get("isError", False) and "error" not in resp
-        payload: dict[str, JsonValue] = {"mcp_result": json.dumps(result)[:2000]}
+        payload: dict[str, JsonValue] = {"mcp_result": dumps_json_value(result)[:2000]}
         report_result(
             intent,
             conn=self.conn,
@@ -221,7 +223,7 @@ class Proxy:
             line = line.strip()
             if not line:
                 continue
-            msg = json.loads(line)
+            msg = json.loads(line, parse_float=Decimal)
             method = msg.get("method")
             if method == "tools/call":
                 resp = self.handle_tools_call(msg)
@@ -234,7 +236,7 @@ class Proxy:
                 continue
             else:
                 resp = self.down.request(msg)  # initialize, tools/list, everything else
-            out.write(json.dumps(resp) + "\n")
+            out.write(dumps_json_value(resp) + "\n")
             out.flush()
 
 

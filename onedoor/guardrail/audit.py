@@ -9,8 +9,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
+from onedoor._vendor.canonical import canon_decimal
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -22,6 +24,42 @@ from onedoor.guardrail.models import (
 )
 from onedoor.store.clock import from_iso, now_utc, to_iso
 from onedoor.store.db import tx
+
+
+def dumps_json_value(value: object) -> str:
+    """Serialize a params/payload tree so it ROUND-TRIPS through Decimal.
+
+    `json.dumps(..., default=str)` renders a `Decimal` as a JSON *string*, and
+    `json.loads(..., parse_float=Decimal)` then hands back a `str` -- so a numeric
+    parameter written by the decision point comes back non-numeric and the bounds
+    gate refuses it as "must be numeric". That surfaced the moment E10's
+    `parse_float=Decimal` landed: the approval-resumption path re-reads `params_json`,
+    and every governed numeric action began denying. It fails closed, so it is a
+    correctness break rather than a safety hole, but it is a break.
+
+    Decimals are therefore emitted as JSON **numbers**, rendered through the canonical
+    renderer so `49.99`, `49.990` and `4.999E+1` all write identically and read back
+    equal. Note this is deliberately NOT ACJ: ACJ carries decimals as strings
+    (`canonical_bytes` refuses a `Decimal` outright), which is right for a *generated*
+    structure like the budget object and wrong for received params, where a JSON
+    number must stay a JSON number.
+
+    `ND-002`/W7 replaces this with the verbatim freeze -- the stored bytes being the
+    received bytes, with no re-serialization at all. Until then this keeps the
+    round trip honest.
+    """
+    if isinstance(value, Decimal):
+        return canon_decimal(value)
+    if isinstance(value, bool) or value is None or isinstance(value, int | float):
+        return json.dumps(value)
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, list):
+        return "[" + ",".join(dumps_json_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        items = sorted(value.items())
+        return "{" + ",".join(f"{json.dumps(str(k))}:{dumps_json_value(v)}" for k, v in items) + "}"
+    return json.dumps(value, default=str)
 
 
 def append(
@@ -61,7 +99,7 @@ def append(
             parent_id,
             request.action_type,
             request.source.value,
-            json.dumps(request.params, default=str),
+            dumps_json_value(request.params),
             decision.decision.value,
             decision.reason_code.value,
             int(decision.nominal_tier),
@@ -69,7 +107,7 @@ def append(
             decision.detail,
             None if connector_ok is None else int(connector_ok),
             error,
-            None if payload is None else json.dumps(payload, default=str),
+            None if payload is None else dumps_json_value(payload),
             approval_id,
             to_iso(undo_until) if undo_until else None,
             undo_of,
@@ -170,7 +208,11 @@ def result_for_request_id(conn: sqlite3.Connection, request_id: UUID) -> ActionR
         connector_ok = None if result["connector_ok"] is None else bool(result["connector_ok"])
         executed = bool(connector_ok)
         error = result["error"]
-        payload = json.loads(result["payload_json"]) if result["payload_json"] else None
+        payload = (
+            json.loads(result["payload_json"], parse_float=Decimal)
+            if result["payload_json"]
+            else None
+        )
     if intent is not None and intent["undo_until"]:
         undo_until = from_iso(intent["undo_until"])
 
@@ -261,7 +303,7 @@ def append_buffered(
             parent_id,
             request.action_type,
             request.source.value,
-            json.dumps(request.params, default=str),
+            dumps_json_value(request.params),
             decision.decision.value,
             decision.reason_code.value,
             int(decision.nominal_tier),
@@ -269,7 +311,7 @@ def append_buffered(
             decision.detail,
             None if connector_ok is None else int(connector_ok),
             error,
-            None if payload is None else json.dumps(payload, default=str),
+            None if payload is None else dumps_json_value(payload),
             None,
             None,
             undo_of,

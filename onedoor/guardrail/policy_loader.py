@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import sqlite3
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -105,13 +106,48 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
     record_snapshot(conn)
 
 
+class _DecimalSafeLoader(yaml.SafeLoader):
+    """A SafeLoader that yields `Decimal` where PyYAML would yield `float`.
+
+    E10 applies to policy YAML as explicitly as it applies to the wire: *or bounds
+    compare a Decimal against a float and the money-through-a-float defect reopens*.
+    A policy written `max: 500.10` must mean exactly 500.10, not the double nearest
+    to it -- otherwise the bound admits anything that rounds onto it (S2).
+    """
+
+
+def _decimal_constructor(loader: yaml.SafeLoader, node: yaml.Node) -> object:
+    value = loader.construct_scalar(node)  # type: ignore[arg-type]
+    text = str(value)
+    lowered = text.lower().lstrip("+-")
+    if lowered in {".inf", ".nan"} or "inf" in lowered or "nan" in lowered:
+        # E10: NaN and Infinity are malformed input, never silently accepted.
+        raise yaml.constructor.ConstructorError(
+            None, None, f"non-finite number in policy: {text!r}", node.start_mark
+        )
+    return Decimal(text)
+
+
+_DecimalSafeLoader.add_constructor("tag:yaml.org,2002:float", _decimal_constructor)
+
+
+def _safe_load_decimal(text: str) -> dict[str, Any]:
+    """Load policy YAML with numbers as Decimal. Shape-checked, not trusted."""
+    loaded = yaml.load(text, Loader=_DecimalSafeLoader)  # noqa: S506 - SafeLoader subclass
+    if loaded is None:
+        return {}
+    if not isinstance(loaded, dict):
+        raise ValueError(f"policy file must be a mapping, got {type(loaded).__name__}")
+    return loaded
+
+
 def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
     """Load and upsert all policies from a YAML file. Validates before writing any.
 
     Returns the number of policies loaded. Raises before mutating the table if any
     entry is invalid (fail-closed — no partial population).
     """
-    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    raw = _safe_load_decimal(Path(path).read_text(encoding="utf-8")) or {}
     entries = raw.get("policies", [])
     policies = [_policy_from_entry(e) for e in entries]
     for policy in policies:  # validate all first
