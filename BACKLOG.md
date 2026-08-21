@@ -9,29 +9,40 @@ on either side.** The settled spec
 surface is `CONFORMANCE.md` §6. **Nothing is gated. `ND-001` and `ND-039` are both unblocked.**
 **`0.4.0` remains one breaking increment** — the obligation surface turned out to be
 normative in `-00` already, so landing it is conformance catch-up, not a wire change.
-**`0.3.6` in progress.** `ND-025` and `ND-024` are **written but not landed** — see
-the reconciliation note below before trusting any status here. Remaining: `ND-021`,
-`ND-036`. Specs in `TICKETS-0.3.6.md`.
+**`0.3.6` in progress.** `ND-025` **done** (`380019a`) and `ND-024` **done**
+(`ebdef05`) — both reconciled from patch into history on 2026-08-21, see the note
+below. Remaining: `ND-021`, `ND-036`, README fixes. Specs in `TICKETS-0.3.6.md`.
 
-> **⚠ Reconciliation note, 2026-08-21 — read before believing a "done" above.**
-> This file previously recorded `ND-024` **done** at `410bba5` and `ND-025`'s gate fix
-> verified at `8d8f4b3`. **Neither commit exists in the repository or on `origin`.**
-> The previous session ran its gates against a fresh cloud clone and exported the work
-> as patches; the relay carried the patch files but not the commits. The work survives
-> only as `patches/0001-ND-024-retire-vestigial-schema.patch` and
-> `patches/0002-ND-025-ci-gates-actually-pass.patch` (both verified to apply clean).
-> Consequence: **`main` is red on `origin`** — both CI runs failed, and all three gates
-> still fail at `227a682` (83 ruff errors, 54 files unformatted, 7 mypy errors; 83 vs
-> the recorded 78 because ruff was unpinned, which is what the patch fixes). The SHAs
-> here are corrected to real ones as each patch lands. *Same failure mode as the two
-> memo crossings, one layer down: work that lives outside git does not survive relay.*
+> **Reconciliation note, 2026-08-21 — RESOLVED.** This file previously recorded
+> `ND-024` done at `410bba5` and `ND-025`'s gate fix at `8d8f4b3`. **Neither commit
+> existed** in the repository or on `origin`: the previous session ran its gates
+> against a fresh cloud clone and the relay carried the exported patch files but not
+> the history. Both patches applied clean via `git am` (preserving the original
+> authorship and messages) and now sit at `ebdef05` and `380019a`. The SHAs above are
+> real. *Lesson recorded rather than filed away: work that lives outside git does not
+> survive relay — the same failure as the two memo crossings, one layer down. The
+> whole delivery ledger was itself untracked until `2e27199`.*
+>
+> **One defect found during reconciliation, fixed in the same beat.** Committing
+> `reference/` put core's vendored artifact in ruff's path for the first time:
+> `ruff check .` reported 10 findings inside it, **5 auto-fixable**, and `ruff format`
+> would have rewritten `canonical.py`. A contributor running `ruff check --fix .` on a
+> red CI would have silently corrupted the digest-pinned bytes. `[tool.ruff] exclude`
+> now covers the artifact and all Markdown — the latter because `BACKLOG`/`TICKETS`
+> quote defects **verbatim** (reformatting `ND-021`'s snippet would stop it matching
+> `examples/litellm_guardrail.py`) and `docs/from_core/` memos are pinned by
+> `Integrity: sha256(body)`. Same E10 two-discipline rule as `.gitattributes`, third
+> layer: a linter is a normalising filter, and received data is not ours to normalise.
 
 > **Verification note.** The device's `.venv` is a Windows venv on Python 3.12.10 —
-> the same minor CI uses — and the suite runs natively now. Baseline independently
+> the same minor CI uses — and all four gates run natively. Baseline independently
 > confirmed at `227a682`: **135 passed** (the venv had been missing `langchain`, which
 > module-skips 7 tests and shows a misleading 128+1skip until `pip install -e ".[dev]"`).
-> Now **150**, after the `.gitattributes` byte-fidelity guard (`+15`). Target once both
-> patches land: **153** (`ND-024` adds 3).
+> **Now 156 passed, 6 skipped, and all four gates green locally** — `ruff check`,
+> `ruff format --check`, `mypy --strict onedoor`, `pytest`. The `+21` over baseline:
+> `ND-024` `+3`, the `.gitattributes` byte-fidelity guard `+15`, memo-integrity `+3`
+> (6 skips are memos 001–006, which predate the integrity-footer protocol).
+> **`origin/main` is still red until this is pushed.**
 
 ## How to read this
 
@@ -438,7 +449,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | Number | Ticket | Status |
 |---|---|---|
 | `0001`–`0005` | shipped in `0.3.5` | in `main` |
-| `0006` | **`ND-024`** — retire vestigial schema | reserved, `0.3.6` |
+| `0006` | **`ND-024`** — retire vestigial schema | **landed** `ebdef05`, `0.3.6` |
 | `0007`+ | **`ND-002`** — `0.4.0` row format (protocol column, `budget_json`, full receipt envelope, verbatim-freeze columns) | reserved, `0.4.0` |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by

@@ -44,6 +44,25 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# A linter is a normalising filter, and this repository holds material that must not
+# be normalised. Same two-discipline rule as .gitattributes and E10: generated data
+# normalises, received data is frozen verbatim. Excluded here, not per-file-ignored,
+# because `ruff format` obeys `exclude` and would otherwise rewrite these bytes.
+exclude = [
+    # Core's vendored, digest-pinned artifact. `ruff check .` currently reports 10
+    # findings in it, 5 of them auto-fixable -- and `ruff check --fix .` is exactly
+    # what someone reaches for when CI is red. That would rewrite canonical.py, the
+    # module CLAUDE.md says is vendored verbatim and never reimplemented, and every
+    # pinned manifest would stop verifying. Do not lint core's bytes.
+    "reference/rederivable-manifest",
+    # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
+    # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
+    # quote matches the file it indicts (reformatting ND-021's snippet would make it
+    # no longer match examples/litellm_guardrail.py), and docs/from_core/ memos are
+    # pinned by `Integrity: sha256(body)` -- reformatting a code block inside one
+    # would break core's digest and fail tests/protocol/.
+    "*.md",
+]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP"]
