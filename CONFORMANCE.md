@@ -5,9 +5,9 @@
 **Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
 at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
-**Spec rulings in force:** Core→Delivery Responses **001–009** (001–006 on
-2026-08-20; 007–009 on 2026-08-21), plus Core→Forensics 009 §3 by cross-session
-forward. Memos 007+ carry integrity footers; verify
+**Spec rulings in force:** Core→Delivery Responses **001–013** (001–006 on 2026-08-20; 007–013 on
+2026-08-21), plus Core→Forensics 009 §3, 010 §2 and 012 §1 by cross-session forward.
+Digest register: `docs/from_core/INTEGRITY.md`, generated. Memos 007+ carry integrity footers; verify
 with `python -m scripts.verify_memo docs/from_core/*.md`.
 **Open spec questions:** **none, on either side.** Responses 001–005 ruled everything
 raised in Escalations 001–005; 006 was acknowledgment; 007 adopted one new normative
@@ -253,6 +253,15 @@ certified and originals are requested.
 | "Hiding behind a redder failure" | **In the record (R010 §1).** A gate that has never fired is indistinguishable from a gate that passes, until the failures ahead of it clear. |
 | Reconstruction is a candidate, not a recovery | **Delivery finding, 2026-08-21.** The one memo that could not be verified turned out to differ in a single character — `⇒` (U+21D2) read as `—`. The brute-force search missed it because the candidate set was **hand-picked** from characters previous memos happened to contain, while U+2000–U+21FF alone holds 512 that collapse identically; `⇒` was meanwhile in use five times in `CONFORMANCE.md` itself. Discipline 4 (generated inputs, not spot-checks) applies to recovery searches, not only to property tests. |
 | Producer obligation on marker lines | **From Forward 002, actioned.** Quoting a protocol inside a document that speaks the protocol is how a file becomes malformed. Delivery quotes the footer convention in eight places, all mid-line — now held by a test rather than by luck. |
+
+### Resolved by Responses 012 and 013 (2026-08-21)
+
+| Was | Ruling |
+|---|---|
+| Digests in a ledger | **R012, adopted; delivery had the defect.** *A digest in a ledger is generated, never transcribed* — any recorded digest MUST be emitted into its cell by the verifier that computes it. **The two registers must never mix:** the `Integrity:` **body digest** is a memo's recorded identity; a **whole-file** hash is an ephemeral transfer aid, used to prove a copy and then discarded, never written into a ledger. `docs/from_core/INTEGRITY.md` now carries one generated register (`scripts/verify_memo.py --table`), guarded by two tests. |
+| `ND-040` reason code | **R013: `malformed`, and no new vocabulary.** A URL parameter is *received* data; a string the canonicalizer cannot parse is malformed received data, and E10 already routes unparseable received structures there. **Canonicalize first; on canonicalization failure deny with `malformed`** — a parse differential is a denial, never a bypass. **Condition:** the evidence records the canonicalization failure *distinctly* (an evidence field, not a wire code), so audit can separate malformed-JSON from malformed-URL without expanding the vocabulary. `sender_mismatch` stays the only new code in `aadp/0.2`. `-02` change list item 23. **Verified against the code:** `CheckId.MALFORMED` already exists and is already emitted, so this costs onedoor no new code either. |
+| §implstatus draft (a)–(c) | **Accuracy-checked against the source at `v0.3.6`, not against memory** — see `escalations/ACCURACY-CHECK-implstatus-2026-08-21.md`. All three blocks accurate as drafted. Two clarifications proposed, neither a correction: (c)'s "no behaviour change" is true *for policies* but the LiteLLM adapter's reporting moment does move by design; and (b)'s closing sentence generalises `not_attempted`'s **release** to all four outcomes, where R005 ruled settle for `success`/`failure`/`timeout`. |
+| `ND-047` | **Parked (R012), constraint kept** — the pruned-prefix/chain interaction is item-22-adjacent on core's watch. |
 
 ### Open
 

@@ -153,8 +153,32 @@ def render_block(paths: list[Path]) -> str:
     return f"{BEGIN_MARK}: {cmd} -->\n{table(paths)}{END_MARK}"
 
 
+def write_block(ledger: Path, paths: list[Path]) -> bool:
+    """Rewrite the generated block in place. Returns True if anything changed.
+
+    The register has to be regenerated every time a memo is archived, and a step
+    that is done by hand is a step that will eventually be done by hand *wrongly* --
+    which is the whole of R012. So it is a command, not a habit.
+    """
+    text = ledger.read_text(encoding="utf-8")
+    start, end = text.find(BEGIN_MARK), text.find(END_MARK)
+    if start == -1 or end == -1:
+        raise SystemExit(f"{ledger}: generated block markers not found")
+    updated = text[:start] + render_block(paths) + text[end + len(END_MARK) :]
+    if updated == text:
+        return False
+    ledger.write_text(updated, encoding="utf-8", newline="\n")
+    return True
+
+
 def main(argv: list[str]) -> int:
     args = argv[1:]
+    if args and args[0] == "--write":
+        ledger = Path(args[1])
+        paths = [Path(a) for a in args[2:]]
+        changed = write_block(ledger, paths)
+        print(f"  {'updated' if changed else 'unchanged'}  {ledger}")
+        return 0
     if args and args[0] == "--table":
         paths = [Path(a) for a in args[1:]]
         if not paths:
