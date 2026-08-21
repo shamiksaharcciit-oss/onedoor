@@ -12,93 +12,22 @@ rarely and carefully; enforcement surfaces and integrations grow demand-driven
 — ideally contributed by the people who need them. onedoor composes with
 gateways and content-safety tools; it does not compete with them.
 
----
+## Where the plan actually lives
 
-## v0.3 — consultable by anything (in progress)
+This file used to carry a release-by-release feature list. It went stale, because
+the live plan moved into two working documents that are updated with every change:
 
-- **HTTP decision service.** A FastAPI app exposing the PDP over the network:
-  `POST /v1/decide`, `POST /v1/report`, approvals (list / approve / deny),
-  kill switch, health. Any enforcement point in any language can now consult
-  the engine.
-- **Authentication & first authorization split.** API-key auth on every
-  endpoint, with two roles from day one: *decide* keys (submit and report)
-  and *admin* keys (approve, deny, kill switch, policy reload). Separation of
-  duties is a governance property, so it arrives before multi-tenancy, not
-  after. OIDC/JWT follows in v0.4.
-- **Observability.** OpenTelemetry traces per decision (span attributes:
-  action type, outcome, reason code, tier) and metrics (decisions by outcome,
-  denials by reason, cap utilization, approval latency). Optional dependency;
-  the engine never requires a collector.
-- **Approval notifications.** A pluggable notifier interface; webhook as the
-  reference implementation (Slack-compatible payload). "Who sees the
-  approval?" gets a real answer.
-- **Packaging.** `pip install onedoor` (PyPI), with `[service]` and `[otel]`
-  extras; a Dockerfile for the service.
+| Document | Answers |
+|---|---|
+| **[BACKLOG.md](BACKLOG.md)** | What is being built: every ticket, its size, its sequencing, the migration-number register, and the release mapping. |
+| **[CONFORMANCE.md](CONFORMANCE.md)** | What conforms to [AADP](https://datatracker.ietf.org/doc/draft-saha-aadp/) today: requirement by requirement, with the test that holds each one in place, and every gap named. |
 
-## v0.4 — many principals, durable at scale
+Nothing is marked done in either without a passing test. Read those for anything
+version-specific; this page deliberately carries only what does not go stale.
 
-- **Identity & tenancy.** Actor and tenant on every `ActionRequest`;
-  per-principal policies and caps; a permission hierarchy (key × team × org,
-  most-restrictive-wins — the shape LiteLLM got right). OIDC/JWT
-  authentication for the service.
-- **Scalable persistence.** A storage interface with two implementations:
-  SQLite (default, forever — single-node deployments deserve boring
-  technology) and Postgres (multi-instance, `SELECT ... FOR UPDATE`
-  reservations preserving the race-free-caps invariant). Alembic migrations.
-- **Audit hardening.** Hash-chained audit rows (tamper-evidence), JSONL/SIEM
-  export, retention policies. The log is already append-only; this makes it
-  provably so.
-- **RBAC for governance operations.** Named approver roles, proposer ≠
-  approver enforcement, per-tenant admin scopes.
-
-## v0.4 — hardening the effect layer (same release)
-
-- **Canonicalize URL-valued parameters before matching them.** `param_effects`
-  full-matches a regex against a parameter's string form, which is the right
-  shape for effect derivation and the wrong parser for a URL. A pattern like
-  `https://(pay|bank)\.example\.com/.*` is defeated by percent-encoding, a
-  `user@host` prefix, IDN homographs, a trailing-dot host, case, and open
-  redirectors — the residue the aliasing benchmark already prints as 0/4 on
-  evasive cases. A URL-typed matcher should canonicalize first (scheme
-  normalization, IDNA, host lowercasing, explicit subdomain semantics, CIDR
-  awareness) and **deny on canonicalization failure**, so a parse differential
-  is a denial rather than a bypass. Prior art worth reading and citing rather
-  than reinventing: `scopegate` (Apache-2.0, D. Mellafe Zuvic), a fail-closed
-  network scope gate built on exactly this argument — a scope gate must
-  interpret a target at least as strictly as the networking stack that will
-  later connect to it.
-- **Effect labels for unanticipated actions.** Today an action carrying a label
-  with no matching effect policy simply draws on no shared budget. Whether that
-  is fail-open needs measuring before it needs fixing.
-- **Assisted label authoring.** Propose candidate effect labels from MCP tool
-  schemas (names, parameter names, descriptions) for a human to ratify. Never
-  auto-applied, and never a model in the decision path — proposal only, with
-  the ratifier recorded.
-
-## v0.5 — more doorways, full documentation
-
-- **MCP streamable-HTTP transport** for the proxy (stdio remains).
-- **LiteLLM adapter graduates** from `examples/` to a supported integration,
-  with intent carried to post-call hooks so the audit records true outcomes.
-- **LangChain/LangGraph tool wrapper** — shipped early as a worked example
-  (`examples/langgraph_tools.py`, incl. the interrupt-based governed
-  human-in-the-loop); graduates to a supported integration here.
-- **Coding-agent hook adapter** (e.g. Claude Code `pre_tool_use` consulting
-  the decision service) — the dev-workstation doorway.
-- **Envoy `ext_authz` filter** if demand shows up.
-- **Documentation site**: concepts (the ordered pipeline and why the order),
-  policy reference, an integration guide per surface (library, service, MCP,
-  LiteLLM), deployment and operations guide, threat model.
-
-## Research track (RFC, unscheduled): session-aware trust
-
-An authorizer that remembers what an agent has done *this session* and
-degrades autonomy accordingly — three denials in ten minutes should mean
-something; a burst of novel action types should mean more. Open questions:
-which signals, what decay, and how to keep it deterministic and auditable
-rather than a reputation vibe. Design discussion happens in the issue
-tracker before any code. Strong disagreement welcome; that is what RFCs
-are for.
+onedoor is the reference implementation of the AADP Internet-Draft, so
+`CONFORMANCE.md` is the honest answer to "what does it actually do yet" — including
+the parts that do not work. Start there.
 
 ## Non-goals
 
@@ -108,6 +37,15 @@ are for.
 - **Not an agent framework.** Bring your own agent; onedoor is the door.
 - **Never clever storage.** SQLite stays the default; Postgres is an option,
   not a replacement.
+
+## Research track (RFC, unscheduled): session-aware trust
+
+An authorizer that remembers what an agent has done *this session* and degrades
+autonomy accordingly — three denials in ten minutes should mean something; a burst
+of novel action types should mean more. Open questions: which signals, what decay,
+and how to keep it deterministic and auditable rather than a reputation vibe.
+Design discussion happens in the issue tracker before any code. Strong disagreement
+welcome; that is what RFCs are for.
 
 ## v1.0 criterion
 

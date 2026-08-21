@@ -1,5 +1,10 @@
 # onedoor
 
+[![CI](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/onedoor.svg)](https://pypi.org/project/onedoor/)
+[![Python](https://img.shields.io/pypi/pyversions/onedoor.svg)](https://pypi.org/project/onedoor/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 **A tiered guardrail engine for agentic systems.**
 The model proposes; the policy layer disposes.
 
@@ -75,7 +80,7 @@ Requires Python ≥ 3.12.
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # 111 tests — the guardrail suite is the release blocker
+pytest                    # the guardrail suite is the release blocker (count: see the CI badge)
 python -m scripts.demo    # one of everything, end to end, zero external deps
 ```
 
@@ -142,8 +147,13 @@ switch. Run `python -m examples.litellm_guardrail` for a proxy-free self-test.
 What this adds over the gateway's built-in MCP ACLs: decisions beyond
 allow/deny (defer with an approval id, dry-run), value-level bounds rather
 than parameter-name lists, race-free caps, and an audit row with a reason for
-every decision. `litellm` is not a dependency of this package — the example
-imports it only if you have it.
+every decision.
+
+It honours the two-phase contract across two hooks: the pre-call hook decides
+and holds the permit without reporting anything, and the post-call success and
+failure hooks report what actually happened. `litellm` is not a runtime
+dependency of the engine — install the example's own extra,
+`pip install "onedoor[litellm]"`.
 
 ## The decision service (v0.3)
 
@@ -164,8 +174,9 @@ separate from decide-role keys by design: the process that asks for permission
 should not be the process that grants it. Tier-3 proposals can notify a
 webhook (`ONEDOOR_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
 `onedoor[otel]` lights up OpenTelemetry spans and decision counters with no
-code changes. See `ROADMAP.md` for where this is going (tenancy, Postgres,
-OIDC, audit hardening).
+code changes. [BACKLOG.md](BACKLOG.md) is where this is going, ticket by ticket,
+and [CONFORMANCE.md](CONFORMANCE.md) is the honest per-requirement status against
+the AADP draft — gaps included.
 
 ## Origin & status
 

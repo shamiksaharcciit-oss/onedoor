@@ -101,10 +101,10 @@ clean no-op.
 ## Operational notes (v0.3)
 
 - Single-process service, one SQLite writer behind an internal lock. Run one
-  instance per policy domain; Postgres + multi-instance arrive in v0.4
-  (see ROADMAP.md).
+  instance per policy domain; Postgres + multi-instance are `ND-019` in
+  [BACKLOG.md](../BACKLOG.md).
 - Pending intents are held in memory between decide and report. A restart
-  in that window leaves the honest "intended, unconfirmed" audit row; v0.4
-  rebuilds obligations from the audit log.
+  in that window leaves the honest "intended, unconfirmed" audit row; `ND-010`
+  rebuilds intents from the audit log instead of memory.
 - Keys are static in v0.3; OIDC/JWT is a v0.4 item. Terminate TLS in front
   of the service (reverse proxy) — it serves plain HTTP.

@@ -70,7 +70,7 @@ releases the budget at the deadline. This mirrors `ND-010` in the decision servi
 ## Status and caveats
 
 Experimental example (`examples/litellm_guardrail.py`), graduating to a
-supported integration in v0.5 (see ROADMAP.md). It is **conformant to the
+supported integration (`ND-044` in [BACKLOG.md](../BACKLOG.md)). It is **conformant to the
 two-phase contract** as of `0.3.6` (`ND-021`) and covered by tests, but it ships
 as an example rather than a packaged enforcement point — unlike the MCP proxy and
 the LangChain middleware, which live under `onedoor/`.
