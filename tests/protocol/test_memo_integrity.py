@@ -114,37 +114,46 @@ REPO = Path(__file__).resolve().parents[2]
 _SKIP_DIRS = {".git", ".venv", "__pycache__", "dist", "node_modules", ".pytest_cache"}
 
 
-def test_our_own_documents_never_start_a_line_with_the_marker() -> None:
-    """The producer obligation, checked on ourselves before it can bite.
+def test_our_own_documents_satisfy_the_producer_obligation() -> None:
+    """The producer obligation, checked on ourselves.
 
-    Response 010: exactly one line of a memo may begin with `Integrity:`; a verifier
-    seeing more than one MUST reject the file. That binds producers, and this
-    repository quotes the convention in at least eight places -- .gitattributes,
+    Response 010: exactly one line of a memo may begin with `Integrity:`, and a
+    verifier seeing more than one MUST reject the file. That binds producers, and
+    this repository quotes the convention in a dozen places -- .gitattributes,
     CLAUDE.md, CONFORMANCE.md, BACKLOG.md, pyproject.toml, the checker, this file,
-    and the archive sidecar. Every one of those is mid-line today, which is luck
-    rather than a property.
+    the archive sidecar. All mid-line, which was luck rather than a property.
 
     The forensics session tripped exactly this on itself within hours of arguing for
     it: their Note_002 quoted Response 008's footer at line start inside a code
     fence, which would have made that file malformed the moment they adopted a footer
     of their own. It is what happens when you quote a protocol inside a document that
-    speaks the protocol. So it gets a test rather than a habit.
+    speaks the protocol.
+
+    The rule, not the exception: any file of ours carrying the marker at line start
+    must be a *well-formed memo* -- exactly one marker, in the footer position, whose
+    digest checks. `verify()` decides that, so the test states the obligation rather
+    than a proxy for it. An earlier version asserted zero markers anywhere outside the
+    archive, which was correct only while delivery sent no memos of its own; the
+    0.3.6 release ping made it wrong. Delivery's outbound memos carry footers now, so
+    the channel is verifiable in both directions.
     """
     offenders = []
     for path in REPO.rglob("*"):
         if not path.is_file() or _SKIP_DIRS & set(path.parts):
             continue
-        if ARCHIVE in path.parents:  # received memos carry their own real footers
+        if ARCHIVE in path.parents:  # received memos, verified by the tests above
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        for n, line in enumerate(text.split("\n"), 1):
-            if line.lstrip().startswith("Integrity:"):
-                offenders.append(f"{path.relative_to(REPO)}:{n}")
+        if not any(line.startswith("Integrity:") for line in text.split("\n")):
+            continue
+        result = verify(path)
+        if result.status != "ok":
+            offenders.append(f"{path.relative_to(REPO)}: {result.status} ({result.detail})")
     assert not offenders, (
-        "these lines begin with the integrity marker and would make a document "
-        f"malformed if it ever carried a footer: {offenders}. Indent the quotation "
-        f"or keep it mid-line."
+        "these files start a line with the integrity marker but are not well-formed "
+        f"memos: {offenders}. Either indent the quotation / keep it mid-line, or give "
+        f"the file a single correct footer."
     )
