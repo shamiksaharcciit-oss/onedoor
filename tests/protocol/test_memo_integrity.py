@@ -19,10 +19,14 @@ import pytest
 from scripts.verify_memo import verify
 
 ARCHIVE = Path(__file__).resolve().parents[2] / "docs" / "from_core"
-# Selected by PROVENANCE (filename), never by scanning content for the marker.
-# The forensics session hit exactly that trap: a content scan matched their own
-# index file quoting the convention. INTEGRITY.md quotes it here too.
-MEMOS = sorted(ARCHIVE.glob("Core_to_*_Response_*.md"))
+# Everything received from core/forensics, selected by PROVENANCE (location) and never
+# by scanning content for the marker: the forensics session hit exactly that trap when
+# a content scan matched their own index file quoting the convention. Our generated
+# sidecar is excluded BY NAME, per Forward 001 -- "exclude your generated files
+# explicitly". unverified/ is a subdirectory and glob is non-recursive, so quarantined
+# memos never count toward the archive's guarantee.
+GENERATED = {"INTEGRITY.md"}
+MEMOS = sorted(p for p in ARCHIVE.glob("*.md") if p.name not in GENERATED)
 
 
 def test_archive_is_present() -> None:
@@ -104,3 +108,43 @@ def test_two_marker_lines_are_rejected_as_malformed(tmp_path: Path) -> None:
     assert result.status == "damaged"
     assert not result
     assert "exactly one is permitted" in result.detail
+
+
+REPO = Path(__file__).resolve().parents[2]
+_SKIP_DIRS = {".git", ".venv", "__pycache__", "dist", "node_modules", ".pytest_cache"}
+
+
+def test_our_own_documents_never_start_a_line_with_the_marker() -> None:
+    """The producer obligation, checked on ourselves before it can bite.
+
+    Response 010: exactly one line of a memo may begin with `Integrity:`; a verifier
+    seeing more than one MUST reject the file. That binds producers, and this
+    repository quotes the convention in at least eight places -- .gitattributes,
+    CLAUDE.md, CONFORMANCE.md, BACKLOG.md, pyproject.toml, the checker, this file,
+    and the archive sidecar. Every one of those is mid-line today, which is luck
+    rather than a property.
+
+    The forensics session tripped exactly this on itself within hours of arguing for
+    it: their Note_002 quoted Response 008's footer at line start inside a code
+    fence, which would have made that file malformed the moment they adopted a footer
+    of their own. It is what happens when you quote a protocol inside a document that
+    speaks the protocol. So it gets a test rather than a habit.
+    """
+    offenders = []
+    for path in REPO.rglob("*"):
+        if not path.is_file() or _SKIP_DIRS & set(path.parts):
+            continue
+        if ARCHIVE in path.parents:  # received memos carry their own real footers
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for n, line in enumerate(text.split("\n"), 1):
+            if line.lstrip().startswith("Integrity:"):
+                offenders.append(f"{path.relative_to(REPO)}:{n}")
+    assert not offenders, (
+        "these lines begin with the integrity marker and would make a document "
+        f"malformed if it ever carried a footer: {offenders}. Indent the quotation "
+        f"or keep it mid-line."
+    )

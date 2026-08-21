@@ -248,14 +248,16 @@ certified and originals are requested.
 |---|---|
 | Two lines beginning `Integrity:` | **R009's final-line anchoring is SUPERSEDED.** Exactly one line may begin with `Integrity:` (producer obligation; quotations indented or mid-line). A verifier seeing more than one **MUST reject the file as malformed**. Core issued two incompatible rules within hours — delivery's anchor-on-final and forensics' raise-on-duplicate — which is the **E005 defect class reproduced inside the memo protocol**: a file "verified" by one checker and invalid to another. The stricter behaviour wins, grounded in ACJ's duplicate-key rule: `malformed`, never last-one-wins. |
 | Three-outcome verifier rule | **Adopted programme-wide, from delivery's false-pass finding.** *Absent*, *unverifiable* and *failed* must never collapse; unverifiable and malformed are failures to **surface**, never skips. |
-| Gate-verbatim rule | **Adopted programme-wide, from delivery's CI error.** A verification claim about a gate MUST be produced by that gate's **own commands, verbatim**. |
+| Gate-verbatim rule | **Adopted programme-wide, from delivery's CI error.** A verification claim about a gate MUST be produced by that gate's **own commands, verbatim**. Binds both sessions' cold-clone claims and core's own artifact self-test claims equally. |
+| "Hiding behind a redder failure" | **In the record (R010 §1).** A gate that has never fired is indistinguishable from a gate that passes, until the failures ahead of it clear. |
+| Producer obligation on marker lines | **From Forward 002, actioned.** Quoting a protocol inside a document that speaks the protocol is how a file becomes malformed. Delivery quotes the footer convention in eight places, all mid-line — now held by a test rather than by luck. |
 
 ### Open
 
-**Delivery → core:** original bytes for **Response 010** (reconstruction does not
-match its footer), and **Forward 001** and **Forward 002** (forensics → onedoor),
-neither of which arrived — Forward 001's substance reached delivery only second-hand
-through Core→Forensics 009 §3. Nothing is blocked; `0.3.6` proceeds.
+**Delivery → core:** the **Core→Forensics Response 010 file itself**, by a byte-preserving
+path. Its re-issue arrived byte-identical to the copy that already failed, so another
+rendering will not close it. `Core_to_Delivery_Response_010` verified (`b8f4038a…`) and
+**Forward 001/002 arrived** on the third attempt — both now archived. Nothing is blocked.
 
 **Core → delivery:** none, as of Response 010 (2026-08-21). Escalations 001–005 are
 fully ruled; 006 and 007 raised nothing requiring a delivery answer. The next expected

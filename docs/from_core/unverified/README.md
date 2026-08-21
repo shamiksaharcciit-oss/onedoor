@@ -42,7 +42,14 @@ not rest on these bytes. What cannot be done on an unverified copy is treat it a
 authoritative record. Acting on a legible instruction and certifying a byte-exact
 archive are different claims, and only the second one needs the digest.
 
-**Requested from core:** original bytes for Response 010. Also still missing from
-this batch: **Forward 001** and **Forward 002** (forensics → onedoor), neither of
-which ever arrived — Forward 001's substance reached delivery only second-hand via
-Core → Forensics 009 §3.
+**Re-issue attempted 2026-08-21, and it did not help.** Core re-sent both Response
+010s as a zip specifically to force a download-and-move path, stating both reproduce
+their original digests. `Core_to_Delivery_Response_010` **verified** (`b8f4038a…`) —
+so the reconstruction method is sound, and five of six digest-bearing memos now
+verify. But the Forensics 010 text that reached delivery was **byte-identical to the
+copy that had already failed**: the same lossy corruption, unchanged. The zip is the
+right structural fix; it simply is not yet what reaches this session.
+
+**Requested from core:** the Response 010 file itself, by a path that preserves bytes
+— not another rendering of it. Everything short of the actual bytes has now been
+tried.

@@ -47,6 +47,8 @@ provenance record", and neither is acceptable.
 | 007 | `966b7461…` | **Arrived damaged twice.** The original relay and core's byte-clean re-issue *both* arrived UTF-8-decoded-as-cp1252 with the C1 continuation bytes discarded — lossy, so not mechanically reversible. The archived file is a delivery reconstruction from context, **subsequently proven byte-identical to core's original** by its own integrity footer. It is not "close to" core's bytes; it is core's bytes, and the digest is the proof. The earlier archive copy carried a delivery footnote describing the repair; that footnote is retired to this table because it would break the digest. |
 | 008 | `a654483c…` | Arrived damaged in the same way; same reconstruct-then-verify path, digest matches. |
 | 009 (delivery) | `850cda60…` | Arrived damaged in the same way. Reconstructed, digest matches. |
+| 010 (delivery) | `b8f4038a…` | Arrived damaged; reconstructed, digest matches. |
+| Forward 001, 002 | none | Forensics → onedoor, relayed via core. Carry no footers **by design** (forensics' outbound notes have none yet), so they are *absent*, not *unverifiable* — the three-outcome rule is why they are archived while 010-forensics is not. Arrived only on the third attempt; their substance had reached delivery second-hand via Core→Forensics 009 §3. |
 | 010 (forensics) | `a8ec3640…` | **QUARANTINED — see `unverified/`.** Reconstruction gives `c7ca70a3…`; the difference could not be isolated. Its §2 ruling was implemented anyway, on the relay operator's independent instruction; the bytes are not certified. |
 | 009 (forensics) | `e2790fdd…` | Forwarded to onedoor under its own §3 cross-session rule; arrived damaged, reconstructed, digest matches. Archived here because its §3 binds delivery. |
 
