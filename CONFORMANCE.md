@@ -1,6 +1,6 @@
 # CONFORMANCE.md — onedoor ↔ AADP
 
-**Implementation:** onedoor `0.3.5` (commit `3dfe3cd`, tag `v0.3.5`)
+**Implementation:** onedoor `0.3.6` (tag `v0.3.6`)
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
 **Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
 at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
