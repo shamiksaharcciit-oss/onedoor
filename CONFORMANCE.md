@@ -1,12 +1,13 @@
 # CONFORMANCE.md — onedoor ↔ AADP
 
-**Implementation:** onedoor `0.3.6` (tag `v0.3.6`)
+**Implementation:** onedoor `0.3.6` — **published** 2026-08-21 (tag `v0.3.6` @ `6a95a69`,
+PyPI, GitHub release). Artifact digests on PyPI verified byte-identical to the build.
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
 **Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
 at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
-**Spec rulings in force:** Core→Delivery Responses **001–013** (001–006 on 2026-08-20; 007–013 on
-2026-08-21), plus Core→Forensics 009 §3, 010 §2 and 012 §1 by cross-session forward.
+**Spec rulings in force:** Core→Delivery Responses **001–014** (001–006 on 2026-08-20; 007–014 on
+2026-08-21), plus Core Forward 003, plus Core→Forensics 009 §3, 010 §2 and 012 §1 by cross-session forward.
 Digest register: `docs/from_core/INTEGRITY.md`, generated. Memos 007+ carry integrity footers; verify
 with `python -m scripts.verify_memo docs/from_core/*.md`.
 **Open spec questions:** **none, on either side.** Responses 001–005 ruled everything
@@ -263,9 +264,21 @@ certified and originals are requested.
 | §implstatus draft (a)–(c) | **Accuracy-checked against the source at `v0.3.6`, not against memory** — see `escalations/ACCURACY-CHECK-implstatus-2026-08-21.md`. All three blocks accurate as drafted. Two clarifications proposed, neither a correction: (c)'s "no behaviour change" is true *for policies* but the LiteLLM adapter's reporting moment does move by design; and (b)'s closing sentence generalises `not_attempted`'s **release** to all four outcomes, where R005 ruled settle for `success`/`failure`/`timeout`. |
 | `ND-047` | **Parked (R012), constraint kept** — the pruned-prefix/chain interaction is item-22-adjacent on core's watch. |
 
+### Resolved by Response 014 and Forward 003 (2026-08-21)
+
+| Was | Ruling |
+|---|---|
+| Memo preimage: "trailing whitespace" | **Forward 003 §1: trailing ASCII whitespace, byte-level** (` 	
+`). Text-semantics stripping never enters a preimage — a body ending in U+00A0 would digest differently across Unicode versions (the E14 reasoning). **Delivery conformed already**, because the preimage is computed over `bytes`; verified with a probe that first asserts `str.rstrip()` *would* have differed, so it cannot pass vacuously. |
+| Memo preimage: end of file | **Forward 003 §2 + R014 §3: the file ends at the footer line with at most ONE terminating LF; a missing final LF is tolerated; any byte after that LF — whitespace included — is malformed.** **Delivery diverged twice, permissively** (an extra LF or a bare CR verified green) and once *strictly* (the first fix required the LF). Both corrected; 8 cases regression-tested. Archive unaffected throughout. See `escalations/ESCALATION-2026-08-21-006.md`. |
+| Escalate-and-apply | **Ratified as the general test (R014 §2).** Fix-forward *with* a simultaneous escalation is correct when **(a)** core's text already rules the direction, **(b)** the rule is binding rather than advisory, and **(c)** no archived item changes verdict. If any of the three fails, **hold**. The prohibition was on silence, never on action. |
+| §implstatus (a)–(c) | **Accepted and LOCKED**, with both of delivery's clarifications adopted — 2.1 (the adapter's reporting moment moves, by design) and 2.2 verbatim (release *only* on a positive assertion of non-occurrence). Enters the `-02` working copy. |
+| Diagnosability | **"A property asserted per-branch dies at the next branch"** joins the record beside the outcome-not-proxy sentence — the same lesson from opposite sides. |
+
 ### Open
 
-**Delivery → core:** none. The last item — Core→Forensics Response 010's bytes — closed
+**Delivery → core:** none. `0.3.6` is published and its §implstatus revision is locked.
+The earlier item — Core→Forensics Response 010's bytes — closed
 2026-08-21 by disk copy; every digest-bearing memo verifies and the quarantine is empty.
 Digests are not repeated here: `docs/from_core/INTEGRITY.md` carries the one generated
 register, per R012 — *a digest in a ledger is generated, never transcribed.* Recorded for the record: delivery's reconstruction

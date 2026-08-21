@@ -9,33 +9,13 @@ on either side.** The settled spec
 surface is `CONFORMANCE.md` §6. **Nothing is gated. `ND-001` and `ND-039` are both unblocked.**
 **`0.4.0` remains one breaking increment** — the obligation surface turned out to be
 normative in `-00` already, so landing it is conformance catch-up, not a wire change.
-**`0.3.6` in progress.** `ND-025` **done** (`380019a`), `ND-024` **done** (`ebdef05`)
-— both reconciled from patch into history on 2026-08-21, see the note below — and
-`ND-021` **done**: the LiteLLM example now splits decide from report across the
-pre-call and post-call hooks, so the reference implementation no longer publishes a
-two-phase-contract violation. Remaining: `ND-036`, README fixes, then the release
-ping. Specs in `TICKETS-0.3.6.md`.
+**`0.3.6` RELEASED and published** 2026-08-21 — tag `v0.3.6` @ `6a95a69`, on PyPI,
+GitHub release live, artifact digests verified byte-identical to the build. `ND-021`,
+`ND-024`, `ND-025` and `ND-036` all closed on origin. Core's §implstatus revision is
+locked with both of delivery's accuracy-check clarifications adopted (R014).
 
-> **Reconciliation note, 2026-08-21 — RESOLVED.** This file previously recorded
-> `ND-024` done at `410bba5` and `ND-025`'s gate fix at `8d8f4b3`. **Neither commit
-> existed** in the repository or on `origin`: the previous session ran its gates
-> against a fresh cloud clone and the relay carried the exported patch files but not
-> the history. Both patches applied clean via `git am` (preserving the original
-> authorship and messages) and now sit at `ebdef05` and `380019a`. The SHAs above are
-> real. *Lesson recorded rather than filed away: work that lives outside git does not
-> survive relay — the same failure as the two memo crossings, one layer down. The
-> whole delivery ledger was itself untracked until `2e27199`.*
->
-> **One defect found during reconciliation, fixed in the same beat.** Committing
-> `reference/` put core's vendored artifact in ruff's path for the first time:
-> `ruff check .` reported 10 findings inside it, **5 auto-fixable**, and `ruff format`
-> would have rewritten `canonical.py`. A contributor running `ruff check --fix .` on a
-> red CI would have silently corrupted the digest-pinned bytes. `[tool.ruff] exclude`
-> now covers the artifact and all Markdown — the latter because `BACKLOG`/`TICKETS`
-> quote defects **verbatim** (reformatting `ND-021`'s snippet would stop it matching
-> `examples/litellm_guardrail.py`) and `docs/from_core/` memos are pinned by
-> `Integrity: sha256(body)`. Same E10 two-discipline rule as `.gitattributes`, third
-> layer: a linter is a normalising filter, and received data is not ours to normalise.
+**Next: `0.4.0` — `ND-002` + `ND-003` + `ND-039`, one breaking increment**, with
+`ND-040` immediately behind it per R011. Migration numbers start at `0007`.
 
 > **Verification note.** The device's `.venv` is a Windows venv on Python 3.12.10 —
 > the same minor CI uses — and all four gates run natively. Baseline independently
@@ -500,7 +480,7 @@ receipt entry shape is designed once at ND-001.
 
 | Release | Contents | AADP status change |
 |---|---|---|
-| `0.3.6` | ND-025, ND-021, ND-024 | None — hygiene. LiteLLM example becomes conformant. |
+| `0.3.6` | ND-021, ND-024, ND-025, ND-036 | **Shipped 2026-08-21.** LiteLLM enforcement point ❌ → ✅ *example, conformant*. §implstatus revised. Known-evasion disclosure for `ND-040` published with the release. |
 | `0.4.0` | ND-002, ND-003, ND-039 | **Breaking for archives and readers, not for PEP enforcement.** Reason codes → `cap_rate`/`cap_value`; `sender_mismatch` reserved; `budget` object added and persisted; `reason` on the report response; protocol → **`aadp/0.2`**; `protocol` column on the audit; report outcome reworked to the four-value vocabulary with outcome-dependent settlement (`ND-039`); obligation surface landed **dark** (conformance catch-up, already normative in `-00`); **receipt envelope migrated with later fields present-but-empty** so `0.4.1` does not re-migrate. A4 closed. Ping core. |
 | `0.4.1` | ND-001, ND-010 | P1 (Veto parity, partial). Tamper-evidence claim becomes true. Gated on **E8**. |
 | `0.5.0` | ND-004, ND-005, ND-038, ND-008, ND-009 | A1, A2, A3, A6, A9a closed. The largest conformance jump. **Breaking unless E11 reserves the obligation surface in `0.4.0`** — `not_attempted` and discharge evidence are wire-observable. Core handles §implstatus centrally — ping on release. |

@@ -266,7 +266,15 @@ def test_the_footer_line_ends_the_file(tmp_path: Path) -> None:
         assert result.status == "damaged", f"{label} after the footer must be malformed"
         assert "after the footer" in result.detail
 
+    # At MOST one terminating LF: a missing final LF is TOLERATED (ratified on the
+    # forensics channel, relayed in R014 section 3). Delivery's first pass required
+    # the LF -- stricter than the rule, the opposite error to the permissive one it
+    # had just fixed. Tightening is not automatically conforming.
     missing_lf = tmp_path / "no_lf.md"
     missing_lf.write_bytes(good.rstrip(b"\n"))
-    assert verify(missing_lf).status == "damaged"
-    assert "terminating LF" in verify(missing_lf).detail
+    assert verify(missing_lf).status == "ok", "a missing final LF is well-formed"
+
+    # ...but only one. A second LF is a byte after the terminating one.
+    two_lf = tmp_path / "two_lf.md"
+    two_lf.write_bytes(good + b"\n")
+    assert verify(two_lf).status == "damaged"

@@ -27,10 +27,13 @@ Forward 003 clarified two readings of that definition, both binding:
     ending in U+00A0 would otherwise digest differently across Unicode versions, the
     same reasoning that removed normalisation from ACJ preimages (E14). Operating on
     `bytes` is what makes this true here.
-  - The file **ends** at the footer line's terminating LF. Any byte after it is
+  - The file **ends** at the footer line with **at most one** terminating LF. A
+    missing final LF is tolerated; any byte after that LF -- whitespace included -- is
     malformed, never ignorable: a passing verification must attest every byte in the
     file, and the permissive reading lets unattested content ride under a green
-    verdict.
+    verdict. (The tolerance was ratified on the forensics channel and relayed in
+    R014 section 3; delivery's first pass required the LF, which was stricter than
+    the rule. Tightening is not automatically conforming.)
 
 Four traps, all walked into rather than foreseen, all now regression-tested:
 
@@ -136,14 +139,21 @@ def verify(path: Path) -> Result:
     # CR/LF bytes; found by probing the clause rather than by reading the code.
     line_end = raw.find(b"\n", start)
     if line_end == -1:
-        return damaged("footer line has no terminating LF; the file must end with it")
-    if line_end + 1 != len(raw):
-        extra = len(raw) - (line_end + 1)
-        return damaged(
-            f"{extra} byte(s) after the footer's terminating LF; the file must end "
-            f"there. Unattested trailing content is malformed, not ignorable."
-        )
-    footer = raw[start:line_end]
+        # Missing final LF is TOLERATED (ratified on the forensics channel, relayed
+        # in R014 §3): the file ends at the footer line with AT MOST one terminating
+        # LF. Delivery's first pass required the LF and was stricter than the rule --
+        # the opposite error to the permissive one it had just fixed, and a reminder
+        # that tightening is not automatically conforming.
+        footer = raw[start:]
+    else:
+        if line_end + 1 != len(raw):
+            extra = len(raw) - (line_end + 1)
+            return damaged(
+                f"{extra} byte(s) after the footer's terminating LF; the file must end "
+                f"there. Unattested trailing content is malformed, not ignorable -- "
+                f"whitespace included."
+            )
+        footer = raw[start:line_end]
     if not footer.startswith(PREFIX):
         return damaged("footer line is malformed")
     claimed = footer[len(PREFIX) :]
