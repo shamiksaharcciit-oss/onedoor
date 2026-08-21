@@ -64,6 +64,11 @@ violations you thought of; the `⇒` miss is the standing reminder):
 
 **W3 — Decimal at every ingress.** (S2, S4, S5) `parse_float=Decimal` on all eight
 `json.loads`; a Decimal-preserving YAML loader; `NumericBound` to `Decimal`.
+**Do not half-land this.** `bounds.py:36` type-checks `isinstance(value, int | float)`,
+so a `Decimal` param is rejected outright as "must be numeric" — landing the ingress
+change without that line would deny *every* numeric parameter. The two edits are one
+change. **S2 is a live enforcement mis-decision in `≤0.3.6`** (Escalation 007): a
+bound admits a value that exceeds it, by up to half an ulp of the bound.
 Duplicate keys / NaN / Infinity / non-UTF-8 ⇒ deny `malformed` — no new vocabulary,
 `CheckId.MALFORMED` is already live in `decide_and_reserve`'s total form.
 
@@ -152,8 +157,16 @@ Options delivery can see: a reserved sentinel (64 zeros) for genesis; or a disti
 `chain_state` column; or genesis carrying the id of the last unchained row in a field
 of its own, which `ND-001` already requires it to record.
 
-**This is receipt content, so it is core's call, not delivery's.** It does **not**
-block `0.4.0` — `0.4.0` only creates the column NULL — but it must be settled before
-`ND-001` writes the first chain. Raised now rather than at implementation time,
-because a rule discovered at decomposition is a rule, and one discovered afterwards
-is a retrofit.
+**RULED (R016 §1): the 64-zero sentinel.** `prev_hash` on the genesis row is sixty-four
+ASCII `0` characters — an **affirmative, in-band statement that no predecessor exists**,
+so NULL retains exactly one meaning: *not yet chained*. That is the null-versus-empty
+rule applied as written (the sentinel is the "empty" leg, a statement; NULL stays the
+"absent" leg, no statement), and it matches what every external hash-chain verifier
+already expects. `-02` change-list item 24.
+
+The alternatives were refused for reasons worth carrying: a `chain_state` column is a
+**second answer to a question `prev_hash` already answers** (X-14 — two fields that must
+agree is a disagreement waiting for its first bug), and putting the last unchained row's
+id in `prev_hash` **overloads a hash-typed field with an identifier**, a kind violation.
+The pre-chain linkage `ND-001` needs stays in its own field, where it is provenance
+rather than chain structure.

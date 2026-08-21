@@ -5,6 +5,36 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## Unreleased — `0.4.0` in progress
+
+### Defects present in `0.3.6` and earlier, closed by this release
+
+Found by the `0.4.0` code survey rather than by incident, and named here because the
+known-gaps register applies to bugs found *after* a release exactly as it applies to
+gaps known at one.
+
+- **Numeric parameters are compared as IEEE doubles, and a bound can admit a value
+  that exceeds it.** `json.loads` runs with no `parse_float`, so a numeric parameter
+  becomes a double before any check sees it; a wire amount carrying more precision
+  than a double holds is rounded onto the bound and allowed. Demonstrated: policy max
+  `500.10`, wire amount `500.1000000000000000001`, verdict **allowed**. The admitted
+  excess is about half an ulp of the bound — ~5e-14 at `500.10`, but ~10 at a bound of
+  `1e17`, so it is negligible at money scale and material for large-magnitude bounds.
+  The symmetric case (a compliant value falsely denied) also exists and fails closed.
+  **Mitigation for `0.3.6` deployments: send money amounts as JSON *strings*** —
+  `"500.10"` is exact end to end, because cost resolution accepts strings. Closed in
+  `0.4.0` by parsing with `parse_float=Decimal` at every ingress and typing numeric
+  bounds as `Decimal`.
+- **Policy YAML numbers are loaded as floats** (`yaml.safe_load`), which is how the
+  bounds above became doubles. Closed by the same change.
+- **Money is stored through `str(Decimal)`**, so equal amounts persist as different
+  text (`2.50`, `5.00`, `7.500`, `10.000` for four €2.50 spends). **Assessed and
+  benign for enforcement**: the money is in no key or index, is never compared as text
+  in SQL, and the round trip is value-preserving — 4000/4000 generated values, zero
+  comparison flips in 40,000 comparisons, accumulation exact. It makes the audit's
+  text untidy and would break a digest computed over that column, which is why it is
+  fixed rather than left.
+
 ## 0.3.6 — 2026-08-21
 
 Hygiene and one real conformance fix. No wire-format change; no behaviour change

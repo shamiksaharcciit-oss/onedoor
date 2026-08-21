@@ -278,3 +278,43 @@ def test_the_footer_line_ends_the_file(tmp_path: Path) -> None:
     two_lf = tmp_path / "two_lf.md"
     two_lf.write_bytes(good + b"\n")
     assert verify(two_lf).status == "damaged"
+
+
+def test_no_gate_command_of_ours_spells_python3() -> None:
+    """Forward 004: on Windows the Store `python3` alias exits 0 running nothing.
+
+    A gate invoked by that name and checked on exit code alone reports success while
+    executing nothing -- the gate-that-never-fired class in its sharpest form, because
+    the check passes for the person running it and attests nothing. Verified live on
+    this host: `python3 -c "print(...)"` prints "Python was not found" and exits 0.
+
+    So no command WE publish or run may spell it. Excluded: `reference/` (core's
+    vendored artifact, not ours to edit) and `docs/from_core/` (received memos).
+    A `#!/usr/bin/env python3` shebang is fine and is not a gate invocation -- it is
+    correct on POSIX and inert on Windows -- so only command-position uses count.
+    """
+    import re
+
+    ours = [
+        REPO / "README.md",
+        REPO / "CONTRIBUTING.md",
+        REPO / "CHANGELOG.md",
+        REPO / ".github" / "workflows" / "ci.yml",
+        *(REPO / "docs").glob("*.md"),
+        *(REPO / "scripts").glob("*.py"),
+    ]
+    # command position: start of line or after a shell separator, not a shebang
+    pattern = re.compile(r"(?<!env )\bpython3\b")
+    offenders = []
+    for path in ours:
+        if not path.is_file():
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            if line.startswith("#!"):
+                continue
+            if pattern.search(line):
+                offenders.append(f"{path.relative_to(REPO)}:{n}: {line.strip()[:70]}")
+    assert not offenders, (
+        f"these spell `python3`, which exits 0 without running on a Windows host: "
+        f"{offenders}. Use `python -m ...`, or sys.executable from inside Python."
+    )

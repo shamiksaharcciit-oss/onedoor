@@ -47,6 +47,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | Memo | Body digest (`Integrity:` register) |
 |---|---|
 | `Core_Forward_003_Protocol_Clarification_2026-08-21.md` | `a3f0170a11508c8a5b432c7bf12c2493d5048b956ea707be8f16d01aab96253e` |
+| `Core_Forward_004_Gate_Execution_2026-08-21.md` | `7960e78acc1485c403684849bdf4e896d9b3e34c87cb9c68baab7a28ccb7cde2` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none (predates the footer) |
@@ -62,6 +63,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_to_Delivery_Response_013_2026-08-21.md` | `a79efa6a4ca38ea663963f6e32167f655a6ef04bf286bfec9b536051b83d4748` |
 | `Core_to_Delivery_Response_014_2026-08-21.md` | `597539e6d0bc900f29b733a29114a1474797c0874f410dc68a20d8bd6f6abd5e` |
 | `Core_to_Delivery_Response_015_2026-08-21.md` | `4a4c5636248c939dbff7d7c2e750a4d7e9edc88b3cb873b6df26161e0c5c6c61` |
+| `Core_to_Delivery_Response_016_2026-08-21.md` | `8cdbc4a2076c0f091e53282528b7352632b9e058dd16f638101fdd3afb85a14d` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |
