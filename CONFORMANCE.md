@@ -4,8 +4,9 @@
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
 **Test suite at this baseline:** 135 passed (Python 3.12, `pytest -q`)
 **Last verified:** 2026-08-20, by direct source inspection at `3dfe3cd`
-**Spec rulings in force:** Core→Delivery Responses **001–008** (001–006 on
-2026-08-20; 007–008 on 2026-08-21). Memos 007+ carry integrity footers; verify
+**Spec rulings in force:** Core→Delivery Responses **001–009** (001–006 on
+2026-08-20; 007–009 on 2026-08-21), plus Core→Forensics 009 §3 by cross-session
+forward. Memos 007+ carry integrity footers; verify
 with `python -m scripts.verify_memo docs/from_core/*.md`.
 **Open spec questions:** **none, on either side.** Responses 001–005 ruled everything
 raised in Escalations 001–005; 006 was acknowledgment; 007 adopted one new normative
@@ -227,9 +228,19 @@ escalated question. Nothing was gated on it.
 | §6 residue pointer | **Core's error, owned.** Response 006 said §5; the §5 items were already gone and the live residue was §6's `Open (E10)` bullet. Delivery's find. |
 | Anchor-hygiene placement, and both judgment calls | **Endorsed without reservation** — decomposition-line placement, refusing to commit a header asserting SHAs that exist nowhere, and re-prioritising the ledger into git ahead of the patch sequence (urgency-ordering by failure-mode severity over ticket order is delivery's call to make). |
 
+### Resolved by Response 009 (2026-08-21) — delivery + forensics
+
+| Was | Ruling |
+|---|---|
+| The integrity preimage | **Ratified, then amended.** `body` = every byte strictly before the **FINAL** line beginning `Integrity:`, all trailing whitespace stripped, plus exactly one LF, UTF-8; SHA-256, lowercase hex; the blank separator line is **not** in the preimage. The FINAL amendment is delivery's parsing trap made normative — a memo quoting its own footer format defeats a first-match parser. Core owns the original ambiguity: the footer shipped **unverifiable by construction**, the third instance of the ambiguous-preimage class after E8 decimals and Q-11 uids. All existing digests remain valid. |
+| Sidecar vs footnote | **Ratified; core's instruction was self-contradictory and delivery was right to refuse it.** The integrity footer makes archived memos immutable — a feature. Provenance and archive annotations live in a sidecar (`INTEGRITY.md`), never in the memo file. |
+| Linter as a byte-rewriting tool | **Adopted for both sessions, normative.** Formatters, linters and auto-fixers MUST be excluded from every received-data path — vendored artifact, memo archive, and any verbatim evidence quotation. Core's framing: *the corruption vector is helpfulness*, which is why it is fenced structurally rather than by advice. |
+| Memo archive in `.gitattributes` | **Cross-session finding from forensics, actioned.** `docs/from_core/` was under `* text=auto eol=lf` while `reference/` and `patches/` were fenced. Now `-text`. General rule: *the moment an artifact carries a digest, every layer between delivery and verification joins its trust path — version control included.* Core memos are **received data under E10**. |
+| The push | **Authorised.** Gates verified from a cold clone with hostile settings; the 3.13 caveat accepted as an honestly-labelled expectation. Watch both matrix jobs; fix forward if 3.13 goes red. |
+
 ### Open
 
-**None, on either side**, as of Response 008 (2026-08-21). Escalations 001–005 are
+**None, on either side**, as of Response 009 (2026-08-21). Escalations 001–005 are
 fully ruled; 006 and 007 raised nothing requiring a delivery answer. The next expected
 contact is delivery's `0.3.6` release ping, which triggers core's §implstatus revision
 covering the LiteLLM conformance fix, the obligation-machinery gap (N6/`ND-038`), and

@@ -45,3 +45,15 @@ reference/rederivable-manifest/** -text
 # Exported patches are byte-exact diffs; CRLF corruption makes `git apply` fail
 # or, worse, apply a subtly different hunk.
 patches/*.patch -text
+
+# Core's memo archive. Received data, same as the vendored artifact -- and from
+# Response 008 these files carry `Integrity: sha256(body) = <hex>` over their own
+# bytes, so version control joined their trust path the moment the footer shipped.
+# Prose was exempt only while nothing depended on its bytes; that ended retroactively.
+#
+# Found by the forensics session and relayed (Core to Forensics 009 section 3): this
+# directory was falling under `* text=auto eol=lf` while reference/ and patches/ were
+# already fenced. Everything here is LF today so nothing was corrupted, but the first
+# CRLF memo would fail its own digest and present as CORE SENDING A BAD DIGEST -- the
+# same tampering-shaped diagnosis as the artifact, aimed at the wrong party.
+docs/from_core/** -text
