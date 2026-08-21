@@ -48,6 +48,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 |---|---|
 | `Core_Forward_003_Protocol_Clarification_2026-08-21.md` | `a3f0170a11508c8a5b432c7bf12c2493d5048b956ea707be8f16d01aab96253e` |
 | `Core_Forward_004_Gate_Execution_2026-08-21.md` | `7960e78acc1485c403684849bdf4e896d9b3e34c87cb9c68baab7a28ccb7cde2` |
+| `Core_Forward_004a_Exit_Codes_Travel_Badly_2026-08-21.md` | `7a375526ed54952a39f4252c6a0fa8d35ea5e264522b95df4689c53483f7aaf1` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none (predates the footer) |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none (predates the footer) |

@@ -51,7 +51,15 @@ protection on `main` requires both jobs green.
    cold-clone check that ran `python -m pytest` while CI ran bare `pytest` reported
    four green gates and CI went red on both jobs: `python -m` prepends CWD to
    `sys.path` and bare `pytest` does not. Simulating a gate with a different command
-   than the gate uses is not verification.
+   than the gate uses is not verification. **Exit codes travel badly; the output
+   contract is the only thing that travels with the work** (Forward 004/004a). Never
+   invoke a gate as bare `python3` — the Windows Store alias prints "Python was not
+   found" and **exits 0**, so the gate passes while running nothing. And never branch
+   on `$?` after a pipe: that is the *last* command's status, not the gate's. Quote
+   the output and check it (`All checks passed!`, `Success: no issues found in N
+   source files`, a test count), or take `PIPESTATUS[0]` / set `pipefail`
+   deliberately. Delivery has been caught by this twice — once reporting CI red from
+   `gh run watch`'s exit code while the run's own `conclusion` said success.
 3. **Three outcomes, never two** (programme-wide rule, R010, same origin). *Absent*,
    *unverifiable* and *failed* are distinct and must never collapse — unverifiable and
    malformed are failures to **surface**, never skips. The memo checker once reported a
