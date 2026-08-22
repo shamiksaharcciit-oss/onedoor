@@ -1,0 +1,36 @@
+-- ND-009 + R035 §1. The approval evidence field, and the version hint that ends the
+-- one-shot window for preimage changes.
+--
+--   approval_ref_status  -- the seven-value evidence field (CONFORMANCE.md §6):
+--                           absent | honored | expired | consumed | unknown |
+--                           action_mismatch | principal_mismatch.
+--                         **HASHED** into the row preimage, which is why this
+--                         migration comes with a version bump. It records WHY an
+--                         approval did or did not authorise the action, so flipping
+--                         `expired` to `honored` is exactly the edit a chain exists to
+--                         catch. Excluding it would have left an attacker a field to
+--                         edit without breaking anything.
+--
+--   preimage_version     -- which preimage sealed this row. A HINT, deliberately
+--                         EXCLUDED from the hash, and self-authenticating because the
+--                         authoritative version is the magic string INSIDE the
+--                         preimage: a row whose hint disagrees with how it was sealed
+--                         fails verification under the version it names. A lying hint
+--                         produces detection, not confusion.
+--
+-- Why the hint matters more than the column it sits beside: with it, verify_chain()
+-- can walk a ledger whose rows transition /2 -> /3 at a recorded point, because
+-- prev_hash links are unaffected by a version change -- each row hashes the previous
+-- row's row_hash, whatever produced it. Before this, a new hashed column was possible
+-- only while chaining was off EVERYWHERE, and impossible for any deployer who had
+-- switched it on, since the table forbids UPDATE and sealed rows can never be
+-- re-hashed. R035 §1: today's bump is the last that needed that window.
+--
+-- Both NULL on every existing row. Absent `preimage_version` means /1, by the same
+-- absent-means-the-earlier-thing rule as an unstamped `protocol` column meaning
+-- aadp/0.1. Absent `approval_ref_status` on a pre-ND-009 row means the field did not
+-- exist, not that a ref was absent -- which is why the value `absent` is written
+-- explicitly from ND-009 onward rather than left NULL.
+
+ALTER TABLE actions_audit ADD COLUMN approval_ref_status TEXT;
+ALTER TABLE actions_audit ADD COLUMN preimage_version TEXT;

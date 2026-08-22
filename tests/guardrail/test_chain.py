@@ -462,3 +462,97 @@ def test_verification_never_raises_on_damage(conn: Connection, config: EngineCon
     _force(conn, 1, "row_hash", "not even a hash")
     report = chain.verify_chain(conn)
     assert not report.sound
+
+
+# --- R035 §1: a chain that crosses a preimage version boundary --------------------
+
+
+def test_a_chain_verifies_across_a_preimage_version_boundary(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The test that makes future preimage versions possible on LIVE chains.
+
+    Before the `preimage_version` hint, a new hashed column was possible only while
+    chaining was off everywhere, and impossible for any deployer who had switched it on:
+    the table forbids `UPDATE`, so sealed rows can never be re-hashed. With a per-row
+    hint, a ledger whose rows transition `/2 → /3` re-derives end to end, because
+    **`prev_hash` links are unaffected by a version change** — each row hashes the
+    previous row's `row_hash`, whatever produced it.
+
+    Simulated by writing rows under `/1` and `/2` in one chain, which is the same seam
+    a future `/3` will create.
+    """
+    from onedoor.guardrail.preimage import VERSION_1, VERSION_2, row_hash, values_from_row
+
+    _policies(conn)
+    _enable(conn)
+    for _ in range(2):
+        _decide(conn, config)
+
+    # Re-seal row 1 as if it had been written under /1: the earlier field order, the
+    # earlier magic, and the hint saying so. Everything after it is untouched.
+    row = conn.execute("SELECT * FROM actions_audit WHERE seq=1").fetchone()
+    v1_hash = row_hash(values_from_row(row, VERSION_1), VERSION_1)
+    _force(conn, int(row["id"]), "preimage_version", VERSION_1)
+    _force(conn, int(row["id"]), "row_hash", v1_hash)
+    _force(conn, int(row["id"]), "approval_ref_status", None)
+    # Row 2 links to row 1's NEW hash, exactly as it would have at write time -- and
+    # its own hash is recomputed over that new link, not over the stale one. Getting
+    # this wrong is how the first run of this test failed: the fixture hashed values
+    # read BEFORE the prev_hash was updated, which is a fixture bug that looks exactly
+    # like the defect the test is hunting.
+    second = conn.execute("SELECT * FROM actions_audit WHERE seq=2").fetchone()
+    relinked = values_from_row(second, VERSION_2)
+    relinked["prev_hash"] = v1_hash
+    _force(conn, int(second["id"]), "prev_hash", v1_hash)
+    _force(conn, int(second["id"]), "row_hash", row_hash(relinked, VERSION_2))
+
+    report = chain.verify_chain(conn)
+    assert report.sound, (
+        f"a chain crossing a version boundary did not verify: "
+        f"{[(r.status.value, r.detail) for r in report.regions]}"
+    )
+    assert report.chained_rows == 2
+    versions = {
+        r["preimage_version"]
+        for r in conn.execute("SELECT preimage_version FROM actions_audit WHERE seq IS NOT NULL")
+    }
+    assert versions == {VERSION_1, VERSION_2}, "the fixture must actually span two versions"
+
+
+def test_a_lying_version_hint_fails_rather_than_confuses(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The hint is self-authenticating: the authority is inside the preimage.
+
+    A row sealed under `/2` whose hint claims `/1` verifies under `/1` and fails, which
+    is detection. That is why the hint could be excluded from the hash without giving
+    an attacker a free field — editing it does not forge anything, it only makes the
+    row fail sooner.
+    """
+    from onedoor.guardrail.preimage import VERSION_1
+
+    _policies(conn)
+    _enable(conn)
+    _decide(conn, config)
+    assert chain.verify_chain(conn).sound
+
+    _force(conn, 1, "preimage_version", VERSION_1)
+    report = chain.verify_chain(conn)
+    assert not report.sound
+    assert any(r.status is Status.FAILED for r in report.regions)
+
+
+def test_tampering_still_localises_on_either_side_of_the_seam(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Both directions at the boundary: a version change must not blunt the detector."""
+    _policies(conn)
+    _enable(conn)
+    for _ in range(3):
+        _decide(conn, config)
+    _force(conn, 2, "detail", "edited")
+    report = chain.verify_chain(conn)
+    failed = [r for r in report.regions if r.status is Status.FAILED]
+    assert len(failed) == 1
+    assert failed[0].first_id == failed[0].last_id == 2

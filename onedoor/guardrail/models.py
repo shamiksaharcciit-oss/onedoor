@@ -351,6 +351,18 @@ class ActionRequest(BaseModel):
     cost_eur: Decimal = Decimal(0)
     created_at: datetime
     parent_audit_id: int | None = None
+    approval_ref: int | None = None
+    """A reference to an approval a human already granted (ND-009, AADP A6).
+
+    Presented by an enforcement point on a **new** request with a **new**
+    `request_id`: resumption is a fresh decide carrying the ref, not a replay of the
+    original, and binding is by action-equivalence rather than by `request_id`.
+
+    An invalid, expired, consumed or mismatched ref **evaluates as if absent** — the
+    action re-evaluates on its own merits and a Tier-3 action proposes again. A bad ref
+    never grants, and never errors either: an error path would tell a prober whether
+    the ref existed.
+    """
     params_raw: str | None = None
     """The verbatim source text of `params` as the enforcement point sent it (E10).
 

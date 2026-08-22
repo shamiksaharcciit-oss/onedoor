@@ -40,10 +40,24 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 
-MAGIC = b"onedoor/row-preimage/1"
-"""Domain separation. A row preimage can never be read as `ND-017`'s `E` preimage, a
-Merkle leaf, or a future revision -- which would be `/2` and would visibly produce
-different bytes for the same row."""
+VERSION_1 = "onedoor/row-preimage/1"
+VERSION_2 = "onedoor/row-preimage/2"
+CURRENT_VERSION = VERSION_2
+"""What new rows are sealed under.
+
+`/2` adds `approval_ref_status` to the hash (ND-009, R035 §1): the field records *why*
+an approval did or did not authorise an action, so flipping `expired` to `honored` is
+exactly the edit a chain exists to catch. It could not be excluded.
+"""
+
+MAGIC = CURRENT_VERSION.encode("ascii")
+"""Domain separation, and the AUTHORITATIVE version statement.
+
+The version lives *inside* the preimage, which is what makes the `preimage_version`
+column a self-authenticating hint rather than a second source of truth: a row claiming
+`/1` in its hint but sealed under `/2` fails verification under the version it names.
+A lying hint produces detection, not confusion.
+"""
 
 ABSENT = b"\x00"
 """SQL NULL: no statement was made. A tag with no payload, never a zero-length value."""
@@ -59,7 +73,7 @@ GENESIS_PREV_HASH = "0" * 64
 """R016's ruled sentinel: an affirmative in-band statement that no predecessor exists,
 which leaves NULL exactly one meaning."""
 
-FIELD_ORDER: tuple[str, ...] = (
+FIELD_ORDER_V1: tuple[str, ...] = (
     "seq",
     "prev_hash",
     "request_id",
@@ -90,8 +104,34 @@ FIELD_ORDER: tuple[str, ...] = (
     "canon_schema",
     "opaque_class",
 )
-"""Fixed. **Reordering is a new preimage version, not a refactor** -- every digest
-already written was computed over this order, and the table forbids UPDATE."""
+"""The `/1` order, kept because rows sealed under it can never be re-hashed.
+
+Fixed forever. **Reordering is a new preimage version, not a refactor.**
+"""
+
+FIELD_ORDER_V2: tuple[str, ...] = (*FIELD_ORDER_V1, "approval_ref_status")
+"""`/2` appends rather than inserts, so a reader diffing the two sees one addition.
+
+`approval_ref_status` is hashed because it is the evidence for *why* an approval did or
+did not authorise this action (R035 §1).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V2
+"""What `row_hash()` uses by default: the current version's order."""
+
+FIELD_ORDERS: dict[str, tuple[str, ...]] = {
+    VERSION_1: FIELD_ORDER_V1,
+    VERSION_2: FIELD_ORDER_V2,
+}
+"""Every version this build can verify.
+
+`verify_chain()` walks a chain by looking each row's version up here, so a ledger whose
+rows transition `/2` to `/3` at a recorded point re-derives end to end. `prev_hash`
+links are unaffected by a version change -- each row hashes the previous row's
+`row_hash`, whatever produced it -- which is what removes the "impossible after the
+first deployer enables chaining" cliff permanently (R035 §1). Today's bump is the last
+that needed the everything-off window.
+"""
 
 EXCLUDED: dict[str, str] = {
     "id": (
@@ -106,6 +146,13 @@ EXCLUDED: dict[str, str] = {
     "i_digest": "ND-017 computes it FROM the row",
     "t_digest": "ND-017 computes it FROM the row",
     "v_digest": "ND-017 computes it FROM the row",
+    "preimage_version": (
+        "a self-authenticating HINT, not the authority: the version lives inside the "
+        "preimage as its magic string, so a row whose hint disagrees with how it was "
+        "sealed fails verification under the version it names. Excluded because a "
+        "hashed version field would have to be known before choosing the version that "
+        "hashes it"
+    ),
     "anchor_ref": (
         "assigned after anchoring, which under X-8 happens only after verification, "
         "so it is later than the hash by construction"
@@ -156,29 +203,50 @@ def encode_field(value: object) -> bytes:
     return PRESENT + len(raw).to_bytes(LENGTH_BYTES, "big") + raw
 
 
-def preimage(values: dict[str, object]) -> bytes:
+def preimage(values: dict[str, object], version: str = CURRENT_VERSION) -> bytes:
     """The full preimage for a row, given its column values.
 
     Takes a mapping rather than a `sqlite3.Row` so the writer can compute a hash for a
     row that does not exist yet -- which it must, because the row cannot be updated
     after insertion.
     """
-    missing = [name for name in FIELD_ORDER if name not in values]
+    order = FIELD_ORDERS.get(version)
+    if order is None:
+        raise KeyError(
+            f"unknown preimage version {version!r}; this build can verify {sorted(FIELD_ORDERS)}"
+        )
+    missing = [name for name in order if name not in values]
     if missing:
         raise KeyError(f"preimage is missing declared fields: {missing}")
-    return MAGIC + b"".join(encode_field(values[name]) for name in FIELD_ORDER)
+    return version.encode("ascii") + b"".join(encode_field(values[name]) for name in order)
 
 
-def row_hash(values: dict[str, object]) -> str:
+def row_hash(values: dict[str, object], version: str = CURRENT_VERSION) -> str:
     """SHA-256 of the preimage, lowercase hex (artifact rule 5)."""
-    return hashlib.sha256(preimage(values)).hexdigest()
+    return hashlib.sha256(preimage(values, version)).hexdigest()
 
 
-def values_from_row(row: sqlite3.Row) -> dict[str, object]:
+def version_of(row: sqlite3.Row) -> str:
+    """Which version sealed this row, from its hint.
+
+    Absent means `/1`: rows written before the hint column existed were sealed under
+    the only version there was. The same absent-means-the-earlier-thing rule as an
+    unstamped `protocol` column meaning `aadp/0.1`.
+    """
+    keys = row.keys()
+    if "preimage_version" not in keys or row["preimage_version"] is None:
+        return VERSION_1
+    return str(row["preimage_version"])
+
+
+def values_from_row(row: sqlite3.Row, version: str = CURRENT_VERSION) -> dict[str, object]:
     """The preimage inputs read back off a stored row, for verification."""
-    return {name: row[name] for name in FIELD_ORDER}
+    order = FIELD_ORDERS.get(version, FIELD_ORDER)
+    keys = row.keys()
+    return {name: (row[name] if name in keys else None) for name in order}
 
 
 def row_hash_of(row: sqlite3.Row) -> str:
-    """Recompute a stored row's hash from what the store actually holds."""
-    return row_hash(values_from_row(row))
+    """Recompute a stored row's hash under the version the row itself names."""
+    version = version_of(row)
+    return row_hash(values_from_row(row, version), version)

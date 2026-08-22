@@ -1,4 +1,4 @@
-# The onedoor row preimage — `onedoor/row-preimage/1`
+# The onedoor row preimage — `onedoor/row-preimage/2`
 
 **Normative.** This document defines the exact bytes that `actions_audit.row_hash`
 is computed over. It is written so an implementer with no access to the Python source
@@ -71,7 +71,7 @@ edit.
 The preimage is the concatenation, in the order of §3, of:
 
 ```
-  MAGIC                                  the ASCII bytes  onedoor/row-preimage/1
+  MAGIC                                  the ASCII bytes  onedoor/row-preimage/2
   then, for each field in declared order:
       0x00                               ABSENT   — the column is SQL NULL. No payload.
       0x01  LEN(8)  BYTES                PRESENT  — LEN is len(BYTES)
@@ -87,10 +87,10 @@ The preimage is the concatenation, in the order of §3, of:
   was owed*, `""` would mean *a budget was produced and it was empty*, and R015 makes
   those different facts. Collapsing them would kill the null-versus-empty distinction
   precisely where an adversary would go looking for it.
-- **`MAGIC` is domain separation.** A row preimage can never be mistaken for
-  `ND-017`'s `E` preimage, a Merkle leaf, or a future revision of this document —
-  which would be `onedoor/row-preimage/2` and would produce different bytes for the
-  same row, visibly.
+- **`MAGIC` is domain separation and the authoritative version statement.** A row
+  preimage can never be mistaken for `ND-017`'s `E` preimage, a Merkle leaf, or
+  another version of this document — `/3` would produce different bytes for the
+  same row, visibly. See §7 for how a ledger crosses a version boundary.
 - **No delimiters, no separators, no terminators.** Length prefixes make them
   unnecessary, and anything a field could contain is something an attacker can choose.
 
@@ -129,6 +129,7 @@ Order is fixed. **Reordering is a new preimage version, not a refactor.**
 | 27 | `malformed_kind` | generated — UTF-8 |
 | 28 | `canon_schema` | generated — UTF-8 |
 | 29 | `opaque_class` | generated — UTF-8 |
+| 30 | `approval_ref_status` | generated — UTF-8. **`/2` and later only** |
 
 **E10 at the boundary (R031 §1.4): the preimage performs no normalisation of its own.**
 It seals what the row holds, exactly. A "generated" field was already canonicalised
@@ -150,6 +151,7 @@ same octets.
 | `row_hash` | It is the output. |
 | `sig`, `key_id`, `alg` | `ND-015` signs the row hash. A signature inside its own preimage is circular. |
 | `e_digest`, `i_digest`, `t_digest`, `v_digest` | `ND-017` computes these *from* the row. |
+| `preimage_version` | A **hint**, not the authority — §7. A hashed version field would have to be known before choosing the version that hashes it. Self-authenticating: a row whose hint disagrees with how it was sealed fails verification under the version it names, which is detection rather than confusion. |
 | `anchor_ref` | Assigned after anchoring, which under **X-8** happens only after verification — so it is later than the hash by construction. |
 
 `tests/guardrail/test_row_preimage.py` asserts that **every column of `actions_audit`
@@ -192,3 +194,31 @@ A walker reports **four** outcomes and never collapses them (R031 §2):
 
 A log with an unchained prefix and an intact chain after genesis is **not** "verified"
 and **not** "failed". It is both, stated per region.
+
+## 7. Versions, and how a ledger crosses a boundary
+
+| Version | Field order | Added |
+|---|---|---|
+| `onedoor/row-preimage/1` | §3 rows 1–29 | the original (`ND-001`) |
+| `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`, R035 §1) |
+
+**A version is chosen per row, recorded in the row, and stated inside the hash.** The
+`preimage_version` column is a hint that lets a verifier pick the right field order
+without guessing; the magic string inside the preimage is the authority. A row claiming
+`/1` in its hint but sealed under `/2` fails verification under `/1`, which is the
+correct outcome — a lying hint produces detection.
+
+**An absent hint means `/1`**, by the same absent-means-the-earlier-thing rule as an
+unstamped `protocol` column meaning `aadp/0.1`.
+
+**`prev_hash` links are unaffected by a version change.** Each row hashes the *previous
+row's `row_hash`*, whatever version produced it, so a chain whose rows transition
+`/2 → /3` at a recorded point re-derives end to end with no special handling at the
+seam. That is what makes future versions possible **on live chains**: before the hint
+existed, a new hashed column was possible only while chaining was off everywhere and
+impossible for any deployer who had switched it on, because the table forbids `UPDATE`
+and sealed rows can never be re-hashed.
+
+`/2` was therefore the last bump that needed the everything-off window (R035 §1), and
+`tests/guardrail/test_chain.py` verifies the boundary case directly: a chain carrying
+rows of both versions verifies, and tampering with either side still localises.

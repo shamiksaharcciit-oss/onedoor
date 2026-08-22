@@ -45,6 +45,17 @@ SPEC = Path(__file__).resolve().parents[2] / "docs" / "row-preimage.md"
 # --- The second implementation, from the document -------------------------------
 
 
+def _doc_version() -> str:
+    """The version the document declares, read from its own title.
+
+    The second implementation must not hardcode a version either: when `/2` landed, a
+    hardcoded `/1` here would have made this file disagree with the document it is
+    supposed to be built from, which is the drift the whole arrangement exists to catch.
+    """
+    title = SPEC.read_text(encoding="utf-8").splitlines()[0]
+    return title.split("`")[1]
+
+
 def _doc_field_order() -> list[str]:
     """Read §3's table out of the document itself, so the two orders cannot drift.
 
@@ -64,7 +75,7 @@ def _from_the_document(values: dict[str, object]) -> bytes:
     an inline type ladder, and byte constants spelled out rather than imported.
     """
     out = bytearray()
-    out += "onedoor/row-preimage/1".encode("ascii")
+    out += _doc_version().encode("ascii")
     for name in _doc_field_order():
         value = values[name]
         if value is None:
@@ -225,7 +236,7 @@ def test_vector_one_byte_perturbation() -> None:
 def test_the_magic_separates_this_preimage_from_any_other() -> None:
     """Without it, a row preimage could be presented as some other structure's bytes."""
     values = _sample()
-    assert preimage(values).startswith(b"onedoor/row-preimage/1")
+    assert preimage(values).startswith(_doc_version().encode("ascii"))
     assert hashlib.sha256(preimage(values)).hexdigest() == row_hash(values)
 
 

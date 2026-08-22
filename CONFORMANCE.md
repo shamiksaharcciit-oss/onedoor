@@ -386,38 +386,37 @@ followed.
 | `ND-010` | **Accepted as standing.** The rebuild forced no new question because its questions were asked at decomposition — *the decompose-first method working as intended, twice in one epic*. The rebuilt-record discipline (distinct type, own write time, lineage by reference) enters the record as the recovery-time shape. |
 | `ND-009` | **GO**, against settled semantics: single-use; an invalid or replayed ref **evaluates as if absent**, never an error path that leaks whether a ref existed; the **kill switch wins**; refs are **principal-scoped**; binding is **action-equivalence**, not a byte-identical request; `approval_ref_status` writes the seven-value evidence field. Where resumption meets `ND-010`'s rebuilt state, the E10 label discipline applies unchanged. |
 
+### Resolved by Responses 035–036 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-009` Q1 — preimage bump | **R035 §1: YES, `/2`, once, now** — `approval_ref_status` hashed. `sig`/`key_id`/`alg` and `anchor_ref` confirmed **excluded** for stated reasons; `ND-050` deliberately **not** pre-folded. `/2` also adds an **excluded, self-authenticating `preimage_version` hint** so `verify_chain` can walk version transitions **on live chains** — which makes today's bump **the last one that needed the everything-off window**. |
+| `ND-009` Q2 — the principal | **R035 §2: delivery's proposal adopted whole.** `principal_mismatch` **reserved and never emitted**, `sender_mismatch` pattern, until `ND-004`/`ND-005` provide an authenticated identity. Delivery's sentence enters the record: *"a control in `CONFORMANCE.md` that does not control anything."* Core notes the draft's principal-scoped clause stays normative while onedoor's row reads **partial**. |
+| `ND-009` Q3 — action-equivalence | **R035 §3: identity up to spelling** — same `action_type` **and** params equal under the canonical rendering, evaluated on the frozen received bytes' parse. Effect-set equality is asserted as **derived consistency, never the test**: it alone would let "approve €250 to X" be spent on €900. Goes to the `-02` change list as item 25. |
+| `ND-052` sequencing | **R036: re-sequenced by Shamik's decision**, recorded as a principal's call. The Studio becomes a **pre-launch, demo-grade epic** opening the day `ND-017` closes, superseding the design note's *after the epic* line. Constitution unchanged. **Build order normative:** S1 backtest → S2 ratification → S3 canvas → S4 coverage map → S5 finance pack → **S6 the LLM proposer last**. **Two gates:** the Studio never gates the launch, and S6 demos only real, receipted, limit-stated output. |
+
+**A6 note (partial → still partial, stated):** onedoor's row for the draft's
+principal-scoped clause reads **partial** until an authenticated identity exists. The
+value is in the vocabulary and held unemitted by a test; the check is disclosed as
+awaiting `ND-004`/`ND-005` rather than implied to exist.
+
 ### Open
 
-**Delivery → core — THREE, all from `ND-009`'s decomposition (`TICKETS-ND-009.md` §6).
-A1, A2 and A6 proceed meanwhile.**
+**None, on either side**, as of Response 036 (2026-08-22). `ND-009`'s three questions
+are ruled and A1–A6 are built; `ND-052` is re-sequenced and recorded.
 
-**1. Does `ND-009` bump the row preimage to `/2`?** `approval_ref_status` is a new
-`actions_audit` column that records *why an approval did or did not authorise this
-action*. Flipping `expired` to `honored` is exactly the edit a chain exists to catch, so
-it cannot be `EXCLUDED` — it must be hashed, and hashing a new column is a new preimage
-version. **Free today**: chaining is opt-in and off, and no row has been sealed under
-`/1` outside this repository's tests. **Impossible once one deployer enables it**: the
-table forbids `UPDATE`, so sealed rows can never be re-hashed. If yes, delivery proposes
-bumping **once** and folding in anything else the epic already knows it needs.
+**One finding reported rather than asked**, because it needed a fix and not a ruling:
+`Decimal("250")` serialises to the JSON integer `250`, and `json.loads(...,
+parse_float=Decimal)` returns an **`int`** — `parse_float` never sees an integer. The
+stored side of an approval therefore carried `int` where the presented side carried
+`Decimal`, and action-equivalence reported `action_mismatch` for **every whole amount**.
+Safe (it refused to grant) but wrong. Numbers now render through `canon_decimal` and are
+**tagged**, so the number `250` cannot collide with the string `"250"` — the vendored
+artifact's rule 4 names that trap, and here it would fail permissively: the bounds gate
+that refuses a string amount never runs once a ref has granted.
 
-**2. What is a principal?** R034 says refs are principal-scoped and §6 defines
-`principal_mismatch`, but onedoor has no authenticated per-caller identity:
-`session_id` is caller-supplied and arrives in the same untrusted body as the ref;
-`decided_by_session` is who *approved*; the API key is deployment-wide. Scoping to
-`session_id` is a check an attacker satisfies by copying a value. **Delivery will not
-ship a control that cannot hold.** Proposal: `principal_mismatch` is **reserved and
-never emitted** until an authenticated identity exists (`ND-004`/`ND-005`), held by a
-test exactly as `sender_mismatch` is — so the evidence vocabulary is complete in one
-increment without claiming a check that never ran.
-
-**3. Where is action-equivalence's boundary?** The draft binds the approval to the
-action's *effect identity*, not a byte-identical request. Delivery reads that as same
-`action_type` plus same resolved effect set — but effects are computed from `params`,
-so the difference between *same effects* and *same effects and same bounds-relevant
-params* is the difference between an approval that can be spent on a bigger transfer
-and one that cannot. Delivery will not guess that line.
-
-**Core → delivery:** none, as of Response 034 (2026-08-22). `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 036 (2026-08-22). Next: `ND-015`, then
+`ND-017`; the `ND-052` Studio epic opens the day `ND-017` closes. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

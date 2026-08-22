@@ -33,7 +33,15 @@ from decimal import Decimal
 from sqlite3 import Connection
 from uuid import UUID
 
-from onedoor.guardrail import approvals, audit, bounds, caps, killswitch, opaque_hosts
+from onedoor.guardrail import (
+    approval_ref,
+    approvals,
+    audit,
+    bounds,
+    caps,
+    killswitch,
+    opaque_hosts,
+)
 from onedoor.guardrail.audit import RowSource
 from onedoor.guardrail.models import (
     ActionRequest,
@@ -112,6 +120,21 @@ def decide_and_reserve(
         # 1. KILL-SWITCH FIRST (invariant: before policy lookup).
         kill = killswitch.is_engaged(conn)
 
+        # 1b. APPROVAL REF (ND-009). Resolved inside this transaction because
+        #     consumption is a CAS and `BEGIN IMMEDIATE` is what makes it race-free.
+        #     A ref that does not authorise is NOT an error and NOT a denial: it
+        #     evaluates as absent, and the action re-evaluates on its own merits, so a
+        #     Tier-3 action simply proposes again. A bad ref never grants.
+        #
+        #     The kill switch is read FIRST and clamps below regardless: a valid ref
+        #     resumes an approval, it does not overrule a stop (§invariants #1).
+        resolution = approval_ref.resolve(
+            conn, approval_ref=request.approval_ref, presented=request, now=now
+        )
+        ref_status = resolution.status.value
+        if resolution.authorised:
+            approved_override = True
+
         # 2. POLICY LOOKUP / DEFAULT-DENY.
         policy = store.get(conn, request.action_type)
         nominal_tier = policy.tier
@@ -182,6 +205,7 @@ def decide_and_reserve(
                         decision,
                         kind="decision",
                         now=now,
+                        approval_ref_status=ref_status,
                         undo_of=undo_of,
                         malformed_kind="url_canonicalization",
                         canon_schema=CANON_SCHEMA,
@@ -212,6 +236,7 @@ def decide_and_reserve(
                     decision,
                     kind="decision",
                     now=now,
+                    approval_ref_status=ref_status,
                     undo_of=undo_of,
                     opaque_class=opaque_class,
                 )
@@ -295,6 +320,7 @@ def decide_and_reserve(
                 decision,
                 kind="decision",
                 now=now,
+                approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
             )
@@ -318,6 +344,7 @@ def decide_and_reserve(
                 decision,
                 kind="decision",
                 now=now,
+                approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
             )
@@ -342,6 +369,7 @@ def decide_and_reserve(
                 decision,
                 kind="decision",
                 now=now,
+                approval_ref_status=ref_status,
                 approval_id=approval_id,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
@@ -379,6 +407,7 @@ def decide_and_reserve(
                 decision,
                 kind="decision",
                 now=now,
+                approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
             )
@@ -413,6 +442,7 @@ def decide_and_reserve(
                 decision,
                 kind="decision",
                 now=now,
+                approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
             )
@@ -437,6 +467,7 @@ def decide_and_reserve(
             intent_decision,
             kind="exec_intent",
             now=now,
+            approval_ref_status=ref_status,
             undo_until=undo_until,
             undo_of=undo_of,
             opaque_class=opaque_class,

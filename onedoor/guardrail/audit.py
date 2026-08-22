@@ -176,6 +176,8 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "malformed_kind",
     "canon_schema",
     "opaque_class",
+    "approval_ref_status",
+    "preimage_version",
     "seq",
     "prev_hash",
     "row_hash",
@@ -229,6 +231,7 @@ def append(
     canon_schema: str | None = None,
     opaque_class: str | None = None,
     frozen: tuple[str | bytes, str | None] | None = None,
+    approval_ref_status: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -255,6 +258,7 @@ def append(
         canon_schema=canon_schema,
         opaque_class=opaque_class,
         frozen=frozen,
+        approval_ref_status=approval_ref_status,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -299,6 +303,7 @@ def _row_values(
     canon_schema: str | None = None,
     opaque_class: str | None = None,
     frozen: tuple[str | bytes, str | None] | None = None,
+    approval_ref_status: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -365,6 +370,12 @@ def _row_values(
             "malformed_kind": malformed_kind,
             "canon_schema": canon_schema,
             "opaque_class": opaque_class,
+            "approval_ref_status": approval_ref_status,
+            # The version HINT (R035 §1). Excluded from the hash -- the authoritative
+            # statement is the magic string inside the preimage -- so it is stamped
+            # here rather than computed, and a row whose hint disagrees with how it
+            # was sealed fails verification under the version it names.
+            "preimage_version": preimage_module.CURRENT_VERSION,
         }
     )
     return values

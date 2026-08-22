@@ -7,6 +7,76 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-009`: PEP-driven resumption via `approval_ref`
+
+An enforcement point can present a reference to an approval a human already granted.
+Resumption is a **new** decide with a **new** `request_id` carrying the ref, and the
+binding is **action-equivalence**, not `request_id` — a PEP presenting it on a different
+request is doing the required thing.
+
+**Every failure mode behaves identically and differs only in evidence.** Expired,
+consumed, forged, wrong-action, not-yet-approved: all of them resolve to *not
+authorised*, the action re-evaluates on its own merits, and a Tier-3 action simply
+proposes again. A bad ref never grants — and never errors, because an error path would
+tell a prober whether the ref existed. The forensic difference lives in
+`approval_ref_status`, the seven-value evidence field, and **not one reason code was
+added**.
+
+**Action-equivalence is identity up to spelling** (R035 §3): same `action_type`, and
+params equal under the canonical rendering. Key order and `250.00` versus `250` are
+spelling; `250` versus `900` is not. The human saw params, so an approval for €250
+cannot be spent on €900 — which effect-set equality alone would have allowed, since
+both share a `money.egress` label.
+
+**Single-use survives a race.** Consumption is the *first* write and its `rowcount` is
+the gate, inside the `BEGIN IMMEDIATE` the decision already holds. Two simultaneous
+resumptions yield exactly one execution, and the loser proposes: **a lost race never
+denies and never errors; it just does not grant.**
+
+**The kill switch still wins** after a valid ref, asserted as an invariant rather than
+left to emerge from check ordering — and the evidence records *both* facts, `honored`
+alongside the `kill_switch` denial, rather than blaming the approval.
+
+`principal_mismatch` is **reserved and never emitted**, held by a test exactly as
+`sender_mismatch` is. onedoor has no authenticated per-caller identity — `session_id`
+arrives in the same untrusted body as the ref — and scoping to it would be a control
+that does not control anything. The value ships so the vocabulary is complete in one
+increment; it starts being emitted when `ND-004`/`ND-005` provide an identity.
+
+**Found while building it:** `Decimal("250")` serialises to the JSON integer `250`, and
+`json.loads(..., parse_float=Decimal)` returns an **`int`** — `parse_float` never sees
+an integer. So the stored side of an approval carried `int` where the presented side
+carried `Decimal`, and equivalence reported `action_mismatch` for **every whole
+amount**. Safe (no grant) but wrong. Numbers now render through `canon_decimal`, and
+are **tagged** so a numeric `250` cannot collide with the string `"250"` — the vendored
+artifact's rule 4 names that trap, and here it would be permissive in the worst way:
+the bounds gate that refuses a string amount never runs once a ref has granted.
+
+### Changed — the row preimage is now versioned: `onedoor/row-preimage/2`
+
+`approval_ref_status` is **hashed**, because it records *why* an approval did or did not
+authorise an action — flipping `expired` to `honored` is exactly the edit a chain exists
+to catch. Hashing a new column is a new preimage version, so `/2`.
+
+Migration `0013` also adds **`preimage_version`**, a per-row hint **excluded** from the
+hash and self-authenticating: the authority is the magic string inside the preimage, so
+a row whose hint disagrees with how it was sealed fails verification under the version
+it names. A lying hint produces detection, not confusion.
+
+**This ends the one-shot window.** `prev_hash` links are unaffected by a version change
+— each row hashes the previous row's `row_hash`, whatever produced it — so a ledger
+whose rows transition `/2 → /3` re-derives end to end, and future columns get future
+versions **on live chains**. Before the hint, a new hashed column was possible only
+while chaining was off everywhere and impossible for anyone who had switched it on,
+because the table forbids `UPDATE` and sealed rows can never be re-hashed. `/2` was the
+last bump that needed that window, and the boundary case is verified by a test.
+
+`sig`/`key_id`/`alg` stay excluded (a signature attests the row hash and cannot precede
+it) and `anchor_ref` stays excluded (X-8 anchors after re-verification, and an edited
+anchor fails the Merkle proof — the right detector for it). `ND-050` was deliberately
+**not** pre-folded: guessing its row shape to save a bump would be designing a ticket in
+a hurry inside another one.
+
 ### Added — `ND-010`: a permit outlives the process that issued it
 
 `service/app.py` kept pending intents in a dict and its own docstring promised `0.4`
