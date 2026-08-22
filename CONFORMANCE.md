@@ -305,30 +305,43 @@ certified and originals are requested.
 | U2's acceptance | **R026: a corpus-style assertion** that every existing policy's matches and non-matches are unchanged with the feature present but unused. `tests/guardrail/test_param_effects_compat.py` uses the original expression as oracle and reads the engine's answer through `decide_and_reserve`, not a helper. |
 | The disclosure's mechanism sentence | **Corrected in the same arc (R025).** `0.4.0` said canonicalization would close the three URL-shaped evasions; it closes one. CIDR matching closes the second **given a deployer who can declare the network**, and the shortener is not a canonicalization problem at all. The promise stands; the description now matches what was built. |
 
+### Resolved by Response 027 (2026-08-22) — the three departures, and the ship
+
+| Was | Ruling |
+|---|---|
+| U4's `effect_floor` reading | **R027 §1: CONFIRMED, and it improves on R025's own wording.** *Fail-closed means never silently execute, not always refuse.* An action whose consequences cannot be **verified** must not be auto-executed — which is not the same as saying it can never happen. Routing members onto the effect floor keeps the guarantee that matters and lets policy grant an approver the call, rather than over-blocking wearing a safety argument. Three conditions: the never-auto-execute **invariant asserted as a test**; evidence naming **both the class and the reason**; the semantics stated in **one plain sentence** in the docs. |
+| U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
+| The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
+| `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
+
+**R027 §1's first condition found a defect rather than confirming a property.** U4
+rested on the effect floor, and the effect floor is optional: a policy could declare
+`opaque` and attach an effect with `min_tier: null`, and the declared redirector would
+auto-execute silently. Constructed and observed before release, so it never shipped.
+The invariant is now stated in the engine — an opaque-class member floors to the
+human-approval tier whatever the action's tier and whatever the effect declares — and
+asserted across eight policy shapes crossed with the kill switch. **The general
+lesson: a protection that depends on a second, optional declaration is not a
+protection, it is a default.**
+
 ### Open
 
-**None blocking**, as of Response 026 (2026-08-22). The `ND-040` §7 question is
-ruled: the ticket owns all three evasive cases, with the opaque-host class as U4 and
-the disclosure's mechanism sentence corrected alongside the fix. `ND-040` U1–U5 are
-built; three departures from the plan are reported for core's confirmation rather
-than assumed, none of them blocking:
+**None, on either side**, as of Response 027 (2026-08-22). The three departures
+delivery reported rather than assumed are all ruled: U4's `effect_floor` reading
+confirmed with three conditions, all met; U2+U3 landing together accepted; the
+unaudited envelope-`malformed` denial ticketed as `ND-050`. `ND-040` U1–U5 are built
+and `0.4.1` is published.
 
-1. **U2 and U3 landed together.** They are not separable: `decide_raw` deliberately
-   does not swallow internal errors, so a `CanonicalizationError` from the effect
-   loop would have crashed the PDP rather than denied. A malformed URL from a caller
-   is *input*, not a bug. U2 without U3 is a reachable crash, not a smaller increment.
-2. **U4's "existing deny path" is read as the existing EFFECT path.** A member is
-   treated as though it were the declared target, so the reason code is
-   `effect_floor` and no wire vocabulary is added at all. If R025 intended a hard
-   denial regardless of the policy's tier, it changes in one line.
-3. **The other `malformed` writes no audit row.** A request whose envelope fails
-   validation denies in `decide_raw` before a policy or a request object exists, so
-   there is nothing to append against — meaning migration `0010`'s `malformed_kind`
-   has exactly one emitted value, and a `request_validation` value naming code that
-   does not exist was not invented. Pre-existing gap; it wants a ticket.
+**One question outstanding with core, and it is core's to answer, not delivery's.**
+The `0.4.0` §implstatus text and `-02` change-list item 23 describe `ND-040` as
+canonicalization. That description is incomplete in exactly the way `CHANGELOG.md`'s
+was — it covers one of the three URL-shaped cases. If any draft or paper text says or
+implies that canonicalization closes the redirector case, it needs the same
+correction. **Delivery has not touched it**; paper and draft claims are core's.
 
-**Core → delivery:** none, as of Response 024 (2026-08-22). Next after `ND-040`: the
-`0.4.x` line, and a Phase-B read-only receipt viewer arriving as its own declaration.
+**Core → delivery:** none, as of Response 027 (2026-08-22). Next: the `0.4.x` line —
+`ND-001`/`ND-010`, with `ND-009` able to run in parallel — and a Phase-B read-only
+receipt viewer arriving as its own declaration.
 
 ~~**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
 **Genesis `prev_hash` is ambiguous under R015's null-versus-empty rule.** `ND-001`
