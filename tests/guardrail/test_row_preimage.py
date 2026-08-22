@@ -318,3 +318,81 @@ def test_the_preimage_reads_a_real_audit_row(conn: Connection, config: EngineCon
     values = {name: row[name] for name in FIELD_ORDER}
     assert _from_the_document(values) == preimage(values)
     assert len(row_hash(values)) == 64
+
+
+# --- R032 §2: one normative source, guarded rather than promised ------------------
+
+PREIMAGE_BUILDERS = {"preimage.py"}
+"""The only module in `onedoor/` permitted to construct row-preimage bytes.
+
+R032 §2 ratified `docs/row-preimage.md` as the single normative source that `ND-015`
+and `ND-017` **cite and never re-derive**. A promise in a document is not a guard, and
+the whole reason the rule exists is that two derivations of one preimage disagree
+eventually — at the exact spot an attacker would shop for a disagreement (X-14).
+"""
+
+
+def test_only_one_module_builds_preimage_bytes() -> None:
+    """`sig` and the `E` digest must import this, not grow their own.
+
+    Checked with an AST for the same reason the viewer's guard is: a comment mentioning
+    `MAGIC` is not a use of it, and a test that cannot tell the difference gets deleted
+    by the first person it annoys.
+    """
+    import ast
+
+    package = Path(__file__).resolve().parents[2] / "onedoor"
+    offenders: dict[str, list[str]] = {}
+    for path in sorted(package.rglob("*.py")):
+        if "__pycache__" in path.parts or "_vendor" in path.parts:
+            continue
+        if path.name in PREIMAGE_BUILDERS:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Detected by IMPORT, not by name. `ABSENT` and `PRESENT` are ordinary English
+        # words and the first version of this test fired on `Status.ABSENT` in
+        # `receipt.py` -- the third time a blunt name scan has flagged correct code in
+        # this repo. Importing the FRAMING PRIMITIVES is the precise signal: you cannot
+        # build preimage bytes without them, and calling `row_hash` needs none of them.
+        framing = {"MAGIC", "ABSENT", "PRESENT", "encode_field", "LENGTH_BYTES"}
+        found = [
+            alias.asname or alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module == "onedoor.guardrail.preimage"
+            for alias in node.names
+            if alias.name in framing
+        ]
+        # Constructing the bytes is the offence; CALLING `row_hash`/`row_hash_of` is
+        # exactly what every caller is supposed to do.
+        if found:
+            offenders[path.name] = sorted(set(found))
+    assert not offenders, (
+        f"modules building preimage bytes outside preimage.py: {offenders}. "
+        f"docs/row-preimage.md is the single normative source (R032 §2): cite it, "
+        f"call `row_hash`, never re-derive."
+    )
+
+
+def test_the_document_declares_itself_normative_and_names_its_dependants() -> None:
+    """The rule has to be findable by the person who would otherwise break it.
+
+    Someone implementing `ND-015` reads the spec, not this test. If the document does
+    not say "cite, never re-derive", the guard above is a trap rather than a rule.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    assert "single normative source" in text.lower()
+    assert "ND-015" in text and "ND-017" in text
+    assert "never re-derive" in text
+
+
+def test_the_spec_carries_no_control_bytes() -> None:
+    """A normative document is read by machines as well as people.
+
+    Not hypothetical: an editing pass writing this file interpreted `\x00` and wrote
+    literal NUL and SOH bytes into the prose describing those very tags. It rendered as
+    two empty backticks and would have been invisible in review, in the one document
+    whose job is to be reproducible from its text.
+    """
+    raw = SPEC.read_bytes()
+    control = {b for b in raw if b < 0x09 or 0x0B <= b <= 0x1F}
+    assert not control, f"control bytes in the normative spec: {sorted(control)}"

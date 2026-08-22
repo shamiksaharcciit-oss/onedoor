@@ -6,7 +6,15 @@ can reproduce every digest from this text alone (P2-06), and
 `tests/guardrail/test_row_preimage.py` holds a second implementation built from this
 document rather than from the module.
 
-**Ruled by R031 §1.** Frozen from the first chained row. An append-only table cannot
+**Ruled by R031 §1; ratified as the programme's SINGLE NORMATIVE SOURCE by R032 §2.**
+`ND-015` signs `row_hash` and `ND-017`'s `E` addresses these same bytes: both **cite
+this document and never re-derive**. A second derivation anywhere would be two answers
+to one question at the exact spot an attacker would shop for a disagreement — X-14, at
+the preimage. `tests/guardrail/test_row_preimage.py` enforces it structurally rather
+than by promise: `onedoor/guardrail/preimage.py` is the only module permitted to build
+these bytes, checked by AST, so a future ticket cannot quietly grow its own.
+
+Frozen from the first chained row. An append-only table cannot
 be re-hashed, so a defect here has no remedy — which is why the encoding is
 adversarial rather than convenient: `params_json` is *received* data, and a caller may
 be actively trying to make two different rows produce the same digest.
@@ -27,6 +35,21 @@ packing of any kind in the artifact — checked, not assumed. The programme's "u
 convention" is a **methodology** (implement the definition rather than fit the artifact;
 drift-guard with a second route) and "Q-11 uids" is cited elsewhere as a past *instance*
 of the ambiguous-preimage class, not as a dialect to copy.
+
+**R032 §2 named the dialect precisely — as the vendored artifact's uid-preimage
+convention, *"read from the vendored files"* — and the vendored files were then read
+exhaustively a second time.** `onedoor/_vendor/canonical.py`
+(`sha256 98a50bc3…`, byte-identical to the reference copy) contains no `to_bytes`, no
+`pack(`, no `uid`, and no byte-order token; the word `struct` appears only inside
+*construction* and *structures*. Every byte literal in all ten files of the artifact is
+`b""`, a read-chunk sentinel, the two RFC 6962 tag bytes, and five test fixtures.
+**Escalation 008 carries the evidence and asks core to rule**, because writing a provenance into a
+normative document that cannot be checked is the one thing this programme's apparatus
+exists to prevent.
+
+Until that ruling, this document defines **the** dialect: onedoor has exactly one, it
+is written here, and any sibling repo needing field framing adopts it by citation —
+which is what R032 §2's *one dialect programme-wide* actually asks for.
 
 So the extension below is the whole encoding, written down as R031 requires, and built
 on the one byte-level discipline the artifact *does* ratify — **rule 6's

@@ -361,24 +361,40 @@ extension down"*, and built on the one byte-level discipline the artifact does r
 rule 6's domain-separation tags. Saying so beats quietly implying a dialect was
 followed.
 
+### Resolved by Response 032 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-001` | **Accepted.** Opt-in and off by default is named the right rollout shape for a feature whose rows are permanent: nothing in production grows a chain until a deployer declares it, and the genesis sentinel meets its first real store on the deployer's terms. |
+| The dialect | **R032 §2** names it as the vendored `rederivable-manifest` v3 uid-preimage convention, read from `onedoor/_vendor`. **Delivery escalated (008): that convention is not in the artifact** — evidence in the memo. The executable half is done: one dialect, documented in `docs/row-preimage.md`, adopted by citation. |
+| `docs/row-preimage.md` | **Ratified as the SINGLE NORMATIVE SOURCE.** `ND-015` and `ND-017` **cite it and never re-derive** — X-14 at the preimage, guarded by an AST test rather than promised. |
+| `ND-010` / `ND-009` | **R032 §3: GO.** The rebuild carries provenance to the rows it derives from and surfaces gaps rather than synthesising intents. |
+
 ### Open
 
-**None blocking.** C1's question is ruled (R031 §1) and C1–C5 are built. Two things
-delivery reports rather than assumes, neither needing an answer to proceed:
+**Delivery → core — TWO, neither blocking, both raised while the answer is still cheap.**
 
-1. **§1.2's convention does not exist in the artifact it names** — see the note above.
-   The extension is written down; if core intended a dialect from elsewhere in the
-   programme, the encoding can still be changed *only until the first chained row is
-   written in a store that matters*, and nothing has enabled chaining outside tests.
-2. **The decomposition's "both paths produce identical `row_hash` values" was wrong,
-   and the test caught it.** Group commit defers result rows, so the ledger's row order
-   differs between paths and the chains differ with it — that is what group commit is,
-   not drift. The invariant that holds, and the one N2's decision needs, is that the
-   preimage does not depend on which path wrote the row. Both are now asserted: the
-   reordering explicitly, the invariant by holding the position-determined fields fixed
-   and comparing content.
+**1. Escalation 008 — the named dialect is not in the artifact it is named from.**
+R032 §2 says the row preimage follows the vendored artifact's uid-preimage convention,
+*"read from the vendored files"*. Read exhaustively, twice:
+`onedoor/_vendor/canonical.py` (`sha256 98a50bc3…`, byte-identical to the reference
+copy) contains no `to_bytes`, no `pack(`, no `uid`, no byte-order token, and `struct`
+only inside *construction*/*structures*. Every byte literal across all ten files of the
+artifact is `b""`, a read-chunk sentinel, the two RFC 6962 tag bytes, and five test
+fixtures. Delivery will not write an uncheckable provenance into the document R032 just
+made normative. **Not blocking** — chaining is off in every store — and the executable
+half of §2 is done. Three rulings offered in the escalation; delivery's reading is that
+onedoor's encoding **is** the programme's dialect and the vendored-convention sentence
+is withdrawn.
 
-**Core → delivery:** none, as of Response 031 (2026-08-22). `ND-001` is built (C1–C5),
+**2. `ND-010` §7 — whose `created_at` does a rebuilt intent's result row carry?**
+The stored intent has the original request's timestamp; the result is reported now,
+possibly days later. Two timestamps under one name is X-14's shape, and the ledger is
+permanent. Delivery proposes `RebuiltIntent` names them apart — `requested_at` from the
+row, and no `created_at` at all, so the result stamp can only come from `now`. **R1
+does not start without this; R2–R5 are unblocked.**
+
+**Core → delivery:** none, as of Response 032 (2026-08-22). `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
