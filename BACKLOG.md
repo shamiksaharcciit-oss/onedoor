@@ -27,9 +27,15 @@ the `aadp/0.2` vocabulary (`cap_rate`/`cap_value`, `sender_mismatch` reserved), 
 protocol stamp on every row, and R019's `snapshot_schema`. W5 lands the seven-field `budget` object, closing the day-vs-month granularity gap
 W4 deliberately opened; W6 lands the four-value outcome with outcome-dependent
 settlement, closing A4b; W7 lands the verbatim freeze with row-level provenance.
-**Next: `ND-040`** — URL canonicalization before effect matching, per R011, with the
-reason code already ruled (`malformed`, no new vocabulary, failure recorded distinctly
-in evidence). Then the `0.4.x` line.
+**`ND-040` in progress — GO from R024, decomposition first.** URL canonicalization
+before effect matching, with the reason code already ruled (`malformed`, no new
+vocabulary, failure recorded distinctly in evidence). **Decomposition written before
+the code: `TICKETS-ND-040.md`** — work order U1–U5, the canonicalization surface, the
+acceptance tests, and one surfaced question. **Key finding: the benchmark's three
+URL-shaped evasive cases are three different problems**, and canonicalization alone
+closes one of them. See `CONFORMANCE.md` §5 Open.
+
+A Phase-B read-only receipt viewer is announced for after `ND-040` lands.
 
 > **Sequencing correction from the decomposition.** This backlog assigns vendoring
 > `canonical.py` to `ND-001` (`0.4.1`). That is the wrong order: `ND-002`'s row format
