@@ -194,6 +194,7 @@ def decide_and_reserve(
 
         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
         reason_confirm = CheckId.TIER_CONFIRM
+        confirm_detail = ""
         if approved_override:
             if kill:
                 decision = PolicyDecision(
@@ -232,6 +233,39 @@ def decide_and_reserve(
                     effective_tier = ep.min_tier
                     if effective_tier == Tier.CONFIRM:
                         reason_confirm = CheckId.EFFECT_FLOOR
+
+        # OPAQUE-HOST INVARIANT (R027 §1). Stated as an invariant, never left to
+        # emerge from tier arithmetic: **a host in a declared opaque class can never
+        # resolve to auto-execution.** A human decides, or policy denies.
+        #
+        # This is not the same as the effect floor above, and relying on that floor
+        # was a real hole -- found by probing this exact condition rather than by
+        # reading the code. A policy could declare `opaque` and point at an effect
+        # with `min_tier: null`, and a declared redirector would then auto-execute
+        # silently: the deployer asked for the protection, the engine took the
+        # declaration, and nothing escalated. The whole mechanism was one YAML line
+        # away from being decorative.
+        #
+        # The reasoning core settled it on: the founding rule is that an action whose
+        # consequences cannot be VERIFIED must not be auto-executed -- not that it can
+        # never happen. A redirector's true destination is unknowable without the
+        # network call determinism forbids, and the honest answer to *unknowable* is
+        # "a human decides", not "nobody decides". So the floor is the human-approval
+        # tier, and a policy that offers no approver ends in denial rather than in
+        # execution.
+        if opaque_class is not None and not approved_override and effective_tier != Tier.OBSERVE:
+            # OBSERVE is exempt because it never executes at all: a read returns an
+            # audited no-op, never a permit. The invariant is about execution.
+            if int(effective_tier) < int(Tier.CONFIRM):
+                effective_tier = Tier.CONFIRM
+            reason_confirm = CheckId.EFFECT_FLOOR
+            # The class is in `opaque_class`; the REASON rides here, so an operator
+            # reading the row can tell this escalation from an ordinary tier floor
+            # without knowing what the class means (R027 §1, second condition).
+            confirm_detail = (
+                f"destination unverifiable without a network call; host is in the "
+                f"declared opaque class {opaque_class}"
+            )
 
         # Reversibility precondition: ANY tier that may execute without a human
         # (auto and auto_capped alike) requires a registered means of reversal.
@@ -298,6 +332,7 @@ def decide_and_reserve(
                 reason_code=reason_confirm,
                 requires_approval=True,
                 compensating_command=policy.compensating_command,
+                detail=confirm_detail,
             )
             aid = audit.append(
                 conn,

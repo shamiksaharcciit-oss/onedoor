@@ -123,12 +123,16 @@ A rule declares **exactly one** matcher, so it cannot mean two things:
   differential is a denial, never a bypass — and the audit row records
   `malformed_kind` and `canon_schema` so the failure is attributable.
 - **`url.opaque`** — hosts whose real target cannot be known without a network call
-  (shorteners, redirectors). A member is treated as though it were a declared host,
-  because the engine cannot rule out that it is one; the audit row records which class
-  matched. Absent means off. `builtin` is a shipped, versioned starter list — **not a
-  census**: an undeclared shortener is not caught, which is why `extra` exists.
-  Nothing that is not a declared member is ever touched, so an innocent host on the
-  same action is unaffected.
+  (shorteners, redirectors). **A host in the declared redirector class is never
+  auto-executed: a human approves it, or policy denies it.** That is the whole
+  semantics, and it is an invariant rather than a consequence of your tier
+  arithmetic — it holds whatever the action's tier is and whether or not the effect
+  you attached declares a floor. The audit row records which class matched
+  (`opaque_class`) and the `detail` says why the action was escalated, so the
+  escalation is distinguishable from an ordinary tier floor. Absent means off.
+  `builtin` is a shipped, versioned starter list — **not a census**: an undeclared
+  shortener is not caught, which is why `extra` exists. Nothing that is not a declared
+  member is ever touched, so an innocent host on the same action is unaffected.
 
 Measured coverage of this deterministic layer, and the residue it still cannot see:
 `python -m experiments.aliasing_benchmark`.

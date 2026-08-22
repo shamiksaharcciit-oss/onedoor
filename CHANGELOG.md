@@ -5,7 +5,15 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## Unreleased
+## 0.4.1 — 2026-08-22
+
+**Additive. Nothing existing changes meaning.** New opt-in policy vocabulary and two
+forward-only migrations; every rule you have deployed matches exactly what it matched
+under `0.4.0`, which is asserted rather than intended (see the compatibility corpus
+below). No wire-observable change: no new reason codes, no changed verdict shapes, no
+signature changes. A `-00` enforcement point is unaffected.
+
+**Upgrading:** run the engine once to apply migrations `0010`–`0011`. Nothing else.
 
 ### Added — `ND-040`: URL-valued parameters are matched as URLs
 
@@ -39,6 +47,22 @@ a disclosure register working:
 | `https://bank%2Eexample%2Ecom/transfer` | **Canonicalization.** `%2E` decodes to `.`; this is the canonicalization case proper. |
 | `https://203.0.113.7/transfer` | **CIDR matching, and a deployer who declares the network.** A hostname pattern cannot express an address at all. The mechanism makes the case expressible; it does not supply the knowledge. |
 | `https://t.co/x9k2` | **Not canonicalization at all.** The host really *is* `t.co`; the bank is behind a redirect, and following it is a network call the PDP's offline model forbids. Closed by a **declared class of opaque hosts** — a shipped, versioned starter list plus the deployer's own, matched by exact host after canonicalization, treated as *possibly the declared target* because it might be. |
+
+**The semantics in one sentence:** *a host in the declared redirector class is never
+auto-executed; a human approves it, or policy denies it.* An action whose consequences
+cannot be **verified** must not be auto-executed — that is not the same as saying it
+can never happen. A redirector's true destination is unknowable without the network
+call determinism forbids, and the honest governance answer to *unknowable* is "a human
+decides", not "nobody decides".
+
+This is an **invariant, not tier arithmetic**. It holds whatever the action's tier is
+and whether or not the effect you attached declares a floor. Stating it that way is
+not pedantry: relying on the effect floor alone left a real hole, found by probing this
+exact condition before release. A policy could declare `opaque` and point at an effect
+with `min_tier: null`, and a declared redirector would then auto-execute silently — the
+deployer asked for the protection, the engine took the declaration, and nothing
+escalated. The mechanism was one YAML line away from being decorative. It never shipped
+that way.
 
 **Measured on the instrument that disclosed the gap.**
 `experiments/aliasing_benchmark.py` gains an **L3** layer beside L2 — L2 is left
@@ -91,15 +115,24 @@ innocents is a defect, and the opaque-host class is exactly what could have brok
   target's address range cannot write the CIDR that catches it.
 - **`ND-048` is untouched.** `bash -c "$(echo <base64> | base64 -d)"` carries no
   matchable literal; the governed effect is real and no deterministic parameter rule
-  reaches it. Still disclosed as an open gap with no ticketed fix, and now asserted
-  as one in the test suite.
+  reaches it. Ticketed as `ND-048` so it cannot age out of the disclosure, with **no
+  fix scheduled** — and now asserted as still-failing in the test suite, so the gap
+  cannot close by accident either.
 - **The stdlib implements IDNA2003**, which differs from IDNA2008 on a handful of
   characters (`ß`, final sigma, a few others). A difference produces a **non-match,
   never a false match**, so the failure direction is safe — but a policy written
   against an IDN host in that set would not match a request spelling it the other way.
-- **The other `malformed` still writes no audit row.** A request whose envelope fails
-  validation is denied before a policy or a request object exists, so there is nothing
-  to append against. Pre-existing, not introduced here, and not closed here.
+- **An envelope-validation `malformed` denial writes no audit row** (`ND-050`). A
+  request whose envelope fails validation is denied before a policy or a request
+  object exists, so there is nothing to append against and the returned result carries
+  no `audit_id`. **Present in `≤0.4.0`; found while building `ND-040` and not caused by
+  it.** The action does not happen and the caller is told, so nothing is mis-permitted
+  — but "the audit log is append-only: decisions, results, denials, dry-runs and
+  kill-switch blocks" is a claim this project makes, and one class of denial is outside
+  it. Note the asymmetry this release creates and did not cause: a malformed **URL**
+  now writes a row naming `malformed_kind`, a malformed **envelope** writes none.
+  Ticketed, not fixed here — appending needs a row shape for a request that failed to
+  parse, which is a design question rather than a one-liner.
 
 ## 0.4.0 — 2026-08-22
 
