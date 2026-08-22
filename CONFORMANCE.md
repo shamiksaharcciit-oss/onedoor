@@ -296,11 +296,36 @@ certified and originals are requested.
 | Suite runtime | **R020: ticket and diagnose before ship.** `ND-049`: measured, classified environmental-not-algorithmic, accepted with the AV hypothesis named as **unconfirmed**, revisit trigger = CI movement. |
 | `0.4.0` | **Shipped 2026-08-22.** A4 and A4b move to met; `tests/guardrail/test_report_outcome.py` is §implstatus's citable evidence, one test per clause of the disclosure sentence. |
 
+### Resolved by Responses 024–026 (2026-08-22) — the `ND-040` arc
+
+| Was | Ruling |
+|---|---|
+| `ND-040` scope | **R024: decompose first**; the canonicalizer is **deterministic and dependency-pinned**, and the benchmark's three URL-shaped cases are the acceptance tests, `0/3 → 3/3`, with `ND-048`'s case **asserted still-failing**. Decomposition found the three evasive cases are three *different* problems: canonicalization alone closes one. |
+| The opaque-host class | **R025: `ND-040` owns it, as U4** — the published scope binds the way the published schedule does. A **declared, versioned class**, starter list plus customer extension, matched **post-canonicalization by exact host**, **failing closed for members only** so the innocents column stays 3/3, the undeclared-shortener limitation **disclosed in the same breath as the fix**, and **no new wire vocabulary**. Delivered as: a member is treated as though it were the declared target, so the code is the existing `effect_floor` and the class rides in evidence (`opaque_class`, migration `0011`). |
+| U2's acceptance | **R026: a corpus-style assertion** that every existing policy's matches and non-matches are unchanged with the feature present but unused. `tests/guardrail/test_param_effects_compat.py` uses the original expression as oracle and reads the engine's answer through `decide_and_reserve`, not a helper. |
+| The disclosure's mechanism sentence | **Corrected in the same arc (R025).** `0.4.0` said canonicalization would close the three URL-shaped evasions; it closes one. CIDR matching closes the second **given a deployer who can declare the network**, and the shortener is not a canonicalization problem at all. The promise stands; the description now matches what was built. |
+
 ### Open
 
-**None, on either side**, as of Response 025 (2026-08-22). The `ND-040` §7 question is
+**None blocking**, as of Response 026 (2026-08-22). The `ND-040` §7 question is
 ruled: the ticket owns all three evasive cases, with the opaque-host class as U4 and
-the disclosure's mechanism sentence corrected alongside the fix.
+the disclosure's mechanism sentence corrected alongside the fix. `ND-040` U1–U5 are
+built; three departures from the plan are reported for core's confirmation rather
+than assumed, none of them blocking:
+
+1. **U2 and U3 landed together.** They are not separable: `decide_raw` deliberately
+   does not swallow internal errors, so a `CanonicalizationError` from the effect
+   loop would have crashed the PDP rather than denied. A malformed URL from a caller
+   is *input*, not a bug. U2 without U3 is a reachable crash, not a smaller increment.
+2. **U4's "existing deny path" is read as the existing EFFECT path.** A member is
+   treated as though it were the declared target, so the reason code is
+   `effect_floor` and no wire vocabulary is added at all. If R025 intended a hard
+   denial regardless of the policy's tier, it changes in one line.
+3. **The other `malformed` writes no audit row.** A request whose envelope fails
+   validation denies in `decide_raw` before a policy or a request object exists, so
+   there is nothing to append against — meaning migration `0010`'s `malformed_kind`
+   has exactly one emitted value, and a `request_validation` value naming code that
+   does not exist was not invented. Pre-existing gap; it wants a ticket.
 
 **Core → delivery:** none, as of Response 024 (2026-08-22). Next after `ND-040`: the
 `0.4.x` line, and a Phase-B read-only receipt viewer arriving as its own declaration.
