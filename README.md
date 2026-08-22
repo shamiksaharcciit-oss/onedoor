@@ -195,12 +195,18 @@ behind each, is in [CHANGELOG.md](CHANGELOG.md) and
 [CONFORMANCE.md](CONFORMANCE.md); these are the ones a deployer should read before
 trusting a boundary to this engine:
 
-- **`param_effects` matches URL-valued parameters as strings.** A redirector, an IP
-  literal or a percent-encoded host defeats a pattern like
-  `https://(pay|bank)\.example\.com/.*` — `experiments/aliasing_benchmark.py` scores
-  0/4 on its evasive set. Use effect labels for cooperative inputs; put a fail-closed
-  egress control in front of anything that matters. Canonicalization lands in `0.4.x`
-  (`ND-040`).
+- **A `param_effects` `pattern:` still matches URL-valued parameters as strings.** A
+  redirector, an IP literal or a percent-encoded host defeats a pattern like
+  `https://(pay|bank)\.example\.com/.*`. `ND-040` adds a **`url:` block** that matches
+  the canonicalized target instead — opt-in, so existing patterns keep their exact
+  meaning — and `experiments/aliasing_benchmark.py` measures the difference: evasive
+  **0/4 at L2, 3/4 at L3**, `innocent-ok` 3/3 at both. Three qualifications, because
+  the number alone would overstate it: an **undeclared** shortener is still missed
+  (the opaque-host class is a starter list, not a census); the **IP-literal** case is
+  caught only where the deployer can declare the target's network; and the fourth
+  evasive case is not a URL problem at all (see the next item). Use effect labels for
+  cooperative inputs; put a fail-closed egress control in front of anything that
+  matters.
 - **Numeric parameters pass through IEEE double precision before any check.**
   **Workaround, available today: send money amounts as JSON *strings* —** `"500.10"`
   is exact end to end. As JSON *numbers*, a value carrying more precision than a
@@ -209,6 +215,12 @@ trusting a boundary to this engine:
   large counts). Demonstrated: policy max `500.10`, wire amount
   `500.1000000000000000001`, verdict **allowed**. Affects `0.3.6` and earlier; fixed
   in `0.4.0` by parsing with `parse_float=Decimal` at every ingress.
+- **Indirect or obfuscated command construction defeats parameter rules entirely**
+  (`ND-048`). `bash -c "$(echo <base64> | base64 -d)"` carries no matchable literal:
+  the governed effect is real and **no deterministic parameter rule catches it**. This
+  is not a URL problem and `ND-040` does not close it; the benchmark asserts it as
+  still-failing so the URL fix cannot be read as covering it. Open gap, no ticketed
+  fix.
 - **No obligation machinery.** An AADP obligation attached to a permit would be
   silently ignored by onedoor's own enforcement points rather than failing closed
   (`ND-038`).

@@ -231,5 +231,52 @@ Two things found while writing it, recorded rather than smoothed over:
   reaching a new input, but it is now asserted in a test rather than left as an
   emergent property of check ordering.
 
+**U4 is done.** `url.opaque` declares hosts whose target cannot be known without a
+network call: `builtin` is a shipped, versioned starter list (`onedoor/opaque-hosts/1`)
+and `extra` is the deployer's own. Membership is checked **after canonicalization** by
+**exact host** — `x.t.co` and `t.co.evil.test` are different services, and suffix
+matching without a label boundary is the classic bypass running in the other
+direction. Absent means off.
+
+The semantic choice, stated because it is the one thing in this ticket that could
+have gone another way: a member is treated as though it were **the declared target**,
+so the rule's `add_effects` apply and the effect's floor and caps decide. R025 said
+*the existing deny path with the class named in evidence*; this is the reading of
+that which needs **no new wire vocabulary at all**. The reason code is `effect_floor`,
+which already exists and already means exactly what happened. A separate deny path
+would have had to invent a code for "we could not tell where this goes", and
+inventing wire vocabulary to carry an evidence fact is precisely what R013 declined
+to do one migration earlier. It is also conservative by construction — an effect can
+only raise a floor or add a cap, never lower one — so declaring a host opaque can
+never make an action *more* permitted, asserted in
+`test_governing_an_opaque_host_can_only_be_more_restrictive` rather than argued.
+**If core intended a hard denial regardless of tier, say so and it changes in one
+line.**
+
+**U5 is done.** The benchmark gains an **L3** layer beside L2; L2 is left exactly as
+it was measured when the evasion was disclosed, because a fix that edits its own
+baseline has destroyed its evidence.
+
+```
+layer    named  generic✓  evasive  innocent-ok   note
+L2     5/5     4/4       0/4      3/3           + deterministic param rules
+L3     5/5     4/4       3/4      3/3           + URL-typed rules (ND-040)
+```
+
+`tests/guardrail/test_aliasing_acceptance.py` asserts every number in CI, including
+`ND-048`'s case **asserted still-failing** and `innocent-ok` held at 3/3. The
+disclosure's mechanism sentence is corrected in `CHANGELOG.md` and `README.md`: the
+promise stands, and the description of *how* now matches what was built — one case
+closed by canonicalization, one by CIDR matching **plus a deployer who can declare
+the network**, one by a declared opaque class and not by canonicalization at all.
+
+Two stale-documentation defects found while writing that and fixed in the same
+commit, neither introduced by this ticket: `docs/policy-reference.md` still listed the
+reason codes `0.4.0` retired, and `docs/integration-langchain-middleware.md` showed a
+denial message the engine can no longer produce. The vocabulary change had a test; the
+*documentation* of the vocabulary did not, so the two drifted the moment the code
+changed. `test_the_operator_documentation_lists_exactly_the_live_vocabulary` now
+derives the documented list from `CheckId` and fails in both directions.
+
 `ND-048`'s residue is untouched by every option above and stays disclosed as an open
 gap with no ticketed fix.

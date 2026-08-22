@@ -105,6 +105,7 @@ def append(
     outcome: str | None = None,
     malformed_kind: str | None = None,
     canon_schema: str | None = None,
+    opaque_class: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -122,8 +123,9 @@ def append(
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
         " policy_version, protocol, budget_json, outcome,"
-        " params_provenance, payload_provenance, malformed_kind, canon_schema"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " params_provenance, payload_provenance, malformed_kind, canon_schema,"
+        " opaque_class"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -157,6 +159,7 @@ def append(
             None if payload is None else Provenance.SERIALIZED.value,
             malformed_kind,
             canon_schema,
+            opaque_class,
         ),
     )
     return int(cur.lastrowid or 0)

@@ -18,8 +18,8 @@ from typing import Any
 
 import yaml
 
+from onedoor.guardrail import opaque_hosts, urlcanon
 from onedoor.guardrail import policy as policy_module
-from onedoor.guardrail import urlcanon
 from onedoor.guardrail.models import Caps, EffectPolicy, Policy, Tier
 from onedoor.store.clock import now_utc, to_iso
 
@@ -76,6 +76,24 @@ def validate_policy(policy: Policy) -> None:
                         f"policy '{policy.action_type}' declares an invalid CIDR "
                         f"{cidr!r} in a param_effects url rule: {exc}"
                     ) from exc
+            opaque = rule.url.opaque
+            if opaque is not None:
+                for host in opaque.extra:
+                    try:
+                        opaque_hosts.declared_members([host])
+                    except urlcanon.CanonicalizationError as exc:
+                        raise ValueError(
+                            f"policy '{policy.action_type}' declares an uninterpretable "
+                            f"opaque host {host!r}: {exc}"
+                        ) from exc
+                if not opaque.builtin and not opaque.extra:
+                    raise ValueError(
+                        f"policy '{policy.action_type}' declares an opaque block with "
+                        f"the builtin list off and no extra hosts -- it names no host "
+                        f"at all, and a declaration that declares nothing is almost "
+                        f"certainly not what was meant (omit the block to turn the "
+                        f"mechanism off)"
+                    )
             if not rule.url.hosts and not rule.url.cidrs:
                 raise ValueError(
                     f"policy '{policy.action_type}' declares a param_effects url rule "

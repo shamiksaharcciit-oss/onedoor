@@ -44,7 +44,7 @@ propose  a human decides
 ```
 
 A denial is a message, not an exception. The agent reads `onedoor:
-'pay_invoice' denied (cap_eur_day: EUR/day cap 500.00 reached)` and can adapt --
+'pay_invoice' denied (cap_value: €/day cap 500 reached)` and can adapt --
 tell the user, try something smaller, stop. An exception would give it nothing to
 work with.
 

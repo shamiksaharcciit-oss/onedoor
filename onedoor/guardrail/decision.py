@@ -33,7 +33,7 @@ from decimal import Decimal
 from sqlite3 import Connection
 from uuid import UUID
 
-from onedoor.guardrail import approvals, audit, bounds, caps, killswitch
+from onedoor.guardrail import approvals, audit, bounds, caps, killswitch, opaque_hosts
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -117,6 +117,10 @@ def decide_and_reserve(
         # 2b. EFFECT RESOLUTION — declared labels plus deterministic parameter
         #     rules (a generic tool's effect can depend on its arguments).
         effects: list[str] = list(policy.effects)
+        # Which declared opaque class, if any, made a rule fire (U4). Recorded in
+        # evidence rather than in the reason code, because "we could not tell where
+        # this goes" is a fact about the target, not a new kind of verdict.
+        opaque_class: str | None = None
         for rule in policy.param_effects:
             value = request.params.get(rule.param)
             if value is None:
@@ -127,8 +131,35 @@ def decide_and_reserve(
                 # silent reinterpretation of a deployed policy.
                 matched = re.fullmatch(rule.pattern or "", str(value)) is not None
             else:
+                # Outside the try on purpose: an `extra` entry that will not
+                # canonicalize is a POLICY error, and policy_loader rejects it when
+                # the policy is written. If one ever reached here it must surface as
+                # the bug it is, not be reported as a malformed request -- blaming
+                # the caller for the deployer's typo would send an operator hunting
+                # in exactly the wrong place.
+                extra_members = (
+                    opaque_hosts.declared_members(rule.url.opaque.extra)
+                    if rule.url.opaque is not None
+                    else frozenset()
+                )
                 try:
-                    matched = url_rule_matches(rule.url, value)
+                    matched, canon = url_rule_matches(rule.url, value)
+                    if not matched and rule.url.opaque is not None and not canon.is_ip:
+                        # U4. The host canonicalizes perfectly and is simply not the
+                        # declared one -- but if the policy has declared it a host
+                        # whose target cannot be known without a network call, then
+                        # the engine cannot rule out that it IS the declared target.
+                        # Treat it as though it were: the rule's effects apply, and
+                        # the effect's floor and caps decide. Strictly conservative,
+                        # since an effect can only raise a floor or add a cap.
+                        klass = opaque_hosts.classify(
+                            canon.host,
+                            builtin=rule.url.opaque.builtin,
+                            extra=extra_members,
+                        )
+                        if klass is not None:
+                            matched = True
+                            opaque_class = klass
                 except CanonicalizationError as exc:
                     # A target this cannot interpret at least as strictly as the
                     # networking stack will is refused, so a parse differential is a
@@ -173,7 +204,13 @@ def decide_and_reserve(
                     detail="kill switch engaged; approved action blocked",
                 )
                 aid = audit.append(
-                    conn, request, decision, kind="decision", now=now, undo_of=undo_of
+                    conn,
+                    request,
+                    decision,
+                    kind="decision",
+                    now=now,
+                    undo_of=undo_of,
+                    opaque_class=opaque_class,
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
@@ -216,7 +253,15 @@ def decide_and_reserve(
                 nominal_tier=nominal_tier,
                 reason_code=CheckId.OBSERVE,
             )
-            aid = audit.append(conn, request, decision, kind="decision", now=now, undo_of=undo_of)
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+            )
             bus.publish(conn, "action.observed", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
@@ -231,7 +276,15 @@ def decide_and_reserve(
                 reason_code=CheckId.BOUNDS,
                 detail=bounds_result.detail,
             )
-            aid = audit.append(conn, request, decision, kind="decision", now=now, undo_of=undo_of)
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+            )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
@@ -254,6 +307,7 @@ def decide_and_reserve(
                 now=now,
                 approval_id=approval_id,
                 undo_of=undo_of,
+                opaque_class=opaque_class,
             )
             bus.publish(
                 conn,
@@ -282,7 +336,15 @@ def decide_and_reserve(
                 dry_run=True,
                 detail="would have executed",
             )
-            aid = audit.append(conn, request, decision, kind="decision", now=now, undo_of=undo_of)
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+            )
             bus.publish(conn, "action.dry_run", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
@@ -308,7 +370,15 @@ def decide_and_reserve(
                 # no budget state to report when the amount could not be resolved.
                 budget=cap_result.budget,
             )
-            aid = audit.append(conn, request, decision, kind="decision", now=now, undo_of=undo_of)
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+            )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
@@ -332,6 +402,7 @@ def decide_and_reserve(
             now=now,
             undo_until=undo_until,
             undo_of=undo_of,
+            opaque_class=opaque_class,
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the

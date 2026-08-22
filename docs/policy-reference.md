@@ -90,21 +90,57 @@ policies:
     tier: 1
     compensating_command: onedoor.noop
     param_effects:             # deterministic rules, no model calls
-      - param: url
-        pattern: "https://(bank|pay)\\.example\\.com/.*"
+      - param: cmd             # a regex, matched on the value's string form
+        pattern: ".*(bank|pay)\\.example\\.com.*"
         add_effects: [money.egress]
+      - param: url             # OR a URL rule, matched on the canonical target
+        add_effects: [money.egress]
+        url:
+          hosts: [bank.example.com, pay.example.com]
+          include_subdomains: false
+          cidrs: [203.0.113.0/24]
+          schemes: [https]
+          opaque: {builtin: true, extra: [go.mycorp.example]}
 ```
 
 Semantics: an action's effects are its declared labels plus every
-`param_effects` match (full-match regex on the parameter's string form).
-Effect caps are reserved in the same transaction as action caps — all or
-nothing, race-free, shared across every carrier. Tier floors escalate with
-reason `effect_floor`. Measured coverage of this deterministic layer (and the
-honest residue it cannot see — encodings, redirectors, obfuscated shell):
+`param_effects` match. Effect caps are reserved in the same transaction as action
+caps — all or nothing, race-free, shared across every carrier. Tier floors escalate
+with reason `effect_floor`.
+
+A rule declares **exactly one** matcher, so it cannot mean two things:
+
+- **`pattern`** — a full-match regex on the parameter's string form. The original
+  form, unchanged in meaning. It is the right shape for a shell command and the wrong
+  parser for a URL.
+- **`url`** — matching on the **canonicalized** target, so `bank%2Eexample%2Ecom`,
+  `BANK.Example.COM.` and `bank.example.com:443` all reach the rule that
+  `bank.example.com` does, while `bank.example.com@evil.test` and
+  `bank.example.com.evil.test` do not. `include_subdomains` is explicit rather than
+  implied, because the two readings disagree exactly where an attacker lives. `cidrs`
+  matches IP-literal targets, which a hostname pattern cannot express at all. A target
+  the canonicalizer cannot interpret is **denied** with reason `malformed` — a parse
+  differential is a denial, never a bypass — and the audit row records
+  `malformed_kind` and `canon_schema` so the failure is attributable.
+- **`url.opaque`** — hosts whose real target cannot be known without a network call
+  (shorteners, redirectors). A member is treated as though it were a declared host,
+  because the engine cannot rule out that it is one; the audit row records which class
+  matched. Absent means off. `builtin` is a shipped, versioned starter list — **not a
+  census**: an undeclared shortener is not caught, which is why `extra` exists.
+  Nothing that is not a declared member is ever touched, so an innocent host on the
+  same action is unaffected.
+
+Measured coverage of this deterministic layer, and the residue it still cannot see:
 `python -m experiments.aliasing_benchmark`.
 
 ## Reason codes you will see in decisions and the audit log
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
-`dry_run` · `cap_daily_rate` · `cap_eur_day` · `cap_eur_month` · `cost_unknown` ·
-`kill_switch` · `observe` · `effect_floor` · `malformed`
+`dry_run` · `cap_rate` · `cap_value` · `cost_unknown` · `kill_switch` · `observe` ·
+`effect_floor` · `malformed` · `expired`
+
+`cap_rate` and `cap_value` replaced `cap_daily_rate` / `cap_eur_day` / `cap_eur_month`
+in `0.4.0` (`aadp/0.2`), with the window and unit moving into the `budget` object.
+This list still named the retired codes — a stale doc found and corrected while
+documenting `ND-040`, not a defect introduced by it. `sender_mismatch` is registered
+but **never emitted** until `ND-005` wires the check it belongs to.

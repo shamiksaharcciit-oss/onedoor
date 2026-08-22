@@ -159,6 +159,12 @@
       "generic_covered": "4/4",
       "generic_evasive": "0/4",
       "innocent": "3/3"
+    },
+    "L3": {
+      "named_alias": "5/5",
+      "generic_covered": "4/4",
+      "generic_evasive": "3/4",
+      "innocent": "3/3"
     }
   }
 }

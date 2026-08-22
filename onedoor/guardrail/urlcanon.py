@@ -232,8 +232,13 @@ def host_matches(canonical_host: str, declared: str, *, include_subdomains: bool
     return canonical_host.endswith("." + declared_canon)
 
 
-def url_rule_matches(spec: object, value: object) -> bool:
+def url_rule_matches(spec: object, value: object) -> tuple[bool, CanonicalUrl]:
     """Does a canonicalized target satisfy a declared URL match (ND-040 / U2)?
+
+    Returns the answer **and the canonical target it is about**, so a caller asking a
+    second question of the same value -- U4 asks whether the host is a declared opaque
+    one -- asks it of the same canonicalization rather than re-parsing and risking a
+    differential between two readings of one string.
 
     Raises :class:`CanonicalizationError` if the value cannot be interpreted, which
     the caller turns into a `malformed` denial -- a parse differential is a denial,
@@ -250,7 +255,7 @@ def url_rule_matches(spec: object, value: object) -> bool:
 
     schemes = list(getattr(spec, "schemes", []) or [])
     if schemes and canon.scheme not in {s.lower() for s in schemes}:
-        return False
+        return False, canon
 
     if canon.is_ip:
         # An IP literal is not a hostname, and a name rule must not silently match
@@ -258,13 +263,13 @@ def url_rule_matches(spec: object, value: object) -> bool:
         for cidr in getattr(spec, "cidrs", []) or []:
             try:
                 if ip_address(canon.host) in ip_network(cidr, strict=False):
-                    return True
+                    return True, canon
             except ValueError as exc:
                 raise CanonicalizationError(f"policy declares an invalid CIDR {cidr!r}") from exc
-        return False
+        return False, canon
 
     include_subdomains = bool(getattr(spec, "include_subdomains", False))
     for host in getattr(spec, "hosts", []) or []:
         if host_matches(canon.host, host, include_subdomains=include_subdomains):
-            return True
-    return False
+            return True, canon
+    return False, canon

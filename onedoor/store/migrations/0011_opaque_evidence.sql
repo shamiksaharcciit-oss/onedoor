@@ -1,0 +1,28 @@
+-- ND-040 / U4. Which declared opaque class made this rule fire.
+--
+-- R025 ruled that the shortener is caught by a declared, versioned class of hosts
+-- whose target cannot be determined without a network call -- fails closed for
+-- members only, and **no new wire vocabulary**: the reason code stays `effect_floor`,
+-- which already exists and already means what happened, with the class named in
+-- EVIDENCE. The same shape as `malformed_kind` one migration ago, for the same
+-- reason: an evidence field, not a wire code.
+--
+--   opaque_class  -- the identity of the class that matched, when one did:
+--                    `onedoor/opaque-hosts/N` for the shipped starter list, or
+--                    `policy` for a deployer's own `extra` entry.
+--                    NULL when the rule matched the declared host itself, and on
+--                    every row written before ND-040.
+--
+-- Why the identity and not just a flag. A member host is treated as though it were
+-- the declared target, so the verdict depends on **who said the host was opaque** and
+-- on **which version of the list said so**. Adding a host to the shipped list changes
+-- what some policy matches -- a visible instrument change -- and a verdict that
+-- changes after an upgrade has to be attributable to the list rather than to the
+-- rules. Same argument as `canon_schema` (R013), `snapshot_schema` (R019) and the
+-- manifest's `unicode_version` (E14): once a verdict depends on a declaration, the
+-- declaration's identity is part of what the verdict means.
+--
+-- NULL is not "unknown" (R015). It is "this verdict did not depend on an opaque-host
+-- declaration", which for a pre-ND-040 row is simply true.
+
+ALTER TABLE actions_audit ADD COLUMN opaque_class TEXT;

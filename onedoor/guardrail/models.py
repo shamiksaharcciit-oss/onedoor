@@ -195,6 +195,28 @@ class Caps(BaseModel):
         return None if value is None else canon_decimal(value)
 
 
+class OpaqueHosts(BaseModel):
+    """Hosts whose real target cannot be determined without a network call (U4).
+
+    A shortener canonicalizes perfectly -- the host really is `t.co` -- so no amount
+    of canonicalization catches it. Following the redirect is a network call, which
+    the PDP's offline evaluation model forbids. What is left is to **declare** that a
+    host is opaque, and treat a member as *possibly the declared target*, because it
+    might be.
+
+    **Absent means the mechanism is off.** A rule that does not carry an `opaque`
+    block behaves exactly as it did without this feature -- the same opt-in discipline
+    as `url` itself.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    builtin: bool = True
+    """Use the shipped, versioned starter list (`onedoor/opaque-hosts/1`)."""
+    extra: list[str] = Field(default_factory=list)
+    """The deployer's own redirectors. A starter list is not a census, and an
+    environment's internal link-wrapper is known to its operator, not to us."""
+
+
 class UrlMatch(BaseModel):
     """URL-typed matching for a parameter (ND-040 / U2). **Opt-in.**
 
@@ -221,6 +243,11 @@ class UrlMatch(BaseModel):
     pattern cannot express at all."""
     schemes: list[str] = Field(default_factory=list)
     """Optional restriction. Empty means any scheme."""
+    opaque: OpaqueHosts | None = None
+    """Declared opaque hosts (U4). A member is treated as though it were a declared
+    host, because the engine cannot rule out that it is one. Absent means off: nothing
+    that is not a declared member is ever touched, which is how `innocent-ok` stays
+    3/3 while the shortener stops passing."""
 
 
 class ParamEffectRule(BaseModel):

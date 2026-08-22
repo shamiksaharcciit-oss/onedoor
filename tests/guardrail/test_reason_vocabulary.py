@@ -9,9 +9,11 @@ under the old one rather than assumed to be new.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -187,3 +189,36 @@ def test_the_snapshot_schema_is_recorded_beside_the_policy_hash(tmp_path) -> Non
         )
     finally:
         conn.close()
+
+
+def test_the_operator_documentation_lists_exactly_the_live_vocabulary() -> None:
+    """A doc that names a retired code sends an operator hunting for a string the
+    engine can no longer emit.
+
+    Found the hard way: `docs/policy-reference.md` still listed `cap_daily_rate`,
+    `cap_eur_day` and `cap_eur_month` after `0.4.0` removed them, and nothing
+    re-checked it. The vocabulary change had a test; the *documentation* of the
+    vocabulary did not, so the two drifted the moment the code changed. This closes
+    that by deriving the expected list from `CheckId` rather than from a second
+    hand-maintained copy -- two lists that must agree is a disagreement waiting for
+    its first bug (X-14).
+    """
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "policy-reference.md").read_text(
+        encoding="utf-8"
+    )
+    section = doc.split("## Reason codes you will see in decisions and the audit log", 1)
+    assert len(section) == 2, "the reason-code section of the policy reference moved or was renamed"
+    body = section[1].split("\n## ", 1)[0]
+    listed = set(re.findall(r"`([a-z_]+)`", body))
+
+    live = {c.value for c in CheckId}
+    # `sender_mismatch` is registered but never emitted, and the doc says so in prose
+    # rather than listing it as a code an operator will see.
+    expected = live - {CheckId.SENDER_MISMATCH.value}
+
+    missing = expected - listed
+    assert not missing, f"the policy reference does not document {sorted(missing)}"
+    retired = listed & DEPRECATED
+    assert retired <= {"cap_daily_rate", "cap_eur_day", "cap_eur_month"} and (
+        "replaced" in body or "retired" in body
+    ), f"the policy reference names retired codes {sorted(retired)} without saying they are retired"
