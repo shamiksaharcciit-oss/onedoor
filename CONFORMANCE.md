@@ -334,41 +334,42 @@ protection, it is a default.**
 | The Phase-B viewer | **R028 §4: build it, viewer first**, then the crypto epic. `ND-051`; spec and mockup in `docs/oneview/`. |
 | The Policy Studio | **R029: ticket as an epic**, `ND-052`, sequenced after the crypto epic, **no code before launch**. §2's constitution binds every sub-ticket; §5 makes principle violations **CI failures, not review notes**. |
 
+### Resolved by Response 030 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-051` | **Accepted.** Non-ownership enforced by **AST** is named the **new reference for the single-verification rule** — stronger than import discipline because it is guarded structurally rather than by review. Four outcomes in the UI, with `unverifiable` as loud as `failed`, is the three-outcome rule rendered where a human meets it. |
+| The unfootered artifact | **R030 §2: ABSENT — no integrity claim.** Never rejected (that punishes the archive for being honest about its history), never blended with `unverifiable` (that invents a claim nobody made). Three states, three meanings: absent is no claim, unverifiable is a claim that cannot be checked, damaged is a claim that checked false. |
+| Which register holds a computed digest | **R030 §2: the register holds PRODUCER CLAIMS; the sidecar holds OBSERVATIONS.** A present-tense digest of an unsigned artifact is an observation — dated, in `INTEGRITY.md`, in the declared form `observed sha256 <hex>, <date>` — never in the protocol register, whose one meaning is *the producer sealed this*. |
+| The chain block's label | **R030 §3: "not yet in operation", never "not yet produced"** — so absent-by-schedule is never readable as broken. |
+| The crypto epic | **R030 §4: GO.** `ND-001` decomposition first, `ND-010` behind it, `ND-009` in parallel. |
+
 ### Open
 
-**Delivery → core — ONE, raised by `ND-051` and not blocking it.**
+**Delivery → core — ONE, and it blocks `ND-001`'s first work item only.**
 
-**Should an unfootered artifact from core be rejected, or merely recorded as
-unverifiable?** `Policy_Studio_Design_Note_2026-08-22.md` arrived with **no `Integrity:`
-footer**, alongside Response 029, which has one and verifies. R029's footer covers the
-*instruction* to ticket the note; it does not cover the note's bytes. Two defects of
-delivery's own, both fixed here rather than reported and left:
+**How does the chain preimage distinguish an absent column from an empty one?**
+(`TICKETS-ND-001.md` §7.) `budget_json` NULL means *no budget was owed*; `budget_json`
+`""` would mean *a budget was produced and it was empty*. Under R015 those are
+different facts — and once a row is chained the distinction is frozen into a digest a
+third party recomputes years later, on a table whose triggers forbid `UPDATE`. There is
+no second chance at a preimage.
 
-1. `scripts/verify_memo.py` printed *"no integrity footer; predates the protocol"* for
-   every unfootered file. True of memos 001–006; **false for a note dated 2026-08-22**.
-   The tool was asserting a fact about provenance from an absence — the two-outcome
-   collapse it was written to prevent, in its own output. It now reports what it
-   observed: no footer, therefore **unverifiable**.
-2. The generated digest register wrote *"none (predates the footer)"* into
-   `INTEGRITY.md` for the same file, for the same reason. It now writes `none`, and
-   **why** a file has no footer is a provenance note a human records after checking.
+Three shapes delivery can see: a **type tag** per field; a **sentinel** that cannot
+occur in the data; or **length-prefixed fields** (`-1` absent, `0` empty). Delivery
+leans to length-prefixing, because `params_json` is *received* data and the preimage
+must stay unambiguous while a caller is actively trying to make two different rows hash
+the same — which rules out any sentinel that could appear in a payload. **Core's to
+rule**, because `ND-017`'s `E` digest inherits this preimage. `C1` does not start
+without it; `C2`–`C5` are unblocked.
 
-A third defect, caught by the existing suite rather than by delivery: the first fix
-**transcribed the note's whole-file `sha256` into `INTEGRITY.md`**, and
-`tests/protocol/test_memo_integrity.py` refused it — that ledger carries exactly one
-register, body digests of footered memos, generated, and a whole-file hash written in
-beside them is the mixing R012 forbids and the transcription X-11 forbids. The note now
-records the fact without a number, and **which register an unsigned artifact's digest
-belongs to is part of the question for core.** `docs/oneview/`'s spec and mockup are
-unfootered too, and are pinned
-instead by `onedoor/viewer/tokens.py` with a byte-identity test — a different mechanism
-for an artifact the build depends on. **Not blocking**: nothing here stops `ND-051`,
-and delivery has not invented a rejection rule of its own, because what a verifier does
-with core's unsigned artifacts is core's protocol to set.
+The `ND-051` question is **closed by R030 §2**: an unfootered artifact is *absent — no
+integrity claim*, and a digest we compute over one is an *observation* in the sidecar,
+dated, never in the register.
 
-**Core → delivery:** none, as of Response 029 (2026-08-22). Current work is `ND-051`,
-the receipt viewer; then the crypto epic resumes (`ND-001`/`ND-010`, `ND-009` in
-parallel); `ND-052`, the Policy Studio, is ticketed and sequenced after it with no code
+**Core → delivery:** none, as of Response 030 (2026-08-22). `ND-051` is accepted and
+shipped; the crypto epic is open — `ND-001` decomposed, `ND-010` behind it, `ND-009` in
+parallel; `ND-052`, the Policy Studio, is ticketed and sequenced after it with no code
 before launch.
 
 ~~**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**

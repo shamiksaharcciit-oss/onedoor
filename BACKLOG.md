@@ -239,7 +239,17 @@ SHA-256 lowercase hex, NULL until `ND-017`. Full canonical form in `CONFORMANCE.
   JSON form, a chained row would hash bytes that no second implementation reproduces.
   **The fix lands in `ND-002`'s row format, not here** — same "rename before you chain"
   logic as C1, one level down.
-**Depends on:** ND-002, ND-003 (chain a stable row format).
+**Depends on:** ND-002, ND-003 (chain a stable row format) — **both shipped in `0.4.0`.**
+**DECOMPOSED** (R030 §4): `TICKETS-ND-001.md`. Three findings worth carrying here.
+**No migration is needed for the chain columns** — `0007` landed `prev_hash`/`seq`/`row_hash`
+dark exactly so P1 would not re-migrate an append-only table; `0012` is an index only.
+**The serialization point already exists** — `db.tx()` is `BEGIN IMMEDIATE`, and all nine
+`audit.append` sites sit inside one, checked per call site. **The verifier already reports
+this check**: `receipt.py::_check_chain` returns `absent` today, so `ND-001` flips one
+function and the viewer changes not at all. **Group commit (N2) is decided, not deferred:**
+chain inside `flush` before the `executemany`, with both paths asserted to produce identical
+`row_hash` values. **Blocked on one ruling** — how the preimage distinguishes an absent
+column from an empty one (§7); everything else in the work order is unblocked.
 **DoD extra:** a tamper test — mutate a row via a direct SQLite write with triggers
 bypassed, assert `verify_chain()` localises the break to that row.
 
@@ -485,7 +495,8 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0009` | **`ND-002`/W7** — `params_provenance` / `payload_provenance`, so received-verbatim is distinguishable from PDP-serialized | **written**, `0.4.0` |
 | `0010` | **`ND-040`/U3 · R013** — `actions_audit.malformed_kind` / `canon_schema`, so a `malformed` denial says which malformed it was and under which canonicalization | **written**, `0.4.x` (ND-040) |
 | `0011` | **`ND-040`/U4 · R025** — `actions_audit.opaque_class`, so a verdict that rests on a declared opaque-host class names which class and which version of it | **written**, `0.4.x` (ND-040) |
-| `0012`+ | unclaimed | — |
+| `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **claimed**, not yet written |
+| `0013`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.
