@@ -12,12 +12,14 @@ import json
 import re
 import sqlite3
 from decimal import Decimal
+from ipaddress import ip_network
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from onedoor.guardrail import policy as policy_module
+from onedoor.guardrail import urlcanon
 from onedoor.guardrail.models import Caps, EffectPolicy, Policy, Tier
 from onedoor.store.clock import now_utc, to_iso
 
@@ -45,13 +47,41 @@ def validate_policy(policy: Policy) -> None:
             "(an absent amount is not a zero amount)"
         )
     for rule in policy.param_effects:
-        try:
-            re.compile(rule.pattern)
-        except re.error as exc:
-            raise ValueError(
-                f"policy '{policy.action_type}' param_effects pattern "
-                f"{rule.pattern!r} does not compile: {exc}"
-            ) from exc
+        if rule.pattern is not None:
+            try:
+                re.compile(rule.pattern)
+            except re.error as exc:
+                raise ValueError(
+                    f"policy '{policy.action_type}' param_effects pattern "
+                    f"{rule.pattern!r} does not compile: {exc}"
+                ) from exc
+        if rule.url is not None:
+            # Validate the URL rule when the POLICY is written, not when a request
+            # arrives. An unencodable host or a malformed CIDR is an authoring error,
+            # and discovering it at decision time would turn one bad policy line into
+            # a stream of runtime denials with no obvious cause.
+            for host in rule.url.hosts:
+                try:
+                    urlcanon.canonicalize(f"https://{host}/")
+                except urlcanon.CanonicalizationError as exc:
+                    raise ValueError(
+                        f"policy '{policy.action_type}' declares an uninterpretable "
+                        f"host {host!r} in a param_effects url rule: {exc}"
+                    ) from exc
+            for cidr in rule.url.cidrs:
+                try:
+                    ip_network(cidr, strict=False)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"policy '{policy.action_type}' declares an invalid CIDR "
+                        f"{cidr!r} in a param_effects url rule: {exc}"
+                    ) from exc
+            if not rule.url.hosts and not rule.url.cidrs:
+                raise ValueError(
+                    f"policy '{policy.action_type}' declares a param_effects url rule "
+                    f"with neither hosts nor cidrs -- it can never match, and a rule "
+                    f"that can never match is almost certainly not what was meant"
+                )
 
 
 def upsert_effect(conn: sqlite3.Connection, ep: EffectPolicy) -> None:

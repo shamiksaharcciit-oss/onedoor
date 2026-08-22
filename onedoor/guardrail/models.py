@@ -13,7 +13,14 @@ from typing import Literal, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from onedoor._vendor.canonical import canon_decimal
 
@@ -188,18 +195,63 @@ class Caps(BaseModel):
         return None if value is None else canon_decimal(value)
 
 
+class UrlMatch(BaseModel):
+    """URL-typed matching for a parameter (ND-040 / U2). **Opt-in.**
+
+    A regex over a URL's *string* form is the wrong parser for a URL: it is defeated
+    by percent-encoding, a `user@host` prefix, a trailing dot, case, an IP literal and
+    IDN homographs. This form matches the **canonicalized** target instead, so
+    `bank%2Eexample%2Ecom` and `BANK.Example.COM.` reach the same rule that
+    `bank.example.com` does.
+
+    Declaring this is a deliberate act. A rule that does not carry a `url` block keeps
+    its regex semantics **exactly**, byte for byte -- no deployed policy changes
+    meaning because the engine was upgraded. Opt-in, never silent reinterpretation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    hosts: list[str] = Field(default_factory=list)
+    """Declared hosts. Canonicalized on both sides before comparison."""
+    include_subdomains: bool = False
+    """Explicit rather than implied: the two readings disagree exactly where an
+    attacker lives, and suffix matching without a label boundary is the classic
+    bypass (`bank.example.com.evil.test`)."""
+    cidrs: list[str] = Field(default_factory=list)
+    """Networks matched when the target is an IP literal -- the case a hostname
+    pattern cannot express at all."""
+    schemes: list[str] = Field(default_factory=list)
+    """Optional restriction. Empty means any scheme."""
+
+
 class ParamEffectRule(BaseModel):
-    """Deterministic rule: a parameter value matching a regex adds effects.
+    """Deterministic rule: a parameter value adds effects when it matches.
 
     For generic tools (http, shell) whose real-world effect depends on their
-    arguments: `param` names the parameter, `pattern` is a full-match regex
-    against its string form, `add_effects` are the labels gained on match.
+    arguments: `param` names the parameter, `add_effects` are the labels gained on
+    match, and the match itself is either
+
+    * `pattern` -- a full-match regex against the value's string form, the original
+      form, unchanged in meaning; or
+    * `url` -- URL-typed matching against the canonicalized target (`ND-040`).
+
+    Exactly one, so a rule cannot silently mean two things.
     """
 
     model_config = ConfigDict(extra="forbid")
     param: str
-    pattern: str
+    pattern: str | None = None
+    url: UrlMatch | None = None
     add_effects: list[str]
+
+    @model_validator(mode="after")
+    def _exactly_one_matcher(self) -> ParamEffectRule:
+        if (self.pattern is None) == (self.url is None):
+            raise ValueError(
+                f"param_effects rule for {self.param!r} must declare exactly one of "
+                f"`pattern` or `url` -- a rule that declares both has two meanings, "
+                f"and one that declares neither has none"
+            )
+        return self
 
 
 class EffectPolicy(BaseModel):

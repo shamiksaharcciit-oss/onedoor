@@ -74,6 +74,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_to_Delivery_Response_023_2026-08-22.md` | `a7ffd0608587efcc999ec644ba891b1ab47c101f0e2bfb6a987fe0c9a0d31950` |
 | `Core_to_Delivery_Response_024_2026-08-22.md` | `3f0888f2c621c83f461ce7c07c8a79b202971008401cd50d4eddc319ebc2ffc8` |
 | `Core_to_Delivery_Response_025_2026-08-22.md` | `d931e283a8a2526def3b92b16239fc9ba39708e4ae57d782b469dd50e438c5d0` |
+| `Core_to_Delivery_Response_026_2026-08-22.md` | `45fac7f87442f8b22ccc003f6e2bb40b46d79c87d90916343cd08b8823560f75` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |

@@ -230,3 +230,41 @@ def host_matches(canonical_host: str, declared: str, *, include_subdomains: bool
     if not include_subdomains:
         return False
     return canonical_host.endswith("." + declared_canon)
+
+
+def url_rule_matches(spec: object, value: object) -> bool:
+    """Does a canonicalized target satisfy a declared URL match (ND-040 / U2)?
+
+    Raises :class:`CanonicalizationError` if the value cannot be interpreted, which
+    the caller turns into a `malformed` denial -- a parse differential is a denial,
+    never a bypass. Non-string values are refused for the same reason: a rule that
+    silently stringifies whatever it was given is matching something other than the
+    URL it claims to.
+    """
+    from ipaddress import ip_address, ip_network
+
+    if not isinstance(value, str):
+        raise CanonicalizationError(f"URL rule needs a string, got {type(value).__name__}")
+
+    canon = canonicalize(value)
+
+    schemes = list(getattr(spec, "schemes", []) or [])
+    if schemes and canon.scheme not in {s.lower() for s in schemes}:
+        return False
+
+    if canon.is_ip:
+        # An IP literal is not a hostname, and a name rule must not silently match
+        # one. Only a declared network can.
+        for cidr in getattr(spec, "cidrs", []) or []:
+            try:
+                if ip_address(canon.host) in ip_network(cidr, strict=False):
+                    return True
+            except ValueError as exc:
+                raise CanonicalizationError(f"policy declares an invalid CIDR {cidr!r}") from exc
+        return False
+
+    include_subdomains = bool(getattr(spec, "include_subdomains", False))
+    for host in getattr(spec, "hosts", []) or []:
+        if host_matches(canon.host, host, include_subdomains=include_subdomains):
+            return True
+    return False

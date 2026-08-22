@@ -152,6 +152,16 @@ Measured against the same instrument that disclosed the gap:
 
 - **U1** — the canonicalizer: pure, deterministic, pinned, property-tested,
   idempotent. No I/O, no DNS, no network. Ships behind nothing.
+- **U2 + U3 — landed together, and they could not be separated.** The work order
+  above had them as two steps; building U2 first showed they are one. `decide_raw`
+  states plainly that *internal errors are deliberately not swallowed: an exception
+  from the policy store, the database or the cap ledger propagates, because
+  converting a bug into a routine denial would hide it.* That is right, and it means
+  a `CanonicalizationError` raised inside the effect loop would **crash the PDP**
+  rather than deny — and a malformed URL from a caller is *input*, not a bug. So U2
+  without U3 is not a smaller increment, it is a reachable crash. They landed as one
+  commit.
+
 - **U2** — a URL-typed rule alongside the regex rule. The existing `pattern` form
   stays for non-URL params; a URL rule declares host/CIDR/subdomain semantics rather
   than a regex over a string. **Not a silent reinterpretation of existing rules** —
@@ -190,6 +200,36 @@ IPv4 shorthand is parsed here rather than by `socket.inet_aton`, whose acceptanc
 varies by platform and so cannot be part of a deterministic instrument. The IDNA2003
 edge is recorded in the module docstring: a difference produces a non-match, never a
 false match, so the failure direction is safe.
+
+**U2 and U3 are done.** A `param_effects` rule may now declare a `url:` block
+(`hosts`, `include_subdomains`, `cidrs`, `schemes`) *instead of* a `pattern` —
+exactly one of the two, enforced at model validation, because a rule with two
+meanings has none that can be relied on. R026's acceptance is
+`tests/guardrail/test_param_effects_compat.py`: for a corpus covering every pattern
+shipped in this repository, plus generated pattern/value pairs, the **engine's**
+answer on the regex branch equals `re.fullmatch(pattern, str(value)) is not None` —
+the original expression as oracle, not a re-implementation of it, which could drift
+in the same direction as the code it checks. The answers are read through
+`decide_and_reserve` rather than from a matcher helper, because it is the deployed
+path that must not change.
+
+A target the canonicalizer refuses denies with the existing `malformed` (R013, no new
+wire vocabulary) and records `malformed_kind='url_canonicalization'` plus
+`canon_schema` — migration `0010`, R013's condition satisfied by an evidence field.
+Two things found while writing it, recorded rather than smoothed over:
+
+- **The other `malformed` writes no audit row at all.** An envelope that fails
+  validation denies in `decide_raw` before a policy or a request object exists, so
+  there is nothing to append against. The migration comment therefore names only the
+  value the code emits; a `request_validation` value describing code that does not
+  exist would be vocabulary for a feature nobody built. It is a pre-existing gap in
+  the ledger, not one this ticket closes, and it is worth a ticket of its own.
+- **An unreadable target denies even under the kill switch**, which otherwise clamps
+  executable tiers to propose-only. A proposal asks a human to approve *this action*,
+  and the engine cannot say what this action is. Bounds already behaves this way — an
+  out-of-bounds action is denied, never proposed — so this is the same argument
+  reaching a new input, but it is now asserted in a test rather than left as an
+  emergent property of check ordering.
 
 `ND-048`'s residue is untouched by every option above and stays disclosed as an open
 gap with no ticketed fix.

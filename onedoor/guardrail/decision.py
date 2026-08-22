@@ -47,6 +47,11 @@ from onedoor.guardrail.models import (
     Tier,
 )
 from onedoor.guardrail.policy import PolicyStore
+from onedoor.guardrail.urlcanon import (
+    CANON_SCHEMA,
+    CanonicalizationError,
+    url_rule_matches,
+)
 from onedoor.store import bus
 from onedoor.store.clock import to_iso
 from onedoor.store.db import tx
@@ -114,7 +119,45 @@ def decide_and_reserve(
         effects: list[str] = list(policy.effects)
         for rule in policy.param_effects:
             value = request.params.get(rule.param)
-            if value is not None and re.fullmatch(rule.pattern, str(value)):
+            if value is None:
+                continue
+            if rule.url is None:
+                # The original semantics, untouched. A rule without a `url` block
+                # matches exactly what it matched before ND-040 -- opt-in, never a
+                # silent reinterpretation of a deployed policy.
+                matched = re.fullmatch(rule.pattern or "", str(value)) is not None
+            else:
+                try:
+                    matched = url_rule_matches(rule.url, value)
+                except CanonicalizationError as exc:
+                    # A target this cannot interpret at least as strictly as the
+                    # networking stack will is refused, so a parse differential is a
+                    # denial and never a bypass (scopegate). Reason code is the
+                    # EXISTING `malformed` -- no new wire vocabulary (R013) -- with
+                    # the failure recorded distinctly in evidence so an operator can
+                    # tell a probe of the effect matcher from a broken client.
+                    decision = PolicyDecision(
+                        decision=Decision.DENIED,
+                        effective_tier=Tier.CONFIRM,
+                        nominal_tier=nominal_tier,
+                        reason_code=CheckId.MALFORMED,
+                        detail=f"param {rule.param!r} is not an interpretable URL: {exc}",
+                    )
+                    aid = audit.append(
+                        conn,
+                        request,
+                        decision,
+                        kind="decision",
+                        now=now,
+                        undo_of=undo_of,
+                        malformed_kind="url_canonicalization",
+                        canon_schema=CANON_SCHEMA,
+                    )
+                    bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                    return ActionResult(
+                        request_id=request.request_id, decision=decision, audit_id=aid
+                    )
+            if matched:
                 effects.extend(e for e in rule.add_effects if e not in effects)
         effect_policies = [ep for e in effects if (ep := store.get_effect(conn, e)) is not None]
 

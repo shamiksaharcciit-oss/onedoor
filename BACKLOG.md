@@ -480,7 +480,8 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0007` | **`ND-002`** — `0.4.0` row format: `protocol`, `budget_json`, `outcome`, and the full receipt envelope (`prev_hash`/`seq`/`row_hash`, `sig`/`key_id`/`alg`, four digests + `anchor_ref`) landing **dark** | **written**, `0.4.0` |
 | `0008` | **`ND-002`/R019** — `policy_versions.snapshot_schema`, so a content-hash change is attributable | **written**, `0.4.0` |
 | `0009` | **`ND-002`/W7** — `params_provenance` / `payload_provenance`, so received-verbatim is distinguishable from PDP-serialized | **written**, `0.4.0` |
-| `0010`+ | unclaimed | — |
+| `0010` | **`ND-040`/U3 · R013** — `actions_audit.malformed_kind` / `canon_schema`, so a `malformed` denial says which malformed it was and under which canonicalization | **written**, `0.4.x` (ND-040) |
+| `0011`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

@@ -103,6 +103,8 @@ def append(
     undo_until: datetime | None = None,
     undo_of: int | None = None,
     outcome: str | None = None,
+    malformed_kind: str | None = None,
+    canon_schema: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -120,8 +122,8 @@ def append(
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
         " policy_version, protocol, budget_json, outcome,"
-        " params_provenance, payload_provenance"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " params_provenance, payload_provenance, malformed_kind, canon_schema"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -153,6 +155,8 @@ def append(
             # packaged PEP hands us objects rather than bytes, so it is serialized
             # here. If a PEP ever forwards raw payload bytes this becomes RECEIVED.
             None if payload is None else Provenance.SERIALIZED.value,
+            malformed_kind,
+            canon_schema,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -188,8 +192,8 @@ def append_expiry(
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
         " policy_version, protocol, budget_json, outcome,"
-        " params_provenance, payload_provenance"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " params_provenance, payload_provenance, malformed_kind, canon_schema"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             intent_row["request_id"],
             kind,
@@ -218,6 +222,10 @@ def append_expiry(
             # The params bytes are copied verbatim from the intent row, so this row
             # inherits that row's provenance rather than claiming one of its own.
             intent_row["params_provenance"] if "params_provenance" in intent_row.keys() else None,
+            None,
+            # A reservation disposition is not a malformed denial and involves no
+            # canonicalization: both fields are absent because nothing produced them.
+            None,
             None,
         ),
     )

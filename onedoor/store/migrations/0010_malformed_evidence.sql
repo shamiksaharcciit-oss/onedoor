@@ -1,0 +1,41 @@
+-- ND-040 / U3. Tell malformed-URL from malformed-JSON, without a new wire code.
+--
+-- R013 ruled that a URL the canonicalizer cannot interpret denies with the EXISTING
+-- reason `malformed` -- no new vocabulary, because `sender_mismatch` remains the only
+-- code added in aadp/0.2 -- on one condition: **the denial's evidence records the
+-- canonicalization failure distinctly**. An evidence field, not a wire code.
+--
+-- Without it, `malformed` is a single bucket holding two very different events: a
+-- request whose JSON would not validate, and a request whose URL parameter could not
+-- be interpreted at least as strictly as the networking stack would. An operator
+-- reading a spike of `malformed` needs to know which -- one is a broken client, the
+-- other is very possibly someone probing the effect matcher.
+--
+--   malformed_kind  -- what could not be interpreted. One value is written today,
+--                      `url_canonicalization`, and the column is deliberately open
+--                      rather than a CHECK constraint so a later kind does not need
+--                      a migration to be recordable.
+--                      NULL on rows that are not malformed denials.
+--
+--                      Stated rather than implied: the OTHER malformed denial --
+--                      a request whose envelope fails validation -- writes no audit
+--                      row at all today. `decide_raw` denies before a policy or a
+--                      request object exists, so there is nothing to append against.
+--                      That is a pre-existing gap in the ledger, not one this
+--                      migration closes, and naming a `request_validation` value
+--                      here that nothing emits would be a vocabulary describing
+--                      code that does not exist.
+--
+--   canon_schema    -- which canonicalization produced the verdict, when one did.
+--                      A verdict that depends on a normalisation depends on WHICH
+--                      normalisation, so the instrument's identity rides with the
+--                      evidence -- the same argument as `snapshot_schema` (R019) and
+--                      the manifest's `unicode_version` (E14), arriving a third time.
+--                      It names the interpreter minor version too, because the IDNA
+--                      codec ships with Python.
+--
+-- Both NULL for every row written before ND-040. Absent means "no canonicalization
+-- was involved", which for a pre-ND-040 row is simply true.
+
+ALTER TABLE actions_audit ADD COLUMN malformed_kind TEXT;
+ALTER TABLE actions_audit ADD COLUMN canon_schema TEXT;
