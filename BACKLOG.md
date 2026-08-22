@@ -441,6 +441,26 @@ ND-005 extended cross-domain, for terminating intermediaries.
 ahead of the standard. Core decides whether `-02` normalises it.
 
 ### ND-017 — Content-addressed re-derivable receipts + Merkle anchoring · **XL** 🔺 · P3
+**DECOMPOSED** (R039 §2): `TICKETS-ND-017.md` — **the crypto epic's last ticket.**
+The four `E`/`I`/`T`/`v` preimages are proposed for sign-off before bytes freeze, written
+to the vendored manifest's own scheme rather than invented (read from
+`manifest.schema.json`; the shipped `t_digest` `4f53cda1…` is SHA-256 of `[]`, confirming
+`T` is a canonical *declared closure*). All four are digests over `canonical_bytes`, so
+**no concatenation appears and `len8` is not reached** — stated rather than left implied.
+Received bytes enter as a **digest hashed verbatim**, never inlined, which also lets a
+deployer hand over a receipt without handing over the request body.
+**The export finding:** a third party with only the published root and one receipt needs
+the leaf index, tree size and audit path — **none of which is in `actions_audit`**, and
+`anchor_ref` names an anchor but cannot carry a proof. So the thing that travels is an
+**export**, not a row, and acceptance is a script run in a directory holding those two
+files and nothing else. **X-8 fixes the order:** verify the range, compute the root, seal
+the anchor, and only then write `anchor_ref` back — an anchor over a broken chain would
+publish a root certifying damage, permanently and in public. **Three questions** (§5):
+are the four preimages right (`T` least certain); is `anchor_cadence` inside `I` intended
+(it makes a cadence change move `i_digest` for every row sealed afterwards); does a root
+found in the store report `self_consistent` — R038 §1 one level up, and the second time
+this product refuses to vouch for itself. **No preimage version:** the four digest
+columns and `anchor_ref` have been dark since `0007` and are already `EXCLUDED`.
 Paper 3's verdict manifest (`E`, `I`, `T`, `v`) on each decision, periodic Merkle
 root anchored to an external transparency log. This is what *passes* Veto rather
 than matching it: their receipts prove "the PDP said this"; these let anyone
@@ -556,7 +576,8 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **written**, `0.4.x` |
 | `0013` | **`ND-009` + R035 §1** — `approval_ref_status` (**hashed**, forcing `onedoor/row-preimage/2`) and `preimage_version` (an **excluded**, self-authenticating hint that lets `verify_chain` walk version transitions on live chains) | **written**, `0.4.x` |
 | `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **written**, `0.4.x` |
-| `0015`+ | unclaimed | — |
+| `0015` | **`ND-017`/M2** — the anchors table: published Merkle roots with their tree size and sealed range, so an anchor is a row rather than a note | **claimed**, not yet written |
+| `0016`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

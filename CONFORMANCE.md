@@ -416,22 +416,42 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 — `alg` | **RULED: algorithm only.** Ed25519 is output-deterministic (RFC 8032), so a library version in per-row evidence would assert a dependence that does not exist. The pattern is resolved rather than suffered: **implementations are recorded where they can change outputs** — `canon_schema` and `unicode_version` exist because theirs do. The library and its pin are recorded once at the deployment layer. Semantics in the receipt, process provenance in the register. |
 | `ND-017`'s anchor | **PRE-RULED (§4): an anchor is worth exactly the independence of where it lives.** A root stored beside its leaves proves internal consistency, nothing more — Q1's shape one level up. `ND-017` designs the export path; venue and cadence are its questions, X-8 unchanged underneath. Its decomposition cites this rather than re-deriving the discomfort. |
 
+### Resolved by Response 039 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-015` | **Accepted.** The adversarial demonstration is named the acceptance done right — *"that gap is the product"* joins the record, demonstrated rather than asserted. So does the viewer reasoning: **a reader takes the tick and leaves the sentence** — UI truth-design in nine words, binding all three skins. The X-6 invariant catching its own subject's unguarded import is the enable-time ruling earning its keep inside its own ticket. |
+| `ND-017` | **GO, with the frame set.** The four `E`/`I`/`T`/`v` preimages come to core **written to Q-11 rigor** (fields named, `len8` where concatenation appears, golden vectors) for sign-off **before bytes freeze**. The export path is designed to §4's independence metric, and the acceptance shape is the **third-party membership check**: a published root plus one receipt, nothing else of ours. |
+
 ### Open
 
-**None, on either side**, as of Response 038 (2026-08-22). `ND-015`'s three questions
-are ruled and K1–K5 are built.
+**Delivery → core — THREE, from `ND-017`'s decomposition (`TICKETS-ND-017.md` §5), and
+the first two block M1 because a preimage freezes on first write.**
 
-**One implementation note, reported not asked:** the library-missing invariant caught a
-real defect in its own subject on first run. `load_private_key` imported
-`cryptography.hazmat.primitives.serialization` *before* the guarded `_backend()` call,
-so a deployment without the package would have seen a bare `ImportError` instead of the
-sentence telling it which extra to install. The import now sits behind the same guard —
-found by the test rather than by reading, which is the test earning its keep on the
-first run.
+**1. Are the four preimages right?** Proposed in §1, built to the vendored manifest's own
+scheme rather than invented — read from `manifest.schema.json`, and confirmed by
+computing that the shipped `t_digest` `4f53cda1…b945` is SHA-256 of canonical `[]`, so
+`T` really is a declared closure. Every digest is over `canonical_bytes`, so **no
+concatenation appears and `len8` is not reached** — stated because R039 asked for it
+*where concatenation appears*, and the honest answer is nowhere. `T` is the one delivery
+is least sure of: an archive's declared closure translates only by judgment into "what
+must a verifier trust to accept this verdict".
 
-**Core → delivery:** none, as of Response 038 (2026-08-22). `ND-015` is built. One
-ticket remains in the crypto epic — `ND-017`, whose hardest question (§4) is pre-ruled
-— and its close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
+**2. Is `anchor_cadence` inside `I` intended?** It follows from R039's *cadence is
+declared config inside the instrument*, and the consequence is that **changing the
+cadence changes `i_digest` for every row sealed afterwards**. Delivery reads that as the
+point — X-7's shape, a declaration change being visible — but a consequence that
+permanent is better confirmed than discovered.
+
+**3. Does a root found in the store report `self_consistent`?** R038 §1 one level up, and
+delivery believes it follows directly. Raised because it means **a store on its own can
+never say an anchor is verified** — the same slightly uncomfortable place, and now the
+second time this product declines to vouch for itself.
+
+M2 through M5 are unblocked; migration `0015` is claimed.
+
+**Core → delivery:** none, as of Response 039 (2026-08-22). `ND-017` is decomposed —
+the epic's last ticket — and its close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
