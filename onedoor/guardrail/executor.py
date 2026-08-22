@@ -31,6 +31,7 @@ from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
     JsonValue,
+    Outcome,
     Source,
 )
 from onedoor.guardrail.policy import PolicyStore
@@ -113,23 +114,38 @@ def evaluate_and_execute(
         return outcome
 
     # --- CONNECTOR CALL (outside any DB lock), fail-soft. ---
-    connector_ok: bool
+    # All four outcomes are reachable here, and the distinctions are not cosmetic
+    # (R005). `no connector registered` means the action was NEVER ATTEMPTED -- the
+    # dispatch found nothing to call -- so its reservation is released rather than
+    # settled. Reporting that as `failure`, as this did before ND-039, charged budget
+    # for an action that never occurred: the A4b defect, in the in-process binding.
+    # A timeout is DOUBT, not evidence of non-occurrence: the connector may well have
+    # acted and simply not returned, so it settles. Settle on doubt; release only on
+    # a positive assertion.
+    result_outcome: Outcome
     error: str | None
     payload: dict[str, JsonValue] | None
     act = registry.resolve(request.action_type)
     if act is None:
-        connector_ok, error, payload = False, "no connector registered for action_type", None
+        result_outcome = Outcome.NOT_ATTEMPTED
+        error, payload = "no connector registered for action_type", None
     else:
         try:
             payload = _call_with_timeout(act, request.params, config.connector_timeout_seconds)
-            connector_ok, error = True, None
+            result_outcome, error = Outcome.SUCCESS, None
         except FuturesTimeout:
-            connector_ok, error, payload = False, "connector timeout", None
+            result_outcome, error, payload = Outcome.TIMEOUT, "connector timeout", None
         except Exception as exc:
-            connector_ok, error, payload = False, _redact(str(exc)), None
+            result_outcome, error, payload = Outcome.FAILURE, _redact(str(exc)), None
 
     return decision_mod.report_result(
-        outcome, conn=conn, config=config, ok=connector_ok, payload=payload, error=error, now=now
+        outcome,
+        conn=conn,
+        config=config,
+        outcome=result_outcome,
+        payload=payload,
+        error=error,
+        now=now,
     )
 
 

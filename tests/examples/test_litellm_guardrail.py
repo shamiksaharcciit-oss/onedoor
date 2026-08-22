@@ -1,7 +1,9 @@
 """The LiteLLM example must honour the two-phase contract (ND-021).
 
-Until 0.3.6 this example called `report_result(ok=True)` inside the pre-call
-hook — asserting an action had succeeded before the gateway had done anything.
+Until 0.3.6 this example called `report_result(ok=True)` inside the pre-call hook —
+asserting an action had succeeded before the gateway had done anything. (That is the
+historical spelling and is deliberately not updated: `ok: bool` is what the API took
+then, and rewriting it here would falsify the record the test exists to explain.)
 It was published, documented, and cited in the draft's Implementation Status as
 a demonstration that the gateway hook point is viable but not conformant.
 

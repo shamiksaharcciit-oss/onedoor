@@ -47,7 +47,7 @@ from onedoor.guardrail.decision import (
     report_result,
 )
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Decision, Outcome, Source
 from onedoor.store.clock import now_utc
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -168,7 +168,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                 intent,
                 conn=self._conn,
                 config=self._config,
-                ok=ok,
+                outcome=Outcome.SUCCESS if ok else Outcome.FAILURE,
                 payload=payload,
                 error=error,
                 now=now_utc(),

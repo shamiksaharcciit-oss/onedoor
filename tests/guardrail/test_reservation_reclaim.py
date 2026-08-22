@@ -17,6 +17,7 @@ from onedoor.guardrail.decision import (
     report_result,
 )
 from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import Outcome
 from tests.conftest import make_request
 
 TZ = ZoneInfo("Europe/Amsterdam")
@@ -102,7 +103,9 @@ def test_reported_permit_is_never_reclaimed(conn: Connection) -> None:
         make_request("demo.tier2", cost_eur=Decimal("6")), conn=conn, config=cfg, now=now
     )
     assert isinstance(intent, PermittedIntent)
-    report_result(intent, conn=conn, config=cfg, ok=True, payload=None, error=None, now=now)
+    report_result(
+        intent, conn=conn, config=cfg, outcome=Outcome.SUCCESS, payload=None, error=None, now=now
+    )
 
     n = reclaim_expired_reservations(conn, cfg, now + timedelta(seconds=61))
     assert n == 0, "a reported permit's reservation must not be reclaimed"

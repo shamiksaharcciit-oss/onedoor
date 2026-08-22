@@ -37,6 +37,7 @@ from onedoor.guardrail.models import (
     Bounds,
     Caps,
     NumericBound,
+    Outcome,
     Policy,
     Source,
     Tier,
@@ -151,7 +152,9 @@ def test_a_decimal_parameter_survives_decide_reserve_and_settle(spend_db: Databa
             f"a Decimal amount within bounds and cap must be permitted, got "
             f"{getattr(outcome, 'decision', outcome)}"
         )
-        report_result(outcome, conn=conn, ok=True, payload=None, error=None, now=NOW)
+        report_result(
+            outcome, conn=conn, outcome=Outcome.SUCCESS, payload=None, error=None, now=NOW
+        )
 
         stored = conn.execute(
             "SELECT eur_total FROM cap_counters WHERE window_kind='eur_day'"

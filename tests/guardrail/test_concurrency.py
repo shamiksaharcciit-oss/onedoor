@@ -23,7 +23,7 @@ import pytest
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, Policy, Tier
+from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, Outcome, Policy, Tier
 from onedoor.store.db import Database
 from tests.conftest import FROZEN_NOW
 
@@ -85,7 +85,14 @@ def _race(db: Database, config: EngineConfig, threads: int, per_thread: int) -> 
                     now=FROZEN_NOW,
                 )
                 if isinstance(out, PermittedIntent):
-                    report_result(out, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW)
+                    report_result(
+                        out,
+                        conn=conn,
+                        outcome=Outcome.SUCCESS,
+                        payload=None,
+                        error=None,
+                        now=FROZEN_NOW,
+                    )
                     local["PERMIT"] += 1
                 else:
                     local[str(out.decision.reason_code)] += 1

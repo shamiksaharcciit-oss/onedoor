@@ -45,7 +45,7 @@ from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Source
+from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Outcome, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
@@ -122,7 +122,13 @@ class Proxy:
             resp = self.down.request(msg)
         except Exception as exc:  # downstream died mid-call
             report_result(
-                intent, conn=self.conn, ok=False, payload=None, error=str(exc)[:200], now=now
+                intent,
+                conn=self.conn,
+                # The downstream died mid-call: attempted, did not succeed.
+                outcome=Outcome.FAILURE,
+                payload=None,
+                error=str(exc)[:200],
+                now=now,
             )
             raise
         result = resp.get("result", {})
@@ -131,7 +137,7 @@ class Proxy:
         report_result(
             intent,
             conn=self.conn,
-            ok=ok,
+            outcome=Outcome.SUCCESS if ok else Outcome.FAILURE,
             payload=payload,
             error=None if ok else "downstream tool error",
             now=now,

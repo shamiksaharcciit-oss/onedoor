@@ -17,6 +17,22 @@ onedoor is the reference implementation of the AADP Internet-Draft
   PEP's behaviour is fixed by the verdict, never by the reason string, so an older PEP
   that has never heard of `cap_value` still denies correctly. **If you match on reason
   strings in dashboards or alerts, they change here.**
+- **`report_result` takes a four-value `outcome`, not `ok: bool` — BREAKING for
+  enforcement points.** `success | failure | timeout | not_attempted`, and
+  `/v1/report` accepts the wire `outcome` field (already normative in `-00`, so this
+  is conformance catch-up rather than a wire break). **Settlement now depends on the
+  outcome:** `success`, `failure` and `timeout` settle the budget reservation;
+  **`not_attempted` releases it, as an audited event.** Settle on doubt — a timeout
+  is not evidence the action did not happen, so only a positive assertion of
+  non-occurrence frees budget. **This closes a live conformance defect** (A4b): before
+  `0.4.0`, `not_attempted` and `timeout` both collapsed into `failed` and the
+  reservation settled before anything examined the outcome, so a PEP that correctly
+  refused to act still had its tenant charged for an action that never occurred.
+  `connector_ok` is now NULL rather than false for `not_attempted`, because recording
+  false asserts an attempt that did not happen. The in-process executor reports
+  `not_attempted` when no connector is registered — that path was charging budget for
+  a dispatch that found nothing to call.
+  **If you call `report_result` or `POST /v1/report`, this is the change to make.**
 - **Cap denials carry a machine-readable `budget` object.** Present **iff** the
   verdict is a denial with reason `cap_value` or `cap_rate`, on the decide response
   **and persisted** to `budget_json`. Seven required fields: `dimension`

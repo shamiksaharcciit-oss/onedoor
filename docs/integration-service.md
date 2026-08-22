@@ -59,7 +59,7 @@ After enforcing a permitted decision:
 ```bash
 curl -s -X POST localhost:8470/v1/report \
   -H "Authorization: Bearer svc-key-1" -H "Content-Type: application/json" \
-  -d '{"intent_audit_id": 41, "ok": true, "payload": {"tx_ref": "b-2291"}}'
+  -d '{"intent_audit_id": 41, "outcome": "success", "payload": {"tx_ref": "b-2291"}}'
 ```
 
 **Report exactly once per intent**, success or failure. A permitted intent

@@ -20,7 +20,7 @@ import pytest
 from onedoor.guardrail import audit, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_raw, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import Bounds, Policy, Tier
+from onedoor.guardrail.models import Bounds, Outcome, Policy, Tier
 from tests.conftest import FROZEN_NOW
 
 
@@ -88,7 +88,7 @@ def test_results_are_written_when_the_batch_fills(seeded: Connection) -> None:
             intent,
             conn=seeded,
             config=config,
-            ok=True,
+            outcome=Outcome.SUCCESS,
             payload=None,
             error=None,
             now=FROZEN_NOW,
@@ -101,7 +101,13 @@ def test_flush_writes_a_partial_batch(seeded: Connection) -> None:
     config = _cfg(100)
     intent = _permit(seeded, config)
     report_result(
-        intent, conn=seeded, config=config, ok=True, payload=None, error=None, now=FROZEN_NOW
+        intent,
+        conn=seeded,
+        config=config,
+        outcome=Outcome.SUCCESS,
+        payload=None,
+        error=None,
+        now=FROZEN_NOW,
     )
     assert _rows(seeded, "exec_result") == 0
     assert audit.flush(seeded) == 1
@@ -113,14 +119,20 @@ def test_duplicate_report_still_rejected_while_buffered(seeded: Connection) -> N
     config = _cfg(100)
     intent = _permit(seeded, config)
     report_result(
-        intent, conn=seeded, config=config, ok=True, payload=None, error=None, now=FROZEN_NOW
+        intent,
+        conn=seeded,
+        config=config,
+        outcome=Outcome.SUCCESS,
+        payload=None,
+        error=None,
+        now=FROZEN_NOW,
     )
     with pytest.raises(sqlite3.IntegrityError):
         report_result(
             intent,
             conn=seeded,
             config=config,
-            ok=True,
+            outcome=Outcome.SUCCESS,
             payload=None,
             error=None,
             now=FROZEN_NOW,
@@ -131,7 +143,13 @@ def test_buffered_rows_keep_policy_version_and_parent(seeded: Connection) -> Non
     config = _cfg(1)
     intent = _permit(seeded, config)
     report_result(
-        intent, conn=seeded, config=config, ok=True, payload=None, error=None, now=FROZEN_NOW
+        intent,
+        conn=seeded,
+        config=config,
+        outcome=Outcome.SUCCESS,
+        payload=None,
+        error=None,
+        now=FROZEN_NOW,
     )
     row = seeded.execute(
         "SELECT parent_id, policy_version, decision FROM actions_audit WHERE kind='exec_result'"
@@ -146,7 +164,13 @@ def test_default_is_off(seeded: Connection) -> None:
     config = _cfg(0)
     intent = _permit(seeded, config)
     report_result(
-        intent, conn=seeded, config=config, ok=True, payload=None, error=None, now=FROZEN_NOW
+        intent,
+        conn=seeded,
+        config=config,
+        outcome=Outcome.SUCCESS,
+        payload=None,
+        error=None,
+        now=FROZEN_NOW,
     )
     assert _rows(seeded, "exec_result") == 1, "results must be durable by default"
 
@@ -156,7 +180,13 @@ def test_crash_before_flush_leaves_an_unresolved_intent(seeded: Connection) -> N
     config = _cfg(100)
     intent = _permit(seeded, config)
     report_result(
-        intent, conn=seeded, config=config, ok=True, payload=None, error=None, now=FROZEN_NOW
+        intent,
+        conn=seeded,
+        config=config,
+        outcome=Outcome.SUCCESS,
+        payload=None,
+        error=None,
+        now=FROZEN_NOW,
     )
     # simulate the process dying: the buffer is lost, the database is not
     delattr(seeded, "_audit_buffer")

@@ -47,7 +47,11 @@ def test_decide_permit_then_report(client: TestClient) -> None:
     assert body["intent_audit_id"] is not None
     rep = client.post(
         "/v1/report",
-        json={"intent_audit_id": body["intent_audit_id"], "ok": True, "payload": {"done": 1}},
+        json={
+            "intent_audit_id": body["intent_audit_id"],
+            "outcome": "success",
+            "payload": {"done": 1},
+        },
         headers=_h("dkey"),
     )
     assert rep.status_code == 200
@@ -55,7 +59,7 @@ def test_decide_permit_then_report(client: TestClient) -> None:
     # double report of the same intent is refused
     again = client.post(
         "/v1/report",
-        json={"intent_audit_id": body["intent_audit_id"], "ok": True},
+        json={"intent_audit_id": body["intent_audit_id"], "outcome": "success"},
         headers=_h("dkey"),
     )
     assert again.status_code == 404

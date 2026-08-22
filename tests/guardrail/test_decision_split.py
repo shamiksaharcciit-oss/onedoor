@@ -12,7 +12,7 @@ from sqlite3 import Connection
 
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import Decision
+from onedoor.guardrail.models import Decision, Outcome
 from tests.conftest import FROZEN_NOW, make_request
 
 
@@ -29,7 +29,12 @@ def test_permitted_intent_then_report_executes(conn: Connection, config: EngineC
     assert row["kind"] == "exec_intent"
 
     result = report_result(
-        outcome, conn=conn, ok=True, payload={"done": True}, error=None, now=FROZEN_NOW
+        outcome,
+        conn=conn,
+        outcome=Outcome.SUCCESS,
+        payload={"done": True},
+        error=None,
+        now=FROZEN_NOW,
     )
     assert result.executed is True
     assert result.undo_available_until == outcome.undo_until
@@ -49,7 +54,12 @@ def test_report_failure_marks_failed_and_no_undo(conn: Connection, config: Engin
     outcome = decide_and_reserve(req, conn=conn, config=config, now=FROZEN_NOW)
     assert isinstance(outcome, PermittedIntent)
     result = report_result(
-        outcome, conn=conn, ok=False, payload=None, error="enforcement failed", now=FROZEN_NOW
+        outcome,
+        conn=conn,
+        outcome=Outcome.FAILURE,
+        payload=None,
+        error="enforcement failed",
+        now=FROZEN_NOW,
     )
     assert result.executed is False
     assert result.decision.decision == Decision.FAILED
@@ -60,7 +70,9 @@ def test_replay_guard_runs_before_decide(conn: Connection, config: EngineConfig)
     req = make_request("demo.toggle", {"target": "demo.lamp", "state": "on"})
     outcome = decide_and_reserve(req, conn=conn, config=config, now=FROZEN_NOW)
     assert isinstance(outcome, PermittedIntent)
-    report_result(outcome, conn=conn, ok=True, payload=None, error=None, now=FROZEN_NOW)
+    report_result(
+        outcome, conn=conn, outcome=Outcome.SUCCESS, payload=None, error=None, now=FROZEN_NOW
+    )
     # The same request_id resolves to the recorded result, not a second intent.
     replay = decide_and_reserve(req, conn=conn, config=config, now=FROZEN_NOW)
     assert not isinstance(replay, PermittedIntent)

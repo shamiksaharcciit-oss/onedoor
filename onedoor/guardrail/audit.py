@@ -86,6 +86,7 @@ def append(
     approval_id: int | None = None,
     undo_until: datetime | None = None,
     undo_of: int | None = None,
+    outcome: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -101,8 +102,8 @@ def append(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol, budget_json"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol, budget_json, outcome"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
@@ -128,6 +129,7 @@ def append(
             # month windows, so a denial that cannot name its window is not
             # re-derivable from the evidence store alone.
             None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
+            outcome,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -139,13 +141,21 @@ def append_expiry(
     now: datetime,
     *,
     detail: str = "",
+    kind: str = "reservation_expired",
+    reason: CheckId = CheckId.EXPIRED,
 ) -> int:
-    """Append a 'reservation_expired' row for an unreported permit.
+    """Append a reservation-disposition row for a permit whose budget went back.
+
+    Two callers, one shape, on purpose. Reclamation writes
+    ``reservation_expired`` when a deadline passes unreported; a ``not_attempted``
+    report writes ``reservation_released`` when the enforcement point positively
+    asserts the action did not happen (R005). Both give budget back, and **both are
+    audited events, never silent adjustments** -- the audit's job is to make a false
+    report attributable, not to prevent a trusted reporter from lying.
 
     Written directly from the stored exec_intent row rather than a reconstructed
     request, because reclamation runs long after the request object is gone. It
-    is the audited record that a permit's reservation was released; it links back
-    to the intent it voids via ``parent_id``.
+    links back to the intent it voids via ``parent_id``.
     """
     row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
     policy_version = row["version_hash"] if row else None
@@ -158,13 +168,13 @@ def append_expiry(
         ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             intent_row["request_id"],
-            "reservation_expired",
+            kind,
             int(intent_row["id"]),
             intent_row["action_type"],
             intent_row["source"],
             intent_row["params_json"],
             Decision.FAILED.value,
-            CheckId.EXPIRED.value,
+            reason.value,
             int(intent_row["nominal_tier"]),
             int(intent_row["effective_tier"]),
             detail,
@@ -304,6 +314,7 @@ def append_buffered(
     undo_of: int | None = None,
     event_topic: str | None = None,
     event_payload: str | None = None,
+    outcome: str | None = None,
 ) -> None:
     """Queue a result row. Raises on a duplicate report, as the UNIQUE constraint would."""
     buf = _buffer(conn)
@@ -338,6 +349,7 @@ def append_buffered(
             row["version_hash"] if row else None,
             AADP_PROTOCOL,
             None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
+            outcome,
         )
     )
     if event_topic is not None and event_payload is not None:
@@ -357,8 +369,8 @@ def flush(conn: sqlite3.Connection) -> int:
             " request_id, kind, parent_id, action_type, source, params_json,"
             " decision, reason_code, nominal_tier, effective_tier, detail,"
             " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
-            " created_at, policy_version, protocol, budget_json"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " created_at, policy_version, protocol, budget_json, outcome"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         if events:

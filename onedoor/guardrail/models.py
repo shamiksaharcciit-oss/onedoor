@@ -61,6 +61,38 @@ class Decision(StrEnum):
     FAILED = "failed"
 
 
+class Outcome(StrEnum):
+    """What the enforcement point reports actually happened (ND-039, AADP A4b).
+
+    A SEPARATE vocabulary from :class:`Decision`. `Decision` is the PDP's verdict --
+    what was authorized; `Outcome` is the PEP's report -- what occurred. Overloading
+    one with the other is how they got conflated in the first place: `report_result`
+    took `ok: bool`, so `not_attempted` and `timeout` both collapsed into `failed`,
+    the audit asserted an attempt that never happened, and the reservation settled
+    before anything looked at the outcome -- **permanently charging budget for an
+    action that never occurred**. That was a live conformance defect against `-00`,
+    disclosed against `<=0.3.6`.
+
+    Disposition, ruled by R005 and enforced in `report_result`:
+
+        success        -> SETTLE   the action happened
+        failure        -> SETTLE   it was attempted and did not succeed
+        timeout        -> SETTLE   it may have happened; assume it did
+        not_attempted  -> RELEASE  a positive assertion that it did not happen
+
+    **Settle on doubt.** Release requires a positive assertion of non-occurrence,
+    never an absence of information -- a timeout is doubt, not evidence. And the
+    release is an AUDITED event, symmetric with reclamation expiry, never a silent
+    adjustment: the audit's job is to make a false report attributable, not to
+    prevent a trusted reporter from lying.
+    """
+
+    SUCCESS = "success"
+    FAILURE = "failure"
+    TIMEOUT = "timeout"
+    NOT_ATTEMPTED = "not_attempted"
+
+
 class CheckId(StrEnum):
     """Which check produced the decision — recorded for full explainability."""
 
@@ -303,7 +335,10 @@ class ActionResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request_id: UUID
     decision: PolicyDecision
-    executed: bool = False
+    executed: bool | None = False
+    """True on success, False on a failed/timed-out attempt, **None when the action
+    was never attempted** (ND-039). None is not False: recording False would assert
+    an attempt that did not happen, which is the first half of the A4b defect."""
     connector_ok: bool | None = None
     connector_payload: dict[str, JsonValue] | None = None
     error: str | None = None

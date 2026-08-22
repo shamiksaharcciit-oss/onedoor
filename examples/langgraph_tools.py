@@ -44,7 +44,7 @@ from typing_extensions import TypedDict
 from onedoor.guardrail import approvals, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Decision, Outcome, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
@@ -132,14 +132,19 @@ def _enforce(intent: PermittedIntent, fn: Callable[..., Any], kwargs: dict, conn
     except Exception as exc:
         with _LOCK:
             report_result(
-                intent, conn=conn, ok=False, payload=None, error=str(exc)[:200], now=now_utc()
+                intent,
+                conn=conn,
+                outcome=Outcome.FAILURE,
+                payload=None,
+                error=str(exc)[:200],
+                now=now_utc(),
             )
         raise
     with _LOCK:
         report_result(
             intent,
             conn=conn,
-            ok=True,
+            outcome=Outcome.SUCCESS,
             payload={"result": str(result)[:500]},
             error=None,
             now=now_utc(),

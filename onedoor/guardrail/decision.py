@@ -41,6 +41,7 @@ from onedoor.guardrail.models import (
     Decision,
     EngineConfigLike,
     JsonValue,
+    Outcome,
     PolicyDecision,
     Source,
     Tier,
@@ -379,37 +380,85 @@ def report_result(
     *,
     conn: Connection,
     config: EngineConfigLike | None = None,
-    ok: bool,
+    outcome: Outcome,
     payload: dict[str, JsonValue] | None,
     error: str | None,
     now: datetime,
 ) -> ActionResult:
     """Phase B: append the linked execution result for a permitted intent.
 
-    Must be called exactly once per :class:`PermittedIntent`, whatever the
-    enforcement outcome — success, failure, or timeout. The audit log stays
-    append-only: this adds a second row linked to the intent, never edits it.
+    Must be called exactly once per :class:`PermittedIntent`, whatever happened.
+    The audit log stays append-only: this adds a second row linked to the intent,
+    never edits it.
+
+    `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
+    of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
     """
-    # Settle the reservation so the reclaimer leaves its budget spent. If the
-    # permit was already reclaimed (deadline passed before this report), the
-    # reservation is 'expired', this matches nothing, and the released budget
-    # stays released: the permit was void, and a late report is recorded for
-    # audit but does not silently re-charge the counter.
+    settles = outcome is not Outcome.NOT_ATTEMPTED
+    released_deltas: list[tuple[str, str, str, int, str]] = []
+
     with tx(conn):
-        conn.execute(
-            "UPDATE cap_reservations SET status='settled' "
-            "WHERE intent_audit_id=? AND status='held'",
-            (intent.intent_audit_id,),
-        )
+        if settles:
+            # Settle so the reclaimer leaves the budget spent. If the permit was
+            # already reclaimed (deadline passed before this report), the reservation
+            # is 'expired', this matches nothing, and the released budget stays
+            # released: the permit was void, and a late report is recorded for audit
+            # but does not silently re-charge the counter.
+            conn.execute(
+                "UPDATE cap_reservations SET status='settled' "
+                "WHERE intent_audit_id=? AND status='held'",
+                (intent.intent_audit_id,),
+            )
+        else:
+            # not_attempted: a POSITIVE assertion that the action did not happen, so
+            # the budget it reserved must go back. Settling here is the A4b defect --
+            # permanently charging for an action that never occurred. Only a held
+            # reservation is released; one already reclaimed stays reclaimed.
+            row = conn.execute(
+                "SELECT deltas_json FROM cap_reservations "
+                "WHERE intent_audit_id=? AND status='held'",
+                (intent.intent_audit_id,),
+            ).fetchone()
+            if row is not None:
+                released_deltas = [
+                    tuple(d) for d in json.loads(row["deltas_json"], parse_float=Decimal)
+                ]
+                caps.release(conn, released_deltas)
+                conn.execute(
+                    "UPDATE cap_reservations SET status='released' WHERE intent_audit_id=?",
+                    (intent.intent_audit_id,),
+                )
+                # R005: the release is an AUDITED event, symmetric with reclamation
+                # expiry -- never a silent adjustment. Same shape, different kind, so
+                # an evidence reader can tell "deadline passed unreported" from "the
+                # PEP said it never happened".
+                intent_row = conn.execute(
+                    "SELECT * FROM actions_audit WHERE id=?", (intent.intent_audit_id,)
+                ).fetchone()
+                if intent_row is not None:
+                    audit.append_expiry(
+                        conn,
+                        intent_row,
+                        now,
+                        detail="reservation released: report asserted not_attempted",
+                        kind="reservation_released",
+                    )
 
     result_decision = PolicyDecision(
-        decision=Decision.EXECUTED if ok else Decision.FAILED,
+        decision=Decision.EXECUTED if outcome is Outcome.SUCCESS else Decision.FAILED,
         effective_tier=intent.effective_tier,
         nominal_tier=intent.nominal_tier,
         reason_code=CheckId.PASSED,
     )
-    topic = "action.executed" if ok else "action.failed"
-    event = {"request_id": str(intent.request.request_id), "connector_ok": ok}
+    topic = "action.executed" if outcome is Outcome.SUCCESS else "action.failed"
+    event: dict[str, object] = {
+        "request_id": str(intent.request.request_id),
+        "outcome": outcome.value,
+    }
+    # connector_ok is NULL for not_attempted: there was no connector call to succeed
+    # or fail. Recording False would assert an attempt that never happened, which is
+    # the first half of the A4b defect.
+    ok: bool | None = None if outcome is Outcome.NOT_ATTEMPTED else outcome is Outcome.SUCCESS
     batch = int(getattr(config, "audit_group_commit", 0) or 0)
 
     if batch > 0:
@@ -429,6 +478,7 @@ def report_result(
             undo_of=intent.undo_of,
             event_topic=topic,
             event_payload=json.dumps(event, default=str),
+            outcome=outcome.value,
         )
         if audit.buffered_len(conn) >= batch:
             audit.flush(conn)
@@ -445,6 +495,7 @@ def report_result(
                 error=error,
                 payload=payload,
                 undo_of=intent.undo_of,
+                outcome=outcome.value,
             )
             bus.publish(conn, topic, event)
 

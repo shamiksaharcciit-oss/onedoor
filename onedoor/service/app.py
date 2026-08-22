@@ -49,7 +49,7 @@ from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Budget, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Budget, Decision, Outcome, Source
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
 from onedoor.store.clock import now_utc
@@ -112,7 +112,12 @@ class DecideReply(BaseModel):
 
 class ReportBody(BaseModel):
     intent_audit_id: int
-    ok: bool
+    outcome: Outcome
+    """The four-value report vocabulary (ND-039). Already normative in `-00`; this
+    is conformance catch-up, not a wire break. `success`/`failure`/`timeout` settle
+    the budget reservation, `not_attempted` RELEASES it as an audited event -- so a
+    PEP that correctly refuses to act no longer has its tenant charged for an action
+    that never occurred."""
     payload: dict[str, Any] | None = None
     error: str | None = None
 
@@ -220,7 +225,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             result = report_result(
                 intent,
                 conn=state.conn,
-                ok=body.ok,
+                outcome=body.outcome,
                 payload=body.payload,
                 error=body.error,
                 now=now_utc(),

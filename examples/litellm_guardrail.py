@@ -71,7 +71,7 @@ from litellm.integrations.custom_guardrail import CustomGuardrail
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Source
+from onedoor.guardrail.models import ActionRequest, Decision, Outcome, Source
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
@@ -154,15 +154,20 @@ class OneDoorGuardrail(CustomGuardrail):
 
     # --- phase B: report what actually happened -----------------------------
 
-    def _report(self, call_id: str, *, ok: bool, payload: dict, error: str | None) -> None:
-        """Report once, if this call is one we permitted. Popping makes it once."""
+    def _report(self, call_id: str, *, outcome: Outcome, payload: dict, error: str | None) -> None:
+        """Report once, if this call is one we permitted. Popping makes it once.
+
+        `outcome` is the four-value vocabulary, not a boolean (ND-039). A gateway
+        that refuses to call the model at all reports `not_attempted`, which
+        RELEASES the budget reservation instead of spending it.
+        """
         intent = self._pending.pop(call_id, None)
         if intent is None:
             return  # not governed by this guardrail, or already reported
         report_result(
             intent,
             conn=self.conn,
-            ok=ok,
+            outcome=outcome,
             payload=payload,
             error=error,
             now=now_utc(),
@@ -212,7 +217,7 @@ class OneDoorGuardrail(CustomGuardrail):
         total = getattr(usage, "total_tokens", None)
         if total is not None:
             payload["total_tokens"] = int(total)
-        self._report(str(call_id), ok=True, payload=payload, error=None)
+        self._report(str(call_id), outcome=Outcome.SUCCESS, payload=payload, error=None)
         return response
 
     async def async_post_call_failure_hook(
@@ -230,7 +235,10 @@ class OneDoorGuardrail(CustomGuardrail):
             return
         self._report(
             str(call_id),
-            ok=False,
+            # The gateway attempted the call and it failed. A gateway that declined
+            # to attempt at all would report Outcome.NOT_ATTEMPTED and get its
+            # reservation released rather than spent.
+            outcome=Outcome.FAILURE,
             payload={"enforced_by": "litellm post_call"},
             error=str(original_exception),
         )
