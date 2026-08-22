@@ -298,20 +298,9 @@ certified and originals are requested.
 
 ### Open
 
-**Delivery → core — ONE, surfaced by the `ND-040` decomposition (`TICKETS-ND-040.md` §7).**
-**Does `ND-040` own the opaque-host mechanism, or is that a separate ticket?** R024
-sets the acceptance criterion at 0/3 → 3/3 on the benchmark's URL-shaped evasive
-cases. The survey finds those are **three different problems**: percent-encoding is
-canonicalization proper and closes outright; the IP literal closes with CIDR matching
-plus a policy that declares the range; and **the shortener cannot be closed by
-canonicalization at all** — `https://t.co/x9k2` canonicalizes perfectly, the host
-genuinely *is* `t.co`, and the bank is only reachable by following a redirect, which
-is a network call that determinism forbids. Closing it needs a declared class of
-opaque/redirector hosts that fails closed — a policy-vocabulary addition, and the one
-part of the ticket that can cause **over-blocking**, which the benchmark's
-`innocent-ok 3/3` column measures. Delivery builds it either way; what it will not do
-is quietly deliver 2/3 against a 3/3 criterion, or reach 3/3 by adding `t.co` to a
-pattern, which would fit the instrument rather than pass it. **Does not block U1–U3.**
+**None, on either side**, as of Response 025 (2026-08-22). The `ND-040` §7 question is
+ruled: the ticket owns all three evasive cases, with the opaque-host class as U4 and
+the disclosure's mechanism sentence corrected alongside the fix.
 
 **Core → delivery:** none, as of Response 024 (2026-08-22). Next after `ND-040`: the
 `0.4.x` line, and a Phase-B read-only receipt viewer arriving as its own declaration.

@@ -67,7 +67,15 @@ acceptance test pass by fitting the instrument that measures it — the fix woul
 tailored to it. Any mechanism here has to be general, and the benchmark's shortener
 must be caught as an instance of a class, never by name.
 
-**🔺 Question for core (§7).**
+**RULED (R025): `ND-040` owns it, as U4 inside this ticket** — the published scope
+binds the way the published schedule does. Constraints: a **declared, versioned class**
+of known redirector/shortener hosts, shipped as a starter list and customer-extendable,
+matched **post-canonicalization by exact host**; **fails closed for members only**, so
+`weather.example.com` is untouched and `innocent-ok` stays 3/3; the **undeclared-shortener
+limitation is disclosed in the same breath as the fix**; and **no new wire vocabulary** —
+the existing deny path with the class named in evidence. The disclosure's *mechanism*
+sentence is corrected in the same arc: the promise stays, the description becomes true,
+because the survey showed the shortener is not a canonicalization problem at all.
 
 ## 3. The canonicalization surface
 
@@ -96,10 +104,23 @@ half of the ticket that is unambiguous and where scopegate's sentence lands.
 The canonicalization is part of the instrument: it decides what a rule matches, so a
 change to it changes verdicts. Therefore:
 
-- **Pinned, not floated.** `idna` (or equivalent) pinned exactly, as `ruff` is,
-  because *a canonicalization that changes under a library upgrade is an instrument
-  change wearing a patch release.* An unpinned normalizer is `ND-025`'s unpinned
-  linter with worse consequences.
+- **No dependency to pin — resolved in U1, stronger than planned.** This section
+  originally called for pinning `idna` exactly. The probe showed that unnecessary: the
+  security property a canonicalizer needs is **non-collision and determinism**, not
+  IDNA2008 completeness, and the standard library's IDNA codec already maps the
+  Cyrillic homograph to `xn--ank-9cd.example.com` — visibly not `bank.example.com`,
+  which is the whole requirement. So U1 adds **no runtime dependency at all**, which
+  is the strongest available reading of *a canonicalization that changes under a
+  library upgrade is an instrument change wearing a patch release*: the surest way to
+  prevent that is to have no library to upgrade. It also avoids exact-pinning a
+  runtime dependency of a *library*, which conflicts with every downstream that also
+  depends on `idna`.
+  IPv4 shorthand (`0x7f.1`, `2130706433`, `127.1`) is parsed in-module rather than by
+  `socket.inet_aton`, whose acceptance of those forms is **platform-dependent** and
+  therefore cannot be part of a deterministic instrument.
+  The residual edge is recorded rather than hidden: the stdlib implements IDNA2003,
+  which differs from IDNA2008 on a handful of characters. A difference yields a
+  **non-match, never a false match**, so the failure direction is safe.
 - **Recorded.** The canonicalizer's identity and version belong in the evidence, the
   same argument as `snapshot_schema` (R019) and `unicode_version` (E14): once a
   verdict depends on a normalisation, the normalisation's identity is part of what
@@ -155,10 +176,20 @@ opaque/redirector hosts that fails closed, which is:
 - the one part of this ticket that can **cause over-blocking**, which the benchmark's
   innocents column measures and which no amount of canonicalization risks.
 
-Delivery can build it either way and has no preference to defend. What it will not do
-is quietly deliver 2/3 against an acceptance criterion of 3/3, or reach 3/3 by adding
-`t.co` to a pattern. **Raised at decomposition, because a rule discovered here is a
-rule and one discovered afterwards is a retrofit.**
+**Answered: `ND-040` owns all three, U4 carries the opaque-host class.** The published
+scope binds like the published schedule, and a disclosure that keeps a wrong mechanism
+to avoid an edit is not the register working — so the mechanism sentence is corrected
+alongside the fix.
+
+**U1 is done.** No new runtime dependency: the standard library's IDNA codec maps the
+Cyrillic homograph to `xn--ank-9cd.example.com`, which is all the security property
+needs — **non-collision and determinism, not IDNA2008 completeness**. That is the
+strongest available reading of R024's pinning constraint: the surest way to stop a
+canonicalization changing under a library upgrade is to have no library to upgrade.
+IPv4 shorthand is parsed here rather than by `socket.inet_aton`, whose acceptance
+varies by platform and so cannot be part of a deterministic instrument. The IDNA2003
+edge is recorded in the module docstring: a difference produces a non-match, never a
+false match, so the failure direction is safe.
 
 `ND-048`'s residue is untouched by every option above and stays disclosed as an open
 gap with no ticketed fix.

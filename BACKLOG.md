@@ -33,7 +33,11 @@ vocabulary, failure recorded distinctly in evidence). **Decomposition written be
 the code: `TICKETS-ND-040.md`** — work order U1–U5, the canonicalization surface, the
 acceptance tests, and one surfaced question. **Key finding: the benchmark's three
 URL-shaped evasive cases are three different problems**, and canonicalization alone
-closes one of them. See `CONFORMANCE.md` §5 Open.
+closes one of them — **ruled by R025: `ND-040` owns all three**, with the opaque-host
+class as U4 inside the ticket and the disclosure's mechanism sentence corrected in the
+same arc. **U1 is done:** `onedoor/guardrail/urlcanon.py`, deterministic, **no new
+runtime dependency**, 36 tests covering nine canonicalization concerns in both
+directions plus idempotence and non-collision over generated inputs.
 
 A Phase-B read-only receipt viewer is announced for after `ND-040` lands.
 
