@@ -188,6 +188,26 @@ single-process, synchronous; PDP/PEP split with an MCP proxy as the first
 external enforcement point. Deliberately boring technology; the design is the
 contribution.
 
+## Signed receipts
+
+```bash
+pip install 'onedoor[signed]'
+```
+
+Ed25519 signatures over each row's hash, off until a deployer turns them on. **Signing
+is an extra, and configuring it without the library installed makes the process refuse
+to start** — a deployment that believes it is signing and is not is the failure this
+guards, and that belief comes from config, so the check belongs at enable time.
+
+The private key is yours and never enters the repo, the database or a receipt;
+`key_id` is a fingerprint *derived* from the public key; rotation grows a keyring that
+is never pruned, so receipts signed by a retired key verify forever.
+
+**A receipt system must not be its own witness.** A signature that matches a public key
+found in the same store as the row it signs is reported as **`self_consistent`**, never
+as verified — an attacker who can write the database supplies both halves. Pass a
+trusted `key_id` from outside the store and the same signature reports `verified`.
+
 ## The receipt viewer
 
 ```bash

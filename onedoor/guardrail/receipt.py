@@ -50,9 +50,11 @@ import sqlite3
 from dataclasses import dataclass
 from enum import StrEnum
 
+from onedoor.guardrail import signing
 from onedoor.guardrail.models import Budget, CheckId
 from onedoor.guardrail.preimage import row_hash_of
 from onedoor.guardrail.received import Provenance
+from onedoor.guardrail.signing import ALGORITHM
 
 CAP_REASONS = frozenset({CheckId.CAP_RATE.value, CheckId.CAP_VALUE.value})
 """The reasons that MUST carry a budget object (E7). A cap denial that cannot name
@@ -66,6 +68,19 @@ REQUIRED_AUDIT_TRIGGERS = ("actions_audit_no_update", "actions_audit_no_delete")
 
 class Status(StrEnum):
     VERIFIED = "verified"
+    SELF_CONSISTENT = "self_consistent"
+    """Real information, named for exactly what it is (R038 §1).
+
+    A signature that matches a public key found in THIS STORE'S OWN KEYRING. That is not
+    nothing -- the bytes do check out -- and it is not verification either, because an
+    attacker with write access to the store supplies both the altered row and the key
+    that vouches for it. Calling it `verified` would be the store witnessing itself;
+    calling it `unverifiable` would throw away a real check that passed.
+
+    **A receipt system must not be its own witness.** Supply a trusted `key_id` from
+    outside the store and the same signature reports `verified`.
+    """
+
     ABSENT = "absent"
     UNVERIFIABLE = "unverifiable"
     FAILED = "failed"
@@ -87,6 +102,15 @@ class Check:
         three: a check that could not run is not a check that passed.
         """
         return self.status in (Status.UNVERIFIABLE, Status.FAILED)
+
+    @property
+    def is_partial(self) -> bool:
+        """True for a check that passed as far as it could and no further.
+
+        `self_consistent` is not a fault -- nothing is wrong -- but it must never be
+        displayed as a pass, so the renderer needs a third class rather than a boolean.
+        """
+        return self.status is Status.SELF_CONSISTENT
 
 
 @dataclass(frozen=True)
@@ -280,7 +304,74 @@ def _check_chain(row: sqlite3.Row) -> Check:
     return Check("chain", Status.VERIFIED, f"seq {present['seq']}, contents re-derived")
 
 
-def verify_decision(conn: sqlite3.Connection, row: sqlite3.Row) -> ReceiptVerification:
+def _check_signature(
+    conn: sqlite3.Connection, row: sqlite3.Row, trusted_key_id: str | None
+) -> Check:
+    """Five outcomes, because `verified` needs a witness that is not the store.
+
+    A signature checked against a public key found in the SAME STORE as the row it
+    signs proves internal consistency: an attacker with write access supplies both the
+    altered row and the key that vouches for it. So `verified` requires a
+    `trusted_key_id` the CALLER supplies from outside — and the in-store match, which is
+    real information, gets its own honest name rather than being discarded or promoted.
+
+    **A receipt system must not be its own witness** (R038 §1).
+    """
+    keys = row.keys()
+    signature = row["sig"] if "sig" in keys else None
+    key_id = row["key_id"] if "key_id" in keys else None
+    if signature is None and key_id is None:
+        return Check("signature", Status.ABSENT, "signing was not in operation for this row")
+    if signature is None or key_id is None:
+        return Check(
+            "signature",
+            Status.UNVERIFIABLE,
+            "a signature is half written: one of `sig`/`key_id` is set and the other "
+            "is not, which is a signer that ran and did not finish",
+        )
+
+    row_hash = row["row_hash"] if "row_hash" in keys else None
+    if row_hash is None:
+        return Check(
+            "signature",
+            Status.UNVERIFIABLE,
+            "the row is signed but unchained: there is no row_hash for the signature to attest",
+        )
+
+    ring = signing.keyring(conn)
+    public = ring.get(str(key_id))
+    if public is None:
+        # R037 §2's ruled case. The signature may be perfectly good; nothing here
+        # vouches for the key, and guessing either way would be inventing an answer.
+        return Check(
+            "signature",
+            Status.UNVERIFIABLE,
+            f"signed by {str(key_id)[:20]}…, a key this store has never seen",
+        )
+
+    if not signing.verify_signature(public, str(row_hash), str(signature)):
+        return Check("signature", Status.FAILED, "the signature does not verify over this row")
+
+    if trusted_key_id is None:
+        return Check(
+            "signature",
+            Status.SELF_CONSISTENT,
+            "signature matches this store's own keyring; supply a trusted key to verify",
+        )
+    if str(trusted_key_id) != str(key_id):
+        return Check(
+            "signature",
+            Status.UNVERIFIABLE,
+            f"signed by {str(key_id)[:20]}…, which is not the key you trusted",
+        )
+    return Check(
+        "signature", Status.VERIFIED, f"verified against the key you supplied, {ALGORITHM}"
+    )
+
+
+def verify_decision(
+    conn: sqlite3.Connection, row: sqlite3.Row, *, trusted_key_id: str | None = None
+) -> ReceiptVerification:
     """Verify one audit row. THE implementation; callers render its output.
 
     Ordered deliberately: byte-form checks run before anything hashes (R028), and the
@@ -294,6 +385,7 @@ def verify_decision(conn: sqlite3.Connection, row: sqlite3.Row) -> ReceiptVerifi
             _check_budget_object(row),
             _check_policy_snapshot(conn, row),
             _check_chain(row),
+            _check_signature(conn, row, trusted_key_id),
             _check_append_only(conn),
         )
     )

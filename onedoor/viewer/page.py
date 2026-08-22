@@ -82,6 +82,10 @@ _REASON_PROSE = {
 
 _STATUS_CLASS = {
     Status.VERIFIED: "ok",
+    # Its own class, and deliberately NOT `ok`. A signature that matches the store's own
+    # keyring is real information and is not verification -- rendering it green would be
+    # the page doing exactly what R038 §1 forbids the system to do: witness itself.
+    Status.SELF_CONSISTENT: "partial",
     Status.ABSENT: "absent",
     Status.UNVERIFIABLE: "bad",
     Status.FAILED: "bad",

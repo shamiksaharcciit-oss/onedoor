@@ -407,41 +407,31 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | `ND-009` | **Accepted**, both required tests in — the version-boundary chain walk alongside the DoD concurrency test. Delivery's reading confirmed: **the version hint mattered more than the column it shipped beside** — `/3` is now an ordinary migration, and the epic's remaining tickets inherit a settled, guarded preimage rather than a window. |
 | `ND-015` custody | **Pre-settled by R037 §2**, so the decomposition relitigates none of it: private key **deployer-supplied**, never in repo/DB/receipt; **`key_id` derived** as a fingerprint of the public key, never assigned; an **unknown key is `unverifiable`** — never `failed`, never trusted; **rotation append-only** with a growing keyring, because public keys are evidence; signing **per-row over `row_hash`** under the standing AST guard. |
 
+### Resolved by Response 038 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| Q1 — self-verification | **RULED: a store never says `verified` on its own.** Verification requires a trust anchor **from outside the store**; the in-store match gets its own honest name, **`self_consistent`** — *"signature matches this store's own keyring; supply a trusted key to verify"* — displayed as exactly that and never dressed as verified. Signature outcomes are therefore five: `verified` · `self_consistent` · `unverifiable` · `failed` · `absent`. Delivery's discomfort is named as the product's thesis in miniature: **a receipt system must not be its own witness.** |
+| Q2 — X-6 | **RULED: a `[signed]` extra, with X-6 enforced at ENABLE time, not install time.** A hard install dependency guarantees nothing about config, and belief comes from config — so **signing configured + library missing = the process refuses to start**, asserted as a stated invariant. |
+| Q3 — `alg` | **RULED: algorithm only.** Ed25519 is output-deterministic (RFC 8032), so a library version in per-row evidence would assert a dependence that does not exist. The pattern is resolved rather than suffered: **implementations are recorded where they can change outputs** — `canon_schema` and `unicode_version` exist because theirs do. The library and its pin are recorded once at the deployment layer. Semantics in the receipt, process provenance in the register. |
+| `ND-017`'s anchor | **PRE-RULED (§4): an anchor is worth exactly the independence of where it lives.** A root stored beside its leaves proves internal consistency, nothing more — Q1's shape one level up. `ND-017` designs the export path; venue and cadence are its questions, X-8 unchanged underneath. Its decomposition cites this rather than re-deriving the discomfort. |
+
 ### Open
 
-**Delivery → core — THREE, from `ND-015`'s decomposition (`TICKETS-ND-015.md` §5).
-K1's table shape, K2 and K4 proceed meanwhile.**
+**None, on either side**, as of Response 038 (2026-08-22). `ND-015`'s three questions
+are ruled and K1–K5 are built.
 
-**1. Can a store ever report a signature as `verified` on its own?** A signature checked
-against a public key found in **the same store as the data it signs** proves internal
-consistency, not authenticity: an attacker with write access supplies both halves and
-hands you a store that verifies perfectly against itself — R028's *tautology dressed as
-a check*, one layer up. Append-only triggers do not close it (a keyring must accept
-`INSERT`s or rotation is impossible) and the chain does not either. Delivery proposes
-**no**: without an expected `key_id` supplied from outside, the honest outcome is
-`unverifiable`. Uncomfortable, because most systems would call it verified — which is
-why it is core's to rule.
+**One implementation note, reported not asked:** the library-missing invariant caught a
+real defect in its own subject on first run. `load_private_key` imported
+`cryptography.hazmat.primitives.serialization` *before* the guarded `_backend()` call,
+so a deployment without the package would have seen a bare `ImportError` instead of the
+sentence telling it which extra to install. The import now sits behind the same guard —
+found by the test rather than by reading, which is the test earning its keep on the
+first run.
 
-**2. Is signing an X-6 alarm dependency?** This is onedoor's **first** crypto
-dependency — the runtime requirements today are `pydantic`, `pydantic-settings`,
-`pyyaml`, `tzdata`, and the stdlib has no Ed25519. If signing is an alarm dependency it
-is a **hard requirement** for every install; if not, it is an extra and the design needs
-an explicit startup error for *"signing configured, library missing"* rather than a
-stream of unsigned rows. Delivery leans to **hard requirement**: a receipt product whose
-signatures are optional at install time will have deployments that believe they are
-signing and are not.
-
-**3. Does `alg` record the algorithm only, or the library version too?** Every other
-instrument here records its implementation (`canon_schema`, `snapshot_schema`,
-`unicode_version`) — but those all have **version-sensitive output**, and **Ed25519 does
-not**: RFC 8032 fully specifies it, so a correct implementation produces identical bytes
-forever. Delivery proposes **algorithm only**, because a library version in evidence
-would imply an output dependence that does not exist, and a misleading identity in a
-receipt is worse than none. Raised rather than assumed, because it departs from an
-otherwise uniform pattern.
-
-**Core → delivery:** none, as of Response 037 (2026-08-22). `ND-015` is decomposed;
-then `ND-017`, whose close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 038 (2026-08-22). `ND-015` is built. One
+ticket remains in the crypto epic — `ND-017`, whose hardest question (§4) is pre-ruled
+— and its close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

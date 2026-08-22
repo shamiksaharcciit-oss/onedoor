@@ -24,7 +24,7 @@ class Connection(sqlite3.Connection):
     connection it belongs to — no global registry, no id reuse, nothing to clean up.
     """
 
-    __slots__ = ("_policy_snapshot", "_audit_buffer")
+    __slots__ = ("_policy_snapshot", "_audit_buffer", "_onedoor_signing_key")
 
 
 def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connection:

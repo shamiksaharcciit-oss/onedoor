@@ -7,6 +7,56 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-015`: signed decision receipts (Ed25519)
+
+Each chained row is signed over its `row_hash`, with the signature, the derived
+`key_id` and `alg` landing in columns that have existed dark since `0007`. **No hashed
+column, no preimage version** — a signature attests the row hash and cannot precede it,
+which is why those three were classified `EXCLUDED` before this ticket was written.
+
+**A receipt system must not be its own witness.** A signature checked against a public
+key found in the **same store** as the row it signs proves internal consistency, not
+authenticity: an attacker with write access adds their own key, re-signs what they
+altered, and the store agrees with itself perfectly. The append-only triggers do not
+close it — a keyring must accept `INSERT`s or rotation is impossible — and the chain
+does not either, because a keyring row is not an audit row.
+
+So signature checks have **five** outcomes, and the middle one is the point:
+
+| | |
+|---|---|
+| `verified` | checks against a `key_id` **the caller supplied from outside the store** |
+| `self_consistent` | matches this store's own keyring — real information, and not verification |
+| `unverifiable` | the key is unknown here; the signature may be perfectly good |
+| `failed` | the bytes do not verify |
+| `absent` | no signature: signing was not in operation |
+
+`self_consistent` exists because collapsing it into `unverifiable` would throw away a
+check that genuinely passed, and calling it `verified` would be the store witnessing
+itself. The viewer renders it in its own class — **never green** — with the sentence
+*"supply a trusted key to verify"* beside it. An adversarial test demonstrates the whole
+argument: an attacker registers their own key, re-signs a row, the store reports
+`self_consistent`, and an external anchor still refuses it.
+
+**Custody.** The private key is deployer-supplied and never enters the repo, the
+database or a receipt — asserted by a test that greps every stored value for key
+material. `key_id` is **derived**, a fingerprint of the public key, never assigned: a
+chosen label can drift from what it names and a digest cannot. **Rotation is
+append-only** (migration `0014`, with the same no-update/no-delete triggers as
+`actions_audit`): a retired key stays, because the receipts it signed must verify
+forever.
+
+**X-6 at enable time, not install time.** `cryptography` is a `[signed]` extra — a
+library-only user who never signs should not carry it. The failure that matters is a
+deployment that believes it signs and does not, and a hard install dependency does
+nothing about that, because belief comes from config. So **signing configured plus
+library missing means the process refuses to start**, asserted as a stated invariant.
+
+`alg` records **`ed25519` (RFC 8032) and not the library**: Ed25519's output is
+deterministic, so a library version in per-row evidence would assert a dependence that
+does not exist. The library and its pinned version are recorded once at the deployment
+layer — semantics in the receipt, process provenance in the register.
+
 ### Added — `ND-009`: PEP-driven resumption via `approval_ref`
 
 An enforcement point can present a reference to an approval a human already granted.

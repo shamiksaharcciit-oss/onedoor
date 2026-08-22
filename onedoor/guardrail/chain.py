@@ -31,6 +31,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from onedoor.guardrail import audit, signing
 from onedoor.guardrail.audit import CHAIN_ENABLED_KEY  # noqa: E402  (one constant, one home)
 from onedoor.guardrail.preimage import GENESIS_PREV_HASH, row_hash_of
 from onedoor.guardrail.receipt import Status
@@ -105,7 +106,7 @@ def genesis_after_id(conn: sqlite3.Connection) -> int | None:
     return None if row is None else int(row["value"])
 
 
-def enable(conn: sqlite3.Connection) -> int:
+def enable(conn: sqlite3.Connection, *, signing_key_path: str | None = None) -> int:
     """Switch chaining on, once, recording where the boundary falls.
 
     Must be called inside a transaction by the caller. Returns the id of the last
@@ -115,20 +116,45 @@ def enable(conn: sqlite3.Connection) -> int:
     one ledger would mean two answers to "where does the chain begin", and a walker
     reaching the second one could not tell a fresh start from a break — which is
     precisely the shape of damage a chain exists to detect.
+
+    **X-6 at enable time (R038 §2).** `signing_key_path` turns on Ed25519 signing, and
+    if the `cryptography` package is missing this **raises and the process does not
+    start**. X-6 says alarm dependencies are hard requirements; the precise reading is
+    *hard at enable, not hard at install* — a hard install dependency guarantees nothing
+    about config, and the deployment that believes it signs and does not believes it
+    because of its config. The cure is refusing loudly at the moment the alarm becomes
+    real, rather than a stream of unsigned rows nobody notices.
     """
     if enabled(conn):
         raise ChainError(
             "chaining is already enabled for this store; a second genesis would make "
             "a break and a fresh start indistinguishable"
         )
+    settings: list[tuple[str, str]] = []
+    if signing_key_path is not None:
+        # Load BEFORE anything is written: a key that cannot be read must stop the
+        # enable, not leave a store that thinks it signs.
+        key = signing.load_private_key(signing_key_path)
+        signing.register_public_key(
+            conn,
+            signing.public_bytes_of(key),
+            now_utc(),
+            note="registered when signing was enabled",
+        )
+        settings.append((audit.SIGNING_KEY, signing_key_path))
+
     row = conn.execute("SELECT MAX(id) AS last FROM actions_audit").fetchone()
     boundary = int(row["last"] or 0)
     stamp = to_iso(now_utc())
-    for key, value in ((CHAIN_ENABLED_KEY, "1"), (CHAIN_GENESIS_KEY, str(boundary))):
+    for key_name, value in (
+        (CHAIN_ENABLED_KEY, "1"),
+        (CHAIN_GENESIS_KEY, str(boundary)),
+        *settings,
+    ):
         conn.execute(
             "INSERT INTO config (key, value, updated_at) VALUES (?,?,?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
-            (key, value, stamp),
+            (key_name, value, stamp),
         )
     return boundary
 

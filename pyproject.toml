@@ -21,6 +21,24 @@ Issues = "https://github.com/shamiksaharcciit-oss/onedoor/issues"
 Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+# Ed25519 signing (ND-015). An EXTRA rather than a hard requirement, ruled by R038 §2:
+# chaining is opt-in and signing rides it, so a library-only user who never signs
+# should not carry a crypto dependency for a feature they have not switched on.
+#
+# X-6 -- "alarm dependencies are hard requirements, never optional extras" -- is
+# enforced at ENABLE time instead of install time, which is the reading that actually
+# closes the failure mode. A hard install dependency guarantees nothing about config,
+# and the deployment that believes it is signing and is not was always going to believe
+# it because of its config. So: signing configured + library missing = the process
+# REFUSES TO START, asserted by a test as a stated invariant.
+#
+# A range, not an exact pin, in the package: exact-pinning a runtime dependency of a
+# LIBRARY is hostile to every downstream that also depends on it (ND-040/U1's own
+# reasoning). CI pins the version, and the register records it -- process provenance
+# lives at the deployment layer, because Ed25519's OUTPUT cannot change with the
+# library (RFC 8032), so a version in per-row evidence would assert a dependence that
+# does not exist.
+signed = ["cryptography>=42,<48"]
 service = ["fastapi>=0.115", "uvicorn>=0.34"]
 otel = ["opentelemetry-api>=1.27"]
 # Everything under examples/ needs these. They are not runtime
@@ -44,7 +62,12 @@ litellm = ["litellm>=1.60"]
 # nobody touched the code. Bump it deliberately, as its own commit (ND-025).
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
-       "types-PyYAML>=6.0"]
+       "types-PyYAML>=6.0",
+       # PINNED, not ranged, unlike the [signed] extra: CI must be reproducible, and
+       # an unpinned crypto library makes a gate that can go red on a morning nobody
+       # touched the code -- the same argument that pins ruff. This is the version the
+       # register records (R038 §3): process provenance at the deployment layer.
+       "cryptography==46.0.4"]
 
 # ND-025. Lint rules are a decision, not a default. Without this block `ruff check`
 # lints against whatever rule set the newest ruff ships with, so a CI job can go red

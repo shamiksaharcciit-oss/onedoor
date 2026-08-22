@@ -15,6 +15,7 @@ from uuid import UUID
 
 from onedoor._vendor.canonical import canon_decimal
 from onedoor.guardrail import preimage as preimage_module
+from onedoor.guardrail import signing
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -110,6 +111,44 @@ def chaining_on(conn: sqlite3.Connection) -> bool:
     return row is not None and row["value"] == "1"
 
 
+SIGNING_KEY = "chain.signing_key_path"
+"""Where the deployer's private key lives, recorded in `config` when signing is enabled.
+
+The PATH, never the key. No private key material enters this database, this repository
+or any receipt (R037 §2).
+"""
+
+
+def _signing_key(conn: sqlite3.Connection) -> object | None:
+    """The loaded signing key for this store, or None when signing is off.
+
+    Cached on the connection: loading a PEM per row would be wasteful and, worse, would
+    make the signing identity re-derivable mid-run if the file changed underneath.
+    """
+    cached = getattr(conn, "_onedoor_signing_key", "unset")
+    if cached != "unset":
+        return cached
+    row = conn.execute("SELECT value FROM config WHERE key=?", (SIGNING_KEY,)).fetchone()
+    key = None if row is None else signing.load_private_key(str(row["value"]))
+    conn._onedoor_signing_key = key  # type: ignore[attr-defined]
+    return key
+
+
+def _sign(conn: sqlite3.Connection, values: dict[str, object]) -> None:
+    """Attach a signature over the row's hash, if this store signs.
+
+    Per-row over `row_hash` (R037 §2): the signature attests the sealed bytes and
+    nothing else, which is also why `sig`/`key_id`/`alg` are excluded from the preimage
+    -- a signature cannot precede the hash it attests.
+    """
+    key = _signing_key(conn)
+    if key is None:
+        return
+    values["sig"] = key.sign(str(values["row_hash"]))  # type: ignore[attr-defined]
+    values["key_id"] = key.key_id  # type: ignore[attr-defined]
+    values["alg"] = signing.ALGORITHM
+
+
 def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip) -> _Tip:
     """Fill `seq`, `prev_hash` and `row_hash` in place, and return the new tip.
 
@@ -126,6 +165,7 @@ def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip)
     values["prev_hash"] = tip.row_hash
     digest = preimage_module.row_hash(values)
     values["row_hash"] = digest
+    _sign(conn, values)
     return _Tip(seq=tip.seq + 1, row_hash=digest)
 
 
@@ -178,6 +218,9 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "opaque_class",
     "approval_ref_status",
     "preimage_version",
+    "sig",
+    "key_id",
+    "alg",
     "seq",
     "prev_hash",
     "row_hash",

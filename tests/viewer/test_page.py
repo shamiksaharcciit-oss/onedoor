@@ -383,3 +383,45 @@ def test_a_tampered_row_makes_the_viewer_refuse_to_show_it(
         )
 
     assert_failure_state_shown(build_page(conn))
+
+
+def test_a_self_consistent_signature_is_loud_and_is_not_green(
+    conn: Connection, config: EngineConfig, tmp_path: Path
+) -> None:
+    """R038 §1 reaching the person who reads the page.
+
+    The page must not render `self_consistent` as a pass. A green tick beside "matches
+    this store's own keyring" would be the viewer doing exactly what the rule forbids
+    the system to do — witnessing itself — and a reader would take the tick and leave
+    the sentence.
+    """
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from onedoor.guardrail import chain, signing
+
+    key_path = tmp_path / "viewer.pem"
+    key_path.write_bytes(
+        Ed25519PrivateKey.generate().private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+    with tx(conn):
+        chain.enable(conn, signing_key_path=str(key_path))
+    _seed(conn, config)
+
+    html = build_page(conn)
+    assert "self_consistent" in html
+    assert "supply a trusted key to verify" in html
+    assert "vstat partial" in html, "it needs its own class, neither ok nor bad"
+    assert "vstat ok'>self_consistent" not in html
+    assert signing.ALGORITHM  # the module is the one in play
+
+    # And the page still holds every other property.
+    for prop in ALL_PROPERTIES:
+        if prop.__code__.co_argcount == 2:
+            prop(html, conn)  # type: ignore[call-arg]
+        else:
+            prop(html)  # type: ignore[call-arg]

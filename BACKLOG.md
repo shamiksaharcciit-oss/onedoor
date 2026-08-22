@@ -414,7 +414,7 @@ assert the report is accepted and the reservation settles. Assert the audit gain
 PDP signs each verdict over the canonical form frozen in ND-001; PEPs and auditors
 verify. Needs a key-management story (generation, rotation, distribution,
 compromise) — the part that is easy to under-build.
-**DECOMPOSED** (R037 §2): `TICKETS-ND-015.md`. Custody is pre-settled by R037 (private key
+**BUILT, K1–K5** (R038 §5). `TICKETS-ND-015.md`; all three §5 questions ruled by R038. Custody is pre-settled by R037 (private key
 deployer-supplied and never in repo/DB/receipt; `key_id` a DERIVED fingerprint, never
 assigned; unknown key ⇒ **unverifiable**; rotation append-only, public keys are evidence;
 signing per-row over `row_hash`). **Adds no hashed column and needs no preimage version** —
@@ -555,7 +555,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0011` | **`ND-040`/U4 · R025** — `actions_audit.opaque_class`, so a verdict that rests on a declared opaque-host class names which class and which version of it | **written**, `0.4.x` (ND-040) |
 | `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **written**, `0.4.x` |
 | `0013` | **`ND-009` + R035 §1** — `approval_ref_status` (**hashed**, forcing `onedoor/row-preimage/2`) and `preimage_version` (an **excluded**, self-authenticating hint that lets `verify_chain` walk version transitions on live chains) | **written**, `0.4.x` |
-| `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **claimed**, not yet written |
+| `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **written**, `0.4.x` |
 | `0015`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by

@@ -79,6 +79,7 @@ def test_a_sound_receipt_reports_every_check(conn: Connection, config: EngineCon
         "budget_object",
         "policy_snapshot",
         "chain",
+        "signature",
         "append_only",
     ], "byte-form checks run before anything hashes (R028), and the order is the contract"
 
