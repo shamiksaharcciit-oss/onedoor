@@ -5,7 +5,23 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## Unreleased — `0.4.0` in progress
+## 0.4.0 — 2026-08-22
+
+**One breaking increment: breaking for archives and readers, not for PEP enforcement.**
+A `-00` enforcement point still denies correctly against this release — a PEP's
+behaviour is fixed by the verdict, never by the reason string. What changes is what
+the audit says, what the decide response carries, and the signature of
+`report_result`.
+
+**Upgrading:** run the engine once to apply migrations `0007`–`0009`; they are
+forward-only and add columns to `actions_audit` and `policy_versions`. Then, in order
+of how likely it is to touch you:
+
+1. `report_result(..., ok: bool)` is now `report_result(..., outcome: Outcome)`, and
+   `POST /v1/report` takes `"outcome"` instead of `"ok"`.
+2. Reason codes `cap_daily_rate` / `cap_eur_day` / `cap_eur_month` are gone; match on
+   `cap_rate` / `cap_value` and read the window from the new `budget` object.
+3. Your policy content-hash changes once even if your rules did not — see below.
 
 ### Changed — BREAKING for archives and readers, not for enforcement
 
