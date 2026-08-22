@@ -414,6 +414,25 @@ assert the report is accepted and the reservation settles. Assert the audit gain
 PDP signs each verdict over the canonical form frozen in ND-001; PEPs and auditors
 verify. Needs a key-management story (generation, rotation, distribution,
 compromise) — the part that is easy to under-build.
+**DECOMPOSED** (R037 §2): `TICKETS-ND-015.md`. Custody is pre-settled by R037 (private key
+deployer-supplied and never in repo/DB/receipt; `key_id` a DERIVED fingerprint, never
+assigned; unknown key ⇒ **unverifiable**; rotation append-only, public keys are evidence;
+signing per-row over `row_hash`). **Adds no hashed column and needs no preimage version** —
+`sig`/`key_id`/`alg` exist dark since `0007` and are already `EXCLUDED` with the reason.
+**Three findings.** *(1) The keyring is a trust-anchor problem, not a storage one:* a
+signature verified against a public key found in the same store as the data it signs proves
+internal consistency, not authenticity — an attacker with write access supplies both halves,
+which is R028's tautology-dressed-as-a-check one layer up. Append-only triggers do not close
+it (a keyring must accept INSERTs or rotation is impossible) and the chain does not either.
+*(2) This is onedoor's FIRST crypto dependency* — checked: the runtime deps are pydantic,
+pydantic-settings, pyyaml, tzdata, and the stdlib has no Ed25519. But the `ND-040`/U1 bar is
+met differently: U1 refused a dependency because **IDNA output changes between versions**,
+whereas **Ed25519 is deterministic per RFC 8032** — pinning here is supply-chain, not
+determinism. *(3) The no-key case is two cases:* `sig` NULL is **absent** (signing not in
+operation), a signature the verifier cannot check is **unverifiable**, and collapsing them
+would report reassurance. **Three questions** (§5): can a store ever say `verified` on its
+own; is signing an **X-6** alarm dependency (hard requirement vs extra); does `alg` record
+the algorithm only or the library too. K1's table shape, K2 and K4 unblocked.
 **Depends on:** ND-001 (canonical form), ND-005 (key layer).
 
 ### ND-016 — Action-bound signed permits · **M** 🔺 · AADP A10 (draft future work)
@@ -536,7 +555,8 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0011` | **`ND-040`/U4 · R025** — `actions_audit.opaque_class`, so a verdict that rests on a declared opaque-host class names which class and which version of it | **written**, `0.4.x` (ND-040) |
 | `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **written**, `0.4.x` |
 | `0013` | **`ND-009` + R035 §1** — `approval_ref_status` (**hashed**, forcing `onedoor/row-preimage/2`) and `preimage_version` (an **excluded**, self-authenticating hint that lets `verify_chain` walk version transitions on live chains) | **written**, `0.4.x` |
-| `0014`+ | unclaimed | — |
+| `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **claimed**, not yet written |
+| `0015`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

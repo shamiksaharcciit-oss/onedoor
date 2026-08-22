@@ -400,23 +400,48 @@ principal-scoped clause reads **partial** until an authenticated identity exists
 value is in the vocabulary and held unemitted by a test; the check is disclosed as
 awaiting `ND-004`/`ND-005` rather than implied to exist.
 
+### Resolved by Response 037 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-009` | **Accepted**, both required tests in — the version-boundary chain walk alongside the DoD concurrency test. Delivery's reading confirmed: **the version hint mattered more than the column it shipped beside** — `/3` is now an ordinary migration, and the epic's remaining tickets inherit a settled, guarded preimage rather than a window. |
+| `ND-015` custody | **Pre-settled by R037 §2**, so the decomposition relitigates none of it: private key **deployer-supplied**, never in repo/DB/receipt; **`key_id` derived** as a fingerprint of the public key, never assigned; an **unknown key is `unverifiable`** — never `failed`, never trusted; **rotation append-only** with a growing keyring, because public keys are evidence; signing **per-row over `row_hash`** under the standing AST guard. |
+
 ### Open
 
-**None, on either side**, as of Response 036 (2026-08-22). `ND-009`'s three questions
-are ruled and A1–A6 are built; `ND-052` is re-sequenced and recorded.
+**Delivery → core — THREE, from `ND-015`'s decomposition (`TICKETS-ND-015.md` §5).
+K1's table shape, K2 and K4 proceed meanwhile.**
 
-**One finding reported rather than asked**, because it needed a fix and not a ruling:
-`Decimal("250")` serialises to the JSON integer `250`, and `json.loads(...,
-parse_float=Decimal)` returns an **`int`** — `parse_float` never sees an integer. The
-stored side of an approval therefore carried `int` where the presented side carried
-`Decimal`, and action-equivalence reported `action_mismatch` for **every whole amount**.
-Safe (it refused to grant) but wrong. Numbers now render through `canon_decimal` and are
-**tagged**, so the number `250` cannot collide with the string `"250"` — the vendored
-artifact's rule 4 names that trap, and here it would fail permissively: the bounds gate
-that refuses a string amount never runs once a ref has granted.
+**1. Can a store ever report a signature as `verified` on its own?** A signature checked
+against a public key found in **the same store as the data it signs** proves internal
+consistency, not authenticity: an attacker with write access supplies both halves and
+hands you a store that verifies perfectly against itself — R028's *tautology dressed as
+a check*, one layer up. Append-only triggers do not close it (a keyring must accept
+`INSERT`s or rotation is impossible) and the chain does not either. Delivery proposes
+**no**: without an expected `key_id` supplied from outside, the honest outcome is
+`unverifiable`. Uncomfortable, because most systems would call it verified — which is
+why it is core's to rule.
 
-**Core → delivery:** none, as of Response 036 (2026-08-22). Next: `ND-015`, then
-`ND-017`; the `ND-052` Studio epic opens the day `ND-017` closes. `ND-001` is built (C1–C5),
+**2. Is signing an X-6 alarm dependency?** This is onedoor's **first** crypto
+dependency — the runtime requirements today are `pydantic`, `pydantic-settings`,
+`pyyaml`, `tzdata`, and the stdlib has no Ed25519. If signing is an alarm dependency it
+is a **hard requirement** for every install; if not, it is an extra and the design needs
+an explicit startup error for *"signing configured, library missing"* rather than a
+stream of unsigned rows. Delivery leans to **hard requirement**: a receipt product whose
+signatures are optional at install time will have deployments that believe they are
+signing and are not.
+
+**3. Does `alg` record the algorithm only, or the library version too?** Every other
+instrument here records its implementation (`canon_schema`, `snapshot_schema`,
+`unicode_version`) — but those all have **version-sensitive output**, and **Ed25519 does
+not**: RFC 8032 fully specifies it, so a correct implementation produces identical bytes
+forever. Delivery proposes **algorithm only**, because a library version in evidence
+would imply an output dependence that does not exist, and a misleading identity in a
+receipt is worse than none. Raised rather than assumed, because it departs from an
+otherwise uniform pattern.
+
+**Core → delivery:** none, as of Response 037 (2026-08-22). `ND-015` is decomposed;
+then `ND-017`, whose close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
