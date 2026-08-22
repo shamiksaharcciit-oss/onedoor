@@ -379,19 +379,45 @@ followed.
 | `ND-010` §7 | **R033 §3: a rebuilt row's `created_at` is its own write time, never backdated.** The ledger records when it *learned* a thing; lineage travels by reference; a rebuilt record never impersonates a live one. Same discipline as R030's register/sidecar split. |
 | `ND-010` R1–R5, `ND-009` | **GO.** |
 
+### Resolved by Response 034 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| `ND-010` | **Accepted as standing.** The rebuild forced no new question because its questions were asked at decomposition — *the decompose-first method working as intended, twice in one epic*. The rebuilt-record discipline (distinct type, own write time, lineage by reference) enters the record as the recovery-time shape. |
+| `ND-009` | **GO**, against settled semantics: single-use; an invalid or replayed ref **evaluates as if absent**, never an error path that leaks whether a ref existed; the **kill switch wins**; refs are **principal-scoped**; binding is **action-equivalence**, not a byte-identical request; `approval_ref_status` writes the seven-value evidence field. Where resumption meets `ND-010`'s rebuilt state, the E10 label discipline applies unchanged. |
+
 ### Open
 
-**None, on either side**, as of Response 033 (2026-08-22). Escalation 008 is sustained
-and its fix is in: `docs/row-preimage.md` cites `len8` from the Provenance Primitives
-Spec v1.1 §1 (Q-11) with the formula quoted inline, and a test asserts the quotation
-stays a quotation rather than decaying into a reference — because the previous citation
-did exactly that, and was a pointer at nothing for two memos. `ND-010`'s §7 is ruled and
-R1–R5 are built.
+**Delivery → core — THREE, all from `ND-009`'s decomposition (`TICKETS-ND-009.md` §6).
+A1, A2 and A6 proceed meanwhile.**
 
-**`ND-009` has not been started.** R033 §4 gave it GO in parallel; delivery built
-`ND-010` first and is reporting the order rather than implying both landed.
+**1. Does `ND-009` bump the row preimage to `/2`?** `approval_ref_status` is a new
+`actions_audit` column that records *why an approval did or did not authorise this
+action*. Flipping `expired` to `honored` is exactly the edit a chain exists to catch, so
+it cannot be `EXCLUDED` — it must be hashed, and hashing a new column is a new preimage
+version. **Free today**: chaining is opt-in and off, and no row has been sealed under
+`/1` outside this repository's tests. **Impossible once one deployer enables it**: the
+table forbids `UPDATE`, so sealed rows can never be re-hashed. If yes, delivery proposes
+bumping **once** and folding in anything else the epic already knows it needs.
 
-**Core → delivery:** none, as of Response 033 (2026-08-22). `ND-001` is built (C1–C5),
+**2. What is a principal?** R034 says refs are principal-scoped and §6 defines
+`principal_mismatch`, but onedoor has no authenticated per-caller identity:
+`session_id` is caller-supplied and arrives in the same untrusted body as the ref;
+`decided_by_session` is who *approved*; the API key is deployment-wide. Scoping to
+`session_id` is a check an attacker satisfies by copying a value. **Delivery will not
+ship a control that cannot hold.** Proposal: `principal_mismatch` is **reserved and
+never emitted** until an authenticated identity exists (`ND-004`/`ND-005`), held by a
+test exactly as `sender_mismatch` is — so the evidence vocabulary is complete in one
+increment without claiming a check that never ran.
+
+**3. Where is action-equivalence's boundary?** The draft binds the approval to the
+action's *effect identity*, not a byte-identical request. Delivery reads that as same
+`action_type` plus same resolved effect set — but effects are computed from `params`,
+so the difference between *same effects* and *same effects and same bounds-relevant
+params* is the difference between an approval that can be spent on a bigger transfer
+and one that cannot. Delivery will not guess that line.
+
+**Core → delivery:** none, as of Response 034 (2026-08-22). `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

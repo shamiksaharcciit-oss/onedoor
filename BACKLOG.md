@@ -348,6 +348,25 @@ draft; do not invent.**
   different principal is `unknown` for the verdict, `principal_mismatch` in evidence.
 **Introduces zero new reason codes ⇒ no longer depends on ND-002.** Can be built in
 parallel with the vocabulary release.
+**DECOMPOSED** (R034 §2): `TICKETS-ND-009.md`. Three findings, all checked against the
+schema rather than assumed. **(1) The evidence field collides with the frozen preimage:**
+`approval_ref_status` is a new `actions_audit` column, and it records *why an approval did
+or did not authorise this action* — flipping `expired` to `honored` is exactly the edit a
+chain exists to catch, so it must be **hashed**, which forces `onedoor/row-preimage/2`.
+**Free today** (chaining is opt-in and off; no row has been sealed under `/1` outside
+tests) and **impossible once one deployer enables it**. **(2) There is no principal:**
+`session_id` is caller-supplied and unauthenticated, `decided_by_session` is who approved,
+the API key is deployment-wide. Scoping a ref to `session_id` is a check an attacker
+satisfies by copying a value out of the same body. Proposal: `principal_mismatch` is
+reserved and never emitted until an authenticated identity exists, held by a test exactly
+as `sender_mismatch` is. **(3) Action-equivalence needs a boundary:** same `action_type`
+plus same resolved effect set is the reading, but effects are computed from `params`, so
+the line between *same effects* and *same effects and same bounds-relevant params* is the
+line between an approval that can be spent on a bigger transfer and one that cannot.
+**A1/A2/A6 unblocked; A3, A4's evidence half and A5 wait on the three rulings.**
+**Verified for R034's E10 note:** `params_raw` and `session_id` survive the approval
+round trip, so a resumed request keeps its received-bytes provenance with no special
+handling.
 **DoD extra:** a concurrency test — two simultaneous resumptions with the same
 `approval_ref` must yield exactly one execution.
 
