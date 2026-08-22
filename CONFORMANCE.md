@@ -1,7 +1,7 @@
 # CONFORMANCE.md — onedoor ↔ AADP
 
-**Implementation:** onedoor `0.4.0` (tag `v0.4.0`). Previous: `0.3.6`, published
-2026-08-21 with PyPI digests verified byte-identical to the build.
+**Implementation:** onedoor `0.4.0` — **published** 2026-08-22 (tag `v0.4.0` @ `5c50466`,
+PyPI, GitHub release). Artifact digests on PyPI verified byte-identical to the build.
 **Standard:** AADP Internet-Draft `draft-saha-aadp-01`
 **Test suite:** 135 passed at the `0.3.5` baseline; **175 passed / 8 skipped** on `main`
 at 2026-08-21 (Python 3.12, `pytest -q`, all four gates green)
@@ -284,9 +284,25 @@ certified and originals are requested.
 | Three constraints to cite | **E8 at the renderer** — shortest-exact, wire = storage = preimage, and the property tests assert the **tripartite equality**, not each leg separately. **R005 at the outcome** — settle on `success`/`failure`/`timeout`, release only on `not_attempted` as an audited event; settle-on-doubt is the invariant. **E11 at the envelope** — NULL receipt fields are *dark surface*, declared and governed from day one, and **a NULL meaning "not yet produced" must be distinguishable from one meaning "produced empty"**, now programme-wide in both directions. |
 | The double-miss | **Recorded, credited to this channel:** *tightening is not automatically conforming; a fix that overshoots is still a divergence.* With the honest mechanics — the permissive direction was tested thoroughly and the strict one not at all — and core's note that finding it on the other channel is why the programme runs two implementations of what it cares about. |
 
+### Resolved by Responses 016–023 (2026-08-21/22) — the `0.4.0` arc
+
+| Was | Ruling |
+|---|---|
+| Genesis `prev_hash` | **R016: the 64-zero sentinel** — an affirmative in-band statement that no predecessor exists, leaving NULL exactly one meaning. A `chain_state` column was refused as a second answer to a question `prev_hash` already answers (X-14); an id in a hash-typed field was refused as a kind violation. `-02` item 24. |
+| S2 (float bounds) | **R017: disclose against `≤0.3.6`, no `0.3.7`.** Magnitude supports a scheduled fix, the complete fix is W3, and a rushed backport is where a fix half-lands. Closed in `0.4.0`. |
+| S3 (`str(Decimal)` storage) | **Closed as assessed** — confined to stored text; four independent lines, structural then empirical, ending on the real engine at the exact boundary. |
+| `ND-040` reason code | **R013: `malformed`, no new vocabulary**, with the canonicalization failure recorded *distinctly in evidence*. `-02` item 23. Verified: `CheckId.MALFORMED` already existed and was already emitted. |
+| Policy-hash attributability | **R019: record the canonicalisation beside the hash.** Migration `0008`'s `snapshot_schema` — "renderer changed, rules did not" must be readable from the record, not from memory of when the upgrade happened. |
+| Suite runtime | **R020: ticket and diagnose before ship.** `ND-049`: measured, classified environmental-not-algorithmic, accepted with the AV hypothesis named as **unconfirmed**, revisit trigger = CI movement. |
+| `0.4.0` | **Shipped 2026-08-22.** A4 and A4b move to met; `tests/guardrail/test_report_outcome.py` is §implstatus's citable evidence, one test per clause of the disclosure sentence. |
+
 ### Open
 
-**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
+**None, on either side**, as of Response 023 (2026-08-22). Next: `ND-040` per R011,
+then the `0.4.x` line. Launch-facing work (a read-only, demo-grade receipt viewer)
+arrives as a new declaration from core.
+
+~~**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
 **Genesis `prev_hash` is ambiguous under R015's null-versus-empty rule.** `ND-001`
 starts the chain at a genesis row because existing rows cannot be retro-chained; that
 row has no predecessor to name, so `prev_hash` NULL would mean *both* "no predecessor

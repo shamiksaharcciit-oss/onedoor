@@ -18,7 +18,8 @@ locked with both of delivery's accuracy-check clarifications adopted (R014).
 `ND-003` + `ND-039`, one breaking increment, migration `0007`, `ND-040` immediately
 behind it per R011. **Decomposition written before the code: `TICKETS-0.4.0.md`** —
 it carries the work order, the `0007` column shape, the test plan, and seven findings
-from the code survey that the backlog did not name (four of them live defects). **W1–W7 are done — `0.4.0` is feature-complete:** the canonical renderer is vendored and pinned by property tests
+from the code survey that the backlog did not name (four of them live defects). **`0.4.0` RELEASED and published** 2026-08-22 — tag `v0.4.0` @ `5c50466`, on PyPI,
+GitHub release live, artifact digests verified byte-identical to the build. W1–W7: the canonical renderer is vendored and pinned by property tests
 over generated inputs; migration `0007` lands the row format including the whole
 receipt envelope dark; and Decimal now survives ingress → bounds → cost → reservation
 → settlement, which closes S2 (a live enforcement mis-decision) and S3; and W4 lands
@@ -26,7 +27,9 @@ the `aadp/0.2` vocabulary (`cap_rate`/`cap_value`, `sender_mismatch` reserved), 
 protocol stamp on every row, and R019's `snapshot_schema`. W5 lands the seven-field `budget` object, closing the day-vs-month granularity gap
 W4 deliberately opened; W6 lands the four-value outcome with outcome-dependent
 settlement, closing A4b; W7 lands the verbatim freeze with row-level provenance.
-Next: the ship, per the standing release rule.
+**Next: `ND-040`** — URL canonicalization before effect matching, per R011, with the
+reason code already ruled (`malformed`, no new vocabulary, failure recorded distinctly
+in evidence). Then the `0.4.x` line.
 
 > **Sequencing correction from the decomposition.** This backlog assigns vendoring
 > `canonical.py` to `ND-001` (`0.4.1`). That is the wrong order: `ND-002`'s row format
@@ -502,7 +505,7 @@ receipt entry shape is designed once at ND-001.
 | Release | Contents | AADP status change |
 |---|---|---|
 | `0.3.6` | ND-021, ND-024, ND-025, ND-036 | **Shipped 2026-08-21.** LiteLLM enforcement point ❌ → ✅ *example, conformant*. §implstatus revised. Known-evasion disclosure for `ND-040` published with the release. |
-| `0.4.0` | ND-002, ND-003, ND-039 | **Breaking for archives and readers, not for PEP enforcement.** Reason codes → `cap_rate`/`cap_value`; `sender_mismatch` reserved; `budget` object added and persisted; `reason` on the report response; protocol → **`aadp/0.2`**; `protocol` column on the audit; report outcome reworked to the four-value vocabulary with outcome-dependent settlement (`ND-039`); obligation surface landed **dark** (conformance catch-up, already normative in `-00`); **receipt envelope migrated with later fields present-but-empty** so `0.4.1` does not re-migrate. A4 closed. Ping core. |
+| `0.4.0` | ND-002, ND-003, ND-039 — **shipped 2026-08-22** | **Breaking for archives and readers, not for PEP enforcement.** Reason codes → `cap_rate`/`cap_value`; `sender_mismatch` reserved; `budget` object added and persisted; `reason` on the report response; protocol → **`aadp/0.2`**; `protocol` column on the audit; report outcome reworked to the four-value vocabulary with outcome-dependent settlement (`ND-039`); obligation surface landed **dark** (conformance catch-up, already normative in `-00`); **receipt envelope migrated with later fields present-but-empty** so `0.4.1` does not re-migrate. A4 closed. Ping core. |
 | `0.4.1` | ND-001, ND-010 | P1 (Veto parity, partial). Tamper-evidence claim becomes true. Gated on **E8**. |
 | `0.5.0` | ND-004, ND-005, ND-038, ND-008, ND-009 | A1, A2, A3, A6, A9a closed. The largest conformance jump. **Breaking unless E11 reserves the obligation surface in `0.4.0`** — `not_attempted` and discharge evidence are wire-observable. Core handles §implstatus centrally — ping on release. |
 
