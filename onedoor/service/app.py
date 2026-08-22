@@ -42,7 +42,7 @@ from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from onedoor.guardrail import approvals, killswitch, policy_loader
@@ -50,6 +50,7 @@ from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, repo
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Budget, Decision, Outcome, Source
+from onedoor.guardrail.received import extract_raw_member
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
 from onedoor.store.clock import now_utc
@@ -157,6 +158,22 @@ class EngineState:
         self.notifier: Notifier = build_notifier()
 
 
+async def raw_params(request: Request) -> str | None:
+    """The verbatim source text of `params` from the request body (E10).
+
+    An async dependency, deliberately: the endpoint stays synchronous so FastAPI runs
+    it in a threadpool and the engine's threading lock never blocks the event loop,
+    while the dependency still gets to await the raw body. Returns None if the body
+    is not a plain JSON object with a top-level `params` -- an approximate answer
+    would be recorded as *verbatim*, which is worse than recording nothing.
+    """
+    body = await request.body()
+    try:
+        return extract_raw_member(body.decode("utf-8"), "params")
+    except UnicodeDecodeError:
+        return None
+
+
 def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
     if isinstance(outcome, PermittedIntent):
         state.pending[outcome.intent_audit_id] = outcome
@@ -196,7 +213,11 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         return {"status": "ok", "kill_switch": killed, "pending_intents": len(state.pending)}
 
     @app.post("/v1/decide", response_model=DecideReply)
-    def decide(body: DecideBody, _key: str = Depends(require_decide)) -> DecideReply:
+    def decide(
+        body: DecideBody,
+        _key: str = Depends(require_decide),
+        params_raw: str | None = Depends(raw_params),
+    ) -> DecideReply:
         now = now_utc()
         request = ActionRequest(
             request_id=body.request_id or uuid4(),
@@ -204,6 +225,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             params=body.params,
             source=body.source,
             rationale=body.rationale or f"service decide {body.action_type}",
+            params_raw=params_raw,
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:

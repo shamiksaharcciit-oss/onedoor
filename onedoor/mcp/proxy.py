@@ -46,6 +46,7 @@ from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Outcome, Source
+from onedoor.guardrail.received import extract_raw_member
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
@@ -144,15 +145,25 @@ class Proxy:
         )
         return resp
 
-    def handle_tools_call(self, msg: dict[str, Any]) -> dict[str, Any]:
+    def handle_tools_call(self, msg: dict[str, Any], raw_line: str | None = None) -> dict[str, Any]:
         params = msg.get("params", {})
         tool = params.get("name", "")
         args = params.get("arguments", {}) or {}
         now = now_utc()
+        # Freeze the arguments exactly as the host sent them (E10). They sit at
+        # params.arguments, so the extractor composes: the top-level member first,
+        # then the member inside it. If either step cannot be done exactly, the
+        # result is None and the row records `serialized` rather than claiming
+        # bytes it does not have.
+        raw_args = None
+        if raw_line is not None:
+            outer = extract_raw_member(raw_line, "params")
+            raw_args = extract_raw_member(outer, "arguments") if outer else None
         request = ActionRequest(
             request_id=uuid4(),
             action_type=f"{ACTION_PREFIX}{tool}",
             params=args,
+            params_raw=raw_args,
             source=Source.LLM,
             rationale=f"mcp tools/call {tool}",
             created_at=now,
@@ -232,7 +243,7 @@ class Proxy:
             msg = json.loads(line, parse_float=Decimal)
             method = msg.get("method")
             if method == "tools/call":
-                resp = self.handle_tools_call(msg)
+                resp = self.handle_tools_call(msg, raw_line=line)
             elif method == "onedoor/approve":
                 resp = self.handle_approve(msg)
             elif method == "onedoor/kill":

@@ -22,8 +22,24 @@ from onedoor.guardrail.models import (
     PolicyDecision,
     Tier,
 )
+from onedoor.guardrail.received import Provenance
 from onedoor.store.clock import from_iso, now_utc, to_iso
 from onedoor.store.db import tx
+
+
+def frozen_params(request: ActionRequest) -> tuple[str, str]:
+    """The bytes to store for `params`, and how they came to be (E10 / R004).
+
+    Received bytes are stored EXACTLY as sent -- not parsed, not re-serialized, not
+    canonicalised. `250.00` stays `250.00`, because the record must show what the
+    enforcement point transmitted rather than what this PDP would have written.
+    Only when no bytes were received (the in-process binding) does the PDP serialize,
+    once, and say so.
+    """
+    if request.params_raw is not None:
+        return request.params_raw, Provenance.RECEIVED.value
+    return dumps_json_value(request.params), Provenance.SERIALIZED.value
+
 
 AADP_PROTOCOL = "aadp/0.2"
 """The wire vocabulary every row written by this PDP is stamped with (ND-002/E6).
@@ -97,20 +113,22 @@ def append(
     """
     row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
     policy_version = row["version_hash"] if row else None
+    params_bytes, params_provenance = frozen_params(request)
     cur = conn.execute(
         "INSERT INTO actions_audit ("
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol, budget_json, outcome"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol, budget_json, outcome,"
+        " params_provenance, payload_provenance"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             str(request.request_id),
             kind,
             parent_id,
             request.action_type,
             request.source.value,
-            dumps_json_value(request.params),
+            params_bytes,
             decision.decision.value,
             decision.reason_code.value,
             int(decision.nominal_tier),
@@ -130,6 +148,11 @@ def append(
             # re-derivable from the evidence store alone.
             None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
             outcome,
+            params_provenance,
+            # A payload is produced by the enforcement point after acting, and every
+            # packaged PEP hands us objects rather than bytes, so it is serialized
+            # here. If a PEP ever forwards raw payload bytes this becomes RECEIVED.
+            None if payload is None else Provenance.SERIALIZED.value,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -164,15 +187,16 @@ def append_expiry(
         " request_id, kind, parent_id, action_type, source, params_json,"
         " decision, reason_code, nominal_tier, effective_tier, detail,"
         " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol, budget_json"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " policy_version, protocol, budget_json, outcome,"
+        " params_provenance, payload_provenance"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             intent_row["request_id"],
             kind,
             int(intent_row["id"]),
             intent_row["action_type"],
             intent_row["source"],
-            intent_row["params_json"],
+            intent_row["params_json"],  # already-frozen bytes; never re-serialized
             Decision.FAILED.value,
             reason.value,
             int(intent_row["nominal_tier"]),
@@ -189,6 +213,11 @@ def append_expiry(
             AADP_PROTOCOL,
             # No budget: a reclamation row records a permit whose deadline passed, not
             # a cap denial. ND-003's object is present iff the verdict IS the cap.
+            None,
+            None,
+            # The params bytes are copied verbatim from the intent row, so this row
+            # inherits that row's provenance rather than claiming one of its own.
+            intent_row["params_provenance"] if "params_provenance" in intent_row.keys() else None,
             None,
         ),
     )
@@ -326,6 +355,7 @@ def append_buffered(
         )
     row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
     buf.keys.add(key)
+    params_bytes, params_provenance = frozen_params(request)
     buf.rows.append(
         (
             str(request.request_id),
@@ -333,7 +363,7 @@ def append_buffered(
             parent_id,
             request.action_type,
             request.source.value,
-            dumps_json_value(request.params),
+            params_bytes,
             decision.decision.value,
             decision.reason_code.value,
             int(decision.nominal_tier),
@@ -350,6 +380,8 @@ def append_buffered(
             AADP_PROTOCOL,
             None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
             outcome,
+            params_provenance,
+            None if payload is None else Provenance.SERIALIZED.value,
         )
     )
     if event_topic is not None and event_payload is not None:
@@ -369,8 +401,9 @@ def flush(conn: sqlite3.Connection) -> int:
             " request_id, kind, parent_id, action_type, source, params_json,"
             " decision, reason_code, nominal_tier, effective_tier, detail,"
             " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
-            " created_at, policy_version, protocol, budget_json, outcome"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " created_at, policy_version, protocol, budget_json, outcome,"
+            " params_provenance, payload_provenance"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         if events:

@@ -272,6 +272,14 @@ class ActionRequest(BaseModel):
     cost_eur: Decimal = Decimal(0)
     created_at: datetime
     parent_audit_id: int | None = None
+    params_raw: str | None = None
+    """The verbatim source text of `params` as the enforcement point sent it (E10).
+
+    Set only by ingress paths that actually receive bytes -- the HTTP service and the
+    MCP proxy. The in-process binding is handed objects and leaves this None, which
+    is what makes the two cases distinguishable in the evidence row rather than
+    guessed at. Never derived from `params`: a value reconstructed here would be a
+    PDP serialization wearing the label "received"."""
 
     @field_validator("params", mode="before")
     @classmethod

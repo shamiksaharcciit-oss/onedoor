@@ -17,6 +17,19 @@ onedoor is the reference implementation of the AADP Internet-Draft
   PEP's behaviour is fixed by the verdict, never by the reason string, so an older PEP
   that has never heard of `cap_value` still denies correctly. **If you match on reason
   strings in dashboards or alerts, they change here.**
+- **Received params are stored verbatim; generated structures are canonicalised.**
+  The `parse → json.dumps(default=str)` round trip is gone. When an enforcement point
+  sends bytes — over HTTP or the MCP proxy — the audit row stores *those* bytes:
+  `250.00` stays `250.00`, because the record must show what was transmitted, not
+  what this PDP would have written. The in-process binding is handed objects and has
+  no sender's bytes, so it serialises once, canonically, at ingress. **Which of the
+  two produced a row is recorded** (`params_provenance`: `received` | `serialized`,
+  migration `0009`) rather than inferred — a `received` row can be re-derived against
+  what the caller sent, a `serialized` one only against what this PDP produces, and
+  letting the second pass for the first is the thing the column prevents. **NULL means
+  unknown**: rows written before `0.4.0` were neither verbatim nor canonical, and
+  inferring either for them would be inventing evidence. There is deliberately no
+  `received_digest` column — the bytes are stored, so the digest is derivable.
 - **`report_result` takes a four-value `outcome`, not `ok: bool` — BREAKING for
   enforcement points.** `success | failure | timeout | not_attempted`, and
   `/v1/report` accepts the wire `outcome` field (already normative in `-00`, so this
