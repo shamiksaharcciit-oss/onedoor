@@ -344,33 +344,44 @@ protection, it is a default.**
 | The chain block's label | **R030 §3: "not yet in operation", never "not yet produced"** — so absent-by-schedule is never readable as broken. |
 | The crypto epic | **R030 §4: GO.** `ND-001` decomposition first, `ND-010` behind it, `ND-009` in parallel. |
 
+### Resolved by Response 031 (2026-08-22) — the preimage
+
+| Was | Ruling |
+|---|---|
+| C1's absent-versus-empty encoding | **R031 §1: length-prefixing, with the encoding fully determined.** Absent is a **type tag, never a zero-length string** — NULL and `""` must produce different preimage bytes. Field order declared once with golden vectors (shift collision, absent-vs-empty, delimiter bytes, one-byte perturbation). **E10 at the boundary:** the preimage seals what the row holds and performs no normalisation of its own. Delivery's reasoning — *`params_json` is received data and a caller may be actively trying to collide two rows* — is named as why this gets adversarial rigor. |
+| C2–C5 | **R031 §2: GO**, and holding the writer until its bytes were defined is confirmed as the right read. `verify_chain()` holds a broken link, an absent chain and an unverifiable row apart as **three verdicts, not one**. |
+
+**Delivery note on §1.2, reported rather than glossed:** the memo directs delivery to
+follow *"the vendored artifact's uid-preimage convention"*. **`reference/rederivable-manifest/`
+carries no length-prefix dialect** — no `struct`, no `to_bytes`, no packing anywhere in
+it, checked rather than assumed; its six frozen rules cover decimals, datetimes,
+strings, JSON, digests and RFC 6962. So the extension is the whole encoding, written
+down in `docs/row-preimage.md` §1 under R031's own *"extend it explicitly and write the
+extension down"*, and built on the one byte-level discipline the artifact does ratify —
+rule 6's domain-separation tags. Saying so beats quietly implying a dialect was
+followed.
+
 ### Open
 
-**Delivery → core — ONE, and it blocks `ND-001`'s first work item only.**
+**None blocking.** C1's question is ruled (R031 §1) and C1–C5 are built. Two things
+delivery reports rather than assumes, neither needing an answer to proceed:
 
-**How does the chain preimage distinguish an absent column from an empty one?**
-(`TICKETS-ND-001.md` §7.) `budget_json` NULL means *no budget was owed*; `budget_json`
-`""` would mean *a budget was produced and it was empty*. Under R015 those are
-different facts — and once a row is chained the distinction is frozen into a digest a
-third party recomputes years later, on a table whose triggers forbid `UPDATE`. There is
-no second chance at a preimage.
+1. **§1.2's convention does not exist in the artifact it names** — see the note above.
+   The extension is written down; if core intended a dialect from elsewhere in the
+   programme, the encoding can still be changed *only until the first chained row is
+   written in a store that matters*, and nothing has enabled chaining outside tests.
+2. **The decomposition's "both paths produce identical `row_hash` values" was wrong,
+   and the test caught it.** Group commit defers result rows, so the ledger's row order
+   differs between paths and the chains differ with it — that is what group commit is,
+   not drift. The invariant that holds, and the one N2's decision needs, is that the
+   preimage does not depend on which path wrote the row. Both are now asserted: the
+   reordering explicitly, the invariant by holding the position-determined fields fixed
+   and comparing content.
 
-Three shapes delivery can see: a **type tag** per field; a **sentinel** that cannot
-occur in the data; or **length-prefixed fields** (`-1` absent, `0` empty). Delivery
-leans to length-prefixing, because `params_json` is *received* data and the preimage
-must stay unambiguous while a caller is actively trying to make two different rows hash
-the same — which rules out any sentinel that could appear in a payload. **Core's to
-rule**, because `ND-017`'s `E` digest inherits this preimage. `C1` does not start
-without it; `C2`–`C5` are unblocked.
-
-The `ND-051` question is **closed by R030 §2**: an unfootered artifact is *absent — no
-integrity claim*, and a digest we compute over one is an *observation* in the sidecar,
-dated, never in the register.
-
-**Core → delivery:** none, as of Response 030 (2026-08-22). `ND-051` is accepted and
-shipped; the crypto epic is open — `ND-001` decomposed, `ND-010` behind it, `ND-009` in
-parallel; `ND-052`, the Policy Studio, is ticketed and sequenced after it with no code
-before launch.
+**Core → delivery:** none, as of Response 031 (2026-08-22). `ND-001` is built (C1–C5),
+chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
+parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
+after the epic with no code before launch.
 
 ~~**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
 **Genesis `prev_hash` is ambiguous under R015's null-versus-empty rule.** `ND-001`

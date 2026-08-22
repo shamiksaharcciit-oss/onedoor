@@ -248,8 +248,12 @@ dark exactly so P1 would not re-migrate an append-only table; `0012` is an index
 this check**: `receipt.py::_check_chain` returns `absent` today, so `ND-001` flips one
 function and the viewer changes not at all. **Group commit (N2) is decided, not deferred:**
 chain inside `flush` before the `executemany`, with both paths asserted to produce identical
-`row_hash` values. **Blocked on one ruling** — how the preimage distinguishes an absent
-column from an empty one (§7); everything else in the work order is unblocked.
+`row_hash` values. **RULED (R031 §1) and BUILT, C1–C5:** length-prefixing with `ABSENT` as a type tag,
+specified in `docs/row-preimage.md` and cross-checked by a second implementation built
+from that document. Chaining is opt-in via `chain.enable()`; `verify_chain()` reports per
+region and holds `verified`/`absent`/`unverifiable`/`failed` apart. **The viewer needed no
+change** — `_check_chain` flipped and the page rendered real digests, which is the
+acceptance test for the single-verification rule.
 **DoD extra:** a tamper test — mutate a row via a direct SQLite write with triggers
 bypassed, assert `verify_chain()` localises the break to that row.
 
@@ -495,7 +499,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0009` | **`ND-002`/W7** — `params_provenance` / `payload_provenance`, so received-verbatim is distinguishable from PDP-serialized | **written**, `0.4.0` |
 | `0010` | **`ND-040`/U3 · R013** — `actions_audit.malformed_kind` / `canon_schema`, so a `malformed` denial says which malformed it was and under which canonicalization | **written**, `0.4.x` (ND-040) |
 | `0011` | **`ND-040`/U4 · R025** — `actions_audit.opaque_class`, so a verdict that rests on a declared opaque-host class names which class and which version of it | **written**, `0.4.x` (ND-040) |
-| `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **claimed**, not yet written |
+| `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **written**, `0.4.x` |
 | `0013`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by

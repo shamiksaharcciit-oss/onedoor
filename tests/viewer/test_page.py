@@ -28,6 +28,7 @@ from tests.viewer.assertions import (
     ALL_PROPERTIES,
     PropertyViolation,
     assert_every_displayed_budget_number_matches_the_store,
+    assert_every_displayed_digest_is_in_the_store,
     assert_failure_state_shown,
     assert_sound_receipt_shows_its_values,
 )
@@ -325,3 +326,60 @@ def test_the_budget_renders_the_stored_canonical_form(
     html = build_page(conn)
     for key in ("limit", "consumed", "remaining"):
         assert f">{budget[key]}</span>" in html
+
+
+def test_the_viewer_needs_no_change_when_the_chain_comes_alive(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The acceptance test for the single-verification rule (ND-001 / C4).
+
+    The viewer was written while `row_hash` was NULL on every row and the chain block
+    rendered the absent state. `ND-001` fills those columns and flips `_check_chain`
+    from `absent` to `verified` — and this page, unchanged, now renders the digests.
+    Not one line of `page.py` or `tokens.py` moved.
+
+    That is what "one verification, and the viewer does not own it" buys. Had the
+    renderer carried its own idea of what a chain looks like, this ticket would have
+    had to edit it, and the two would have started to drift on the day they were most
+    load-bearing.
+    """
+    from onedoor.guardrail import chain
+
+    _seed(conn, config)
+    assert "chain not yet in operation" in build_page(conn)
+
+    with tx(conn):
+        chain.enable(conn)
+    _seed(conn, config)
+
+    html = build_page(conn)
+    assert "chain not yet in operation" not in html
+    assert "contents re-derived" in html
+    hero = hero_decision(conn)
+    assert hero is not None
+    assert hero["row_hash"] in html, "the real digest is on the page now"
+    assert_every_displayed_digest_is_in_the_store(html, conn)
+    assert_sound_receipt_shows_its_values(html)
+
+
+def test_a_tampered_row_makes_the_viewer_refuse_to_show_it(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """And the failure state arrives without the page knowing what a chain is."""
+    from onedoor.guardrail import chain
+
+    with tx(conn):
+        chain.enable(conn)
+    _seed(conn, config)
+    hero = hero_decision(conn)
+    assert hero is not None
+
+    with tx(conn):
+        conn.execute("DROP TRIGGER actions_audit_no_update")
+        conn.execute("UPDATE actions_audit SET detail='edited' WHERE id=?", (hero["id"],))
+        conn.execute(
+            "CREATE TRIGGER actions_audit_no_update BEFORE UPDATE ON actions_audit "
+            "BEGIN SELECT RAISE(ABORT, 'actions_audit is append-only'); END"
+        )
+
+    assert_failure_state_shown(build_page(conn))

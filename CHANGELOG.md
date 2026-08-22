@@ -7,6 +7,63 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-001`: hash-chained audit entries
+
+Each audit row now hashes its own contents plus its predecessor's hash, so a deletion
+or an in-place edit breaks the chain and a walker localises the break to the row that
+moved. **Off until switched on** — `chain.enable()` is a deliberate, once-only,
+recorded act, and an upgrade alone changes nothing.
+
+**The preimage is the ticket, and it is frozen.** `docs/row-preimage.md` defines the
+exact bytes `row_hash` covers, written so an implementer with no access to the source
+can reproduce every digest from that text alone. `tests/guardrail/test_row_preimage.py`
+holds **a second implementation built from the document rather than from the code** —
+an implementation that agrees with itself has proved nothing — plus the four golden
+vectors R031 §1.3 named: the shift collision, absent-versus-empty, a value containing
+the framing's own header bytes, and a one-byte perturbation.
+
+- **Absent is a type tag, never a zero-length string.** Every field enters as an
+  `ABSENT` tag with no payload, or `PRESENT` + an 8-byte big-endian length + the bytes.
+  NULL and `""` differ in their **first byte**. `budget_json` NULL means *no budget was
+  owed* and `""` would mean *a budget was produced and it was empty*; R015 makes those
+  different facts, and this is where an adversary would look for the collapse.
+- **The vendored artifact carries no length-prefix dialect**, checked rather than
+  assumed — no `struct`, no `to_bytes`, no packing anywhere in it. So the encoding is
+  written down in full as R031 required, built on the one byte-level discipline the
+  artifact does ratify: RFC 6962's domain-separation tags.
+- **A column is hashed or deliberately excluded, never neither.** A test asserts every
+  column of `actions_audit` appears in the field order or in the exclusion table with
+  its reason, so a future migration fails until someone classifies the new column. A
+  column that silently fell outside the hash would be a field an attacker could edit
+  without breaking the chain, and it would look complete in review.
+
+**Group commit is kept, not refused** (N2). The chain is stitched inside `flush`
+before the `executemany`. Refusing it would have made a performance feature and an
+integrity feature mutually exclusive, and every deployer wanting both would quietly
+disable the one that is harder to notice missing. **Measured consequence, stated
+because the decomposition first claimed otherwise:** buffering defers result rows, so
+the ledger's *row order* differs between the two paths and their chains differ with
+it. That is what group commit is. The invariant that holds — and the one the decision
+needs — is that **the preimage does not depend on which path wrote the row**.
+
+**Verification reports four outcomes and never averages them.** A log with an
+unchained prefix and an intact chain after genesis is not "verified" and not "failed";
+it is both, stated per region. Rows before genesis are `absent` — they cannot be
+hashed retroactively because the table forbids `UPDATE`, and that is history rather
+than damage. A chain that is partly written is `unverifiable`. A row whose contents no
+longer hash to its record is `failed`, localised to itself rather than poisoning every
+row after it.
+
+**The viewer did not change.** `ND-051` rendered the chain block's absent state naming
+this ticket; `ND-001` fills the columns, `_check_chain` flips from `absent` to
+`verified`, and the page renders real digests with **not one line of `page.py`
+edited** — asserted as a test. That is what "one verification, and the viewer does not
+own it" was for.
+
+**Upgrading:** migration `0012` adds a `UNIQUE` index on `seq` so the database refuses
+a duplicate chain ordinal rather than leaving it to the walker. Index only — the chain
+*columns* have existed since `0007`. Existing rows are untouched and stay unchained.
+
 ### Added — `ND-051`: the receipt viewer
 
 `python -m onedoor.viewer --store <path> --out <page.html>` reads an audit store and

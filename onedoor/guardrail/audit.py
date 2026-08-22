@@ -10,9 +10,11 @@ import json
 import sqlite3
 from datetime import datetime
 from decimal import Decimal
+from typing import NamedTuple
 from uuid import UUID
 
 from onedoor._vendor.canonical import canon_decimal
+from onedoor.guardrail import preimage as preimage_module
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -88,6 +90,125 @@ def dumps_json_value(value: object) -> str:
     return json.dumps(value, default=str)
 
 
+CHAIN_ENABLED_KEY = "chain.enabled"
+"""The one key that says whether rows are chained.
+
+Declared here and re-exported by `chain.py` rather than spelled in both -- two string
+constants that must agree is X-14's shape, and a chain that writes under one key while
+a verifier reads another would report every row as unchained while the store was full
+of hashes.
+
+Until `chain.enable()` sets it, every row's chain columns stay NULL and the engine
+behaves exactly as it did. Chaining is an opt-in, audited, once-only event, not
+something a deployment acquires by upgrading.
+"""
+
+
+def chaining_on(conn: sqlite3.Connection) -> bool:
+    row = conn.execute("SELECT value FROM config WHERE key=?", (CHAIN_ENABLED_KEY,)).fetchone()
+    return row is not None and row["value"] == "1"
+
+
+def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip) -> _Tip:
+    """Fill `seq`, `prev_hash` and `row_hash` in place, and return the new tip.
+
+    MUST be called inside the caller's `BEGIN IMMEDIATE`. That is not a comment, it is
+    the chain's whole correctness argument: `tx()` takes the write lock at entry, so
+    between reading the tip and writing the successor no other connection can insert.
+    Outside a transaction, two appends could read the same tip and both claim it as
+    their predecessor, and the fork would be invisible until a verifier walked it.
+
+    Threading the tip through rather than re-reading it per row is what lets the
+    buffered path chain a batch: `flush` reads once and stamps in order.
+    """
+    values["seq"] = tip.seq + 1
+    values["prev_hash"] = tip.row_hash
+    digest = preimage_module.row_hash(values)
+    values["row_hash"] = digest
+    return _Tip(seq=tip.seq + 1, row_hash=digest)
+
+
+class _Tip(NamedTuple):
+    """The last chained row: its ordinal and its hash."""
+
+    seq: int
+    row_hash: str
+
+
+def _read_tip(conn: sqlite3.Connection) -> _Tip:
+    """The chain's current end, or the genesis position when nothing is chained yet."""
+    row = conn.execute(
+        "SELECT seq, row_hash FROM actions_audit WHERE seq IS NOT NULL ORDER BY seq DESC LIMIT 1"
+    ).fetchone()
+    if row is None:
+        # seq 0 is the position BEFORE the first chained row, so the first row gets
+        # seq 1 and prev_hash = the ruled genesis sentinel.
+        return _Tip(seq=0, row_hash=preimage_module.GENESIS_PREV_HASH)
+    return _Tip(seq=int(row["seq"]), row_hash=str(row["row_hash"]))
+
+
+_INSERT_COLUMNS: tuple[str, ...] = (
+    "request_id",
+    "kind",
+    "parent_id",
+    "action_type",
+    "source",
+    "params_json",
+    "decision",
+    "reason_code",
+    "nominal_tier",
+    "effective_tier",
+    "detail",
+    "connector_ok",
+    "error",
+    "payload_json",
+    "approval_id",
+    "undo_until",
+    "undo_of",
+    "created_at",
+    "policy_version",
+    "protocol",
+    "budget_json",
+    "outcome",
+    "params_provenance",
+    "payload_provenance",
+    "malformed_kind",
+    "canon_schema",
+    "opaque_class",
+    "seq",
+    "prev_hash",
+    "row_hash",
+)
+"""Every column an append writes.
+
+Named columns and named placeholders, deliberately. The positional form this replaced
+carried a 27-item column list beside a 27-item value tuple, and getting them out of
+step is not a hypothetical: it happened twice while building `0.4.x` -- once producing
+`sqlite3.ProgrammingError: statement uses 26, 24 supplied`, once silently shifting a
+value into the wrong column. Two lists that must agree, which X-14 has a name for.
+"""
+
+_INSERT_SQL = (
+    f"INSERT INTO actions_audit ({', '.join(_INSERT_COLUMNS)}) "
+    f"VALUES ({', '.join(':' + c for c in _INSERT_COLUMNS)})"
+)
+
+
+def _blank_row() -> dict[str, object]:
+    """Every insertable column, NULL. Callers fill what they mean and nothing else.
+
+    Starting from a complete blank rather than from a partial dict is what makes a
+    forgotten column a NULL -- an honest absence the preimage encodes as ABSENT --
+    instead of a KeyError at insert time or, worse, a value landing in a neighbour.
+    """
+    return dict.fromkeys(_INSERT_COLUMNS, None)
+
+
+def _insert(conn: sqlite3.Connection, values: dict[str, object]) -> int:
+    cur = conn.execute(_INSERT_SQL, values)
+    return int(cur.lastrowid or 0)
+
+
 def append(
     conn: sqlite3.Connection,
     request: ActionRequest,
@@ -114,55 +235,98 @@ def append(
     policy table is upserted in place; without this stamp, editing policy silently
     destroys the ability to check any earlier decision.
     """
-    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
-    policy_version = row["version_hash"] if row else None
+    values = _row_values(
+        conn,
+        request,
+        decision,
+        kind=kind,
+        now=now,
+        parent_id=parent_id,
+        connector_ok=connector_ok,
+        error=error,
+        payload=payload,
+        approval_id=approval_id,
+        undo_until=undo_until,
+        undo_of=undo_of,
+        outcome=outcome,
+        malformed_kind=malformed_kind,
+        canon_schema=canon_schema,
+        opaque_class=opaque_class,
+    )
+    if chaining_on(conn):
+        _stamp_chain(conn, values, _read_tip(conn))
+    return _insert(conn, values)
+
+
+def _row_values(
+    conn: sqlite3.Connection,
+    request: ActionRequest,
+    decision: PolicyDecision,
+    *,
+    kind: str,
+    now: datetime,
+    parent_id: int | None = None,
+    connector_ok: bool | None = None,
+    error: str | None = None,
+    payload: dict[str, JsonValue] | None = None,
+    approval_id: int | None = None,
+    undo_until: datetime | None = None,
+    undo_of: int | None = None,
+    outcome: str | None = None,
+    malformed_kind: str | None = None,
+    canon_schema: str | None = None,
+    opaque_class: str | None = None,
+) -> dict[str, object]:
+    """One row's column values, shared by the immediate and buffered paths.
+
+    Both paths building the same row from one function is what makes the chain
+    testable: the buffered and unbuffered routes must produce IDENTICAL `row_hash`
+    values for the same sequence of appends, and they cannot if each assembles its own
+    idea of what a row contains.
+    """
+    stamp = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
     params_bytes, params_provenance = frozen_params(request)
-    cur = conn.execute(
-        "INSERT INTO actions_audit ("
-        " request_id, kind, parent_id, action_type, source, params_json,"
-        " decision, reason_code, nominal_tier, effective_tier, detail,"
-        " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol, budget_json, outcome,"
-        " params_provenance, payload_provenance, malformed_kind, canon_schema,"
-        " opaque_class"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (
-            str(request.request_id),
-            kind,
-            parent_id,
-            request.action_type,
-            request.source.value,
-            params_bytes,
-            decision.decision.value,
-            decision.reason_code.value,
-            int(decision.nominal_tier),
-            int(decision.effective_tier),
-            decision.detail,
-            None if connector_ok is None else int(connector_ok),
-            error,
-            None if payload is None else dumps_json_value(payload),
-            approval_id,
-            to_iso(undo_until) if undo_until else None,
-            undo_of,
-            to_iso(now),
-            policy_version,
-            AADP_PROTOCOL,
+    values = _blank_row()
+    values.update(
+        {
+            "request_id": str(request.request_id),
+            "kind": kind,
+            "parent_id": parent_id,
+            "action_type": request.action_type,
+            "source": request.source.value,
+            "params_json": params_bytes,
+            "decision": decision.decision.value,
+            "reason_code": decision.reason_code.value,
+            "nominal_tier": int(decision.nominal_tier),
+            "effective_tier": int(decision.effective_tier),
+            "detail": decision.detail,
+            "connector_ok": None if connector_ok is None else int(connector_ok),
+            "error": error,
+            "payload_json": None if payload is None else dumps_json_value(payload),
+            "approval_id": approval_id,
+            "undo_until": to_iso(undo_until) if undo_until else None,
+            "undo_of": undo_of,
+            "created_at": to_iso(now),
+            "policy_version": stamp["version_hash"] if stamp else None,
+            "protocol": AADP_PROTOCOL,
             # E7: PERSISTED, not merely returned. cap_value collapses the day and
             # month windows, so a denial that cannot name its window is not
             # re-derivable from the evidence store alone.
-            None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
-            outcome,
-            params_provenance,
+            "budget_json": (
+                None if decision.budget is None else dumps_json_value(decision.budget.model_dump())
+            ),
+            "outcome": outcome,
+            "params_provenance": params_provenance,
             # A payload is produced by the enforcement point after acting, and every
             # packaged PEP hands us objects rather than bytes, so it is serialized
             # here. If a PEP ever forwards raw payload bytes this becomes RECEIVED.
-            None if payload is None else Provenance.SERIALIZED.value,
-            malformed_kind,
-            canon_schema,
-            opaque_class,
-        ),
+            "payload_provenance": None if payload is None else Provenance.SERIALIZED.value,
+            "malformed_kind": malformed_kind,
+            "canon_schema": canon_schema,
+            "opaque_class": opaque_class,
+        }
     )
-    return int(cur.lastrowid or 0)
+    return values
 
 
 def append_expiry(
@@ -187,52 +351,47 @@ def append_expiry(
     request, because reclamation runs long after the request object is gone. It
     links back to the intent it voids via ``parent_id``.
     """
-    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
-    policy_version = row["version_hash"] if row else None
-    cur = conn.execute(
-        "INSERT INTO actions_audit ("
-        " request_id, kind, parent_id, action_type, source, params_json,"
-        " decision, reason_code, nominal_tier, effective_tier, detail,"
-        " connector_ok, error, payload_json, approval_id, undo_until, undo_of, created_at,"
-        " policy_version, protocol, budget_json, outcome,"
-        " params_provenance, payload_provenance, malformed_kind, canon_schema"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (
-            intent_row["request_id"],
-            kind,
-            int(intent_row["id"]),
-            intent_row["action_type"],
-            intent_row["source"],
-            intent_row["params_json"],  # already-frozen bytes; never re-serialized
-            Decision.FAILED.value,
-            reason.value,
-            int(intent_row["nominal_tier"]),
-            int(intent_row["effective_tier"]),
-            detail,
-            None,
-            None,
-            None,
-            None,
-            None,
-            intent_row["undo_of"],
-            to_iso(now),
-            policy_version,
-            AADP_PROTOCOL,
+    stamp = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
+    values = _blank_row()
+    values.update(
+        {
+            "request_id": intent_row["request_id"],
+            "kind": kind,
+            "parent_id": int(intent_row["id"]),
+            "action_type": intent_row["action_type"],
+            "source": intent_row["source"],
+            # Already-frozen bytes; never re-serialized (E10).
+            "params_json": intent_row["params_json"],
+            "decision": Decision.FAILED.value,
+            "reason_code": reason.value,
+            "nominal_tier": int(intent_row["nominal_tier"]),
+            "effective_tier": int(intent_row["effective_tier"]),
+            "detail": detail,
+            "undo_of": intent_row["undo_of"],
+            "created_at": to_iso(now),
+            "policy_version": stamp["version_hash"] if stamp else None,
+            "protocol": AADP_PROTOCOL,
             # No budget: a reclamation row records a permit whose deadline passed, not
             # a cap denial. ND-003's object is present iff the verdict IS the cap.
-            None,
-            None,
-            # The params bytes are copied verbatim from the intent row, so this row
-            # inherits that row's provenance rather than claiming one of its own.
-            intent_row["params_provenance"] if "params_provenance" in intent_row.keys() else None,
-            None,
-            # A reservation disposition is not a malformed denial and involves no
-            # canonicalization: both fields are absent because nothing produced them.
-            None,
-            None,
-        ),
+            #
+            # Everything not named here stays NULL by way of `_blank_row()`, and the
+            # preimage encodes NULL as ABSENT -- an honest "no statement was made"
+            # rather than an empty value someone has to interpret.
+            "params_provenance": (
+                # The params bytes are copied verbatim from the intent row, so this row
+                # inherits that row's provenance rather than claiming one of its own.
+                intent_row["params_provenance"]
+                if "params_provenance" in intent_row.keys()
+                else None
+            ),
+        }
     )
-    return int(cur.lastrowid or 0)
+    if chaining_on(conn):
+        # A disposition row is a ledger event like any other. Leaving it unchained
+        # would put a hole in the chain at exactly the rows that record budget going
+        # back -- the ones an auditor would most want covered.
+        _stamp_chain(conn, values, _read_tip(conn))
+    return _insert(conn, values)
 
 
 def find_rows(conn: sqlite3.Connection, request_id: UUID) -> list[sqlite3.Row]:
@@ -323,7 +482,7 @@ class _ResultBuffer:
     __slots__ = ("rows", "events", "keys")
 
     def __init__(self) -> None:
-        self.rows: list[tuple[object, ...]] = []
+        self.rows: list[dict[str, object]] = []
         self.events: list[tuple[str, str]] = []
         self.keys: set[tuple[str, str]] = set()
 
@@ -364,35 +523,26 @@ def append_buffered(
             f"UNIQUE constraint failed: actions_audit.request_id, actions_audit.kind "
             f"({key[0]}, {kind}) already reported"
         )
-    row = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
     buf.keys.add(key)
-    params_bytes, params_provenance = frozen_params(request)
+    # The SAME builder the immediate path uses. Both paths assembling their own idea
+    # of a row is what let them drift before; now a row is a row, and the test that
+    # the two routes produce IDENTICAL row_hash values has something to be true about.
+    #
+    # The chain is stamped at FLUSH, not here: a queued row has no position yet, and
+    # guessing one would fork the chain the moment two buffers interleaved.
     buf.rows.append(
-        (
-            str(request.request_id),
-            kind,
-            parent_id,
-            request.action_type,
-            request.source.value,
-            params_bytes,
-            decision.decision.value,
-            decision.reason_code.value,
-            int(decision.nominal_tier),
-            int(decision.effective_tier),
-            decision.detail,
-            None if connector_ok is None else int(connector_ok),
-            error,
-            None if payload is None else dumps_json_value(payload),
-            None,
-            None,
-            undo_of,
-            to_iso(now),
-            row["version_hash"] if row else None,
-            AADP_PROTOCOL,
-            None if decision.budget is None else dumps_json_value(decision.budget.model_dump()),
-            outcome,
-            params_provenance,
-            None if payload is None else Provenance.SERIALIZED.value,
+        _row_values(
+            conn,
+            request,
+            decision,
+            kind=kind,
+            now=now,
+            parent_id=parent_id,
+            connector_ok=connector_ok,
+            error=error,
+            payload=payload,
+            undo_of=undo_of,
+            outcome=outcome,
         )
     )
     if event_topic is not None and event_payload is not None:
@@ -400,23 +550,39 @@ def append_buffered(
 
 
 def flush(conn: sqlite3.Connection) -> int:
-    """Write every queued result row in one transaction. Returns rows written."""
+    """Write every queued result row in one transaction. Returns rows written.
+
+    **N2, decided rather than deferred.** A chain is sequential and an `executemany`
+    is not, so one of them had to give. Refusing group commit while chaining would
+    have made a performance feature and an integrity feature mutually exclusive, and
+    every deployer who wanted both would quietly turn off the one that is harder to
+    notice missing. Instead the chain is stitched here, in row order, inside the
+    transaction this function already opens: read the tip once, stamp each row against
+    the one before it, then insert them together.
+
+    The tip is read INSIDE the transaction. `tx()` is `BEGIN IMMEDIATE`, so no other
+    connection can insert between that read and the write, and the batch cannot fork
+    the chain.
+
+    **What buffering does change, and it is not a defect:** deferring result rows
+    changes the ledger's ROW ORDER, so a buffered store's chain differs from an
+    immediate store's for the same actions. `seq` and `prev_hash` are in the preimage;
+    different positions, different hashes. The invariant that holds -- and the one
+    worth asserting -- is that the preimage does not depend on which path wrote a row,
+    which `tests/guardrail/test_chain.py` checks by holding the position-determined
+    fields fixed and comparing the content.
+    """
     buf = _buffer(conn)
     if not buf.rows:
         return 0
     rows, events = buf.rows, buf.events
     buf.rows, buf.events, buf.keys = [], [], set()
     with tx(conn):
-        conn.executemany(
-            "INSERT INTO actions_audit ("
-            " request_id, kind, parent_id, action_type, source, params_json,"
-            " decision, reason_code, nominal_tier, effective_tier, detail,"
-            " connector_ok, error, payload_json, approval_id, undo_until, undo_of,"
-            " created_at, policy_version, protocol, budget_json, outcome,"
-            " params_provenance, payload_provenance"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            rows,
-        )
+        if chaining_on(conn):
+            tip = _read_tip(conn)
+            for values in rows:
+                tip = _stamp_chain(conn, values, tip)
+        conn.executemany(_INSERT_SQL, rows)
         if events:
             stamp = to_iso(now_utc())
             conn.executemany(

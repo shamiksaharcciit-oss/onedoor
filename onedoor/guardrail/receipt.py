@@ -51,6 +51,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from onedoor.guardrail.models import Budget, CheckId
+from onedoor.guardrail.preimage import row_hash_of
 from onedoor.guardrail.received import Provenance
 
 CAP_REASONS = frozenset({CheckId.CAP_RATE.value, CheckId.CAP_VALUE.value})
@@ -264,7 +265,19 @@ def _check_chain(row: sqlite3.Row) -> Check:
             Status.UNVERIFIABLE,
             f"chain is partly written: {', '.join(filled)} set, {', '.join(blank)} NULL",
         )
-    return Check("chain", Status.VERIFIED, f"seq {present['seq']}")
+    # ND-001 landed: recompute this row's hash from what the store holds and compare.
+    # Whether the row LINKS correctly to its neighbours is a question about the log,
+    # answered by `chain.verify_chain`; this check is about the row in hand, which is
+    # what a receipt is.
+    recomputed = row_hash_of(row)
+    if recomputed != str(present["row_hash"]):
+        return Check(
+            "chain",
+            Status.FAILED,
+            f"the row's contents hash to {recomputed[:12]}… but it records "
+            f"{str(present['row_hash'])[:12]}…",
+        )
+    return Check("chain", Status.VERIFIED, f"seq {present['seq']}, contents re-derived")
 
 
 def verify_decision(conn: sqlite3.Connection, row: sqlite3.Row) -> ReceiptVerification:

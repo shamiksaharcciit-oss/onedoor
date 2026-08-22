@@ -89,10 +89,26 @@ buffered rows' preimages do not depend on chain fields, so `flush` can stitch th
 in row order inside the transaction it already opens: read the tip once, compute each
 row's `prev_hash`/`seq`/`row_hash` in order, then insert.
 
-**Both paths tested, and tested against each other**: the same sequence of appends
-through the buffered and unbuffered paths must produce **identical `row_hash` values**.
-That is the test that would catch a preimage that accidentally depends on which path
-wrote it, which is the specific way this design can fail.
+**Both paths tested against each other — and the first formulation of that test was
+wrong, which is recorded here rather than quietly fixed.** This section originally said
+the two paths must produce **identical `row_hash` values** for the same sequence of
+actions. They cannot, and the test asserting it failed against a correct
+implementation.
+
+Group commit *defers result rows*, so the same four actions land in a different **row
+order**: immediate writes `intent, result, intent, result`; buffered writes
+`intent, intent, intent, result, result, result`. `seq` and `prev_hash` are in the
+preimage, so different positions mean different hashes — and `parent_id` joins them,
+because a result row names its intent by row id and ids follow write order. That is
+what group commit *is*. Measured, not argued: `test_group_commit_reorders_the_ledger`
+asserts both orders explicitly.
+
+The invariant that **does** hold is the one N2's decision actually needs: *the preimage
+does not depend on which path wrote the row.* Same content at the same position hashes
+the same either way. If that failed, a store's receipts would depend on a performance
+setting and two operators running identical actions would hold different evidence —
+the real risk group commit introduced. Row order differing is fine; the function
+differing is not.
 
 ## 4. Genesis and the mixed archive — a fourth outcome, again
 
