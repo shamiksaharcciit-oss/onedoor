@@ -74,21 +74,28 @@ applied and the three new evidence columns exist, then makes four real decisions
 percent-encoded host caught, a declared redirector escalated, an unreadable target
 denied.
 
-### Gates on `61fb46a`
+### Gates
 
-Each run with the workflow's own command, and read from its output rather than its
+Locally, each with the workflow's own command, read from its output rather than its
 exit code:
 
 ```
 ruff check .            -> All checks passed!
-ruff format --check .   -> 90 files already formatted
+ruff format --check .   -> 91 files already formatted
 mypy onedoor            -> Success: no issues found in 37 source files
 pytest -q               -> 392 passed, 8 skipped
 ```
 
-**Before you run anything below, check CI is green on `61fb46a`** — both `py3.12` and
-`py3.13`. The local run is not the gate; read the run's own `conclusion`, not the exit
-code of whatever prints it.
+**CI: green on `9d0a7ed`** — `py3.12` and `py3.13` both `success`, read from the run's
+own `conclusion` rather than from the exit code of whatever printed it.
+
+**There is no CI run for `61fb46a` itself**, and this file said to check one in its
+first draft. Both commits went out in a single push, so GitHub ran the workflow once,
+on the tip. "No run for that SHA" is *unverifiable*, not *pass*, and asking you to
+confirm a run that does not exist would have produced a green-looking answer from
+nothing. `9d0a7ed` differs from `61fb46a` only by this handover and
+`scripts/release_smoke.py`, neither of which is packaged — so the CI run that passed
+covers exactly the code in the artifacts.
 
 ---
 
@@ -146,7 +153,8 @@ them.**
 - **The digests are of the artifacts in `dist/` right now.** If `dist/` is cleaned or
   rebuilt before you upload, they no longer apply and the verification above no longer
   describes what ships — ask me to re-stage rather than rebuilding yourself.
-- **CI on `61fb46a` was not confirmed at the time this file was written.** Check it
-  before 3a.
+- **CI is confirmed green on `9d0a7ed`, not on `61fb46a`** — no run exists for
+  `61fb46a`, because both commits were pushed together and the workflow ran once on
+  the tip. The two commits differ only by unpackaged files.
 - The four decisions in §2 were run against **these exact artifact bytes**, in fresh
   virtual environments, not against the working tree.
