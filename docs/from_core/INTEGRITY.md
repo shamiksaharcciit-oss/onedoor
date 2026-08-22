@@ -49,12 +49,12 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_Forward_003_Protocol_Clarification_2026-08-21.md` | `a3f0170a11508c8a5b432c7bf12c2493d5048b956ea707be8f16d01aab96253e` |
 | `Core_Forward_004_Gate_Execution_2026-08-21.md` | `7960e78acc1485c403684849bdf4e896d9b3e34c87cb9c68baab7a28ccb7cde2` |
 | `Core_Forward_004a_Exit_Codes_Travel_Badly_2026-08-21.md` | `7a375526ed54952a39f4252c6a0fa8d35ea5e264522b95df4689c53483f7aaf1` |
-| `Core_to_Delivery_Response_001_2026-08-20.md` | none (predates the footer) |
-| `Core_to_Delivery_Response_002_2026-08-20.md` | none (predates the footer) |
-| `Core_to_Delivery_Response_003_2026-08-20.md` | none (predates the footer) |
-| `Core_to_Delivery_Response_004_2026-08-20.md` | none (predates the footer) |
-| `Core_to_Delivery_Response_005_2026-08-20.md` | none (predates the footer) |
-| `Core_to_Delivery_Response_006_2026-08-20.md` | none (predates the footer) |
+| `Core_to_Delivery_Response_001_2026-08-20.md` | none |
+| `Core_to_Delivery_Response_002_2026-08-20.md` | none |
+| `Core_to_Delivery_Response_003_2026-08-20.md` | none |
+| `Core_to_Delivery_Response_004_2026-08-20.md` | none |
+| `Core_to_Delivery_Response_005_2026-08-20.md` | none |
+| `Core_to_Delivery_Response_006_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_007_2026-08-21.md` | `966b7461f2d1a727ad4ed645eaac32e0be03cd780342194022e1d8ec53b43631` |
 | `Core_to_Delivery_Response_008_2026-08-21.md` | `a654483ce16c2a83def1254484699b5fc653e2b1c6d41d1c8a670042df7c8d80` |
 | `Core_to_Delivery_Response_009_2026-08-21.md` | `850cda608c7ce3b9290791b182dd914c62d0359ae02be628593024bc544f86b1` |
@@ -76,11 +76,14 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_to_Delivery_Response_025_2026-08-22.md` | `d931e283a8a2526def3b92b16239fc9ba39708e4ae57d782b469dd50e438c5d0` |
 | `Core_to_Delivery_Response_026_2026-08-22.md` | `45fac7f87442f8b22ccc003f6e2bb40b46d79c87d90916343cd08b8823560f75` |
 | `Core_to_Delivery_Response_027_2026-08-22.md` | `a4eafe1c207feef97caac0c238a31d73c62e0d4cd694f7b2fbff65eac26f62bb` |
+| `Core_to_Delivery_Response_028_2026-08-22.md` | `583f8603cd306f97e3f1414261a938cad920106121506f43d3f72d51d922088b` |
+| `Core_to_Delivery_Response_029_2026-08-22.md` | `8fe0e87aec0fb74fd53a594eeda62932bb651ae584afa700148100e18c0af87b` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |
-| `Forward_001_from_forensics_2026-08-21.md` | none (predates the footer) |
-| `Forward_002_from_forensics_2026-08-21.md` | none (predates the footer) |
+| `Forward_001_from_forensics_2026-08-21.md` | none |
+| `Forward_002_from_forensics_2026-08-21.md` | none |
+| `Policy_Studio_Design_Note_2026-08-22.md` | none |
 <!-- END GENERATED digests -->
 
 ## Provenance notes
@@ -97,6 +100,8 @@ Keyed by memo name, not by digest — the register above owns the digests.
 | 010 (forensics) | **The one reconstruction that was wrong.** Three text deliveries arrived byte-identical to each other, including a zipped "byte-exact re-issue"; the reconstruction differed from core's bytes in a single character — `⇒` (U+21D2) where delivery guessed `—`, both collapsing to the same mojibake. Resolved only by a **disk copy** from the forensics repository. See `unverified/README.md`. |
 | 011, 012 | **Arrived zipped and on disk, clean UTF-8, LF-only, verified first try.** No reconstruction. The relay fix works. |
 | Forward 001, 002 | Forensics → onedoor, relayed via core. Carry **no footer by design**, so they are *absent*, not *unverifiable* — the three-outcome rule is why they are archived while 010-forensics was quarantined. Arrived only on the third attempt. |
+| `Policy_Studio_Design_Note_2026-08-22.md` | Delivered alongside Response 029, which **is** footered and verifies. The note itself carries **no footer**, and unlike memos 001–006 it does not predate the protocol — it is dated 2026-08-22. It is therefore **unverifiable**, not absent-by-age, and the distinction is recorded here rather than inferred. R029's own footer covers the *instruction* to ticket it; it does not cover the note's bytes. **No digest of it is recorded here, deliberately:** this ledger carries exactly one register — body digests of footered memos, generated — and a whole-file hash written in beside them is the mixing R012 forbids and the transcription X-11 forbids. Delivery tried it and `tests/protocol/test_memo_integrity.py` refused, which is the rule working on its author. **Raised with core:** should an unfootered artifact from core be rejected outright rather than merely recorded as unverifiable, and if a digest of one is wanted, which register does it belong to? |
+| `oneview.html`, `ONEVIEW_DESIGN_SPEC.md` | Delivered in `docs/oneview/`, not here, and likewise unfootered. The spec is pinned instead by `onedoor/viewer/tokens.py` (`SPEC_DIGEST`, `SPEC_FENCE_DIGEST`) and a test proves the vendored copy is byte-identical to the delivered one — a different mechanism reaching the same guarantee for an artifact the build depends on. |
 
 ## Why annotations live here and not in the memo files
 

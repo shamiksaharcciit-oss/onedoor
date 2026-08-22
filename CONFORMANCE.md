@@ -324,24 +324,52 @@ asserted across eight policy shapes crossed with the kill switch. **The general
 lesson: a protection that depends on a second, optional declaration is not a
 protection, it is a default.**
 
+### Resolved by Responses 028–029 (2026-08-22) — Phase B
+
+| Was | Ruling |
+|---|---|
+| §4's question (does core's text need the correction?) | **R028 §2: yes.** `-02` change-list item 23 and the §implstatus prose both take the CHANGELOG's three-mechanism sentence. **Core owns both edits; nothing for delivery to touch.** Delivery's line is adopted as the rule for such texts: *the promise stands; the description of how it is kept must be true.* |
+| The `ND-040`/U4 lesson | **R028 §1: adopted as a programme rule, in delivery's words** — *a protection that depends on a second, optional declaration is not a protection, it is a default.* The eight-shapes × kill-switch matrix, with the symmetric guard that an invariant blocking *approved* actions would be a refusal wearing a safety argument, is named the reference shape for invariant testing. |
+| `ND-050` | **R028 §3: severity accepted as stated.** Backlogged unscheduled; when it runs, **the row-shape question comes to core before the migration, not after**. |
+| The Phase-B viewer | **R028 §4: build it, viewer first**, then the crypto epic. `ND-051`; spec and mockup in `docs/oneview/`. |
+| The Policy Studio | **R029: ticket as an epic**, `ND-052`, sequenced after the crypto epic, **no code before launch**. §2's constitution binds every sub-ticket; §5 makes principle violations **CI failures, not review notes**. |
+
 ### Open
 
-**None, on either side**, as of Response 027 (2026-08-22). The three departures
-delivery reported rather than assumed are all ruled: U4's `effect_floor` reading
-confirmed with three conditions, all met; U2+U3 landing together accepted; the
-unaudited envelope-`malformed` denial ticketed as `ND-050`. `ND-040` U1–U5 are built
-and `0.4.1` is published.
+**Delivery → core — ONE, raised by `ND-051` and not blocking it.**
 
-**One question outstanding with core, and it is core's to answer, not delivery's.**
-The `0.4.0` §implstatus text and `-02` change-list item 23 describe `ND-040` as
-canonicalization. That description is incomplete in exactly the way `CHANGELOG.md`'s
-was — it covers one of the three URL-shaped cases. If any draft or paper text says or
-implies that canonicalization closes the redirector case, it needs the same
-correction. **Delivery has not touched it**; paper and draft claims are core's.
+**Should an unfootered artifact from core be rejected, or merely recorded as
+unverifiable?** `Policy_Studio_Design_Note_2026-08-22.md` arrived with **no `Integrity:`
+footer**, alongside Response 029, which has one and verifies. R029's footer covers the
+*instruction* to ticket the note; it does not cover the note's bytes. Two defects of
+delivery's own, both fixed here rather than reported and left:
 
-**Core → delivery:** none, as of Response 027 (2026-08-22). Next: the `0.4.x` line —
-`ND-001`/`ND-010`, with `ND-009` able to run in parallel — and a Phase-B read-only
-receipt viewer arriving as its own declaration.
+1. `scripts/verify_memo.py` printed *"no integrity footer; predates the protocol"* for
+   every unfootered file. True of memos 001–006; **false for a note dated 2026-08-22**.
+   The tool was asserting a fact about provenance from an absence — the two-outcome
+   collapse it was written to prevent, in its own output. It now reports what it
+   observed: no footer, therefore **unverifiable**.
+2. The generated digest register wrote *"none (predates the footer)"* into
+   `INTEGRITY.md` for the same file, for the same reason. It now writes `none`, and
+   **why** a file has no footer is a provenance note a human records after checking.
+
+A third defect, caught by the existing suite rather than by delivery: the first fix
+**transcribed the note's whole-file `sha256` into `INTEGRITY.md`**, and
+`tests/protocol/test_memo_integrity.py` refused it — that ledger carries exactly one
+register, body digests of footered memos, generated, and a whole-file hash written in
+beside them is the mixing R012 forbids and the transcription X-11 forbids. The note now
+records the fact without a number, and **which register an unsigned artifact's digest
+belongs to is part of the question for core.** `docs/oneview/`'s spec and mockup are
+unfootered too, and are pinned
+instead by `onedoor/viewer/tokens.py` with a byte-identity test — a different mechanism
+for an artifact the build depends on. **Not blocking**: nothing here stops `ND-051`,
+and delivery has not invented a rejection rule of its own, because what a verifier does
+with core's unsigned artifacts is core's protocol to set.
+
+**Core → delivery:** none, as of Response 029 (2026-08-22). Current work is `ND-051`,
+the receipt viewer; then the crypto epic resumes (`ND-001`/`ND-010`, `ND-009` in
+parallel); `ND-052`, the Policy Studio, is ticketed and sequenced after it with no code
+before launch.
 
 ~~**Delivery → core — ONE, surfaced by the `0.4.0` decomposition (`TICKETS-0.4.0.md` §7).**
 **Genesis `prev_hash` is ambiguous under R015's null-versus-empty rule.** `ND-001`

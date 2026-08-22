@@ -55,8 +55,19 @@ Four traps, all walked into rather than foreseen, all now regression-tested:
    matched the footer with a regex anchored on `\n...\Z`, so a CRLF-corrupted memo
    did not match, fell through to "no footer", and was reported as predating the
    protocol -- a silent pass on exactly the corruption the footer exists to catch.
-   Absence of the marker means "predates the protocol"; presence of a marker that
+   Absence of the marker means the file cannot be checked; presence of a marker that
    does not verify means "damaged", and the two must never collapse.
+5. Absence was reported as "predates the protocol", which is an INFERENCE this tool
+   cannot make. It was true of memos 001-006 and false the first time an unfootered
+   artifact arrived after the protocol started -- the Policy Studio design note, dated
+   2026-08-22, printed as though it were a 2026-08-20 file. Nothing was corrupted, but
+   the verdict asserted a fact about provenance from the absence of a footer, and a
+   reader scanning the output would have filed a live gap under "expected". The tool
+   now reports what it observed -- no footer, therefore unverifiable -- and leaves the
+   question of whether that is expected to `docs/from_core/INTEGRITY.md`, which
+   records provenance per file. Whether an unfootered artifact from core should be
+   REJECTED rather than merely unverifiable is a protocol question raised with core,
+   not a default this script picks.
 4. Trailing CR/LF after the footer was tolerated. The footer was parsed as
    `raw[start:].rstrip(b"\r\n")`, which silently accepted any number of trailing
    newline bytes -- a divergence from Forward 003 section 2 in the permissive
@@ -200,7 +211,12 @@ def table(paths: list[Path]) -> str:
         d = digest_of(path)
         # ASCII only. A generated cell that has to survive a round trip is the last
         # place to put a character an encoding can eat.
-        cell = f"`{d}`" if d else "none (predates the footer)"
+        # "none", not "none (predates the footer)". The generator cannot know why a
+        # footer is missing, and it guessed wrong the first time it met an unfootered
+        # artifact that did NOT predate the protocol. Why a given file has no footer
+        # is provenance, and provenance is recorded in the notes below by a human who
+        # checked -- not inferred from an absence by a script.
+        cell = f"`{d}`" if d else "none"
         rows.append(f"| `{path.name}` | {cell} |")
     return "\n".join(rows) + "\n"
 
@@ -251,7 +267,7 @@ def main(argv: list[str]) -> int:
     for path in sorted(paths):
         result = verify(path)
         if result.status == "no-footer":
-            print(f"  --   {path.name}  (no integrity footer; predates the protocol)")
+            print(f"  --   {path.name}  (no integrity footer; UNVERIFIABLE by this tool)")
         elif result.status == "ok":
             print(f"  OK   {path.name}")
         else:

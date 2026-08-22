@@ -188,6 +188,20 @@ single-process, synchronous; PDP/PEP split with an MCP proxy as the first
 external enforcement point. Deliberately boring technology; the design is the
 contribution.
 
+## The receipt viewer
+
+```bash
+python -m onedoor.viewer --demo-store demo.db --out oneview.html   # labelled sample
+python -m onedoor.viewer --store onedoor.db --out oneview.html     # a real store
+```
+
+One static, read-only page: the decision receipt with the checks that back it, and the
+tail of verdicts. Every displayed value is read from a verified artifact — if the
+evidence does not check out, the page shows the failure state and **none of the
+receipt's values**. Where something is *not yet produced* rather than wrong, it says
+so: hash-chained audit entries (`ND-001`) have not landed, so the chain block names the
+ticket instead of showing a digest it does not have.
+
 ## Known limitations
 
 Stated here rather than left to be discovered. The full list, with the measurement

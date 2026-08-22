@@ -5,6 +5,52 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## Unreleased
+
+### Added — `ND-051`: the receipt viewer
+
+`python -m onedoor.viewer --store <path> --out <page.html>` reads an audit store and
+emits **one static, read-only HTML page**: the decision receipt as the hero object,
+with the checks that back it, and the tail of verdicts in the order the ledger took
+them. No backend, no network at view time, no dashboard — the design spec's scope
+fence is enforced by a test rather than by intention.
+
+**One verification, and the viewer does not own it.** The checks live in
+`onedoor.guardrail.receipt` and the page renders their output. The rule is structural
+and tested: the renderer imports no hashing module, reaches into the engine only for
+the verifier, and cannot construct a status from a string. Two implementations of "is
+this sound?" eventually disagree, and the one the user sees would be the wrong one.
+
+**Four outcomes in a user interface** — `verified`, `absent`, `unverifiable`, `failed`
+— and the distinction is the product rather than a technicality:
+
+- **`absent`** is *not yet produced*. Hash-chained entries (`ND-001`) have not run, so
+  `row_hash`, `prev_hash` and `seq` are NULL, and the chain block **says so, naming the
+  ticket**. The reference mockup shows a digest there. Rendering one from a NULL column
+  would have been the easiest thing in the world to do and would have been fabrication.
+- **`unverifiable`** is *produced and then lost* — a policy snapshot row that is gone, a
+  chain that is half written. It renders **as loudly as an outright failure**, because a
+  check that could not run is not a check that passed.
+- If verification is not sound, the page shows the **failure state and none of the
+  receipt's values**. Not the values behind a warning: a reader copies the number and
+  leaves the caveat behind.
+
+Both mandatory tests are **sabotage-verified in CI**, and the assertion is exact rather
+than "something failed": render-as-if-verified fails the failure-state property **and
+no other**; a fabricated digest fails the X-11 property **and no other**. A third
+sabotage was added unasked, because it is the likelier real mistake — nobody fabricates
+a digest on purpose, but somebody will format `10` as `10.00` to make a column line up,
+and under E8 those are the same value and different evidence.
+
+Design tokens are vendored **byte-identical** from the spec's own code fence and
+digest-pinned; a revised spec raises rather than silently rendering last week's
+palette. Every colour on the page is a token, checked; no verdict rule may use the
+brand accent.
+
+`--demo-store` builds a **labelled** sample store by running the real engine, never by
+writing audit rows by hand, and **the label travels in the store rather than on the
+command line** — a flag is forgotten, a row in the artifact is not.
+
 ## 0.4.1 — 2026-08-22
 
 **Additive. Nothing existing changes meaning.** New opt-in policy vocabulary and two

@@ -63,3 +63,16 @@ docs/from_core/** -text
 # so this path is now part of the received-data trust path and is fenced before it is
 # used again rather than after.
 docs/incoming/** -text
+
+# The oneview design spec, vendored into the package so the token block travels in
+# the wheel (spec section 7: "vendor the token block + this spec into each repo,
+# digest-pinned"). Core's bytes, digest-pinned by onedoor/viewer/tokens.py, and
+# therefore RECEIVED data under E10's two-discipline rule -- exactly like
+# docs/from_core/ above. A CRLF rewrite here would fail the pin and present as a
+# design-system tamper rather than as an encoding bug.
+#
+# docs/oneview/** is fenced for the same reason: it is core's delivery, and a test
+# asserts the vendored copy is byte-identical to it. Normalising one side and not
+# the other would break that test in a way that looks like a vendoring error.
+docs/oneview/** -text
+onedoor/viewer/_vendor/** -text
