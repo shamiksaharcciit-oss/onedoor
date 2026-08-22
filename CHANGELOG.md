@@ -24,10 +24,12 @@ this sound?" eventually disagree, and the one the user sees would be the wrong o
 **Four outcomes in a user interface** — `verified`, `absent`, `unverifiable`, `failed`
 — and the distinction is the product rather than a technicality:
 
-- **`absent`** is *not yet produced*. Hash-chained entries (`ND-001`) have not run, so
-  `row_hash`, `prev_hash` and `seq` are NULL, and the chain block **says so, naming the
-  ticket**. The reference mockup shows a digest there. Rendering one from a NULL column
-  would have been the easiest thing in the world to do and would have been fabrication.
+- **`absent`** is *not yet in operation*. Hash-chained entries (`ND-001`) have not run,
+  so `row_hash`, `prev_hash` and `seq` are NULL, and the chain block **says so, naming
+  the ticket**. The reference mockup shows a digest there. Rendering one from a NULL
+  column would have been the easiest thing in the world to do and would have been
+  fabrication. The wording is deliberate: *not yet in operation*, never *not yet
+  produced*, so absent-by-schedule is never readable as broken.
 - **`unverifiable`** is *produced and then lost* — a policy snapshot row that is gone, a
   chain that is half written. It renders **as loudly as an outright failure**, because a
   check that could not run is not a check that passed.

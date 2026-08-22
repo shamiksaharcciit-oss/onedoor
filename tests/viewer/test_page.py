@@ -89,7 +89,7 @@ def test_the_chain_block_says_absent_rather_than_showing_a_digest(
     """
     _seed(conn, config)
     html = build_page(conn)
-    assert "not yet produced (ND-001)" in html
+    assert "chain not yet in operation (ND-001)" in html
     assert "chain intact" not in html
     hero = hero_decision(conn)
     assert hero is not None

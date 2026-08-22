@@ -23,6 +23,13 @@ must never collapse. In a viewer that distinction is the whole product:
     The thing is not there **and is not supposed to be yet**. `row_hash` is NULL in
     `0.4.1` because `ND-001` has not run. That is a fact about the roadmap, not a
     fault, and it renders as a quiet line naming the ticket.
+
+    The wording matters and R030 §3 sharpened it: *"not yet in operation"*, never
+    *"not yet produced"*. The second reads like something that should have happened
+    and did not — absent-by-schedule wearing the face of broken. A placeholder for a
+    future feature has to say which of the two it is, in the words a reader meets, or
+    the three-outcome discipline stops at the API boundary and never reaches the
+    person it was for.
 ``unverifiable``
     It should have been checkable and was not — a policy snapshot row that is gone, a
     chain that is half written. **This is a failure to surface, never a skip**, and it
@@ -248,8 +255,7 @@ def _check_chain(row: sqlite3.Row) -> Check:
         return Check(
             "chain",
             Status.ABSENT,
-            "hash-chained audit entries are not yet produced (ND-001); the columns "
-            "exist and are NULL",
+            "chain not yet in operation (ND-001); the columns exist and are NULL",
         )
     if len(filled) != len(CHAIN_COLUMNS):
         blank = [c for c in CHAIN_COLUMNS if c not in filled]

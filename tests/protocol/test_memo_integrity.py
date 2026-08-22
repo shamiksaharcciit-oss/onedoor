@@ -217,23 +217,67 @@ def test_no_whole_file_hash_is_recorded_beside_a_body_digest() -> None:
     A body digest is a memo's recorded identity; a whole-file hash is an ephemeral
     transfer aid, used to prove a copy operation and then discarded. Mixing them is
     how core's ledger came to carry the wrong number, and the only defence is that
-    delivery's ledgers record exactly one register. Any 64-hex string in our own
-    ledger files that is not in the generated block is a transcribed digest.
+    delivery's ledgers record exactly one register.
+
+    **R030 §2 settled what "one register" means, and it is sharper than "no digests
+    outside the block": the register holds PRODUCER CLAIMS; the sidecar holds
+    OBSERVATIONS.** A footer digest is the producer saying "I sealed this". A digest
+    delivery computes over an unsigned artifact is something else entirely — a
+    present-tense observation, true of the bytes on this disk today, claiming nothing
+    about who sealed them. Both are sha256 of some bytes and they mean different
+    things, which is exactly why they must not sit in one table.
+
+    So an observation is allowed in the sidecar prose **only** in the declared form
+    `observed sha256 <hex>, <date>`. The date is what makes it an observation rather
+    than a claim: it records when someone looked. A bare hex string in the notes is
+    still a transcribed digest and still fails, because a reader cannot tell which
+    register it belongs to — and a digest whose meaning is ambiguous is worse than
+    none at all.
     """
     from scripts.verify_memo import BEGIN_MARK, END_MARK
 
     hex64 = re.compile(r"\b[0-9a-f]{64}\b")
+    observation = re.compile(r"observed sha256 `?([0-9a-f]{64})`?, \d{4}-\d{2}-\d{2}")
     offenders = []
     for name in ("INTEGRITY.md", "unverified/README.md"):
         path = ARCHIVE / name
         text = path.read_text(encoding="utf-8")
         start, end = text.find(BEGIN_MARK), text.find(END_MARK)
         outside = text[:start] + text[end:] if start != -1 and end != -1 else text
-        offenders += [f"{name}: {m}" for m in hex64.findall(outside)]
+        declared = set(observation.findall(outside))
+        offenders += [f"{name}: {m}" for m in hex64.findall(outside) if m not in declared]
     assert not offenders, (
-        f"digests recorded outside the generated register: {offenders}. The register "
-        f"is the only place a digest is written, and it is generated."
+        f"digests recorded outside the generated register and not declared as dated "
+        f"observations: {offenders}. The register holds producer claims and is "
+        f"generated; the sidecar holds observations, which say when they were made."
     )
+
+
+def test_an_undated_observation_is_still_a_transcribed_digest(tmp_path: Path) -> None:
+    """Both directions on R030 §2's allowance, so the exception stays narrow.
+
+    The date is the whole difference between an observation and a claim. Without it,
+    `sha256 abc…` beside a table of producer claims reads as one more producer claim,
+    which is the mixing the rule forbids — so the allowance must not widen into "any
+    hex with the word sha256 near it".
+    """
+    hex64 = re.compile(r"\b[0-9a-f]{64}\b")
+    observation = re.compile(r"observed sha256 `?([0-9a-f]{64})`?, \d{4}-\d{2}-\d{2}")
+    digest = "a" * 64
+
+    dated = f"observed sha256 `{digest}`, 2026-08-22"
+    assert set(observation.findall(dated)) == {digest}
+
+    for undated in (
+        f"sha256 {digest}",
+        f"observed sha256 `{digest}`",
+        f"observed sha256 `{digest}`, sometime",
+        f"whole-file sha256 = {digest}",
+    ):
+        assert hex64.findall(undated), "the fixture must contain a digest to be a test"
+        assert not observation.findall(undated), (
+            f"an undated form was accepted as an observation: {undated!r}"
+        )
 
 
 def test_preimage_strips_ascii_whitespace_only_never_unicode(tmp_path: Path) -> None:

@@ -63,11 +63,16 @@ Four traps, all walked into rather than foreseen, all now regression-tested:
    2026-08-22, printed as though it were a 2026-08-20 file. Nothing was corrupted, but
    the verdict asserted a fact about provenance from the absence of a footer, and a
    reader scanning the output would have filed a live gap under "expected". The tool
-   now reports what it observed -- no footer, therefore unverifiable -- and leaves the
-   question of whether that is expected to `docs/from_core/INTEGRITY.md`, which
-   records provenance per file. Whether an unfootered artifact from core should be
-   REJECTED rather than merely unverifiable is a protocol question raised with core,
-   not a default this script picks.
+   now reports what it observed and leaves the question of whether that is expected to
+   `docs/from_core/INTEGRITY.md`, which records provenance per file.
+
+   **RULED (R030 section 2): an artifact with no footer makes NO INTEGRITY CLAIM, and
+   is therefore ABSENT** -- never rejected, which would punish the archive for being
+   honest about its own history, and never blended with `unverifiable`, which would
+   invent a claim nobody made. Three states, three meanings: absent is no claim,
+   unverifiable is a claim that cannot be checked, damaged is a claim that checked
+   false. The label here says only what the file shows; WHY a given file makes no
+   claim is provenance, and provenance lives in the sidecar beside a human who looked.
 4. Trailing CR/LF after the footer was tolerated. The footer was parsed as
    `raw[start:].rstrip(b"\r\n")`, which silently accepted any number of trailing
    newline bytes -- a divergence from Forward 003 section 2 in the permissive
@@ -267,7 +272,9 @@ def main(argv: list[str]) -> int:
     for path in sorted(paths):
         result = verify(path)
         if result.status == "no-footer":
-            print(f"  --   {path.name}  (no integrity footer; UNVERIFIABLE by this tool)")
+            # ASCII on purpose: this line is a console output contract, and a Windows
+            # terminal on cp1252 prints an em dash as a replacement character.
+            print(f"  --   {path.name}  (ABSENT - no integrity claim)")
         elif result.status == "ok":
             print(f"  OK   {path.name}")
         else:
