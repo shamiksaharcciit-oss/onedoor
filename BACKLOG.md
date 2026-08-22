@@ -367,7 +367,7 @@ rows** (`exec_intent` + `cap_reservations`), **not new ones** — no new evidenc
 identity, no budget re-reservation. §invariants #9 (intent precedes action) and
 §idem (no re-reserve on a known request) both bind. Reconstruct in place; don't
 double-count.
-**DECOMPOSED** (R032 §3): `TICKETS-ND-010.md`. Two findings carried here.
+**BUILT, R1–R5** (R033 §4). `TICKETS-ND-010.md`. Two findings carried here.
 **A `PermittedIntent` cannot be faithfully rebuilt**: `rationale`, `cost_eur` and
 `session_id` are stored nowhere in `actions_audit`, and a rebuild passing
 `cost_eur=Decimal(0)` would be a default that looks like a fact. So a rebuilt permit is a
@@ -379,7 +379,10 @@ row's bytes and provenance verbatim.
 **And a constraint from `ND-001`, first met here:** do **not** add columns to
 `actions_audit` for convenience. The preimage is frozen — a hashed column is a new
 preimage version, an excluded one is a field an attacker can edit without breaking the
-chain. **Blocked on one question** (§7: whose `created_at`); R2–R5 unblocked.
+chain. **§7 RULED (R033 §3):** a rebuilt row's `created_at` is its own write time, never
+backdated — the ledger records when the ledger learned it, lineage travels by reference,
+and a rebuilt record never impersonates a live one. `RebuiltIntent` therefore has
+`requested_at` and **no** `created_at`.
 **DoD extra:** a restart test — decide, drop and rebuild the app object, report,
 assert the report is accepted and the reservation settles. Assert the audit gains
 **no** new rows and the reservation total is unchanged across the restart.

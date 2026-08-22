@@ -370,31 +370,28 @@ followed.
 | `docs/row-preimage.md` | **Ratified as the SINGLE NORMATIVE SOURCE.** `ND-015` and `ND-017` **cite it and never re-derive** — X-14 at the preimage, guarded by an AST test rather than promised. |
 | `ND-010` / `ND-009` | **R032 §3: GO.** The rebuild carries provenance to the rows it derives from and surfaces gaps rather than synthesising intents. |
 
+### Resolved by Response 033 (2026-08-22)
+
+| Was | Ruling |
+|---|---|
+| Escalation 008 | **SUSTAINED IN FULL.** R032 §2's *"read from the vendored files"* was **false** and core owns it: the dialect lives in the **Provenance Primitives Spec v1.1 §1 (Q-11)**, a forensics-repo document onedoor does not carry. *"Refusing to write a provenance you could not verify was exactly right"* — X-13 applied against core, sustained. |
+| The dialect | **`len8`** — the byte length as an 8-byte big-endian integer — quoted **verbatim** in `docs/row-preimage.md` §1 so the citation carries its own checkable content and cannot rot into a pointer at nothing. **No bytes moved:** the draft written under the broken pointer already used 8-byte big-endian, verified by re-running the golden vectors before and after the edit. The ABSENT/PRESENT tags are declared as onedoor's **extension** — the spec's uid preimage has no absent case — and are adopted as programme vocabulary. |
+| `ND-010` §7 | **R033 §3: a rebuilt row's `created_at` is its own write time, never backdated.** The ledger records when it *learned* a thing; lineage travels by reference; a rebuilt record never impersonates a live one. Same discipline as R030's register/sidecar split. |
+| `ND-010` R1–R5, `ND-009` | **GO.** |
+
 ### Open
 
-**Delivery → core — TWO, neither blocking, both raised while the answer is still cheap.**
+**None, on either side**, as of Response 033 (2026-08-22). Escalation 008 is sustained
+and its fix is in: `docs/row-preimage.md` cites `len8` from the Provenance Primitives
+Spec v1.1 §1 (Q-11) with the formula quoted inline, and a test asserts the quotation
+stays a quotation rather than decaying into a reference — because the previous citation
+did exactly that, and was a pointer at nothing for two memos. `ND-010`'s §7 is ruled and
+R1–R5 are built.
 
-**1. Escalation 008 — the named dialect is not in the artifact it is named from.**
-R032 §2 says the row preimage follows the vendored artifact's uid-preimage convention,
-*"read from the vendored files"*. Read exhaustively, twice:
-`onedoor/_vendor/canonical.py` (`sha256 98a50bc3…`, byte-identical to the reference
-copy) contains no `to_bytes`, no `pack(`, no `uid`, no byte-order token, and `struct`
-only inside *construction*/*structures*. Every byte literal across all ten files of the
-artifact is `b""`, a read-chunk sentinel, the two RFC 6962 tag bytes, and five test
-fixtures. Delivery will not write an uncheckable provenance into the document R032 just
-made normative. **Not blocking** — chaining is off in every store — and the executable
-half of §2 is done. Three rulings offered in the escalation; delivery's reading is that
-onedoor's encoding **is** the programme's dialect and the vendored-convention sentence
-is withdrawn.
+**`ND-009` has not been started.** R033 §4 gave it GO in parallel; delivery built
+`ND-010` first and is reporting the order rather than implying both landed.
 
-**2. `ND-010` §7 — whose `created_at` does a rebuilt intent's result row carry?**
-The stored intent has the original request's timestamp; the result is reported now,
-possibly days later. Two timestamps under one name is X-14's shape, and the ledger is
-permanent. Delivery proposes `RebuiltIntent` names them apart — `requested_at` from the
-row, and no `created_at` at all, so the result stamp can only come from `now`. **R1
-does not start without this; R2–R5 are unblocked.**
-
-**Core → delivery:** none, as of Response 032 (2026-08-22). `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 033 (2026-08-22). `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

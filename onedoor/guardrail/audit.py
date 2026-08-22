@@ -10,7 +10,7 @@ import json
 import sqlite3
 from datetime import datetime
 from decimal import Decimal
-from typing import NamedTuple
+from typing import NamedTuple, Protocol
 from uuid import UUID
 
 from onedoor._vendor.canonical import canon_decimal
@@ -22,6 +22,7 @@ from onedoor.guardrail.models import (
     Decision,
     JsonValue,
     PolicyDecision,
+    Source,
     Tier,
 )
 from onedoor.guardrail.received import Provenance
@@ -211,7 +212,7 @@ def _insert(conn: sqlite3.Connection, values: dict[str, object]) -> int:
 
 def append(
     conn: sqlite3.Connection,
-    request: ActionRequest,
+    request: RowSource,
     decision: PolicyDecision,
     *,
     kind: str,
@@ -227,6 +228,7 @@ def append(
     malformed_kind: str | None = None,
     canon_schema: str | None = None,
     opaque_class: str | None = None,
+    frozen: tuple[str | bytes, str | None] | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -252,15 +254,35 @@ def append(
         malformed_kind=malformed_kind,
         canon_schema=canon_schema,
         opaque_class=opaque_class,
+        frozen=frozen,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
     return _insert(conn, values)
 
 
+class RowSource(Protocol):
+    """The three fields a row needs from whatever asked for the action.
+
+    `ActionRequest` satisfies this, and so does `ND-010`'s `RebuiltIntent` -- which is
+    the point: a rebuilt permit supplies exactly what the row needs and **nothing it
+    would have to invent**. It has no `rationale` and no `cost_eur` because the ledger
+    does not store them, and a type that cannot express a value cannot default one.
+    """
+
+    @property
+    def request_id(self) -> object: ...
+
+    @property
+    def action_type(self) -> str: ...
+
+    @property
+    def source(self) -> Source: ...
+
+
 def _row_values(
     conn: sqlite3.Connection,
-    request: ActionRequest,
+    request: RowSource,
     decision: PolicyDecision,
     *,
     kind: str,
@@ -276,6 +298,7 @@ def _row_values(
     malformed_kind: str | None = None,
     canon_schema: str | None = None,
     opaque_class: str | None = None,
+    frozen: tuple[str | bytes, str | None] | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -285,7 +308,25 @@ def _row_values(
     idea of what a row contains.
     """
     stamp = conn.execute("SELECT version_hash FROM policy_current WHERE id=1").fetchone()
-    params_bytes, params_provenance = frozen_params(request)
+    params_bytes: str | bytes
+    params_provenance: str | None
+    if frozen is None:
+        # Only a live ActionRequest can be asked for its frozen params; a rebuilt
+        # permit always supplies them, which the assert makes a type error rather
+        # than a runtime surprise.
+        assert isinstance(request, ActionRequest)
+        params_bytes, params_provenance = frozen_params(request)
+    else:
+        # A REBUILT permit supplies the intent row's own bytes and its own provenance
+        # (ND-010). Without this, `frozen_params` would re-serialise -- it returns
+        # `params_raw` verbatim or falls back to serialising `params`, and only a live
+        # ingress sets `params_raw`. A result row written after a restart would then
+        # stamp `serialized` on bytes that arrived `received`: a wrong label on a
+        # receipt, written at the moment the system is least observed.
+        #
+        # `append_expiry` has always done exactly this for reclamation rows. Same
+        # discipline, now reachable by the one other caller that needs it.
+        params_bytes, params_provenance = frozen
     values = _blank_row()
     values.update(
         {
@@ -501,7 +542,7 @@ def buffered_len(conn: sqlite3.Connection) -> int:
 
 def append_buffered(
     conn: sqlite3.Connection,
-    request: ActionRequest,
+    request: RowSource,
     decision: PolicyDecision,
     *,
     kind: str,
@@ -514,6 +555,7 @@ def append_buffered(
     event_topic: str | None = None,
     event_payload: str | None = None,
     outcome: str | None = None,
+    frozen: tuple[str | bytes, str | None] | None = None,
 ) -> None:
     """Queue a result row. Raises on a duplicate report, as the UNIQUE constraint would."""
     buf = _buffer(conn)
@@ -543,6 +585,7 @@ def append_buffered(
             payload=payload,
             undo_of=undo_of,
             outcome=outcome,
+            frozen=frozen,
         )
     )
     if event_topic is not None and event_payload is not None:

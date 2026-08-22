@@ -396,3 +396,39 @@ def test_the_spec_carries_no_control_bytes() -> None:
     raw = SPEC.read_bytes()
     control = {b for b in raw if b < 0x09 or 0x0B <= b <= 0x1F}
     assert not control, f"control bytes in the normative spec: {sorted(control)}"
+
+
+def test_the_length_prefix_is_len8_as_the_programme_spec_defines_it() -> None:
+    """R033 §2: `len8` — the byte length as an 8-byte big-endian integer.
+
+    Quoted in `docs/row-preimage.md` §1 from the Provenance Primitives Spec v1.1 §1
+    (Q-11) rather than referenced, so the citation carries its own checkable content.
+    This test is the other half of that: the document says `len8`, and the code is
+    asserted to mean the same thing by the same arithmetic, not by agreement of prose.
+
+    One `len8` programme-wide is the point. A sibling repo reading the quoted formula
+    and this vector implements the same framing without seeing onedoor's source.
+    """
+    for length in (0, 1, 3, 255, 256, 65535, 65536):
+        field = encode_field(b"x" * length)
+        assert field[0:1] == b"\x01", "PRESENT tag"
+        assert field[1:9] == length.to_bytes(8, "big"), f"len8 of {length}"
+        assert field[9:] == b"x" * length
+        assert len(field[1:9]) == 8, "eight bytes, always, whatever the length"
+
+
+def test_the_spec_quotes_the_formula_rather_than_pointing_at_it() -> None:
+    """A citation that carries its own content cannot rot into a pointer at nothing.
+
+    This exists because the previous citation did exactly that: two memos directed the
+    encoding to follow a convention "read from the vendored files", and it was in
+    neither copy of that artifact. Escalation 008 was sustained, and the fix was to
+    quote the formula inline. The test keeps the quotation from being replaced by a
+    reference later, when nobody remembers why it was written out longhand.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    assert "Provenance Primitives Spec v1.1" in text
+    assert "Q-11" in text
+    assert "8-byte big-endian" in text
+    assert "len8(c)" in text, "the formula itself, not a description of it"
+    assert "extension" in text.lower(), "the tag layer is declared as onedoor's, not the spec's"

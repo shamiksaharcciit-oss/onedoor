@@ -46,6 +46,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail import rebuild as rebuild_module
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import EngineConfig
@@ -154,8 +155,24 @@ class EngineState:
             tz=ZoneInfo(os.environ.get("ONEDOOR_TZ", "UTC")),
         )
         self.lock = threading.Lock()
-        self.pending: dict[int, PermittedIntent] = {}
         self.notifier: Notifier = build_notifier()
+
+    @property
+    def pending(self) -> list[int]:
+        """Every permit awaiting a report, read from the ledger (ND-010).
+
+        This used to be `dict[int, PermittedIntent]` held in memory, and a restart
+        between decide and report stranded every in-flight permit: the reservation
+        stayed held, the deadline ran, and the reclaimer eventually voided budget for
+        an action that may well have happened. The docstring at the top of this module
+        promised `0.4` would fix that; this is the fix, and the promise was three
+        releases old.
+
+        A property rather than a cached list on purpose: any other process writing a
+        result row makes this answer change, and a cache would be a second copy of a
+        truth the ledger already holds.
+        """
+        return rebuild_module.pending(self.conn)
 
 
 async def raw_params(request: Request) -> str | None:
@@ -176,7 +193,9 @@ async def raw_params(request: Request) -> str | None:
 
 def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
     if isinstance(outcome, PermittedIntent):
-        state.pending[outcome.intent_audit_id] = outcome
+        # Nothing is stashed: the `exec_intent` row IS the record of this permit, and
+        # `/v1/report` rebuilds from it. Memory held it before, which is exactly what
+        # a restart lost.
         return DecideReply(
             decision="permitted",
             reason="passed",
@@ -240,10 +259,20 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
 
     @app.post("/v1/report", response_model=DecideReply)
     def report(body: ReportBody, _key: str = Depends(require_decide)) -> DecideReply:
-        intent = state.pending.pop(body.intent_audit_id, None)
-        if intent is None:
-            raise HTTPException(status_code=404, detail="unknown or already-reported intent")
-        with span("onedoor.report", intent.request.action_type), state.lock:
+        outcome = rebuild_module.rebuild(state.conn, body.intent_audit_id)
+        if outcome.status is not rebuild_module.RebuildStatus.REBUILT:
+            # Four outcomes, and the HTTP status distinguishes them: an absent intent
+            # is the client asking about something that is not pending (404), while an
+            # `unverifiable` or `failed` one is the STORE disagreeing with itself and
+            # is nobody's client error (500). Collapsing them would report a damaged
+            # ledger as a bad request and send an operator looking in the wrong place.
+            code = 404 if outcome.status is rebuild_module.RebuildStatus.ABSENT else 500
+            raise HTTPException(
+                status_code=code, detail=f"{outcome.status.value}: {outcome.detail}"
+            )
+        intent = outcome.intent
+        assert intent is not None
+        with span("onedoor.report", intent.action_type), state.lock:
             result = report_result(
                 intent,
                 conn=state.conn,
@@ -253,7 +282,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
                 now=now_utc(),
             )
         record_decision(
-            intent.request.action_type,
+            intent.action_type,
             result.decision.decision.value,
             "reported",
             int(intent.effective_tier),

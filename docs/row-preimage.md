@@ -21,45 +21,50 @@ be actively trying to make two different rows produce the same digest.
 
 ---
 
-## 1. What the vendored artifact ratifies, and what it does not
+## 1. The dialect this follows, quoted so the citation is checkable
 
-R031 §1.2 directs delivery to *"follow the vendored artifact's uid-preimage convention
-for the length encoding and concatenation discipline"* and, where the row's field set
-needs more, to *"extend it explicitly and write the extension down."*
+**Length encoding — `len8`, from the Provenance Primitives Spec v1.1 §1 (Q-11)**, the
+programme's ratified length-prefix convention. Quoted verbatim rather than referenced,
+so this document can be checked without a cross-repo hunt:
 
-**Stated plainly, because building on a convention that is not there would be the
-worst kind of quiet assumption: `reference/rederivable-manifest/` carries no
-length-prefix dialect.** Its six frozen rules cover decimals, datetimes, strings, JSON,
-digests and the RFC 6962 Merkle construction. There is no `struct`, no `to_bytes`, no
-packing of any kind in the artifact — checked, not assumed. The programme's "uid-preimage
-convention" is a **methodology** (implement the definition rather than fit the artifact;
-drift-guard with a second route) and "Q-11 uids" is cited elsewhere as a past *instance*
-of the ambiguous-preimage class, not as a dialect to copy.
+> `uid = SHA256( len8(c) ‖ c ‖ len8(s) ‖ s ‖ len8(n) ‖ n )` — each part preceded by its
+> byte length as an **8-byte big-endian integer**.
 
-**R032 §2 named the dialect precisely — as the vendored artifact's uid-preimage
-convention, *"read from the vendored files"* — and the vendored files were then read
-exhaustively a second time.** `onedoor/_vendor/canonical.py`
-(`sha256 98a50bc3…`, byte-identical to the reference copy) contains no `to_bytes`, no
-`pack(`, no `uid`, and no byte-order token; the word `struct` appears only inside
-*construction* and *structures*. Every byte literal in all ten files of the artifact is
-`b""`, a read-chunk sentinel, the two RFC 6962 tag bytes, and five test fixtures.
-**Escalation 008 carries the evidence and asks core to rule**, because writing a provenance into a
-normative document that cannot be checked is the one thing this programme's apparatus
-exists to prevent.
+Every PRESENT field below is exactly `len8(x) ‖ x`. One `len8` programme-wide.
 
-Until that ruling, this document defines **the** dialect: onedoor has exactly one, it
-is written here, and any sibling repo needing field framing adopts it by citation —
-which is what R032 §2's *one dialect programme-wide* actually asks for.
+**Type tags — onedoor's documented extension, and stated as one.** The spec's uid
+preimage has **no absent case**: all three of its parts always exist, so it never had to
+say what "this field was not there" looks like. An audit row is not like that —
+`budget_json` is NULL on most rows and `""` on none, and R015 makes those different
+facts. So the ABSENT/PRESENT tag layer is **new here**, ruled by R031 §1.1, adopted as
+programme vocabulary by R033 §2, and it is an extension rather than a reading of the
+spec.
 
-So the extension below is the whole encoding, written down as R031 requires, and built
-on the one byte-level discipline the artifact *does* ratify — **rule 6's
-domain-separation tags** (`0x00`/`0x01` prefixes, RFC 6962 §2.1). The same idea, one
-layer down: a tag byte that tells a reader what the following bytes are, so that two
-different structures can never present the same octets.
+Also inherited, from the vendored `rederivable-manifest` v3 (`onedoor/_vendor`):
+**SHA-256, lowercase hex** (rule 5); decimals (rule 1), datetimes (rule 2),
+strings-without-normalisation (rule 3) and JSON (rule 4) wherever a *generated* field is
+rendered; and rule 6's one-byte domain-separation discipline (`0x00`/`0x01`, RFC 6962
+§2.1), which is the shape the type tags take.
 
-Inherited unchanged from the artifact: **SHA-256, lowercase hex** (rule 5); decimals
-(rule 1), datetimes (rule 2), strings-without-normalisation (rule 3) and JSON (rule 4)
-wherever a *generated* field is rendered.
+### How this citation came to be checkable
+
+R031 §1.2 and then R032 §2 both directed this encoding to follow *"the vendored
+artifact's uid-preimage convention… read from the vendored files."* Delivery read them —
+all ten files of `reference/rederivable-manifest/` and the byte-identical copy in
+`onedoor/_vendor` — and **the convention is not in either**: no `to_bytes`, no `pack(`,
+no `uid`, no byte-order token, and every byte literal in the artifact is `b""`, a
+read-chunk sentinel, the two RFC 6962 tags, and five test fixtures.
+
+Escalation 008 reported that rather than writing an unverifiable provenance into a
+normative document, and **R033 §1 sustained it in full**: the claim was false, and the
+dialect lives in a different artifact that onedoor does not carry. Hence the quotation
+above. **A citation that carries its own content cannot rot into a pointer at nothing**,
+which is the whole reason this section is written this way.
+
+The encoding did not change: the draft written under the broken pointer already used an
+8-byte big-endian length, so conforming to `len8` moved no bytes and no digest. Verified
+rather than asserted — the golden vectors' digests are identical before and after this
+edit.
 
 ## 2. The encoding
 

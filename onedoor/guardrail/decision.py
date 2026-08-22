@@ -34,6 +34,7 @@ from sqlite3 import Connection
 from uuid import UUID
 
 from onedoor.guardrail import approvals, audit, bounds, caps, killswitch, opaque_hosts
+from onedoor.guardrail.audit import RowSource
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -47,6 +48,7 @@ from onedoor.guardrail.models import (
     Tier,
 )
 from onedoor.guardrail.policy import PolicyStore
+from onedoor.guardrail.rebuild import RebuiltIntent
 from onedoor.guardrail.urlcanon import (
     CANON_SCHEMA,
     CanonicalizationError,
@@ -525,7 +527,7 @@ def reclaim_expired_reservations(conn: Connection, config: EngineConfigLike, now
 
 
 def report_result(
-    intent: PermittedIntent,
+    intent: PermittedIntent | RebuiltIntent,
     *,
     conn: Connection,
     config: EngineConfigLike | None = None,
@@ -542,7 +544,23 @@ def report_result(
 
     `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
     of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
+
+    Accepts a :class:`~onedoor.guardrail.rebuild.RebuiltIntent` as well, so a permit
+    that outlived the process that issued it can still be reported (ND-010). The
+    rebuilt case writes **the same durable rows** and re-reserves nothing -- the
+    reservation is already held -- and it carries the intent row's frozen bytes and
+    provenance rather than re-serialising them.
+
+    **The result row's `created_at` is `now`, in both cases, and that is R033 §3**: the
+    ledger records when it LEARNED the outcome. A rebuilt report arriving after a
+    restart is learned now, however long ago the action was requested. Backdating it
+    would be the ledger testifying to a moment it did not witness.
     """
+    rebuilt = isinstance(intent, RebuiltIntent)
+    row_source: RowSource = intent if rebuilt else intent.request  # type: ignore[assignment,union-attr]
+    frozen: tuple[str | bytes, str | None] | None = (
+        (intent.params_json, intent.params_provenance) if rebuilt else None  # type: ignore[union-attr]
+    )
     settles = outcome is not Outcome.NOT_ATTEMPTED
     released_deltas: list[tuple[str, str, str, int, str]] = []
 
@@ -601,7 +619,7 @@ def report_result(
     )
     topic = "action.executed" if outcome is Outcome.SUCCESS else "action.failed"
     event: dict[str, object] = {
-        "request_id": str(intent.request.request_id),
+        "request_id": str(row_source.request_id),
         "outcome": outcome.value,
     }
     # connector_ok is NULL for not_attempted: there was no connector call to succeed
@@ -616,7 +634,7 @@ def report_result(
         # invariant 9 already requires — never a permit that looks discharged.
         audit.append_buffered(
             conn,
-            intent.request,
+            row_source,
             result_decision,
             kind="exec_result",
             now=now,
@@ -625,6 +643,7 @@ def report_result(
             error=error,
             payload=payload,
             undo_of=intent.undo_of,
+            frozen=frozen,
             event_topic=topic,
             event_payload=json.dumps(event, default=str),
             outcome=outcome.value,
@@ -635,7 +654,7 @@ def report_result(
         with tx(conn):
             audit.append(
                 conn,
-                intent.request,
+                row_source,
                 result_decision,
                 kind="exec_result",
                 now=now,
@@ -645,11 +664,12 @@ def report_result(
                 payload=payload,
                 undo_of=intent.undo_of,
                 outcome=outcome.value,
+                frozen=frozen,
             )
             bus.publish(conn, topic, event)
 
     return ActionResult(
-        request_id=intent.request.request_id,
+        request_id=UUID(str(row_source.request_id)),
         decision=result_decision,
         executed=ok,
         connector_ok=ok,

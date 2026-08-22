@@ -7,6 +7,50 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-010`: a permit outlives the process that issued it
+
+`service/app.py` kept pending intents in a dict and its own docstring promised `0.4`
+would rebuild them from the `exec_intent` row instead. Until now a restart between
+decide and report stranded every in-flight permit: the reservation stayed held, the
+deadline ran, and the reclaimer eventually voided budget for an action that may well
+have happened. `state.pending` is now a **query against the ledger**, and `/v1/report`
+looks the intent up rather than popping memory.
+
+Reconstructed permits are **the same durable rows** — no new evidence identity, no
+budget re-reservation — asserted by counting audit rows and cap counters across a
+simulated restart rather than by trusting the code path.
+
+**A rebuilt permit is its own type, and that is the design.** `rationale`, `cost_eur`
+and `session_id` are stored nowhere in `actions_audit`, so reconstructing an
+`ActionRequest` would mean passing `cost_eur=Decimal(0)` — **a default that looks like
+a fact**, which any later reader would take at face value. `RebuiltIntent` has no such
+field, so the mistake is unavailable rather than avoided, and it carries provenance
+references to the rows it derives from.
+
+**A wrong label on a receipt, caught before it shipped.** `report_result` hands the
+request to `audit.append`, which calls `frozen_params`: that returns `params_raw`
+verbatim, or **re-serialises when `params_raw` is None** — and only a live ingress sets
+`params_raw`. A post-restart result row would therefore have stamped
+`params_provenance = "serialized"` on bytes that arrived `received`. Not a crash and
+not a test failure: a quiet falsehood in the evidence, written at the moment the system
+is least observed. A rebuilt permit now carries the intent row's frozen bytes and its
+provenance, exactly as `append_expiry` has always done for reclamation rows.
+
+**A rebuilt row's `created_at` is its own write time, never backdated.** The ledger
+records when it *learned* a thing; a rebuilt row carrying the original's timestamp
+would be the ledger testifying to a moment it did not witness. `RebuiltIntent` names
+the other one `requested_at` and has no `created_at` at all, so a caller cannot reach
+for the wrong one.
+
+**Four outcomes at recovery time**, and the middle two are why it is a type rather than
+an `Optional`: `rebuilt`; `absent` (never permitted, or already reported — the ordinary
+answer); `unverifiable` (the evidence disagrees with itself — `cap_reservations` has no
+foreign key to `actions_audit`, so a held reservation naming a missing intent is
+reachable); `failed` (stored and unreadable). `/v1/report` maps them to distinct HTTP
+statuses: an absent intent is a client asking about nothing pending (404), while an
+unverifiable one is the store disagreeing with itself and is nobody's client error
+(500). Collapsing them would report a damaged ledger as a bad request.
+
 ### Added — `ND-001`: hash-chained audit entries
 
 Each audit row now hashes its own contents plus its predecessor's hash, so a deletion
