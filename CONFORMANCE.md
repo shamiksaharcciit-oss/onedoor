@@ -432,31 +432,55 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | `I` | **AMENDED: `anchor_cadence` comes OUT.** Delivery's flag was right and the consequence *was* the defect: cadence schedules anchoring, not deciding, and inside `I` an ops-schedule tweak would split `i_digest` cohorts for a reason no instrument comparison should care about. Cadence declares in the anchoring config and records on the anchor object. |
 | A store-found root | **CONFIRMED `self_consistent`**, and the pattern gets its single plain statement: **"onedoor never vouches for itself: at the key layer and the anchor layer alike, `verified` requires something the store does not hold."** |
 
+### Resolved by Responses 041–042 (2026-08-23)
+
+| Was | Ruling |
+|---|---|
+| `ND-017` M4 | **R041: one late acceptance requirement**, landed as **F1**. The degenerate empty-path inclusion proof is accepted only at `tree_size == 1` and `index == 0`, refused **before any Merkle computation** otherwise, with two sabotage vectors and one positive size-1 vector. *A verifier must refuse the degenerate case before it computes, because the degenerate case is the one that computes to true.* Credit to `draft-schrock-ep-authorization-receipts-12` §7.3. **The epic stays closed.** |
+| The epic | **R042 §1: accepted as reported.** Two documents with second implementations built from text rather than code is named the epic's real yield. The closing sentence is **ratified as a product line**: *onedoor never vouches for itself — at the key layer and the anchor layer alike, `verified` requires something the store does not hold.* |
+| S1 Q1 — what a backtest writes | **R042 §3: nothing to the decision ledger. Ever.** Not a decision row, not a marker, not a breadcrumb. It **borrows the ledger's witness** — a backtest receipt that cites the sealed chain — so *a backtest proves it saw real data by citation, not by writing; the ledger vouches for the backtest, never the reverse.* |
+| S1 Q2 — the empty store | **R042 §4: a hashed `ledger_provenance: live \| fixture`**, with a shipped fixture ledger that is mechanically real and declares itself synthetic. The label must survive into every rendering — a fixture-backed number without it is the overclaim this programme exists to make impossible. |
+
 ### Open
 
-**None, on either side**, as of Response 040 (2026-08-22). **The crypto epic is
-closed**: `ND-001`, `ND-009`, `ND-010`, `ND-015` and `ND-017` are built, with `ND-051`'s
-viewer alongside them.
+**Delivery → core — THREE, from S1's decomposition (`TICKETS-ND-052-S1.md` §6). B1
+proceeds meanwhile.**
 
-**Two findings reported rather than asked**, because each needed a fix and not a ruling:
+**1. How does a backtest obtain `cost_eur`?** It is stored nowhere in `actions_audit` —
+the `ND-010` finding, landing again — and it drives cap accounting, so defaulting it to
+zero would understate every cap denial the candidate policy would have produced, in the
+direction of reassurance. **A default that looks like a fact**, in the phrase already in
+the record. Delivery proposes deriving it from `policy.cost_param` where declared, by the
+same mechanism the live engine uses, and declaring the gap in `coverage.skipped` where
+not.
 
-**1. `anchor_ref` can never be written.** It is a column on `actions_audit`, anchoring
-necessarily happens after a row is sealed, and the no-update trigger forbids `UPDATE` —
-verified against a live store. So the anchor points at a **range of rows** and membership
-resolves by lookup; `anchor_ref` stays dark. The better shape anyway: a back-reference
-would be a second answer to a question the range already answers, needing a writable
-column on the one table whose value is that it cannot be written.
+**2. Does `ledger_provenance` need a third value?** A store with a sealed chain but an
+unchained prefix is neither cleanly `live` nor `fixture`. Delivery proposes **`live` with
+the unchained prefix counted in `coverage.skipped`** — the range is what was cited, and a
+range that cannot be cited is not replayed. Two labels told apart by a footnote would be
+worse than a counted skip.
 
-**2. A viewer claim delivery nearly overstated.** M5's test was about to assert that
-`page.py` had not been edited since `ND-051`. `git log` says otherwise — `ND-015` touched
-it, and for the right reason. The true statement is sharper: **adding a check needs no
-page change; adding an outcome to the shared status vocabulary does.** Three tickets
-added checks and edited nothing; one added `self_consistent` and needed a style, because
-a status with no style renders as nothing. Checked against git rather than remembered.
+**3. Does the fixture ledger ship in the wheel?** It is demo content, sabotage bed and
+test fixture at once. In the package it travels with the product and is pointable on day
+one; outside it, the demo needs a build step. Delivery leans **in the package**,
+byte-pinned the way `docs/oneview/` is — but it adds weight to every install, so it is
+worth a line of confirmation rather than a discovery at packaging time.
 
-**Core → delivery:** none, as of Response 040 (2026-08-22). The crypto epic is closed,
-which opens `ND-052` — the Policy Studio, pre-launch and demo-grade, S1 (the backtest
-engine) first per R036's normative build order. `ND-001` is built (C1–C5),
+**One finding reported, not asked** (`ND-017` F1): **both of R041's sabotage vectors are
+constructible and both already failed** against the vendored construction, for three
+independent reasons measured before the guard was written — `verify_inclusion` rejects an
+`index` outside `[0, tree_size)`; its terminal `sn == 0` check fails an empty path
+whenever `tree_size > 1`; and RFC 6962's `0x00` leaf prefix means a size-1 root is
+`sha256(0x00 ‖ leaf)`, never the bare leaf digest, so the literal "root rewritten to the
+leaf hash" forgery could not verify at all. The guard is adopted regardless and belongs
+at our front door — a re-vendor could arrive without the length check, and a third party
+building from `docs/receipt-digests.md` needs the rule **stated** rather than inherited
+by luck. But the record should not say a hole was patched when a line was added in depth.
+
+**Core → delivery:** none, as of Response 042 (2026-08-23). The crypto epic is closed
+and `ND-017` F1 has landed. Current work is `ND-052` S1 — the backtest engine — first in
+R036's normative build order, with S6 (the LLM proposer) last and none of it gating the
+launch. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
