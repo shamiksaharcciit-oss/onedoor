@@ -458,3 +458,93 @@ def test_the_pinned_head_file_has_no_carriage_return() -> None:
     raw = fixture.HEAD_FILE.read_bytes()
     assert b"\r" not in raw, "the pinned head was written with a platform newline"
     assert raw.decode("ascii").strip() == fixture.published_head()
+
+
+# --- R044 §3: the condition that makes "identity instead of bytes" equivalent -----
+
+
+def test_first_use_generates_the_fixture_without_a_manual_step(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No build step for the day-one deployer. That is the whole acceptance condition.
+
+    Shipping the identity rather than the bytes is only equivalent to shipping a `.db`
+    if the deployer never has to know the difference — so first use builds, silently and
+    automatically, into a cache.
+    """
+    target = tmp_path / "built-on-demand.db"
+    monkeypatch.setattr(fixture, "cache_path", lambda: target)
+    assert not target.exists()
+
+    conn = fixture.open_fixture()
+    try:
+        assert target.is_file(), "first use did not generate the ledger"
+        assert fixture.head(conn) == fixture.published_head()
+    finally:
+        conn.close()
+
+
+def test_a_built_fixture_is_reused_rather_than_rebuilt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The second open is a check, not a build."""
+    target = tmp_path / "cached.db"
+    monkeypatch.setattr(fixture, "cache_path", lambda: target)
+    fixture.open_fixture().close()
+    stamp = target.stat().st_mtime_ns
+
+    fixture.open_fixture().close()
+    assert target.stat().st_mtime_ns == stamp, "the cached ledger was rebuilt needlessly"
+
+
+def test_a_generator_that_drifts_from_its_pin_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """R044 §3: refuse on mismatch. A drifted generator is not a quieter fixture.
+
+    The pinned HEAD is what the anti-masquerade check compares a citation against, so a
+    generator that no longer reproduces it has silently invalidated that check. Loud
+    failure, naming the remedy.
+    """
+    monkeypatch.setattr(fixture, "cache_path", lambda: tmp_path / "drifted.db")
+    monkeypatch.setattr(fixture, "published_head", lambda: "f" * 64)
+    with pytest.raises(RuntimeError, match="did not reproduce"):
+        fixture.open_fixture()
+
+
+def test_a_stale_cached_fixture_is_rebuilt_rather_than_trusted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A cache whose head does not match the pin is not the fixture, whatever its name."""
+    target = tmp_path / "stale.db"
+    monkeypatch.setattr(fixture, "cache_path", lambda: target)
+    fixture.open_fixture().close()
+
+    # Something else entirely, sitting where the cache goes.
+    from onedoor.store.db import Database
+
+    target.unlink()
+    Database(str(target)).init()
+
+    conn = fixture.open_fixture()
+    try:
+        assert fixture.head(conn) == fixture.published_head(), (
+            "a stale cache was trusted instead of rebuilt"
+        )
+    finally:
+        conn.close()
+
+
+def test_an_unreadable_cache_is_rebuilt_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A truncated or corrupt cache file is a cache miss, not a crash."""
+    target = tmp_path / "corrupt.db"
+    monkeypatch.setattr(fixture, "cache_path", lambda: target)
+    target.write_bytes(b"this is not a database")
+
+    conn = fixture.open_fixture()
+    try:
+        assert fixture.head(conn) == fixture.published_head()
+    finally:
+        conn.close()

@@ -7,6 +7,35 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Fixed — reclamation rows were sealed under one preimage version and claimed another
+
+`append_expiry` writes the `reservation_expired` row that records budget going back when
+a permit's deadline passes unreported. It does not go through `_row_values`, where
+`preimage_version` was stamped — so **every reclamation row was sealed under
+`onedoor/row-preimage/2` while its hint claimed `/1`**, and a verifier reading the hint
+recomputed the row under the wrong field order. Every one failed verification.
+
+**No deployment is affected**: chaining is opt-in and off by default, so no production
+store has sealed a row at all.
+
+It survived the whole crypto epic because **every chain test runs inside one frozen
+instant, where no reservation deadline ever passes**. The Studio's fixture ledger — three
+simulated days of traffic — was the first thing that reclaimed anything, and all 23 of
+its reclamation rows failed at once. The law that came out of it: **time is an input, and
+a suite that never lets it pass has not tested what it triggers.**
+
+The hint is self-authenticating by design, so the defect surfaced as a loud failure
+rather than a silently accepted row — the mechanism working exactly as specified, with
+this project as the liar. The stamp now lives in `_stamp_chain`, where the sealing
+version is chosen, so two places can no longer disagree about one fact. A targeted
+regression (one reservation, one passed deadline, one sealed row) guards it independently
+of the fixture, and a structural test asserts that **every** audit write path stamps the
+chain — so a future compaction or archival writer cannot inherit the same gap.
+
+One behaviour changed alongside it: an **unchained** row now carries no version hint at
+all. A hint on a row that was never sealed is a claim about a sealing that did not
+happen.
+
 ### Added — `ND-017`: content-addressed receipts and Merkle anchoring
 
 **The crypto epic's last ticket.** Each chained row now carries four content-addressed

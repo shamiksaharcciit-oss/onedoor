@@ -450,39 +450,52 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Resolved by Response 044 (2026-08-23)
+
+| Was | Ruling |
+|---|---|
+| S1 | **Stands.** All four requirements accepted. Two design vindications named: the stripped-label sabotage fails because `ledger_provenance` sits **inside** the digest, and Q1's law lives in `caps.resolve_cost`. The principle: **laws pushed into construction outrank laws kept in tests, which outrank laws kept in memos.** |
+| The `append_expiry` defect | **Accepted**, with a programme law recorded: **time is an input, and a suite that never lets it pass has not tested what it triggers.** Instruction: pin it with a fixture-independent regression living with the chain tests, and audit sibling write paths while the pattern is fresh. Fold into the release notes with the defect stated plainly. |
+| The Q3 amendment | **Accepted** — identity instead of bytes. *A digest answers exactly one question*, and the question was row identity, not file identity. **Acceptance condition made explicit:** first use generates automatically, verifies against the pinned HEAD, and refuses on mismatch. |
+| S2 | **GO** — opens by citing `record_snapshot` as settled. |
+
 ### Open
 
-**None blocking.** S1's three questions are ruled and B1–B5 are built. **Two departures
-and one defect are reported rather than assumed:**
+**Delivery → core — THREE, from S2's decomposition (`TICKETS-ND-052-S2.md` §7). T1–T3
+proceed meanwhile.**
 
-**1. A defect in `ND-009`'s version hint, found by S1's fixture and fixed.**
-`append_expiry` does not go through `_row_values`, where `preimage_version` was stamped —
-so every `reservation_expired` row was **sealed under `/2` while its hint claimed `/1`**,
-and `version_of` then verified it under the wrong field order. All 23 in the fixture
-failed. It survived the entire crypto epic because every chain test runs inside one
-frozen instant, where no reservation deadline ever passes; the fixture's three simulated
-days were the first thing to reclaim anything. The hint being **self-authenticating** is
-what turned a silent forgery into a loud failure — R035 §1 working exactly as ruled, with
-delivery as the liar. Fixed by moving the stamp into `_stamp_chain`, where the sealing
-version is chosen, so the two cannot come apart. **No deployment is affected**: chaining
-is opt-in and off everywhere.
+**1. Who is `ratified_by`?** `ND-009`'s principal question arriving in the Studio, with
+the same constraint: onedoor has no authenticated per-caller identity, so a session
+string is caller-supplied. Delivery proposes recording a **declared** session, labelled
+as unauthenticated, rather than a field that looks like an identity —
+`principal_mismatch` is already reserved-and-unemitted for exactly this reason, and the
+ceremony should not imply more than the engine can check.
 
-**2. The fixture's committed artifact is the chain head, not the database.** R043 §3 asked
-for a byte-pinned `.db`. Measured: two builds produce an **identical `actions_audit`** —
-107 rows, the same `row_hash` on every one — and a **different file**, because the engine
-samples the clock for `schema_migrations.applied_at`, `policy_versions.created_at` and the
-config stamps. None is an input the generator can pin without threading an injected clock
-through migrations, which is an engine change for a demo asset. So `_fixture/HEAD` is
-committed, the ledger is built on demand, and the regeneration test compares what is
-actually deterministic. **Both purposes §3 named are better served**: the anti-masquerade
-property depends only on `row_hash` values, which are deterministic.
+**2. Does a ratification require a backtest?** Delivery leans **allowed and visible** — a
+nullable `backtest_digest` whose absence is itself informative — because refusing would
+make the Studio unusable for the first policy on a fresh store, and R043 already ruled
+that case gets the fixture rather than a block.
 
-**3. The size question §3 asked to bring back.** A committed database measured **315 KB**,
-over the declared 256 KB. Building on demand makes it moot — the wheel gains 66 bytes —
-but the number is reported because §3 asked for it before packaging rather than after.
+**3. Should the kill switch block ratification?** It stops *actions*, and ratifying is
+not an action the engine governs — but changing the rules during an incident is both the
+thing you would want blocked and the thing a legitimate operator might need. **A
+governance question, not an implementation one**, and delivery will not guess it.
 
-**Core → delivery:** none, as of Response 043 (2026-08-23). `ND-052` S1 is built; next
-is S2, the ratification ceremony, which opens by citing `record_snapshot` as settled. `ND-001` is built (C1–C5),
+**R044's three instructions are done, and one turned up a defect of its own.** The
+fixture-independent regression now lives with the chain tests and compares the hint to
+`MAGIC` — the constant that actually seals — rather than to a second name for it. The
+sibling audit found exactly one bypassing path (`append_expiry`, the one already fixed)
+and is now **structural**: a test asserts every function that writes an audit row also
+stamps the chain, so a future compaction writer cannot inherit the gap. And R044 §3's
+acceptance condition is five tests — auto-generate, reuse, refuse-on-drift, rebuild a
+stale cache, rebuild a corrupt one — the last of which found that `Database.connect()`
+raises *before* any guard could run, and on Windows left a handle that made the rebuild's
+`unlink` fail. A corrupt cache is now recognised by its header in sixteen bytes and never
+opened at all.
+
+**Core → delivery:** none, as of Response 044 (2026-08-23). `ND-052` S1 is built and S2
+is decomposed; then S3 the canvas, S4 the coverage map, S5 the finance pack, and S6 the
+proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

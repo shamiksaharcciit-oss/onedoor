@@ -227,6 +227,30 @@ def published_head() -> str | None:
     return HEAD_FILE.read_text(encoding="utf-8").strip()
 
 
+SQLITE_MAGIC = b"SQLite format 3" + bytes([0])
+
+
+def _looks_like_a_database(path: Path) -> bool:
+    """Is this file worth opening? Checked by header, before any connection.
+
+    A truncated or half-written cache raises `DatabaseError` at
+    `PRAGMA journal_mode=WAL` -- inside `connect`, before any query -- and on Windows the
+    failed open can still hold the handle, so the rebuild's `unlink` then fails with a
+    `PermissionError`. Two failures deep for a file that could be recognised as junk in
+    sixteen bytes.
+
+    A corrupt cache is a cache MISS. Never a crash in a demo path, and never a locked
+    file either.
+    """
+    if not path.is_file():
+        return False
+    try:
+        with path.open("rb") as handle:
+            return handle.read(len(SQLITE_MAGIC)) == SQLITE_MAGIC
+    except OSError:
+        return False
+
+
 def cache_path() -> Path:
     """Where a built fixture lives: beside the package when writable, else a temp dir."""
     if FIXTURE_DIR.is_dir() and os.access(FIXTURE_DIR, os.W_OK):
@@ -246,7 +270,7 @@ def open_fixture() -> sqlite3.Connection:
     """
     path = cache_path()
     expected = published_head()
-    if path.is_file():
+    if _looks_like_a_database(path):
         conn = Database(str(path)).connect()
         try:
             if expected is None or head(conn) == expected:

@@ -578,7 +578,7 @@ def test_a_reclamation_row_is_sealed_and_hinted_under_the_same_version(
     """
     from datetime import timedelta
 
-    from onedoor.guardrail.preimage import CURRENT_VERSION
+    from onedoor.guardrail.preimage import MAGIC
 
     _policies(conn)
     _enable(conn)
@@ -595,9 +595,59 @@ def test_a_reclamation_row_is_sealed_and_hinted_under_the_same_version(
     ).fetchall()
     assert reclaimed, "the fixture must actually reclaim a reservation"
     for row in reclaimed:
-        assert row["preimage_version"] == CURRENT_VERSION, (
-            "a reclamation row was sealed without stamping its version hint"
+        # Compared against MAGIC -- the constant that ACTUALLY seals -- rather than
+        # against a second name for it. The defect was two places disagreeing about one
+        # fact, so the witness compares the hint to the sealing bytes themselves.
+        assert str(row["preimage_version"]).encode("ascii") == MAGIC, (
+            "a reclamation row's hint does not name the version that sealed it"
         )
     assert chain.verify_chain(conn).sound, (
         "reclamation rows must verify like any other — they are ledger events too"
     )
+
+
+def test_every_audit_write_path_stamps_the_chain() -> None:
+    """R044 §2's sibling audit, made structural instead of done once by eye.
+
+    Three paths insert into `actions_audit` — `append`, `append_expiry` and `flush` —
+    and exactly one of them, `append_expiry`, bypasses `_row_values`. That is where the
+    version hint went missing. A future compaction or archival writer would bypass it
+    too, and would inherit the same defect silently.
+
+    So the rule is checked rather than remembered: **any function that calls `_insert`
+    must also call `_stamp_chain`.** A new write path that forgets fails here, at the
+    moment it is written, rather than in whatever asset next happens to let time pass.
+    """
+    import ast
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[2] / "onedoor" / "guardrail" / "audit.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+
+    def calls(node: ast.FunctionDef, name: str) -> bool:
+        return any(
+            isinstance(inner, ast.Call)
+            and isinstance(inner.func, ast.Name)
+            and inner.func.id == name
+            for inner in ast.walk(node)
+        )
+
+    inserters = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and calls(node, "_insert")
+    ]
+    assert {f.name for f in inserters} == {"append", "append_expiry"}, (
+        f"the set of direct audit writers changed: {sorted(f.name for f in inserters)}. "
+        f"A new one must stamp the chain -- see append_expiry's defect."
+    )
+    unstamped = [f.name for f in inserters if not calls(f, "_stamp_chain")]
+    assert not unstamped, f"these write audit rows without stamping the chain: {unstamped}"
+
+    # `flush` inserts with executemany rather than `_insert`; it must stamp too.
+    flush = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "flush"
+    )
+    assert calls(flush, "_stamp_chain"), "the buffered path must stamp the chain as well"
