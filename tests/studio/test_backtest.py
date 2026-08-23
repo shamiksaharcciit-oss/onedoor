@@ -444,3 +444,17 @@ def test_the_masquerade_check_is_available_to_a_third_party() -> None:
             "range": {"row_hash_at_last_seq": fixture.published_head()},
         }
     )
+
+
+def test_the_pinned_head_file_has_no_carriage_return() -> None:
+    """A pinned constant must not be rewritten by a platform default.
+
+    `write_text` translates `\n` to CRLF on Windows, so the committed HEAD and a
+    locally regenerated one differed by a byte — the file would show as modified after
+    every regeneration on one platform and not another, in the one file whose whole job
+    is to be stable. Caught by git's own CRLF warning, which is the third layer
+    `.gitattributes` exists to provide and the first one that actually fired here.
+    """
+    raw = fixture.HEAD_FILE.read_bytes()
+    assert b"\r" not in raw, "the pinned head was written with a platform newline"
+    assert raw.decode("ascii").strip() == fixture.published_head()

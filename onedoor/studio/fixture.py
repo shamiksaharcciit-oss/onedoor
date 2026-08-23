@@ -268,7 +268,13 @@ def main() -> int:  # pragma: no cover - the generator, exercised by the regener
     """Regenerate the ledger and commit its head. The head is the artifact."""
     digest = build(cache_path())
     HEAD_FILE.parent.mkdir(parents=True, exist_ok=True)
-    HEAD_FILE.write_text(digest + chr(10), encoding="utf-8")
+    # newline set explicitly: on Windows `write_text` translates to CRLF, and this is a
+    # PINNED CONSTANT — a regeneration would show as a modification on one platform and
+    # not another, in the one file whose whole job is to be stable. The same
+    # byte-rewriting default `.gitattributes` fences the vendored artifact against,
+    # arriving at the smallest possible scale. Caught by git's own CRLF warning.
+    with HEAD_FILE.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(digest + "\n")
     print(f"built {cache_path()} ({cache_path().stat().st_size} bytes, NOT committed)")
     print(f"pinned chain head -> {HEAD_FILE}")
     print(digest)
