@@ -7,6 +7,49 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-017`: content-addressed receipts and Merkle anchoring
+
+**The crypto epic's last ticket.** Each chained row now carries four content-addressed
+digests — `e_digest`, `i_digest`, `t_digest`, `v_digest`, in columns dark since `0007` —
+and ranges of rows are anchored under RFC 6962 roots a deployer publishes outside the
+store.
+
+`docs/receipt-digests.md` is the normative definition, with a second implementation
+built from it and six golden vectors. The four were read from the vendored artifact's
+own scheme rather than invented, and **confirmed by arithmetic**: the shipped manifests
+carry `t_digest = 4f53cda1…b945`, which is SHA-256 of canonical `[]` — so `T` really is
+a *declared closure* and not a bag of facts. Every digest is over canonical JSON, so **no
+concatenation appears and the `len8` dialect is not reached** — said plainly rather than
+decorated with an unused framing.
+
+Two amendments from R040, both where delivery's flags pointed. **`T` does not carry the
+policy hash**: `E` already seals it as an input identity, and the same hash in two
+preimages is X-14 *inside the seal itself*. **`I` does not carry the anchor cadence**:
+cadence schedules anchoring, not deciding, and inside `I` an ops-schedule tweak would
+have re-identified the deciding instrument for every row after it. It lives on the anchor
+object, where a change is visible in the stream it governs.
+
+**`anchor_ref` can never be written**, and the design is better for it. It is a column on
+`actions_audit`; anchoring necessarily happens after a row is sealed; the no-update
+trigger forbids `UPDATE` — verified against a live store, not assumed. So the anchor
+points at a *range of rows* and membership is resolved by lookup. A back-reference would
+have been a second answer to a question the range already answers, needing a writable
+column on the one table whose value is that it cannot be written.
+
+**X-8, and the reason stated where it is enforced:** the chain is verified before a root
+is computed, and a fault anywhere refuses the seal — an anchor over a broken chain would
+publish a root that certifies damage, permanently and in public.
+
+**onedoor never vouches for itself: at the key layer and the anchor layer alike,
+`verified` requires something the store does not hold.** A proof that checks against a
+root the store carries is `self_consistent`; `verified` needs the published root. And
+because anchoring is periodic, the newest rows read **`absent`** — a viewer that showed
+them red would train an operator to ignore red.
+
+The acceptance is an **environment**, not an assertion: the third-party verifier runs in
+a subprocess whose working directory holds exactly the anchor and the receipt. If it
+ever needed the database, that test would fail rather than look fine.
+
 ### Added — `ND-015`: signed decision receipts (Ed25519)
 
 Each chained row is signed over its `row_hash`, with the signature, the derived

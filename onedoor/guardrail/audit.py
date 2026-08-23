@@ -14,8 +14,8 @@ from typing import NamedTuple, Protocol
 from uuid import UUID
 
 from onedoor._vendor.canonical import canon_decimal
+from onedoor.guardrail import digests, signing
 from onedoor.guardrail import preimage as preimage_module
-from onedoor.guardrail import signing
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -166,7 +166,41 @@ def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip)
     digest = preimage_module.row_hash(values)
     values["row_hash"] = digest
     _sign(conn, values)
+    # The four content-addressed digests (ND-017 / M1). Computed at write time because
+    # they live on an append-only table: a column that cannot be UPDATEd must be right
+    # when the row is born or it is never right at all.
+    values.update(digests.digests_for(_DigestRow(values), closure=_closure(conn)))
     return _Tip(seq=tip.seq + 1, row_hash=digest)
+
+
+class _DigestRow:
+    """A row-shaped view of values not yet inserted.
+
+    The digest builders read a `sqlite3.Row`, and at stamping time the row does not
+    exist yet -- the same reason `row_hash` is computed from a mapping. Two accessors is
+    the whole contract.
+    """
+
+    def __init__(self, values: dict[str, object]) -> None:
+        self._values = values
+
+    def __getitem__(self, name: str) -> object:
+        return self._values.get(name)
+
+    def keys(self) -> list[str]:
+        return list(self._values)
+
+
+def _closure(conn: sqlite3.Connection) -> str:
+    """Does this deployment publish roots? A declaration, known when the row is sealed.
+
+    `anchor-closed` says a verifier will be able to close the trust set on a root held
+    outside the store; `store-closed` says they are trusting this store. Not a claim
+    that a particular anchor exists -- anchoring is periodic, and a fresh row is normally
+    not yet covered.
+    """
+    row = conn.execute("SELECT value FROM config WHERE key=?", ("anchor.cadence",)).fetchone()
+    return digests.ANCHOR_CLOSED if row is not None else digests.STORE_CLOSED
 
 
 class _Tip(NamedTuple):
@@ -218,6 +252,10 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "opaque_class",
     "approval_ref_status",
     "preimage_version",
+    "e_digest",
+    "i_digest",
+    "t_digest",
+    "v_digest",
     "sig",
     "key_id",
     "alg",

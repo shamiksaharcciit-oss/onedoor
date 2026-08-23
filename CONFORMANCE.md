@@ -423,35 +423,40 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | `ND-015` | **Accepted.** The adversarial demonstration is named the acceptance done right — *"that gap is the product"* joins the record, demonstrated rather than asserted. So does the viewer reasoning: **a reader takes the tick and leaves the sentence** — UI truth-design in nine words, binding all three skins. The X-6 invariant catching its own subject's unguarded import is the enable-time ruling earning its keep inside its own ticket. |
 | `ND-017` | **GO, with the frame set.** The four `E`/`I`/`T`/`v` preimages come to core **written to Q-11 rigor** (fields named, `len8` where concatenation appears, golden vectors) for sign-off **before bytes freeze**. The export path is designed to §4's independence metric, and the acceptance shape is the **third-party membership check**: a published root plus one receipt, nothing else of ours. |
 
+### Resolved by Response 040 (2026-08-22) — the epic's last rulings
+
+| Was | Ruling |
+|---|---|
+| `E` and `v` | **Signed off as proposed.** Params as a digest of the frozen bytes is E10 and privacy in one move. The no-`len8` statement accepted as the honest reading — a canonical object needs no framing, and saying so beats decorating with an unused dialect. |
+| `T` | **AMENDED: drop `policy_source`.** The policy hash lives in `E` as an *input identity*; carrying it twice is **X-14 inside the seal itself**. `T` = `kind` + `keys` + `closure` — a statement of what must be **trusted**, never a second copy of facts `E` already seals. |
+| `I` | **AMENDED: `anchor_cadence` comes OUT.** Delivery's flag was right and the consequence *was* the defect: cadence schedules anchoring, not deciding, and inside `I` an ops-schedule tweak would split `i_digest` cohorts for a reason no instrument comparison should care about. Cadence declares in the anchoring config and records on the anchor object. |
+| A store-found root | **CONFIRMED `self_consistent`**, and the pattern gets its single plain statement: **"onedoor never vouches for itself: at the key layer and the anchor layer alike, `verified` requires something the store does not hold."** |
+
 ### Open
 
-**Delivery → core — THREE, from `ND-017`'s decomposition (`TICKETS-ND-017.md` §5), and
-the first two block M1 because a preimage freezes on first write.**
+**None, on either side**, as of Response 040 (2026-08-22). **The crypto epic is
+closed**: `ND-001`, `ND-009`, `ND-010`, `ND-015` and `ND-017` are built, with `ND-051`'s
+viewer alongside them.
 
-**1. Are the four preimages right?** Proposed in §1, built to the vendored manifest's own
-scheme rather than invented — read from `manifest.schema.json`, and confirmed by
-computing that the shipped `t_digest` `4f53cda1…b945` is SHA-256 of canonical `[]`, so
-`T` really is a declared closure. Every digest is over `canonical_bytes`, so **no
-concatenation appears and `len8` is not reached** — stated because R039 asked for it
-*where concatenation appears*, and the honest answer is nowhere. `T` is the one delivery
-is least sure of: an archive's declared closure translates only by judgment into "what
-must a verifier trust to accept this verdict".
+**Two findings reported rather than asked**, because each needed a fix and not a ruling:
 
-**2. Is `anchor_cadence` inside `I` intended?** It follows from R039's *cadence is
-declared config inside the instrument*, and the consequence is that **changing the
-cadence changes `i_digest` for every row sealed afterwards**. Delivery reads that as the
-point — X-7's shape, a declaration change being visible — but a consequence that
-permanent is better confirmed than discovered.
+**1. `anchor_ref` can never be written.** It is a column on `actions_audit`, anchoring
+necessarily happens after a row is sealed, and the no-update trigger forbids `UPDATE` —
+verified against a live store. So the anchor points at a **range of rows** and membership
+resolves by lookup; `anchor_ref` stays dark. The better shape anyway: a back-reference
+would be a second answer to a question the range already answers, needing a writable
+column on the one table whose value is that it cannot be written.
 
-**3. Does a root found in the store report `self_consistent`?** R038 §1 one level up, and
-delivery believes it follows directly. Raised because it means **a store on its own can
-never say an anchor is verified** — the same slightly uncomfortable place, and now the
-second time this product declines to vouch for itself.
+**2. A viewer claim delivery nearly overstated.** M5's test was about to assert that
+`page.py` had not been edited since `ND-051`. `git log` says otherwise — `ND-015` touched
+it, and for the right reason. The true statement is sharper: **adding a check needs no
+page change; adding an outcome to the shared status vocabulary does.** Three tickets
+added checks and edited nothing; one added `self_consistent` and needed a style, because
+a status with no style renders as nothing. Checked against git rather than remembered.
 
-M2 through M5 are unblocked; migration `0015` is claimed.
-
-**Core → delivery:** none, as of Response 039 (2026-08-22). `ND-017` is decomposed —
-the epic's last ticket — and its close opens the `ND-052` Studio epic. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 040 (2026-08-22). The crypto epic is closed,
+which opens `ND-052` — the Policy Studio, pre-launch and demo-grade, S1 (the backtest
+engine) first per R036's normative build order. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

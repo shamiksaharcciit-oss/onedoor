@@ -441,7 +441,7 @@ ND-005 extended cross-domain, for terminating intermediaries.
 ahead of the standard. Core decides whether `-02` normalises it.
 
 ### ND-017 — Content-addressed re-derivable receipts + Merkle anchoring · **XL** 🔺 · P3
-**DECOMPOSED** (R039 §2): `TICKETS-ND-017.md` — **the crypto epic's last ticket.**
+**BUILT, M1–M5** (R040 §5) — **the crypto epic is closed.** `TICKETS-ND-017.md`.
 The four `E`/`I`/`T`/`v` preimages are proposed for sign-off before bytes freeze, written
 to the vendored manifest's own scheme rather than invented (read from
 `manifest.schema.json`; the shipped `t_digest` `4f53cda1…` is SHA-256 of `[]`, confirming
@@ -576,7 +576,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | `0012` | **`ND-001`/C2** — a `UNIQUE` index on `actions_audit.seq`, so the database refuses a duplicate chain ordinal rather than leaving the ambiguity to the walker. **Index only; the chain COLUMNS already exist** from `0007`. | **written**, `0.4.x` |
 | `0013` | **`ND-009` + R035 §1** — `approval_ref_status` (**hashed**, forcing `onedoor/row-preimage/2`) and `preimage_version` (an **excluded**, self-authenticating hint that lets `verify_chain` walk version transitions on live chains) | **written**, `0.4.x` |
 | `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **written**, `0.4.x` |
-| `0015` | **`ND-017`/M2** — the anchors table: published Merkle roots with their tree size and sealed range, so an anchor is a row rather than a note | **claimed**, not yet written |
+| `0015` | **`ND-017`/M2** — the anchors table: published Merkle roots with their tree size and sealed range, so an anchor is a row rather than a note. **`anchor_ref` stays dark — it cannot be written on an append-only table**, so membership resolves by range | **written**, `0.4.x` |
 | `0016`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by

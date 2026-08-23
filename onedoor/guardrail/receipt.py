@@ -369,8 +369,45 @@ def _check_signature(
     )
 
 
+def _check_anchor(conn: sqlite3.Connection, row: sqlite3.Row, published_root: str | None) -> Check:
+    """Membership in a published Merkle tree (ND-017 / M5).
+
+    R038 §4's law one more time: **an anchor is worth exactly the independence of where
+    it lives.** A proof that checks against a root found in this store is
+    `self_consistent`, and `verified` needs the root the caller obtained from outside —
+    the same shape as the signature check, which is now the second place this product
+    declines to vouch for itself.
+
+    `absent` matters more here than anywhere else: **anchoring is periodic by design**,
+    so the newest rows are always un-anchored, and a viewer that showed them red would
+    train an operator to ignore red.
+    """
+    from onedoor.guardrail import anchoring
+
+    keys = row.keys()
+    if "seq" not in keys or row["seq"] is None:
+        return Check("anchor", Status.ABSENT, "unchained rows are not anchored")
+    try:
+        export = anchoring.receipt_export(conn, row)
+    except anchoring.AnchorError as exc:
+        return Check("anchor", Status.UNVERIFIABLE, str(exc))
+    outcome, detail = anchoring.check_membership(export, published_root)
+    status = {
+        anchoring.MEMBERSHIP_VERIFIED: Status.VERIFIED,
+        anchoring.MEMBERSHIP_SELF_CONSISTENT: Status.SELF_CONSISTENT,
+        anchoring.MEMBERSHIP_ABSENT: Status.ABSENT,
+        anchoring.MEMBERSHIP_UNVERIFIABLE: Status.UNVERIFIABLE,
+        anchoring.MEMBERSHIP_FAILED: Status.FAILED,
+    }[outcome]
+    return Check("anchor", status, detail)
+
+
 def verify_decision(
-    conn: sqlite3.Connection, row: sqlite3.Row, *, trusted_key_id: str | None = None
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+    *,
+    trusted_key_id: str | None = None,
+    published_root: str | None = None,
 ) -> ReceiptVerification:
     """Verify one audit row. THE implementation; callers render its output.
 
@@ -386,6 +423,7 @@ def verify_decision(
             _check_policy_snapshot(conn, row),
             _check_chain(row),
             _check_signature(conn, row, trusted_key_id),
+            _check_anchor(conn, row, published_root),
             _check_append_only(conn),
         )
     )

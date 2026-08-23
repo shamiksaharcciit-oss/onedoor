@@ -425,3 +425,45 @@ def test_a_self_consistent_signature_is_loud_and_is_not_green(
             prop(html, conn)  # type: ignore[call-arg]
         else:
             prop(html)  # type: ignore[call-arg]
+
+
+def test_the_viewer_needs_no_change_when_anchoring_arrives(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """M5's acceptance — and the honest version of it, checked against git rather than
+    remembered.
+
+    The claim delivery nearly wrote was "`page.py` has not been edited since ND-051".
+    It has: `git log -- onedoor/viewer/page.py` shows two commits, ND-051 and ND-015.
+    The true statement is sharper and worth more:
+
+    **Adding a CHECK needs no page change; adding an OUTCOME does.** ND-001 filled the
+    chain columns, ND-009 added an evidence field, and ND-017 adds anchoring — three
+    tickets, three new checks, zero edits to the renderer, because the page renders
+    whatever list the checker returns. ND-015 touched it once, and for the right
+    reason: `self_consistent` was a new member of the shared status vocabulary, and a
+    status with no style is a status rendered as nothing.
+
+    That is what "one verification, and the viewer does not own it" actually buys —
+    stated as what it is rather than rounded up.
+    """
+    from onedoor.guardrail import anchoring, chain
+
+    with tx(conn):
+        chain.enable(conn)
+    _seed(conn, config)
+    with tx(conn):
+        anchor = anchoring.seal(conn, FROZEN_NOW)
+    assert anchor is not None
+
+    html = build_page(conn)
+    assert "anchor" in html
+    # Anchored, but the page holds no published root, so it says so rather than
+    # claiming verification.
+    assert "self_consistent" in html
+    assert_every_displayed_digest_is_in_the_store(html, conn)
+    for prop in ALL_PROPERTIES:
+        if prop.__code__.co_argcount == 2:
+            prop(html, conn)  # type: ignore[call-arg]
+        else:
+            prop(html)  # type: ignore[call-arg]

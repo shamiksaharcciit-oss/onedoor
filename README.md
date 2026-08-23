@@ -208,6 +208,23 @@ found in the same store as the row it signs is reported as **`self_consistent`**
 as verified — an attacker who can write the database supplies both halves. Pass a
 trusted `key_id` from outside the store and the same signature reports `verified`.
 
+## Anchoring
+
+Merkle roots over ranges of chained rows, published wherever a deployer chooses — a
+file, an endpoint, a commit, a line taped to a wall. **Independence is the metric, not
+the medium.** A third party holding the published root and one exported receipt verifies
+membership with nothing else of ours; the acceptance test runs the verifier in a
+directory containing exactly those two files.
+
+**onedoor never vouches for itself: at the key layer and the anchor layer alike,
+`verified` requires something the store does not hold.** A signature that matches the
+store's own keyring, or a proof that checks against a root the store itself carries, is
+reported as `self_consistent` — real information, and not independence.
+
+Anchoring is periodic, so the newest rows are normally un-anchored. That reads as
+**`absent`**, not as a fault: a viewer that showed them red would train an operator to
+ignore red.
+
 ## The receipt viewer
 
 ```bash
