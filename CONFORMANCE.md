@@ -441,46 +441,48 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | S1 Q1 — what a backtest writes | **R042 §3: nothing to the decision ledger. Ever.** Not a decision row, not a marker, not a breadcrumb. It **borrows the ledger's witness** — a backtest receipt that cites the sealed chain — so *a backtest proves it saw real data by citation, not by writing; the ledger vouches for the backtest, never the reverse.* |
 | S1 Q2 — the empty store | **R042 §4: a hashed `ledger_provenance: live \| fixture`**, with a shipped fixture ledger that is mechanically real and declares itself synthetic. The label must survive into every rendering — a fixture-backed number without it is the overclaim this programme exists to make impossible. |
 
+### Resolved by Response 043 (2026-08-23) — S1's three
+
+| Was | Ruling |
+|---|---|
+| Q1 `cost_eur` | **Sustained**, with a law attached: **measured zero and declared zero never share a representation.** A `0.00` resolved through the candidate's `cost_param` is a *measurement*; an action whose candidate declares no `cost_param` is a *non-measurement*, counted under its own reason. The candidate's `cost_param` applies even where it differs from the policy in force when the row was sealed — the backtest's question is what the **candidate** would have done. |
+| Q2 provenance | **Sustained: two labels, no third.** `ledger_provenance` describes the **cited range**, not the store; an unchained prefix is a counted skip. **Plus one ruling not asked for:** a store with **no chain at all** gets a **refusal, not a receipt** — `row_hash_at_last_seq` is REQUIRED, and a null citation would be the store vouching for itself. The refusal names the remedy. |
+| Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
+| The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
+
 ### Open
 
-**Delivery → core — THREE, from S1's decomposition (`TICKETS-ND-052-S1.md` §6). B1
-proceeds meanwhile.**
+**None blocking.** S1's three questions are ruled and B1–B5 are built. **Two departures
+and one defect are reported rather than assumed:**
 
-**1. How does a backtest obtain `cost_eur`?** It is stored nowhere in `actions_audit` —
-the `ND-010` finding, landing again — and it drives cap accounting, so defaulting it to
-zero would understate every cap denial the candidate policy would have produced, in the
-direction of reassurance. **A default that looks like a fact**, in the phrase already in
-the record. Delivery proposes deriving it from `policy.cost_param` where declared, by the
-same mechanism the live engine uses, and declaring the gap in `coverage.skipped` where
-not.
+**1. A defect in `ND-009`'s version hint, found by S1's fixture and fixed.**
+`append_expiry` does not go through `_row_values`, where `preimage_version` was stamped —
+so every `reservation_expired` row was **sealed under `/2` while its hint claimed `/1`**,
+and `version_of` then verified it under the wrong field order. All 23 in the fixture
+failed. It survived the entire crypto epic because every chain test runs inside one
+frozen instant, where no reservation deadline ever passes; the fixture's three simulated
+days were the first thing to reclaim anything. The hint being **self-authenticating** is
+what turned a silent forgery into a loud failure — R035 §1 working exactly as ruled, with
+delivery as the liar. Fixed by moving the stamp into `_stamp_chain`, where the sealing
+version is chosen, so the two cannot come apart. **No deployment is affected**: chaining
+is opt-in and off everywhere.
 
-**2. Does `ledger_provenance` need a third value?** A store with a sealed chain but an
-unchained prefix is neither cleanly `live` nor `fixture`. Delivery proposes **`live` with
-the unchained prefix counted in `coverage.skipped`** — the range is what was cited, and a
-range that cannot be cited is not replayed. Two labels told apart by a footnote would be
-worse than a counted skip.
+**2. The fixture's committed artifact is the chain head, not the database.** R043 §3 asked
+for a byte-pinned `.db`. Measured: two builds produce an **identical `actions_audit`** —
+107 rows, the same `row_hash` on every one — and a **different file**, because the engine
+samples the clock for `schema_migrations.applied_at`, `policy_versions.created_at` and the
+config stamps. None is an input the generator can pin without threading an injected clock
+through migrations, which is an engine change for a demo asset. So `_fixture/HEAD` is
+committed, the ledger is built on demand, and the regeneration test compares what is
+actually deterministic. **Both purposes §3 named are better served**: the anti-masquerade
+property depends only on `row_hash` values, which are deterministic.
 
-**3. Does the fixture ledger ship in the wheel?** It is demo content, sabotage bed and
-test fixture at once. In the package it travels with the product and is pointable on day
-one; outside it, the demo needs a build step. Delivery leans **in the package**,
-byte-pinned the way `docs/oneview/` is — but it adds weight to every install, so it is
-worth a line of confirmation rather than a discovery at packaging time.
+**3. The size question §3 asked to bring back.** A committed database measured **315 KB**,
+over the declared 256 KB. Building on demand makes it moot — the wheel gains 66 bytes —
+but the number is reported because §3 asked for it before packaging rather than after.
 
-**One finding reported, not asked** (`ND-017` F1): **both of R041's sabotage vectors are
-constructible and both already failed** against the vendored construction, for three
-independent reasons measured before the guard was written — `verify_inclusion` rejects an
-`index` outside `[0, tree_size)`; its terminal `sn == 0` check fails an empty path
-whenever `tree_size > 1`; and RFC 6962's `0x00` leaf prefix means a size-1 root is
-`sha256(0x00 ‖ leaf)`, never the bare leaf digest, so the literal "root rewritten to the
-leaf hash" forgery could not verify at all. The guard is adopted regardless and belongs
-at our front door — a re-vendor could arrive without the length check, and a third party
-building from `docs/receipt-digests.md` needs the rule **stated** rather than inherited
-by luck. But the record should not say a hole was patched when a line was added in depth.
-
-**Core → delivery:** none, as of Response 042 (2026-08-23). The crypto epic is closed
-and `ND-017` F1 has landed. Current work is `ND-052` S1 — the backtest engine — first in
-R036's normative build order, with S6 (the LLM proposer) last and none of it gating the
-launch. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 043 (2026-08-23). `ND-052` S1 is built; next
+is S2, the ratification ceremony, which opens by citing `record_snapshot` as settled. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

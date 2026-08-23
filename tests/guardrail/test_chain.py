@@ -556,3 +556,48 @@ def test_tampering_still_localises_on_either_side_of_the_seam(
     failed = [r for r in report.regions if r.status is Status.FAILED]
     assert len(failed) == 1
     assert failed[0].first_id == failed[0].last_id == 2
+
+
+def test_a_reclamation_row_is_sealed_and_hinted_under_the_same_version(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The defect the Studio's fixture ledger found, kept as a regression.
+
+    `append_expiry` does not go through `_row_values`, and `preimage_version` used to be
+    stamped there — so a `reservation_expired` row was **sealed under `/2` while its hint
+    said `/1`**, and `version_of` then verified it under the wrong field order. Every one
+    failed.
+
+    It survived the whole crypto epic because every chain test runs inside one frozen
+    instant, where no reservation deadline ever passes. The fixture's three simulated
+    days were the first thing to reclaim anything — 23 rows, all unverifiable.
+
+    The fix puts the hint where the version is chosen, so the two cannot come apart:
+    two places setting one fact is X-14, and this is what it looks like when it lands
+    inside a seal.
+    """
+    from datetime import timedelta
+
+    from onedoor.guardrail.preimage import CURRENT_VERSION
+
+    _policies(conn)
+    _enable(conn)
+    _decide(conn, config, "demo.spend")
+
+    # Past the reservation deadline, so the next decision reclaims the first.
+    later = FROZEN_NOW + timedelta(hours=2)
+    decide_and_reserve(
+        make_request("demo.plain", {}, now=later), conn=conn, config=config, now=later
+    )
+
+    reclaimed = conn.execute(
+        "SELECT * FROM actions_audit WHERE kind='reservation_expired'"
+    ).fetchall()
+    assert reclaimed, "the fixture must actually reclaim a reservation"
+    for row in reclaimed:
+        assert row["preimage_version"] == CURRENT_VERSION, (
+            "a reclamation row was sealed without stamping its version hint"
+        )
+    assert chain.verify_chain(conn).sound, (
+        "reclamation rows must verify like any other — they are ledger events too"
+    )

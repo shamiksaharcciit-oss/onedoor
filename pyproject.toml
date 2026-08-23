@@ -152,4 +152,4 @@ include = ["onedoor*"]
 # onedoor/store/migrations/*.sql, so Database.init() applies no migrations and the
 # first query fails with "no such table: policies". 0.3.0 on PyPI has this defect.
 [tool.setuptools.package-data]
-onedoor = ["store/migrations/*.sql", "viewer/_vendor/*.md"]
+onedoor = ["store/migrations/*.sql", "viewer/_vendor/*.md", "studio/_fixture/HEAD"]

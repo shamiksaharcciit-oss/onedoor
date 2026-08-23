@@ -163,6 +163,20 @@ def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip)
     """
     values["seq"] = tip.seq + 1
     values["prev_hash"] = tip.row_hash
+    # The hint is stamped HERE, beside the version that actually seals the row, because
+    # this is the only place that chooses one. It used to be set in `_row_values`, which
+    # `append_expiry` does not call -- so reclamation rows were sealed under /2 while
+    # their hint said /1, and `version_of` then verified them under the wrong field
+    # order. Every one failed.
+    #
+    # Found by the Studio's fixture ledger, whose three simulated days let reservations
+    # expire: 23 `reservation_expired` rows, all unverifiable. Not caught earlier because
+    # the chain tests all run inside one frozen instant, where no deadline passes.
+    #
+    # The hint being self-authenticating is what turned a silent forgery into a loud
+    # failure -- "a lying hint produces detection, not confusion" (R035 §1), working
+    # exactly as ruled, with us as the liar.
+    values["preimage_version"] = preimage_module.CURRENT_VERSION
     digest = preimage_module.row_hash(values)
     values["row_hash"] = digest
     _sign(conn, values)
@@ -452,11 +466,9 @@ def _row_values(
             "canon_schema": canon_schema,
             "opaque_class": opaque_class,
             "approval_ref_status": approval_ref_status,
-            # The version HINT (R035 §1). Excluded from the hash -- the authoritative
-            # statement is the magic string inside the preimage -- so it is stamped
-            # here rather than computed, and a row whose hint disagrees with how it
-            # was sealed fails verification under the version it names.
-            "preimage_version": preimage_module.CURRENT_VERSION,
+            # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
+            # is where the sealing version is chosen. Setting it in two places is how
+            # the two came apart (X-14, and see `_stamp_chain`).
         }
     )
     return values

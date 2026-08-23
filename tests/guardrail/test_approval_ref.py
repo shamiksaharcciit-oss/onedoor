@@ -351,14 +351,41 @@ def test_the_evidence_vocabulary_is_the_settled_seven() -> None:
 
 def test_the_status_is_recorded_on_every_decision(conn: Connection, config: EngineConfig) -> None:
     """Absent is written explicitly, not left NULL: a pre-ND-009 row's NULL means the
-    field did not exist, which is a different fact from "no ref was presented"."""
+    field did not exist, which is a different fact from "no ref was presented".
+
+    The version hint is the opposite case, and the contrast is the point. It is stamped
+    only where a row is SEALED, so an unchained row carries none — a hint on a row that
+    was never sealed would be a claim about a sealing that did not happen. Absent there
+    means "not sealed"; absent in `approval_ref_status` would mean "the field did not
+    exist". Two NULLs, two different facts, each earned rather than defaulted.
+    """
     _tier3(conn)
     _present(conn, config, None, _request())
     row = conn.execute(
-        "SELECT approval_ref_status, preimage_version FROM actions_audit ORDER BY id DESC LIMIT 1"
+        "SELECT approval_ref_status, preimage_version, row_hash FROM actions_audit "
+        "ORDER BY id DESC LIMIT 1"
     ).fetchone()
     assert row["approval_ref_status"] == "absent"
-    assert row["preimage_version"] == "onedoor/row-preimage/2"
+    assert row["row_hash"] is None, "the fixture must be an unchained store"
+    assert row["preimage_version"] is None, "an unsealed row must not claim a sealing version"
+
+
+def test_a_sealed_row_carries_the_version_that_sealed_it(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """And the other half: where there IS a seal, the hint names it."""
+    from onedoor.guardrail import chain
+    from onedoor.guardrail.preimage import CURRENT_VERSION
+
+    _tier3(conn)
+    with tx(conn):
+        chain.enable(conn)
+    _present(conn, config, None, _request())
+    row = conn.execute(
+        "SELECT preimage_version, row_hash FROM actions_audit ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert row["row_hash"] is not None
+    assert row["preimage_version"] == CURRENT_VERSION
 
 
 def test_the_status_is_inside_the_hash(conn: Connection, config: EngineConfig) -> None:

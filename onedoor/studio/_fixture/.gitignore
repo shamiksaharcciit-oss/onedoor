@@ -1,0 +1,13 @@
+# The demonstration ledger is BUILT, not committed.
+#
+# Measured, not assumed: two builds produce an identical `actions_audit` -- 107 rows,
+# the same row_hash on every one -- and a different FILE, because the engine samples the
+# clock for schema_migrations.applied_at, policy_versions.created_at and the config
+# stamps. None of those is an input the generator can pin.
+#
+# So the pinned artifact is HEAD, one line, committed beside this file. That is what the
+# anti-masquerade check compares a citation against, and it is exactly the part that is
+# deterministic. It also keeps the wheel small: the database measured 315 KB, over the
+# 256 KB the ticket declared.
+demo-ledger.db
+demo-ledger.db-*
