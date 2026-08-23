@@ -488,18 +488,20 @@ different facts. Both rendering disciplines are held **structurally**: the tests
 public `render_*` in the module is in `RENDERERS` — so a third view joins the discipline
 at the moment it is written.
 
-**One deviation from the S2 §5 receipt sketch, flagged rather than quietly made.** The
-sketch had `changes: {added, removed, modified}`. `removed` is **not implemented and the
-field is not present**, because `policy_loader.upsert` has no delete and the merged-over-
-active semantics finding one requires mean an action type the candidate omits stays
-exactly as it was — so `removed` could never be non-empty, and *a field that can never be
-non-empty is a promise nothing keeps*. Retirement needs a delete path in the loader and a
-rule about in-flight reservations under a rule that vanished; delivery reads that as its
-own ticket rather than a line in this one, and will add it if core disagrees.
+**The `removed` deviation is ruled and closed** (Response 046 §2). Sustained: `changes`
+carries `added` and `modified` and no `removed`, and the flag was the right way to make
+the change. The precedent core filed alongside it, so the two do not blur — **a reserved
+*word* is a promise about vocabulary; a reserved *field* is a claim about mechanism.**
+`principal_mismatch` stays in the evidence vocabulary, held unemitted by a test, because
+a complete vocabulary claims nothing about the engine today; a `removed` array would
+claim the engine *has* a retirement path, and it does not. Retirement is its own future
+ticket, and it owes three things together: a delete path, the rule for in-flight
+reservations under a vanished rule, and `onedoor/ratification/2` with `removed` added
+**alongside** the mechanism, never ahead of it.
 
-**Core → delivery:** none, as of Response 045 (2026-08-23). `ND-052` S1 and S2 are
-built; then S3 the canvas, S4 the coverage map, S5 the finance pack, and S6 the proposer
-last. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 046 (2026-08-23). `ND-052` S1 and S2 are
+built and S3 is decomposed; then S4 the coverage map, S5 the finance pack, and S6 the
+proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
