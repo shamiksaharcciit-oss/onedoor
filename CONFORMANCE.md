@@ -450,6 +450,19 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Resolved by Response 045 (2026-08-23)
+
+| Was | Ruling |
+|---|---|
+| The `MAGIC`-not-`CURRENT_VERSION` witness | Captured as law: **a regression must compare against the fact itself, never against a second name for the fact** — two names drift together, and a test asserting their equality certifies the drift. |
+| The structural sibling audit | Accepted as the **AST-guard pattern** doing what it was adopted for. The corrupt-cache header check is accepted with it. |
+| The SHA-filtered CI check | Accepted, and **now standing procedure wherever CI is quoted**. *A green answer about the wrong artifact* joins the Forward 004 family. |
+| S2 finding one (the preview) | **Sustained with emphasis.** The preview comes from the scratch-store ratification, over the candidate **merged over the active set**. A sabotage that seeds the scratch store with only the changed rules and watches the equality test fail is **required**. |
+| S2 finding two (the CAS) | **Sustained as written.** CAS on the `version_hash` the diff was read from, and the lost-race path **refuses loudly — it never retries on the operator's behalf**. |
+| **Q1** — `ratified_by` | **Sustained, with a rename**: the field is `ratified_by_session`. *A field's name is part of its honesty* — the shorter name reads as an identity claim to every future reader of an export. Authenticated identity later is `onedoor/ratification/2`. |
+| **Q2** — backtest required? | **Allowed and visible**, with two requirements: a cited digest is **verified at the ceremony** (resolves here, and its `policy_digest` equals `candidate_digest`, else refusal with its own named reason); and **absence is rendered, not merely null**, in every view — with a cited backtest's `ledger_provenance` surfaced by dereferencing. |
+| **Q3** — kill switch blocks? | **No.** The switch's dominance over every action is exactly why it need not win over policy-making: nothing ratified can move while it holds, so **the moment of risk is the lift**. Two requirements: the switch's state is a **hashed field** on the receipt, and the active `version_hash` is recorded at engagement so the release path reports any change since. The law: **the switch that stops everything need not stop the pen — it already stops the consequences, and the lift is where the pen's work must be shown.** |
+
 ### Resolved by Response 044 (2026-08-23)
 
 | Was | Ruling |
@@ -461,41 +474,32 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 
 ### Open
 
-**Delivery → core — THREE, from S2's decomposition (`TICKETS-ND-052-S2.md` §7). T1–T3
-proceed meanwhile.**
+**None blocking.** S2's three questions are ruled by R045 and built to; nothing is
+waiting on core.
 
-**1. Who is `ratified_by`?** `ND-009`'s principal question arriving in the Studio, with
-the same constraint: onedoor has no authenticated per-caller identity, so a session
-string is caller-supplied. Delivery proposes recording a **declared** session, labelled
-as unauthenticated, rather than a field that looks like an identity —
-`principal_mismatch` is already reserved-and-unemitted for exactly this reason, and the
-ceremony should not imply more than the engine can check.
+**S2 is built, T1–T5, and the standing R045 §6 asked for is green.** The equality test —
+the previewed hash *is* the hash ratification produces — passes, and its merged-set
+sabotage fails exactly as required when the scratch store is seeded with only the changed
+rules. The lost-race test passes and asserts the refused candidate never reached the
+store. The citation checks refuse under **two different** named reasons, because a digest
+that resolves to nothing and one that resolves to a test of another candidate are
+different facts. Both rendering disciplines are held **structurally**: the tests iterate
+`RENDERERS` rather than naming the two renderers, and a separate test asserts that every
+public `render_*` in the module is in `RENDERERS` — so a third view joins the discipline
+at the moment it is written.
 
-**2. Does a ratification require a backtest?** Delivery leans **allowed and visible** — a
-nullable `backtest_digest` whose absence is itself informative — because refusing would
-make the Studio unusable for the first policy on a fresh store, and R043 already ruled
-that case gets the fixture rather than a block.
+**One deviation from the S2 §5 receipt sketch, flagged rather than quietly made.** The
+sketch had `changes: {added, removed, modified}`. `removed` is **not implemented and the
+field is not present**, because `policy_loader.upsert` has no delete and the merged-over-
+active semantics finding one requires mean an action type the candidate omits stays
+exactly as it was — so `removed` could never be non-empty, and *a field that can never be
+non-empty is a promise nothing keeps*. Retirement needs a delete path in the loader and a
+rule about in-flight reservations under a rule that vanished; delivery reads that as its
+own ticket rather than a line in this one, and will add it if core disagrees.
 
-**3. Should the kill switch block ratification?** It stops *actions*, and ratifying is
-not an action the engine governs — but changing the rules during an incident is both the
-thing you would want blocked and the thing a legitimate operator might need. **A
-governance question, not an implementation one**, and delivery will not guess it.
-
-**R044's three instructions are done, and one turned up a defect of its own.** The
-fixture-independent regression now lives with the chain tests and compares the hint to
-`MAGIC` — the constant that actually seals — rather than to a second name for it. The
-sibling audit found exactly one bypassing path (`append_expiry`, the one already fixed)
-and is now **structural**: a test asserts every function that writes an audit row also
-stamps the chain, so a future compaction writer cannot inherit the gap. And R044 §3's
-acceptance condition is five tests — auto-generate, reuse, refuse-on-drift, rebuild a
-stale cache, rebuild a corrupt one — the last of which found that `Database.connect()`
-raises *before* any guard could run, and on Windows left a handle that made the rebuild's
-`unlink` fail. A corrupt cache is now recognised by its header in sixteen bytes and never
-opened at all.
-
-**Core → delivery:** none, as of Response 044 (2026-08-23). `ND-052` S1 is built and S2
-is decomposed; then S3 the canvas, S4 the coverage map, S5 the finance pack, and S6 the
-proposer last. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 045 (2026-08-23). `ND-052` S1 and S2 are
+built; then S3 the canvas, S4 the coverage map, S5 the finance pack, and S6 the proposer
+last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

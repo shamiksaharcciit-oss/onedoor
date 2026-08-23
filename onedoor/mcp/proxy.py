@@ -226,11 +226,17 @@ class Proxy:
 
     def handle_kill(self, msg: dict[str, Any]) -> dict[str, Any]:
         engaged = bool(msg.get("params", {}).get("engaged"))
-        killswitch.set_engaged(self.conn, engaged, origin="mcp-proxy")
+        report = killswitch.set_engaged(self.conn, engaged, origin="mcp-proxy")
+        text = f"onedoor: kill switch {'ENGAGED' if engaged else 'released'}"
+        if report is not None and report.state != killswitch.UNCHANGED:
+            # R045 §5. The lift is the loud moment, and it is loud in every surface that
+            # can lift -- an operator who releases through the proxy learns the same
+            # thing as one who releases through the API.
+            text = f"{text}. {report.sentence()}"
         return {
             "jsonrpc": "2.0",
             "id": msg.get("id"),
-            "result": _tool_text(f"onedoor: kill switch {'ENGAGED' if engaged else 'released'}"),
+            "result": _tool_text(text),
         }
 
     # --- main loop ----------------------------------------------------------

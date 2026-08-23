@@ -565,7 +565,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-050 | **An envelope-validation `malformed` denial writes no audit row** | S 🔺 | **Ticketed on core's instruction (R027 §2)**, found while building `ND-040`/U3 and recorded as **pre-existing: present in `≤0.4.0`, not introduced by `ND-040`.** `decide_raw` denies a request whose envelope fails validation *before* a policy or an `ActionRequest` object exists, so there is nothing to `audit.append` against: the returned `ActionResult` carries no `audit_id` and the ledger has no row. **Severity: low blast radius, high principle.** Low, because the action does not happen — the denial is correct and the caller is told; nothing is mis-permitted, and the affected requests are by definition ones the engine could not parse. High, because *"the audit log is append-only — decisions, results, denials, dry-runs, and kill-switch blocks"* is a claim this repository makes in its README, and one class of denial is silently outside it. An operator watching for a spike of malformed requests has nothing in the evidence store to watch, and a receipt-based product whose ledger omits a category of verdict has a gap in exactly the surface it sells. Note the asymmetry `ND-040` created and did not cause: a malformed **URL** now writes a row with `malformed_kind='url_canonicalization'`, while a malformed **envelope** writes none — which is why migration `0010` names only the value the code emits rather than inventing a `request_validation` one for code nobody wrote. **The fix is not free**: appending needs a row shape for a request that failed to parse (what is `action_type`? what are `params`?), and E10's received-verbatim discipline says the unparseable bytes are exactly what must be frozen — so this is a small ticket with a real design question inside it, not a one-liner. |
 | ND-051 | **The onedoor receipt viewer (oneview skin)** | M 🔺 | **Declared by R028 §4**, Phase-B launch asset, built **before** the crypto epic resumes. `python -m onedoor.viewer` reads a store and emits one static, read-only HTML page: the decision-receipt card with deny-with-budget as hero, plus the tail of verdicts. Spec and reference mockup in `docs/oneview/`; decomposition in `TICKETS-ND-051.md`. The structural rule from the forensics channel binds it: **one verification, and the viewer does not own it** — `onedoor/guardrail/receipt.py` is the single implementation and the viewer renders its output. **Two findings shaped the build:** there was no receipt verification and no CLI to call, so the requirement is met by creating exactly one implementation outside the viewer; and the mockup's chain block cannot be rendered truthfully in `0.4.1` because `row_hash`/`prev_hash`/`seq` are dark until `ND-001`, so it renders the **absent** state naming the ticket. Four outcomes in a UI: verified · absent · unverifiable · failed, with unverifiable as loud as failed. |
 | ND-052 | **The Policy Studio — describe your world, ratify your rules** (EPIC) | XL 🔺 | **S1 BUILT, B1–B5** (R043 §5): `TICKETS-ND-052-S1.md`.
-**S2 DECOMPOSED** (R044 §4): `TICKETS-ND-052-S2.md`, opening by citing
+**S2 BUILT, T1–T5** (R045 §6): `TICKETS-ND-052-S2.md`, opening by citing
 `policy_loader.record_snapshot`'s `version_hash` and `snapshot_schema` as settled — the
 ceremony **cites, never re-derives**, which is the R040 rule arriving in the Studio.
 **Two findings.** *(1) Showing a hash before ratifying it is a promise the store must
@@ -578,8 +578,12 @@ a UI has a gap between reading and clicking, so ratification is a compare-and-sw
 the `version_hash` it diffed from — the `cas_approve` shape, because a lost race must not
 silently write. **Three questions** (§7): who `ratified_by` is (ND-009's principal question
 arriving in the Studio); whether a ratification requires a backtest; whether the kill switch
-should block ratification — a governance question delivery will not guess. T1–T3 unblocked;
-migration `0017` to be claimed with T4. Two rulings arrived with it and are
+should block ratification — a governance question delivery will not guess.
+**All three ruled by R045 and built**: `ratified_by_session` (the rename — *a field's
+name is part of its honesty*); backtest **allowed and visible**, with the citation made
+checkable at the ceremony and its absence rendered in every view; and the kill switch
+**not blocking** — it already stops the consequences, so the lift is where the pen's
+work is shown. Migrations `0017` (ratifications) and `0018` (kill-switch episodes). Two rulings arrived with it and are
 built to, not rediscovered: **a backtest writes nothing to the decision ledger, ever** —
 it borrows the ledger's witness by citing the sealed chain, so *the ledger vouches for the
 backtest, never the reverse* — and **day one resolves as a hashed
@@ -615,7 +619,9 @@ ledger ships in the wheel. B1 unblocked.
 | `0014` | **`ND-015`/K1** — the signing keyring: append-only public keys with derived `key_id` fingerprints, so rotation grows the ring and old receipts verify forever | **written**, `0.4.x` |
 | `0015` | **`ND-017`/M2** — the anchors table: published Merkle roots with their tree size and sealed range, so an anchor is a row rather than a note. **`anchor_ref` stays dark — it cannot be written on an append-only table**, so membership resolves by range | **written**, `0.4.x` |
 | `0016` | **`ND-052`/S1-B2** — the backtest receipts table: the Studio's own, append-only, holding a run's policy digest, cited range, provenance and divergence. **Never touches `actions_audit`** — a backtest proves it saw real data by citation, not by writing | **written**, `0.4.x` |
-| `0017`+ | unclaimed | — |
+| `0017` | **`ND-052`/S2-T4** — the ratifications table: append-only, holding from/to versions, the candidate digest, the **checked** backtest citation, the kill-switch state at ratification, and `ratified_by_session` (declared, never authenticated — the longer name carries its own caveat) | **written**, `0.4.x` |
+| `0018` | **`ND-052`/S2 · R045 §5** — kill-switch episodes: the policy version in force when the switch was engaged, so the **lift** can report any change since. An episode rather than a config key, because an incident review needs the time before last too. Deliberately not append-only: closing an episode is the one update it exists to allow | **written**, `0.4.x` |
+| `0019`+ | unclaimed | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

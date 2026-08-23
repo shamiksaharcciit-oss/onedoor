@@ -7,6 +7,70 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-052` / S2: the ratification ceremony
+
+Diff a candidate against what is in force, **see the hash it would become**, ratify, and
+get a receipt. This is the act that turns a *candidate* — which has only a digest over
+models — into a *version* recorded in `policy_versions`.
+
+- **The previewed hash is the produced hash.** The number shown is not computed
+  alongside `record_snapshot`; it is produced *by* it, in a scratch store that is thrown
+  away. The scratch store holds the candidate **merged over the active set**, because
+  the snapshot renders the whole policy table and seeding it with only the changed rules
+  yields the hash of a two-rule deployment — a different number wearing the right label.
+  A sabotage test does exactly that and watches the equality fail.
+- **A lost race refuses; it never silently writes.** Ratification is a compare-and-swap
+  against the `version_hash` the diff was read from. A UI has a gap between reading and
+  clicking, and an operator must not sign something other than what they read. It
+  refuses loudly and does not re-diff on the operator's behalf.
+- **A cited backtest is checked at the ceremony.** The digest must resolve in this store
+  *and* its `policy_digest` must equal the candidate's — otherwise refusal, under two
+  **different** named reasons, because a citation that resolves to nothing and one that
+  resolves to a test of a different candidate are different facts. Ratifying without a
+  backtest stays allowed, and **the absence is rendered in every view** rather than left
+  as a null nobody sees. Where a backtest *is* cited, its `ledger_provenance` is
+  surfaced by dereferencing: a fixture-informed ratification is legitimate and must be
+  visible as one.
+- **`ratified_by_session`, not `ratified_by`.** onedoor has no authenticated per-caller
+  identity, so the field holds a *declared* session, and every rendering says
+  "declared, not authenticated". A field's name is part of its honesty. An
+  authenticated principal will be `onedoor/ratification/2`.
+- **The receipt exports as two files** — itself and the snapshot it names — and verifies
+  from those alone: the receipt matches its own digest, and the snapshot hashes to the
+  version it ratified. No database, no deployment.
+
+Migration `0017` adds the append-only `ratifications` table.
+
+### Changed — the kill switch does not block ratification, and the lift now says why
+
+The switch wins over every action under every policy, so nothing ratified can move while
+it holds: **the moment of risk is the lift, not the ratification.** Blocking policy
+edits mid-incident would punish the operator tightening rules while stopping no attacker
+who already had ratification access.
+
+So the state is recorded rather than enforced — `kill_switch_engaged` is a hashed field
+on every ratification receipt — and the *release* path is where a change becomes loud.
+Migration `0018` records the policy version in force when the switch is engaged, and
+releasing it reports any change since: *"the rules changed while the door was shut, from
+X to Y."* Surfaced through both the admin endpoint (`policy_change_while_engaged`) and
+the MCP proxy; **the lift is not blocked either.** This product makes states visible; it
+does not take the wheel.
+
+The report has **four** states and none collapses into another: `changed`, `unchanged`,
+`undeterminable` (an episode with no recorded version) and `no_episode` (a store
+upgraded while the switch was already held). Only `unchanged` says the rules held still,
+and it says it because two hashes were compared.
+
+`killswitch.set_engaged` now returns that report on release and `None` on engage; the
+admin endpoint's response gains a `policy_change_while_engaged` field. No AADP
+wire-observable behaviour changes.
+
+**Known limitation, stated rather than implied away:** a ratification cannot *retire* a
+rule. `upsert` has no delete and the candidate merges over the active set, so an omitted
+action type stays exactly as it was — and the receipt's `changes` therefore reports
+`added` and `modified` and has no `removed` field at all, rather than carrying one that
+can never be non-empty.
+
 ### Fixed — reclamation rows were sealed under one preimage version and claimed another
 
 `append_expiry` writes the `reservation_expired` row that records budget going back when

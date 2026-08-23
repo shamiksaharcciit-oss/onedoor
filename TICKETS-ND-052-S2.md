@@ -146,3 +146,30 @@ a legitimate operator might need to tighten them. Delivery has no strong view an
 not guess: this is a governance question, not an implementation one.
 
 T1 and T2 are unblocked. T3 is unblocked. T4's receipt waits on Q1 and Q2; T5 follows T4.
+
+---
+
+## 8. Ruled and built (R045)
+
+All three questions ruled; T1–T5 built. What R045 changed or added to the sketch above:
+
+- **§5's `ratified_by` is `ratified_by_session`.** The rename is the ruling: *a field's
+  name is part of its honesty*, and the shorter name reads as an identity claim to every
+  future reader of an export.
+- **§5's `changes` has no `removed`.** Not a ruling — a delivery decision, flagged in
+  `CONFORMANCE.md` §Open. `upsert` has no delete and the candidate merges over the active
+  set, so `removed` could never be non-empty. *A field that can never be non-empty is a
+  promise nothing keeps.* Retirement is its own ticket.
+- **T2 gains the sabotage R045 §2 required**: a scratch store seeded with only the changed
+  rules, watched failing the equality test. The trap is now pinned rather than described.
+- **A cited backtest is verified at the ceremony** (R045 §4.1) — it must resolve here and
+  its `policy_digest` must equal `candidate_digest`. Two named reasons, not one:
+  *unresolvable* and *mismatch* are different facts with different remedies.
+- **T5's disciplines are held structurally.** The tests iterate `RENDERERS`; a separate
+  test asserts every public `render_*` is in it. The absent-backtest sentence is one
+  constant referenced by both the renderers and the tests, because two copies of a
+  sentence are two names for one fact.
+- **The kill switch does not block** (R045 §5). Its state is a hashed field on the
+  receipt, and migration `0018` records the version in force at engagement so the **lift**
+  reports any change since — four states, none collapsing: `changed`, `unchanged`,
+  `undeterminable`, `no_episode`.

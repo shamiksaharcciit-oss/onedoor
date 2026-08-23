@@ -78,6 +78,22 @@ def db(tmp_path: Path) -> Iterator[Database]:
 
 
 @pytest.fixture
+def fresh(tmp_path: Path) -> Iterator[Connection]:
+    """A store with migrations applied and **no policies at all**.
+
+    `db`/`conn` seed a policy set, which is right for the engine's tests and wrong for
+    the Studio's: the day-one deployment -- no rules, no recorded version -- is a case
+    the ratification ceremony has to get right, and it is where `from_version: None`
+    stops being a hypothetical.
+    """
+    database = Database(str(tmp_path / "fresh.db"))
+    database.init()
+    connection = database.connect()
+    yield connection
+    connection.close()
+
+
+@pytest.fixture
 def conn(db: Database) -> Iterator[Connection]:
     connection = db.connect()
     yield connection
