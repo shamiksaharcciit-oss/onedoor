@@ -211,6 +211,63 @@ def receipt_export(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]
 
 # --- The standalone verifier (M4) --------------------------------------------------
 
+
+def _degenerate_path_refusal(inclusion: dict[str, Any]) -> str | None:
+    """Refuse the empty-path degeneracy **before any Merkle computation** (R041, F1).
+
+    An RFC 6962 inclusion proof with an empty audit path degenerates to the claim *the
+    leaf is the root*. That is legitimately true in exactly one tree — size 1, index 0 —
+    and presented with any other `tree_size` it is a forgery that "checks" without a
+    single hash computation.
+
+    The law R041 states, and the reason this runs first:
+    **a verifier must refuse the degenerate case before it computes, because the
+    degenerate case is the one that computes to true.**
+
+    Provenance, owed and recorded rather than re-derived later: this is the degenerate
+    empty-path rule of draft-schrock-ep-authorization-receipts-12 §7.3 (Schrock, EMILIA
+    Protocol, August 2026), which pins it with two public reject vectors.
+
+    **What delivery measured before adopting it, stated so nobody later mistakes this
+    guard for the only line of defence — or for decoration.** Against the vendored RFC
+    6962 construction both sabotage vectors already fail, for two independent reasons:
+    `verify_inclusion` rejects `index` outside `[0, tree_size)`, and its terminal
+    `sn == 0` check fails an empty path whenever `tree_size > 1`. On top of that,
+    `_leaf_hash` applies the `0x00` prefix, so a size-1 root is `sha256(0x00 ‖ leaf)` and
+    never the bare leaf digest — the literal "root rewritten to the leaf hash" forgery
+    cannot verify here at all.
+
+    So this is **defence in depth at the boundary we own**, not a patched hole. It
+    belongs here anyway: `check_membership` is our verifier's front door and the vendored
+    function is an implementation it delegates to, a re-vendor could arrive without the
+    length check, and a third party building from `docs/receipt-digests.md` needs the
+    rule stated rather than inherited by luck. It also makes the OUTCOME precise — an
+    internally inconsistent artifact is `failed` by definition, not merely a proof that
+    happened not to recompute.
+    """
+    path = inclusion.get("path")
+    if not isinstance(path, list) or path:
+        return None  # a non-empty path proceeds to the normal recomputation, unchanged
+
+    size = inclusion.get("tree_size")
+    index = inclusion.get("index")
+    if not isinstance(size, int) or isinstance(size, bool) or size < 1:
+        return (
+            f"an empty audit path with tree_size={size!r}: the proof claims the leaf is "
+            f"the root, which is true only in a tree of size 1"
+        )
+    if size != 1:
+        return (
+            f"an empty audit path claims a tree of size {size}: with no siblings the "
+            f"proof asserts the leaf IS the root, which is true only at size 1"
+        )
+    if index != 0:
+        return (
+            f"an empty audit path at index {index!r}: the only leaf of a size-1 tree is at index 0"
+        )
+    return None
+
+
 MEMBERSHIP_VERIFIED = "verified"
 MEMBERSHIP_SELF_CONSISTENT = "self_consistent"
 MEMBERSHIP_ABSENT = "absent"
@@ -245,6 +302,10 @@ def check_membership(receipt: dict[str, Any], published_root: str | None) -> tup
     leaf = receipt.get("row_hash")
     if not isinstance(leaf, str):
         return MEMBERSHIP_UNVERIFIABLE, "the receipt has no leaf digest to prove"
+
+    degenerate = _degenerate_path_refusal(inclusion)
+    if degenerate is not None:
+        return MEMBERSHIP_FAILED, degenerate
 
     stored_root = str(anchor.get("root"))
     if not verify_inclusion(

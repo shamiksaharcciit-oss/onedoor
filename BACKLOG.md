@@ -442,6 +442,12 @@ ahead of the standard. Core decides whether `-02` normalises it.
 
 ### ND-017 — Content-addressed re-derivable receipts + Merkle anchoring · **XL** 🔺 · P3
 **BUILT, M1–M5** (R040 §5) — **the crypto epic is closed.** `TICKETS-ND-017.md`.
+**F1 (R041):** the degenerate empty-path inclusion guard, refused **before any Merkle
+computation**, with S-EP1/S-EP2 and the positive size-1 vector. Credit recorded to
+`draft-schrock-ep-authorization-receipts-12` §7.3. **Both vectors are constructible and
+both already failed** against the vendored construction — three independent reasons,
+measured — so this is defence in depth at the boundary we own, not a patched hole, and
+the record says so.
 The four `E`/`I`/`T`/`v` preimages are proposed for sign-off before bytes freeze, written
 to the vendored manifest's own scheme rather than invented (read from
 `manifest.schema.json`; the shipped `t_digest` `4f53cda1…` is SHA-256 of `[]`, confirming

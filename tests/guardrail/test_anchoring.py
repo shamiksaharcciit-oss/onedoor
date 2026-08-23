@@ -345,3 +345,132 @@ def test_the_receipt_export_carries_no_request_body(conn: Connection, config: En
     assert "NL91ABNA0417164300" not in json.dumps(export), (
         "a receipt must be handable to a third party without handing over the request body"
     )
+
+
+# --- F1 (R041): the degenerate empty-path forgery, refused at the front door -------
+
+
+def _size_one_receipt(conn: Connection, config: EngineConfig) -> dict:
+    """A genuine single-row tree — the one shape where an empty path is honest."""
+    _chained(conn, config, rows=1)
+    with tx(conn):
+        anchor = anchoring.seal(conn, FROZEN_NOW)
+    assert anchor is not None and anchor.tree_size == 1
+    export = anchoring.receipt_export(conn, _row(conn, 1))
+    assert export["inclusion"]["path"] == [], "a size-1 tree has no siblings to prove"
+    return export
+
+
+def test_the_honest_single_row_tree_verifies(conn: Connection, config: EngineConfig) -> None:
+    """R041's positive vector. The degenerate shape is legitimate in exactly one tree."""
+    export = _size_one_receipt(conn, config)
+    outcome, _ = anchoring.check_membership(export, published_root=export["anchor"]["root"])
+    assert outcome == anchoring.MEMBERSHIP_VERIFIED
+
+
+def test_sabotage_ep1_empty_path_with_a_larger_claimed_tree(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """S-EP1. Empty path, tree_size rewritten large, root rewritten to the leaf hash.
+
+    With no siblings the proof asserts *the leaf is the root* — true only at size 1. At
+    any larger claimed size it is a forgery that checks without a single hash
+    computation, which is why the refusal runs before the computation.
+    """
+    export = _size_one_receipt(conn, config)
+    export["inclusion"]["tree_size"] = 8
+    export["anchor"]["root"] = export["row_hash"]
+    outcome, detail = anchoring.check_membership(export, published_root=export["row_hash"])
+    assert outcome == anchoring.MEMBERSHIP_FAILED, (
+        "an internally inconsistent artifact is `failed` by definition, not unverifiable"
+    )
+    assert "size 8" in detail
+
+
+def test_sabotage_ep2_empty_path_at_a_nonzero_index(conn: Connection, config: EngineConfig) -> None:
+    """S-EP2. Empty path, tree_size 1, index rewritten non-zero."""
+    export = _size_one_receipt(conn, config)
+    export["inclusion"]["index"] = 3
+    outcome, detail = anchoring.check_membership(export, published_root=export["anchor"]["root"])
+    assert outcome == anchoring.MEMBERSHIP_FAILED
+    assert "index 3" in detail
+
+
+@pytest.mark.parametrize("size", [0, -1, None, "1", 1.0, True])
+def test_an_empty_path_with_an_unusable_tree_size_fails(
+    conn: Connection, config: EngineConfig, size: object
+) -> None:
+    """Missing, non-integer and non-positive all land in the same place (R041 §1).
+
+    `True` is in the set on purpose: `bool` subclasses `int`, so a naive
+    `isinstance(size, int)` would accept it as the number 1 and let the degenerate claim
+    through — the third time that subclass has had to be handled explicitly in this
+    repository.
+    """
+    export = _size_one_receipt(conn, config)
+    export["inclusion"]["tree_size"] = size
+    outcome, _ = anchoring.check_membership(export, published_root=export["anchor"]["root"])
+    assert outcome == anchoring.MEMBERSHIP_FAILED
+
+
+def test_the_refusal_runs_before_any_merkle_computation(
+    conn: Connection, config: EngineConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R041's law, asserted structurally rather than by reading the source.
+
+    *A verifier must refuse the degenerate case before it computes, because the
+    degenerate case is the one that computes to true.* If `verify_inclusion` is ever
+    reached with an empty path, this test fails — which is a stronger statement than
+    "the outcome was failed", since a guard placed after the computation would produce
+    the same outcome and none of the protection.
+    """
+    export = _size_one_receipt(conn, config)
+    export["inclusion"]["tree_size"] = 8
+
+    def must_not_run(*args: object, **kwargs: object) -> bool:  # pragma: no cover
+        raise AssertionError("the degenerate path reached the Merkle computation")
+
+    monkeypatch.setattr(anchoring, "verify_inclusion", must_not_run)
+    assert anchoring.check_membership(export, None)[0] == anchoring.MEMBERSHIP_FAILED
+
+
+def test_a_non_empty_path_still_reaches_the_normal_recomputation(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Both directions: the guard must not swallow ordinary proofs."""
+    _chained(conn, config, rows=4)
+    with tx(conn):
+        anchoring.seal(conn, FROZEN_NOW)
+    export = anchoring.receipt_export(conn, _row(conn, 2))
+    assert export["inclusion"]["path"], "the fixture must produce a real audit path"
+    assert (
+        anchoring.check_membership(export, export["anchor"]["root"])[0]
+        == anchoring.MEMBERSHIP_VERIFIED
+    )
+
+
+def test_the_vendored_construction_already_refused_both_vectors(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """What delivery measured before adopting the guard — recorded, not assumed.
+
+    Reported to core rather than left implicit: R041 reads as though the path-length
+    zero case were open here. Against the vendored RFC 6962 construction it was not,
+    for two independent reasons — `verify_inclusion` rejects an `index` outside
+    `[0, tree_size)`, and its terminal `sn == 0` check fails an empty path whenever
+    `tree_size > 1`. `_leaf_hash`'s `0x00` prefix adds a third: a size-1 root is
+    `sha256(0x00 ‖ leaf)` and never the bare leaf digest, so the literal
+    "root rewritten to the leaf hash" forgery could not verify at all.
+
+    The guard is adopted regardless, and belongs at our front door — but the record
+    should not say a hole was patched when what happened was a line added in depth.
+    """
+    from onedoor._vendor.canonical import merkle_root, verify_inclusion
+
+    leaf = _size_one_receipt(conn, config)["row_hash"]
+    size_one_root = merkle_root([leaf])
+    assert size_one_root != leaf, "RFC 6962's leaf prefix means a size-1 root is not the leaf"
+    assert not verify_inclusion(leaf, 0, 8, [], leaf), "S-EP1 already failed"
+    assert not verify_inclusion(leaf, 0, 8, [], size_one_root), "and so did its stronger form"
+    assert not verify_inclusion(leaf, 3, 1, [], size_one_root), "S-EP2 already failed"
+    assert verify_inclusion(leaf, 0, 1, [], size_one_root), "the honest size-1 tree verifies"

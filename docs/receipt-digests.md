@@ -125,6 +125,37 @@ The anchor object, published outside the store:
 See [`TICKETS-ND-017.md`](../TICKETS-ND-017.md) for the export path and the third-party
 membership check that this object is half of.
 
+## 7b. Inclusion proofs: the degenerate empty path
+
+An RFC 6962 inclusion proof with an **empty audit path** asserts *the leaf is the root*.
+That is legitimately true in exactly one tree — **size 1, index 0** — and at any other
+claimed `tree_size` it is a forgery that "checks" without a single hash computation.
+
+**The rule, applied before any Merkle computation:**
+
+- An empty `path` is accepted **only when** `tree_size == 1` **and** `index == 0`.
+- An empty `path` with any other `tree_size` — including missing, non-integer or
+  non-positive — is **`failed`**, not `unverifiable`: the artifact is internally
+  inconsistent, which is what `failed` means.
+- A non-empty path proceeds to the normal recomputation, unchanged.
+
+**A verifier must refuse the degenerate case before it computes, because the degenerate
+case is the one that computes to true.**
+
+**Provenance.** This is the degenerate empty-path rule of
+`draft-schrock-ep-authorization-receipts-12` §7.3 (Schrock, EMILIA Protocol, August
+2026), which pins it with two public reject vectors. Recorded so the credit is not
+re-derived later as our own.
+
+**Measured before adoption, and stated so the record is accurate:** against the
+construction vendored here both sabotage vectors already failed, for two independent
+reasons — `verify_inclusion` rejects an `index` outside `[0, tree_size)`, and its
+terminal `sn == 0` check fails an empty path whenever `tree_size > 1`. RFC 6962's `0x00`
+leaf prefix adds a third, since a size-1 root is `sha256(0x00 ‖ leaf)` and never the bare
+leaf digest. The rule is adopted regardless and belongs at the verifier's front door: an
+independent implementer building from this document needs it **stated**, not inherited
+by luck from a library they may not have.
+
 ## 8. Golden vectors
 
 Held in `tests/guardrail/test_receipt_digests.py`, each named for what it fixes:
@@ -139,3 +170,9 @@ Held in `tests/guardrail/test_receipt_digests.py`, each named for what it fixes:
 5. **`policy_version` is in `E` and not in `T`** — asserted directly, so the amendment
    cannot be quietly undone.
 6. **No cadence in `I`** — likewise.
+
+And, for the inclusion rule of §7b: **S-EP1** (empty path, `tree_size` > 1, root
+rewritten to the leaf) and **S-EP2** (empty path, `tree_size == 1`, non-zero `index`)
+must both report `failed`; the honest size-1 tree must report `verified`. A further test
+asserts the refusal is reached **before** `verify_inclusion` runs — a guard placed after
+the computation would give the same outcome and none of the protection.
