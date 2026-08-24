@@ -347,6 +347,62 @@ def test_the_footer_line_ends_the_file(tmp_path: Path) -> None:
     assert verify(two_lf).status == "damaged"
 
 
+_PYTHON3_AT_COMMAND_POSITION = re.compile(r"(?:^|[|;&]|\$\(|&&|\|\|)\s*python3\b(?!-)")
+"""`python3` **as a command**, not as a word being discussed.
+
+The check used to be a bare `\\bpython3\\b`, which matched any mention — including a
+docstring explaining the hazard. It fired on `scripts/gate.py`, the tool built to
+prevent exactly this trap, for describing it. The test's own docstring already said
+*"only command-position uses count"*; the regex did not implement that.
+
+Same root as R048's law from the other side: **a name that outruns its check is false
+comfort, and a check that outruns its name is a false alarm.** Both are the name and
+the behaviour disagreeing. Command position — line start, or after a shell separator —
+is what the docstring always claimed and now what the code does, so a real invocation
+is still caught and a quotation is not.
+"""
+
+
+def spells_python3_at_command_position(line: str) -> bool:
+    """True when `python3` is being INVOKED on this line, not merely named."""
+    return _PYTHON3_AT_COMMAND_POSITION.search(line) is not None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "python3 -m pytest",
+        "  python3 script.py",
+        "ruff check . && python3 -m mypy onedoor",
+        "cd repo; python3 -m build",
+        "OUT=$(python3 -c 'print(1)')",
+        "false || python3 fallback.py",
+    ],
+)
+def test_a_real_python3_invocation_is_still_caught(line: str) -> None:
+    """The guard keeps its teeth: narrowing to command position must not defang it."""
+    assert spells_python3_at_command_position(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Never invoke a gate as bare `python3` -- it exits 0 having run nothing.",
+        'this is the shape of `python3` printing "Python was not found"',
+        "the python3 alias on Windows is a Store stub",
+        "#!/usr/bin/env python3",
+    ],
+)
+def test_a_mention_of_python3_is_not_an_invocation(line: str) -> None:
+    """The other direction, which is the defect this narrowing fixed.
+
+    A tool may explain the trap it exists to prevent without tripping the check for it.
+    Removing the explanation to satisfy a linter would be letting the linter degrade the
+    documentation — the wrong fix, and the one not taken.
+    """
+    assert not spells_python3_at_command_position(line)
+
+
 def test_no_gate_command_of_ours_spells_python3() -> None:
     """Forward 004: on Windows the Store `python3` alias exits 0 running nothing.
 
@@ -360,8 +416,6 @@ def test_no_gate_command_of_ours_spells_python3() -> None:
     A `#!/usr/bin/env python3` shebang is fine and is not a gate invocation -- it is
     correct on POSIX and inert on Windows -- so only command-position uses count.
     """
-    import re
-
     ours = [
         REPO / "README.md",
         REPO / "CONTRIBUTING.md",
@@ -370,8 +424,6 @@ def test_no_gate_command_of_ours_spells_python3() -> None:
         *(REPO / "docs").glob("*.md"),
         *(REPO / "scripts").glob("*.py"),
     ]
-    # command position: start of line or after a shell separator, not a shebang
-    pattern = re.compile(r"(?<!env )\bpython3\b")
     offenders = []
     for path in ours:
         if not path.is_file():
@@ -379,7 +431,7 @@ def test_no_gate_command_of_ours_spells_python3() -> None:
         for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
             if line.startswith("#!"):
                 continue
-            if pattern.search(line):
+            if spells_python3_at_command_position(line):
                 offenders.append(f"{path.relative_to(REPO)}:{n}: {line.strip()[:70]}")
     assert not offenders, (
         f"these spell `python3`, which exits 0 without running on a Windows host: "

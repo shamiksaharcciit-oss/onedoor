@@ -451,6 +451,53 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Programme law — a protection that depends on a second, optional declaration is not a protection
+
+**Binding on all policy** (R049 §6), not only on generated policy. Recorded here rather
+than in a ticket because this is its **third instance**, which is the threshold at which
+a rule stops being a finding and becomes the programme's.
+
+> **A protection that depends on a second, optional declaration is not a protection — it
+> is a default.**
+
+The law is about the **shape of the rule, not the identity of its author.** R027 applied
+it to the Studio's generator because the generator was the surface in front of us;
+nothing in it was ever about who typed the rule. The generator rule is therefore a
+**case** of this law, cited as one, never its source.
+
+Instances, in order:
+
+| # | Where | Shape |
+|---|---|---|
+| 1 | `ND-040`/U4 | a policy with an `opaque` block and a `min_tier: null` effect let an opaque host auto-execute — the protection depended on the effect floor also being declared |
+| 2 | `R027` / the Studio generator | it may never emit a rule whose safety depends on an optional second declaration |
+| 3 | `ND-053` (below) | `effects: [money.egress]` with no `effect_policies` row: the label is **silently dropped**, so the protection depended on a second declaration the author may believe they wrote |
+
+**Measured on `0.5.0`, not reasoned about:** the same request returns
+`PERMITTED, effective_tier 1` with the label alone and `proposed, effective_tier 3` once
+the effect policy exists.
+
+**`ND-053` makes `validate_policy` refuse it**, under three constraints core attached
+because this changes what a deployment boots with: a **declared breaking change in its
+own release**, never folded into a patch; **no opt-out flag** — a switch permitting inert
+effects would itself be a protection depending on a second optional declaration, the law
+applied to its own escape hatch; and the refusal **names the effect, the rule that labels
+it, and the remedy**, because a fail-closed check whose error does not say how to pass it
+converts a defect into an outage.
+
+### Resolved by Response 049 (2026-08-24)
+
+| Was | Ruling |
+|---|---|
+| The `0.5.0` verification | **Accepted**, and the deciding move named: taking the `sha256` from **PyPI's index API rather than the upload transcript** — the receiver's record of what it holds, not the sender's account of what it sent. |
+| The annotated-tag near-miss | **The report's finding, not a footnote.** New law: **an identifier is answered at a layer; name the layer or you do not know what you compared.** Joins *a green answer about the wrong artifact*. |
+| The tooling proposal | **Both layers approved and built.** Two requirements: the runner is the **documented** way gates are run (so a raw-command transcript is itself the smell), and it **prints what it ran and where** — *a control indistinguishable from its own absence is not yet a control*. Delivery's honest limit ratified as the right standard: **an irreducible remainder is not a failure of the tool; it is the thing the tool exists to make small and conspicuous.** |
+| The two extra instances | Named as old classes: the monitor filter is **proxy-for-contract, fifth instance**; the backslash-U heredoc is **a path is data, and data pasted into a language is code until you make it not be.** Both are tests in `tests/test_gate_discipline.py`. |
+| **Q1** — the semantic pair | **Sustained, no pair.** Red on a receipt means *this was denied* (a past fact); red on a coverage cell would mean *this would be denied* (a prediction about a class) — **a colour that means two things means neither.** Ranking ratified with its law: **rank by what a state does at decision time, not by how alarming its name sounds.** |
+| **§4's fourth state** | **Core's finding back to delivery:** `unobserved` has no enumeration source, so it is a row **only within a bounded vocabulary** (a declared effect nothing exercised, rendered *absent*) and otherwise the map's **footer**. Principle 4 turned on the coverage map. |
+| **Q2** — evidence or view | **A view that cites.** The distinction from S1 is **instrument, not convenience**: a backtest cannot be re-derived without running the engine; this can. **The citation pair is the receipt.** With a requirement: the citation must be exportable and the derivation documented well enough for a second implementation. |
+| **Q3** — the inert refusal | **Yes, it refuses**, and the rule binds **all policy**. See the programme law above and `ND-053`. |
+
 ### Resolved by Response 048 (2026-08-24)
 
 | Was | Ruling |

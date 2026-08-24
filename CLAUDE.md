@@ -46,8 +46,26 @@ protection on `main` requires both jobs green.
 
 1. **Conformance-first.** Nothing ships that isn't in the spec; `CONFORMANCE.md`
    updates in the same PR as the change. Nothing is ✅ without a passing test.
-2. **A verification claim about a gate must come from the gate's own commands,
-   verbatim** (programme-wide rule, R010, adopted from delivery's own error). A
+2. **Run gates with `python -m scripts.gate --all`, never by hand** (R049 §2). It is
+   the documented way, so **a transcript quoting raw gate commands is itself the
+   smell** — if you see `ruff check . | tail`, something skipped the runner. It runs
+   each gate through `subprocess` with no shell and no pipe, passes only when the exit
+   code **and** the declared output contract both hold, and prints what it ran, where,
+   and with which tool versions. That folds the two laws below into one act of typing:
+   the runner cannot read a pipe's exit status because it never builds a pipe, and it
+   cannot leave the environment unstated because it prints it. `tests/test_gate_
+   discipline.py` refuses any committed shell that reads `$?` after a pipe.
+   *An irreducible remainder is not a failure of the tool; it is the thing the tool
+   exists to make small and conspicuous* — the runner only helps when you call it, so
+   calling it is the one thing left to remember.
+
+   The laws it mechanises, kept here because the runner is not the only place they
+   apply: **a verification claim about a gate must come from the gate's own commands,
+   verbatim** (R010), and **a gate is a command and the world it runs in** — *a green
+   gate is a claim about an environment; state the environment or the claim is
+   unbound* (R048). The second was learned when `mypy onedoor` passed locally and CI
+   went red on `import uvicorn`: the command was right, the environment was richer
+   than CI's. A
    cold-clone check that ran `python -m pytest` while CI ran bare `pytest` reported
    four green gates and CI went red on both jobs: `python -m` prepends CWD to
    `sys.path` and bare `pytest` does not. Simulating a gate with a different command
