@@ -313,6 +313,7 @@ certified and originals are requested.
 | U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
 | The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
 | `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
+| `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Staged 2026-08-24**, awaiting Shamik's `twine`/`gh`. |
 
 **R027 §1's first condition found a defect rather than confirming a property.** U4
 rested on the effect floor, and the effect floor is optional: a policy could declare
@@ -450,6 +451,15 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Resolved by Response 048 (2026-08-24)
+
+| Was | Ruling |
+|---|---|
+| S3 | **Stands**, T1–T6. The both-directions colour test called out specifically: *a rule tested one way forbids the wrong thing without requiring the right one.* |
+| The gate-fidelity defect | **Ratified as law: a gate is a command and the world it runs in.** General form for the file: **a green gate is a claim about an environment; state the environment or the claim is unbound.** Declaring the dependency rather than silencing the checker, then closing the *class* rather than the instance, is right twice over. |
+| The renamed test | **Ratified as law: a test's name is a claim, and a name that outruns its check is false comfort.** Third instance of one rule at three layers — R045 (fields), R046 (reserved fields), R048 (test names). **Naming-honesty is now a settled programme law: every name in this system is an assertion, and an assertion that outruns what is checked is a defect whether or not anything fails.** |
+| Release vs. S4 | **Cut the release first.** *A claim demonstrated from an unreleased branch is a claim; from a published wheel it is evidence.* `0.5.0`, additive, Studio behind `[studio]` with its boundary named exactly. |
+
 ### Resolved by Response 047 (2026-08-23)
 
 | Was | Ruling |
@@ -520,8 +530,8 @@ covered; the *name* was not honest about which half this test holds, and it is n
 `test_the_diff_zones_markup_carries_no_inline_state_colour` with the split written into
 its docstring.
 
-**Core → delivery:** none, as of Response 047 (2026-08-23). `ND-052` S1, S2 and S3 are
-built; then S4 the coverage map, S5 the finance pack, and S6 the proposer last. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 048 (2026-08-24). `0.5.0` is staged for
+publication; then S4 the coverage map, S5 the finance pack, and S6 the proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
