@@ -71,12 +71,30 @@ litellm = ["litellm>=1.60"]
 # nobody touched the code. Bump it deliberately, as its own commit (ND-025).
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
+       # `onedoor.integrations` imports `langchain_core` directly. It reaches CI today
+       # only as a transitive dependency of the two above, which is the fragility the
+       # ruff pin's own comment argues against: a gate that goes red on a morning nobody
+       # touched the code, because an upstream restructured its requirements. Found by
+       # `tests/test_packaging.py` the moment that test was written -- a second instance
+       # of the defect that produced it.
+       "langchain-core>=1.0",
        "types-PyYAML>=6.0",
        # PINNED, not ranged, unlike the [signed] extra: CI must be reproducible, and
        # an unpinned crypto library makes a gate that can go red on a morning nobody
        # touched the code -- the same argument that pins ruff. This is the version the
        # register records (R038 §3): process provenance at the deployment layer.
-       "cryptography==46.0.4"]
+       "cryptography==46.0.4",
+       # The Studio server's runtime (ND-052/S3). Here for the same reason
+       # `cryptography` is: an optional dependency the package IMPORTS must be present
+       # for `mypy onedoor`, or the gate silently skips checking the one call site that
+       # uses it. A `ignore_missing_imports` override would have made CI green by making
+       # it check less, which is the wrong direction.
+       #
+       # This one was found the hard way: CI went red on `import uvicorn` while the
+       # local gate passed, because the local venv had uvicorn and [dev] did not.
+       # `tests/test_packaging.py::test_every_third_party_import_is_declared_in_dev`
+       # now catches that class locally, at the moment the import is written.
+       "uvicorn>=0.34"]
 
 # ND-025. Lint rules are a decision, not a default. Without this block `ruff check`
 # lints against whatever rule set the newest ruff ships with, so a CI job can go red

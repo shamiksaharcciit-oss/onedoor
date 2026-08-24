@@ -496,6 +496,17 @@ wrapper says **"problems found"** in those words, from one constant, and renders
 incompleteness notice even when the list is empty. The **stale state names both hashes**
 in the model and on the page. T5's **refusals travel verbatim** with their named reasons.
 
+**A gate-fidelity defect of delivery's own, found by CI and fixed at the class.** The
+four gates ran verbatim and green locally; CI went red on both jobs with *"Cannot find
+implementation or library stub for module named uvicorn"*. The command was right and the
+**environment** was not: the local virtualenv had uvicorn, and `[dev]` — all CI installs
+— did not. R010 with a new edge: *a gate is a command **and** the world it runs in, and a
+local environment drifts richer than CI's simply by being used.* The `ignore_missing_imports`
+override that would also have gone green was rejected, because it turns the gate green by
+making it check less. `tests/test_packaging.py` now catches the class locally, and found a
+second, pre-existing instance while being written — `langchain-core`, imported directly and
+reaching CI only as a transitive dependency of `langchain`.
+
 **Seven sabotages, each failing exactly its own tests**: an addition coloured green (1);
 the pin sentence stripped of its hashes (2); panels computed while stale (3); the bind
 refusal removed (4); the refusal flattened to "could not ratify" (2); the validator

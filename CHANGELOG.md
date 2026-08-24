@@ -50,6 +50,23 @@ New optional extra `onedoor[studio]`. No AADP wire-observable behaviour changes,
 engine gains no dependency: the Studio's FastAPI requirement is hard at the point of use
 and absent everywhere else.
 
+### Fixed — two imports the CI environment did not install
+
+`uvicorn` and `langchain-core` are imported by the package and were missing from the
+`[dev]` extra, which is all CI installs. `uvicorn` arrived with the Studio server and
+turned CI red on both jobs; `langchain-core` was already there and had been passing only
+because `langchain` happens to pull it in — a gate that would have gone red on a morning
+nobody touched the code, the moment an upstream restructured its requirements.
+
+Both are now declared. The mypy override that would also have turned CI green was
+rejected: silencing `ignore_missing_imports` makes the gate pass by making it check
+less, and the one call site the dependency exists for is exactly the site that then goes
+unchecked.
+
+A test now closes the class locally: `tests/test_packaging.py` reads the package's own
+ASTs and asserts every third-party module it imports resolves to a distribution `[dev]
+`installs, with exceptions carrying written reasons.
+
 ### Added — `ND-052` / S2: the ratification ceremony
 
 Diff a candidate against what is in force, **see the hash it would become**, ratify, and
