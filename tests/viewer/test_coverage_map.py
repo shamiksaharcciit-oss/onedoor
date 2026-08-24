@@ -105,16 +105,16 @@ def test_every_state_has_a_label_derived_from_the_model() -> None:
     assert set(skin.STATE_LABEL) == set(model.PROMINENCE)
 
 
-def test_unobserved_renders_as_absent_and_never_as_safe(
+def test_unreached_renders_as_absent_and_never_as_safe(
     fresh: Connection, config: EngineConfig
 ) -> None:
     html = skin.render_page(_map(fresh, config))
-    assert "UNOBSERVED" in html
+    assert "UNREACHED" in html
     assert "never.touched" in html
     styles = html.split("<style>")[1].split("</style>")[0]
-    unobserved = " ".join(r for r in styles.split("}") if ".row.unobserved" in r)
-    assert "italic" in unobserved or "opacity" in unobserved
-    assert "var(--ok)" not in unobserved
+    unreached = " ".join(r for r in styles.split("}") if ".row.unreached" in r)
+    assert "italic" in unreached or "opacity" in unreached
+    assert "var(--ok)" not in unreached
 
 
 # --- What the map must always say -------------------------------------------------

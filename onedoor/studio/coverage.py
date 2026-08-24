@@ -23,7 +23,7 @@ Four states, ranked by what they do rather than by how they sound (R049 §3)
 |---|---|
 | `DECLARED_INERT` | a policy names an effect with **no effect policy behind it** — the label is dropped, so this is a **silent permit** |
 | `UNCOVERED_OBSERVED` | the ledger saw this action type and no policy declares it — `default_deny`, a **loud denial** |
-| `UNOBSERVED` | a **declared** effect that observed traffic **would not** reach under this policy set — *absent*, never "safe" |
+| `UNREACHED` | a **declared** effect that observed traffic **would not** reach under this policy set — *absent*, never "safe" and never a fault |
 | `COVERED` | declared, and every effect it names has an effect policy |
 
 **Prominence order is `PROMINENCE`, and it is not alphabetical or alarming-sounding.**
@@ -33,7 +33,7 @@ inside a rule its author believes is governing. Rank by behaviour, not by name.
 
 What this map does not measure, stated on the map itself (R049 §4)
 --------------------------------------------------------------------
-`UNOBSERVED` is a row **only within a bounded vocabulary** — the effects this deployment
+`UNREACHED` is a row **only within a bounded vocabulary** — the effects this deployment
 has declared. Action types that were never declared and never seen are an **unbounded
 set**, and an unbounded set cannot be a row; that is the map's footer instead, which is
 principle 4 turned on the coverage map.
@@ -69,9 +69,21 @@ from onedoor.guardrail.models import EffectPolicy, Policy
 COVERED = "covered"
 DECLARED_INERT = "declared_inert"
 UNCOVERED_OBSERVED = "uncovered_observed"
-UNOBSERVED = "unobserved"
+UNREACHED = "unreached"
+"""Renamed from `unobserved` by R051 §1, and the error was core's, owned plainly.
 
-PROMINENCE = (DECLARED_INERT, UNCOVERED_OBSERVED, UNOBSERVED, COVERED)
+*Unobserved* claimed an observation was made and returned empty. **Effects are never
+observed at all** — the ledger records action types, not resolved effects — so the old
+name was a projection wearing a measurement's name, which is the exact defect R050 §4
+condemned one layer down in `exercised_effects`. It was minted by a ruling and it was
+still wrong: **a ruling's own vocabulary is not exempt from the ruling's law.**
+
+**An absent-class state, never a warning.** A declared effect nothing reaches may be dead
+configuration or a control waiting for traffic, and **the map does not know which** — so
+it is not rendered as covered, not as safe, and not as a fault.
+"""
+
+PROMINENCE = (DECLARED_INERT, UNCOVERED_OBSERVED, UNREACHED, COVERED)
 """Loudest first, ordered by behaviour at decision time (R049 §3).
 
 A silent permit outranks a loud denial, which outranks a measurement nobody took, which
@@ -250,7 +262,7 @@ def build(
     ]
 
     # Every effect any rule names, plus every effect with a policy of its own. That union
-    # is the bounded vocabulary R049 §4 allows `UNOBSERVED` to be a row within.
+    # is the bounded vocabulary R049 §4 allows `UNREACHED` to be a row within.
     named_by_rules: dict[str, list[str]] = {}
     for policy in declared:
         for effect in policy.effects:
@@ -287,7 +299,7 @@ def build(
             effect_rows.append(
                 Row(
                     name=effect,
-                    state=UNOBSERVED,
+                    state=UNREACHED,
                     detail=(
                         "declared, and no observed action type would reach it under this "
                         "policy set. Absent, not safe: nothing here says it never happened, "

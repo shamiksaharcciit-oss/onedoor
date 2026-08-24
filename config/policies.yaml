@@ -1,3 +1,14 @@
+# DEVELOPMENT SEED -- not shipped configuration.
+#
+# This file is NOT in the wheel: `pyproject.toml` includes only `onedoor*`, so an
+# installed onedoor never sees it. It exists to exercise the engine end to end inside
+# this repository, and every action type below is a `demo.*` placeholder.
+#
+# Said out loud because a reader will reasonably mistake a file at `config/policies.yaml`
+# for shipped configuration, and an artifact that invites that reading without correcting
+# it is a silent non-coverage -- constitution principle 4, applied to ourselves. Shipped
+# policy examples live in `onedoor/templates/` and travel in the wheel.
+#
 # Seed action policy table. Numeric bounds and caps live HERE, not in code
 # (CLAUDE.md invariant 6). Every Tier-1 entry MUST declare a compensating_command
 # (invariant 10) or the loader refuses to start.

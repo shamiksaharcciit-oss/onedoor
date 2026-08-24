@@ -20,7 +20,9 @@ from `coverage.PROMINENCE`, which ranks by behaviour:
   rule its author believes is governing.
 - **`uncovered_observed` second** — sounds bad, behaves safely: the engine refuses,
   loudly, and the operator finds out.
-- **`unobserved` third** — rendered in the absent style, never as safe.
+- **`unreached` third** — rendered in the **absent** style: never as safe, and never
+  as a fault. A declared effect nothing reaches may be dead configuration or a control
+  waiting for traffic, and the map does not know which.
 - **`covered` quiet.**
 
 *Rank by what a state does at decision time, not by how alarming its name sounds.*
@@ -39,7 +41,7 @@ STATE_COLOUR_VARS = ("--ok", "--bad", "--ok-bg", "--bad-bg", "--ok-bd", "--bad-b
 STATE_LABEL = {
     model.DECLARED_INERT: "DECLARED, INERT",
     model.UNCOVERED_OBSERVED: "UNCOVERED",
-    model.UNOBSERVED: "UNOBSERVED",
+    model.UNREACHED: "UNREACHED",
     model.COVERED: "covered",
 }
 """Derived from `PROMINENCE` rather than written beside it — a missing key is a KeyError
@@ -94,8 +96,8 @@ padding:.8rem;}
 .row.declared_inert .state{color:var(--seal);font-weight:700;}
 .row.uncovered_observed{border-left:3px solid var(--seal);border-left-style:dashed;}
 .row.uncovered_observed .name{font-weight:600;}
-.row.unobserved{opacity:.75;}
-.row.unobserved .name{font-style:italic;color:var(--muted);}
+.row.unreached{opacity:.75;}
+.row.unreached .name{font-style:italic;color:var(--muted);}
 .row.covered{opacity:.55;}
 .tally{display:flex;gap:1.25rem;font-size:.8rem;color:var(--muted);}
 .tally .declared_inert b{color:var(--seal);}

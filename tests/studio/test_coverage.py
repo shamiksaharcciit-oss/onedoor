@@ -110,7 +110,7 @@ def test_an_action_the_ledger_saw_and_no_policy_declares_is_uncovered_observed(
     assert _state_of(m.actions, "demo.restore") == coverage.COVERED
 
 
-def test_a_declared_effect_no_observed_traffic_reaches_is_unobserved(
+def test_a_declared_effect_no_observed_traffic_reaches_is_unreached(
     fresh: Connection,
 ) -> None:
     """R049 §4: a row only inside a bounded vocabulary, and rendered **absent**."""
@@ -120,7 +120,7 @@ def test_a_declared_effect_no_observed_traffic_reaches_is_unobserved(
         fresh, EffectPolicy(effect="money.egress", min_tier=Tier.CONFIRM, caps=Caps())
     )
     m = coverage.build(fresh)
-    assert _state_of(m.effects, "money.egress") == coverage.UNOBSERVED
+    assert _state_of(m.effects, "money.egress") == coverage.UNREACHED
     row = next(r for r in m.effects if r.name == "money.egress")
     assert "Absent, not safe" in row.detail
     assert "only that these rules do not route" in row.detail
@@ -145,9 +145,9 @@ def test_prominence_ranks_the_silent_permit_above_the_loud_denial() -> None:
         coverage.UNCOVERED_OBSERVED
     )
     assert coverage.PROMINENCE.index(coverage.UNCOVERED_OBSERVED) < coverage.PROMINENCE.index(
-        coverage.UNOBSERVED
+        coverage.UNREACHED
     )
-    assert coverage.PROMINENCE.index(coverage.UNOBSERVED) < coverage.PROMINENCE.index(
+    assert coverage.PROMINENCE.index(coverage.UNREACHED) < coverage.PROMINENCE.index(
         coverage.COVERED
     )
 
@@ -258,7 +258,7 @@ def test_effect_reachability_is_projected_from_the_mapped_policy_set(
         fresh, EffectPolicy(effect="money.egress", min_tier=None, caps=Caps())
     )
     decide_and_reserve(make_request("pay", {}), conn=fresh, config=config, now=FROZEN_NOW)
-    assert _state_of(coverage.build(fresh).effects, "money.egress") == coverage.UNOBSERVED
+    assert _state_of(coverage.build(fresh).effects, "money.egress") == coverage.UNREACHED
 
     policy_loader.upsert(fresh, _policy("pay", effects=["money.egress"]))
     assert _state_of(coverage.build(fresh).effects, "money.egress") == coverage.COVERED

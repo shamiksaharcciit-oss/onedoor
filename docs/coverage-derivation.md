@@ -85,7 +85,7 @@ would_exercise    = { e  for p in policies
 | condition | state |
 |---|---|
 | `e ∉ declared_effects` | `declared_inert` |
-| `e ∈ declared_effects` and `e ∉ would_exercise` | `unobserved` |
+| `e ∈ declared_effects` and `e ∉ would_exercise` | `unreached` |
 | otherwise | `covered` |
 
 ### What `declared_inert` means at decision time
@@ -141,7 +141,7 @@ actually exercise"* runs a backtest over that range — the map does not pretend
 `PROJECTION_NOTE` says so on every rendering, naming the backtest as the thing that does
 answer it.
 
-**Unobserved-and-undeclared action types are not rows.** That set is unbounded, and a row
+**Action types neither declared nor observed are not rows.** That set is unbounded, and a row
 cannot be drawn for something the map has never heard of. It is the map's footer instead:
 *this map measures what is declared and what arrived over the cited range* — principle 4
 turned on the coverage map itself.
