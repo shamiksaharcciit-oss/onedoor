@@ -450,6 +450,15 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Resolved by Response 047 (2026-08-23)
+
+| Was | Ruling |
+|---|---|
+| S3's four findings | **All endorsed**, two with emphasis: the scope-fence resolution **checked against the vendored bytes rather than remembered** (which is why it dissolved instead of becoming an escalation), and the wrapper's honesty clause — *problems found*, never *all problems* — as the overclaim discipline applied to an error list. |
+| **Q1** — the canvas's surface | **(b) sustained**, and the security reason ratified as the deciding one: one leaked credential must not both answer decisions and rewrite the rules those decisions are made under. **One hard edge added:** the Studio **refuses to bind anything but loopback**, as a test rather than a default — possession-of-the-box is honest only while the binding makes it true, and a drift to `0.0.0.0` silently converts it into possession-of-the-network. X-6's shape. |
+| **Q2** — where a candidate lives | **The Studio's own `studio.db`.** The line that decides it: **the enforcer's database contains no row the Studio can edit.** Mutability already lives in the main store *where the enforcer owns the mutation*; what it has never held is a row a second process edits. Migration `0019` **released** — the main sequence is the enforcer's history. |
+| **Q3** — re-basing | **Pin and surface, sustained**, with two sharpenings: the state **names both hashes** (*a warning naming no versions is a mood, not a fact*), and re-pinning **invalidates every preview with it** — no panel survives showing a number from a base the diff no longer uses. |
+
 ### Resolved by Response 045 (2026-08-23)
 
 | Was | Ruling |
@@ -474,34 +483,34 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 
 ### Open
 
-**None blocking.** S2's three questions are ruled by R045 and built to; nothing is
-waiting on core.
+**None blocking.** S3's three questions are ruled by R047 and built to.
 
-**S2 is built, T1–T5, and the standing R045 §6 asked for is green.** The equality test —
-the previewed hash *is* the hash ratification produces — passes, and its merged-set
-sabotage fails exactly as required when the scratch store is seeded with only the changed
-rules. The lost-race test passes and asserts the refused candidate never reached the
-store. The citation checks refuse under **two different** named reasons, because a digest
-that resolves to nothing and one that resolves to a test of another candidate are
-different facts. Both rendering disciplines are held **structurally**: the tests iterate
-`RENDERERS` rather than naming the two renderers, and a separate test asserts that every
-public `render_*` in the module is in `RENDERERS` — so a third view joins the discipline
-at the moment it is written.
+**S3 is built, T1–T6, and the standing R047 §4 asked for is green.** The **bind refusal**
+holds in both directions and is guarded structurally — an AST test asserts the check is
+an unconditional statement of `serve` and that `serve` grew no override parameter, so a
+future `if not allow_public:` fails at the moment it is written. The **colour-rights**
+rule is a test in both directions: the diff zone carries no state colour, *and* the
+verdict zone still uses the pair, because a "cleanup" that stripped `--ok`/`--bad` from
+the whole page would satisfy a one-sided rule and throw away the signal it protects. The
+wrapper says **"problems found"** in those words, from one constant, and renders its
+incompleteness notice even when the list is empty. The **stale state names both hashes**
+in the model and on the page. T5's **refusals travel verbatim** with their named reasons.
 
-**The `removed` deviation is ruled and closed** (Response 046 §2). Sustained: `changes`
-carries `added` and `modified` and no `removed`, and the flag was the right way to make
-the change. The precedent core filed alongside it, so the two do not blur — **a reserved
-*word* is a promise about vocabulary; a reserved *field* is a claim about mechanism.**
-`principal_mismatch` stays in the evidence vocabulary, held unemitted by a test, because
-a complete vocabulary claims nothing about the engine today; a `removed` array would
-claim the engine *has* a retirement path, and it does not. Retirement is its own future
-ticket, and it owes three things together: a delete path, the rule for in-flight
-reservations under a vanished rule, and `onedoor/ratification/2` with `removed` added
-**alongside** the mechanism, never ahead of it.
+**Seven sabotages, each failing exactly its own tests**: an addition coloured green (1);
+the pin sentence stripped of its hashes (2); panels computed while stale (3); the bind
+refusal removed (4); the refusal flattened to "could not ratify" (2); the validator
+claiming completeness (3); the validator reimplemented instead of wrapped (2).
 
-**Core → delivery:** none, as of Response 046 (2026-08-23). `ND-052` S1 and S2 are
-built and S3 is decomposed; then S4 the coverage map, S5 the finance pack, and S6 the
-proposer last. `ND-001` is built (C1–C5),
+**One test was renamed after a sabotage showed its name outran what it checked.**
+`test_the_diff_zone_never_reaches_for_a_verdicts_colours` caught nothing when an addition
+was coloured green — the violation was in the stylesheet, and the test only reads markup.
+The stylesheet direction was already held by the verdict-zone test, so the rule was
+covered; the *name* was not honest about which half this test holds, and it is now
+`test_the_diff_zones_markup_carries_no_inline_state_colour` with the split written into
+its docstring.
+
+**Core → delivery:** none, as of Response 047 (2026-08-23). `ND-052` S1, S2 and S3 are
+built; then S4 the coverage map, S5 the finance pack, and S6 the proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

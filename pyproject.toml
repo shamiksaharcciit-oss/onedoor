@@ -40,6 +40,15 @@ Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG
 # does not exist.
 signed = ["cryptography>=42,<48"]
 service = ["fastapi>=0.115", "uvicorn>=0.34"]
+# The Policy Studio's canvas (ND-052/S3). Its own extra rather than part of [service],
+# because R047 §1 made them separate PROCESSES on purpose: onedoor.service is the PDP,
+# and an operator GUI that changes the rules must not ride on the credential that
+# answers decisions. Sharing an extra would quietly re-couple what the split separated.
+#
+# X-6 at the point of use, as with [signed]: the canvas has to run engine functions to
+# show any number at all, so a missing FastAPI is a REFUSAL naming the remedy rather
+# than a static fallback -- there is no honest static fallback here.
+studio = ["fastapi>=0.115", "uvicorn>=0.34"]
 otel = ["opentelemetry-api>=1.27"]
 # Everything under examples/ needs these. They are not runtime
 # dependencies of the engine -- onedoor governs LangGraph, it does not

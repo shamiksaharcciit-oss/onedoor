@@ -7,6 +7,49 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-052` / S3: the policy canvas
+
+An editor for candidate policies that shows the hash they would become, the rules they
+change, and what they would have done to the ledger — then invokes S2's ceremony.
+
+- **A separate, loopback-bound process.** `python -m onedoor.studio` is not part of
+  `onedoor.service`, and that is a security boundary rather than a packaging choice:
+  the service is the PDP, and **one leaked credential must not both answer decisions and
+  rewrite the rules those decisions are made under.** The server **refuses to bind
+  anything but loopback** — a literal loopback address or `localhost`, nothing else,
+  refused before a socket exists. A hostname is refused *without being resolved*,
+  because a boundary that depends on what DNS said a moment ago is a lookup, not a
+  boundary. There is no flag that turns the refusal off; a flag that turned it off would
+  be the config drift it exists to catch.
+- **Drafts live in the Studio's own `studio.db`.** The enforcer's database contains no
+  row the Studio can edit. Mutability already lives in the main store *where the enforcer
+  owns the mutation*; what it has never held is a row a second process edits. Losing
+  `studio.db` loses drafts and nothing else — receipts are evidence and stay sealed where
+  evidence lives.
+- **Pin and surface.** A draft is pinned to the version it was opened against and never
+  silently re-bases: a live re-base is a stale read arriving before the click, where
+  ratification's compare-and-swap cannot catch it. A moved active set **names both
+  hashes** — a warning that names no versions is a mood, not a fact — and every computed
+  number goes stale *together* and recomputes together, because the panels are one object
+  rather than three fields.
+- **Validation collects instead of raising, without becoming a second validator.** The
+  canvas wraps `policy_loader.validate_policy` and reports its messages verbatim. It says
+  **"problems found"**, never *all problems*, and renders that notice even when the list
+  is empty: the engine's validator stops at the first failure in each rule, and defects
+  that only appear when rules are read together are invisible to a per-rule check.
+- **Refusals travel verbatim.** A lost race and the two citation failures reach the
+  canvas with their own words and their own named reasons, never flattened into "could
+  not ratify" — they are distinct facts with distinct remedies.
+- **Oneview, minus the fence that does not apply.** The canvas takes §4's tokens, §5's
+  anatomy and §2's law; §3's static/read-only delivery fence governs the receipt viewer,
+  as the spec's own status line says. State colours stay verdicts' alone: the diff zone
+  separates additions by seal, weight and rule, and the semantic pair appears only in the
+  backtest panel, whose counts *are* verdicts. Held by a test in both directions.
+
+New optional extra `onedoor[studio]`. No AADP wire-observable behaviour changes, and the
+engine gains no dependency: the Studio's FastAPI requirement is hard at the point of use
+and absent everywhere else.
+
 ### Added — `ND-052` / S2: the ratification ceremony
 
 Diff a candidate against what is in force, **see the hash it would become**, ratify, and

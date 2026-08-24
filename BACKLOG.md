@@ -565,7 +565,7 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-050 | **An envelope-validation `malformed` denial writes no audit row** | S 🔺 | **Ticketed on core's instruction (R027 §2)**, found while building `ND-040`/U3 and recorded as **pre-existing: present in `≤0.4.0`, not introduced by `ND-040`.** `decide_raw` denies a request whose envelope fails validation *before* a policy or an `ActionRequest` object exists, so there is nothing to `audit.append` against: the returned `ActionResult` carries no `audit_id` and the ledger has no row. **Severity: low blast radius, high principle.** Low, because the action does not happen — the denial is correct and the caller is told; nothing is mis-permitted, and the affected requests are by definition ones the engine could not parse. High, because *"the audit log is append-only — decisions, results, denials, dry-runs, and kill-switch blocks"* is a claim this repository makes in its README, and one class of denial is silently outside it. An operator watching for a spike of malformed requests has nothing in the evidence store to watch, and a receipt-based product whose ledger omits a category of verdict has a gap in exactly the surface it sells. Note the asymmetry `ND-040` created and did not cause: a malformed **URL** now writes a row with `malformed_kind='url_canonicalization'`, while a malformed **envelope** writes none — which is why migration `0010` names only the value the code emits rather than inventing a `request_validation` one for code nobody wrote. **The fix is not free**: appending needs a row shape for a request that failed to parse (what is `action_type`? what are `params`?), and E10's received-verbatim discipline says the unparseable bytes are exactly what must be frozen — so this is a small ticket with a real design question inside it, not a one-liner. |
 | ND-051 | **The onedoor receipt viewer (oneview skin)** | M 🔺 | **Declared by R028 §4**, Phase-B launch asset, built **before** the crypto epic resumes. `python -m onedoor.viewer` reads a store and emits one static, read-only HTML page: the decision-receipt card with deny-with-budget as hero, plus the tail of verdicts. Spec and reference mockup in `docs/oneview/`; decomposition in `TICKETS-ND-051.md`. The structural rule from the forensics channel binds it: **one verification, and the viewer does not own it** — `onedoor/guardrail/receipt.py` is the single implementation and the viewer renders its output. **Two findings shaped the build:** there was no receipt verification and no CLI to call, so the requirement is met by creating exactly one implementation outside the viewer; and the mockup's chain block cannot be rendered truthfully in `0.4.1` because `row_hash`/`prev_hash`/`seq` are dark until `ND-001`, so it renders the **absent** state naming the ticket. Four outcomes in a UI: verified · absent · unverifiable · failed, with unverifiable as loud as failed. |
 | ND-052 | **The Policy Studio — describe your world, ratify your rules** (EPIC) | XL 🔺 | **S1 BUILT, B1–B5** (R043 §5): `TICKETS-ND-052-S1.md`.
-**S3 DECOMPOSED** (R046 §3): `TICKETS-ND-052-S3.md`, carrying R046's three fence posts in
+**S3 BUILT, T1–T6** (R047 §4): `TICKETS-ND-052-S3.md`, carrying R046's three fence posts in
 as cited ground — the canvas edits candidates and touches nothing else (ratification is
 **invoked**, never reimplemented); every number shown is produced by an engine function
 (the X-11-of-UIs law reaching the Studio); Oneview is the design system.
@@ -587,8 +587,14 @@ Studio server** — the PDP's admin key must not also rewrite the rules decision
 under); where a candidate lives (a mutable table in the enforcer's store — flagged as
 needing to be true on purpose); and whether an open canvas re-bases its diff when the
 active set moves (delivery leans **pin and surface**, since a live re-base is S2's
-stale-read arriving before the CAS can catch it). T1's validator and T6 unblocked;
-migration `0019` claimed.
+stale-read arriving before the CAS can catch it).
+**All three ruled by R047 and built.** The surface is **(b)**, with one hard edge added:
+the Studio **refuses to bind anything but loopback**, as a test — possession-of-the-box is
+an honest credential only while the binding makes it true, and a drift to `0.0.0.0`
+converts it silently into possession-of-the-network. Candidates live in `studio.db`, on
+the line that survives the ticket: **the enforcer's database contains no row the Studio
+can edit**; migration `0019` was released. Pin-and-surface sustained, with the state
+naming **both** hashes and every preview going stale together with the diff.
 
 **S2 BUILT, T1–T5** (R045 §6): `TICKETS-ND-052-S2.md`, opening by citing
 `policy_loader.record_snapshot`'s `version_hash` and `snapshot_schema` as settled — the
@@ -646,8 +652,7 @@ ledger ships in the wheel. B1 unblocked.
 | `0016` | **`ND-052`/S1-B2** — the backtest receipts table: the Studio's own, append-only, holding a run's policy digest, cited range, provenance and divergence. **Never touches `actions_audit`** — a backtest proves it saw real data by citation, not by writing | **written**, `0.4.x` |
 | `0017` | **`ND-052`/S2-T4** — the ratifications table: append-only, holding from/to versions, the candidate digest, the **checked** backtest citation, the kill-switch state at ratification, and `ratified_by_session` (declared, never authenticated — the longer name carries its own caveat) | **written**, `0.4.x` |
 | `0018` | **`ND-052`/S2 · R045 §5** — kill-switch episodes: the policy version in force when the switch was engaged, so the **lift** can report any change since. An episode rather than a config key, because an incident review needs the time before last too. Deliberately not append-only: closing an episode is the one update it exists to allow | **written**, `0.4.x` |
-| `0019` | **`ND-052`/S3-T1** — candidate storage for the canvas. Shape pending core's Q2 ruling: a draft is an editing convenience and **`policy_digest` is the authority**, so this would be the Studio's first deliberately **mutable** table in an append-only store | **claimed**, unwritten |
-| `0020`+ | unclaimed | — |
+| `0019`+ | unclaimed — **released** by R047 §2. Candidate storage went to the Studio's own `studio.db` with its own one-table schema version: the main sequence is the **enforcer's** history, and a table in a different file that a different process owns does not belong in it | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

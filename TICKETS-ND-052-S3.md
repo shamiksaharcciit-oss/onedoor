@@ -162,3 +162,26 @@ wrong.**
 
 T1's validator and T6 are unblocked. T1's storage waits on Q2; T2 through T5 wait on
 Q1, which decides whether there is a server at all.
+
+---
+
+## 8. Ruled and built (R047)
+
+All three questions ruled; T1–T6 built. What R047 changed or added:
+
+- **Q1 → (b)**, with a hard edge the decomposition did not propose: the server
+  **refuses to bind anything but loopback**, before a socket exists, with no flag that
+  turns it off. Held structurally — an AST test asserts the check is an unconditional
+  statement of `serve` and that `serve` grew no override parameter.
+- **Q2 → `studio.db`**, on the line that survives the ticket: **the enforcer's database
+  contains no row the Studio can edit.** Migration `0019` was **released** back to
+  unclaimed; the Studio store carries its own one-table schema version.
+- **Q3 → pin and surface**, with both sharpenings built: the state names **both** hashes,
+  and `Panels` is one object rather than three fields so every number goes stale together
+  and recomputes together.
+- **T5's refusals travel verbatim** with their named reasons — the lost race and both
+  citation failures stay three distinct facts at the surface.
+- **§3's two-zone colour rule is a test in both directions.** A sabotage showed one of
+  the two tests had a name outrunning what it checked: colouring an addition green is a
+  *stylesheet* violation, invisible to a markup test. The rule was still covered by the
+  verdict-zone test; the name was corrected to say which half it holds.
