@@ -565,6 +565,25 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-050 | **An envelope-validation `malformed` denial writes no audit row** | S 🔺 | **Ticketed on core's instruction (R027 §2)**, found while building `ND-040`/U3 and recorded as **pre-existing: present in `≤0.4.0`, not introduced by `ND-040`.** `decide_raw` denies a request whose envelope fails validation *before* a policy or an `ActionRequest` object exists, so there is nothing to `audit.append` against: the returned `ActionResult` carries no `audit_id` and the ledger has no row. **Severity: low blast radius, high principle.** Low, because the action does not happen — the denial is correct and the caller is told; nothing is mis-permitted, and the affected requests are by definition ones the engine could not parse. High, because *"the audit log is append-only — decisions, results, denials, dry-runs, and kill-switch blocks"* is a claim this repository makes in its README, and one class of denial is silently outside it. An operator watching for a spike of malformed requests has nothing in the evidence store to watch, and a receipt-based product whose ledger omits a category of verdict has a gap in exactly the surface it sells. Note the asymmetry `ND-040` created and did not cause: a malformed **URL** now writes a row with `malformed_kind='url_canonicalization'`, while a malformed **envelope** writes none — which is why migration `0010` names only the value the code emits rather than inventing a `request_validation` one for code nobody wrote. **The fix is not free**: appending needs a row shape for a request that failed to parse (what is `action_type`? what are `params`?), and E10's received-verbatim discipline says the unparseable bytes are exactly what must be frozen — so this is a small ticket with a real design question inside it, not a one-liner. |
 | ND-051 | **The onedoor receipt viewer (oneview skin)** | M 🔺 | **Declared by R028 §4**, Phase-B launch asset, built **before** the crypto epic resumes. `python -m onedoor.viewer` reads a store and emits one static, read-only HTML page: the decision-receipt card with deny-with-budget as hero, plus the tail of verdicts. Spec and reference mockup in `docs/oneview/`; decomposition in `TICKETS-ND-051.md`. The structural rule from the forensics channel binds it: **one verification, and the viewer does not own it** — `onedoor/guardrail/receipt.py` is the single implementation and the viewer renders its output. **Two findings shaped the build:** there was no receipt verification and no CLI to call, so the requirement is met by creating exactly one implementation outside the viewer; and the mockup's chain block cannot be rendered truthfully in `0.4.1` because `row_hash`/`prev_hash`/`seq` are dark until `ND-001`, so it renders the **absent** state naming the ticket. Four outcomes in a UI: verified · absent · unverifiable · failed, with unverifiable as loud as failed. |
 | ND-052 | **The Policy Studio — describe your world, ratify your rules** (EPIC) | XL 🔺 | **S1 BUILT, B1–B5** (R043 §5): `TICKETS-ND-052-S1.md`.
+**S5 DECOMPOSED** (R050 §5), carrying one fence in unasked: **a template pack ships
+policy**, so Q3's law binds it — and the pack is the first artifact that would have shipped
+the defect at scale. **Five findings.** *(1) A pack outside the package does not ship* —
+measured: `include = ["onedoor*"]`, and `config/policies.yaml` is ABSENT from the `0.5.0`
+wheel, so the repo's policy file is a development seed and nothing says so. *(2) The law to
+assert is the FAMILY, not the effect half* — `ND-040`/U4's opaque + `min_tier: null` shape
+is the same law and is exactly what a payments pack would naturally write — and asserted
+through the engine's own checkers, never a second one. *(3) **A placeholder is a second
+declaration***, so templates are concrete policies with fail-closed defaults: a blank is
+not a `Policy`, nothing can check it, and a template whose safety depends on the deployer
+filling it in is the forbidden shape. *(4) A pack is an INSTRUMENT and needs an identity
+before S6 needs it.* *(5) The pack must be EXERCISED, not merely validated* — real requests,
+real verdicts, because its whole purpose is that someone trusts it without reading it.
+**Three questions** (§8): how much the pack claims (delivery has no payments authority and
+says so); what its digest is *of*; and whether adopting a pack goes through S2's ratification
+ceremony (delivery leans yes — otherwise it is the one policy change that leaves no receipt).
+**Plus §9, carried forward:** `UNOBSERVED` has R050 §4's defect one layer up, not renamed
+because core named that state in a ruling.
+
 **S4 BUILT, T1–T5** (R049 §7): `TICKETS-ND-052-S4.md`. **Four findings.** *(1) "Mentioned"
 has no source before S6 — and the ledger is a better one:* the design note's third column
 comes from a description the proposer reads, and the proposer is last; but the ledger

@@ -451,6 +451,55 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 | Q3 the fixture | **In the wheel**, deterministic, byte-pinned with a regeneration test, low hundreds of rows, back to the board over ~256 KB. The pinning buys **anti-masquerade**: the fixture's chain head is a published constant, so a receipt citing it while claiming `live` is detectable by anyone. |
 | The S2 flag | **Endorsed as stated.** Ratification cites `record_snapshot`'s machinery and never re-derives it; S2's decomposition opens by quoting that as settled. |
 
+### Programme law — naming honesty, in both directions
+
+Settled across four memos and recorded here once, because it kept arriving as a fresh
+discovery: **every name in this system is an assertion, and an assertion that outruns
+what is checked is a defect whether or not anything fails.**
+
+| Layer | Ruling |
+|---|---|
+| **A field's name** | R045 — `ratified_by_session`, not `ratified_by`: the short name reads as an identity claim to every future reader of an export. |
+| **A reserved field** | R046 — a reserved *word* is a promise about vocabulary; a reserved *field* is a claim about mechanism. `removed` would have claimed a retirement path the engine lacks. |
+| **A test's name** | R048 — *a name that outruns its check is false comfort.* |
+| **A check's name** | R050 — *a check that outruns its name is a false alarm.* Both are defects; they differ only in which direction the lie runs. |
+| **A computed value's name** | R050 — `exercised_effects` claimed history for a projection. Renamed `would_exercise`; **a rename, not a migration.** |
+
+**The deciding principle, which generalises past all of them:** *when a check and the
+artifact it guards conflict, narrow the check to what it always claimed — never degrade
+the artifact to satisfy the check.* Rewording documentation to appease a linter lets a
+guard erode the thing it guards, which is how a control quietly becomes what it was built
+to prevent. A narrowing is done honestly by testing the boundary **from both sides**.
+
+### Programme law — proxy-for-contract, and the sixth instance
+
+**A proxy matches whatever else happens to say it.** A check that looks for a stand-in
+token rather than the contract itself will be satisfied by anything that stumbles into
+the token.
+
+| # | Where | The proxy |
+|---|---|---|
+| 5 | a monitor filter watching for a `pytest` summary | `passed` — matched ruff's *"All checks passed!"* |
+| 6 | **`scripts/gate.py`'s own contract table** | `" passed"` declared as the tests gate's contract — **a substring of the lint gate's output**, so a lint run would have satisfied the test gate |
+
+Instance six is logged as **the most instructive of the six**: it was committed *while
+building the tool that exists to prevent the class*, by an author who could name the
+class. R050's line for the file: **a class you can name is not a class you have escaped.**
+It was caught by that tool's own test on first execution, which is the argument for
+putting laws into construction rather than into memory. The fix: contracts are **patterns
+requiring a count**, cross-checked against every other gate's real output.
+
+### Resolved by Response 050 (2026-08-24)
+
+| Was | Ruling |
+|---|---|
+| S4 | **Stands.** The unprompted addition called out as the standard: `range.state` carrying `uncitable` as its own value, so an unchained store's numbers read as *real and uncheckable* rather than as a bare count. **The three-outcome rule is a habit, not a list of places it has been applied.** |
+| The runner | **Ratified.** Two green-looking failures on day one — contract present beside a non-zero exit — is the argument made in measurements rather than prose. |
+| The `" passed"` contract | **Proxy-for-contract, sixth instance**, recorded above. |
+| The false alarm | **Law**, paired with R048's, recorded above with its deciding principle. |
+| **§6's finding** | **Ruled: a rename, not a migration.** `exercised_effects` claimed history; the computation is a projection, and for a *candidate* that projection is the correct question. Renamed `would_exercise`. **The historical question is not the map's** — resolving what actually happened needs each row's own `policy_version` and its frozen params, because `param_effects` makes effects param-dependent. That is the engine over history against sealed inputs: **that is a backtest.** No hashed column, no `/3`, no migration — *the map projects and cites; the backtest measures and receipts.* |
+| `ND-053`'s sequencing | **Closed.** Detector first, refusal after, is *the courtesy a breaking change owes the people it will break.* |
+
 ### Programme law — a protection that depends on a second, optional declaration is not a protection
 
 **Binding on all policy** (R049 §6), not only on generated policy. Recorded here rather
@@ -540,45 +589,35 @@ converts a defect into an outage.
 
 ### Open
 
-**Delivery → core — THREE, from S4's decomposition (`TICKETS-ND-052-S4.md` §8), plus
-one proposal R048 asked for. T1 and T2 proceed meanwhile.**
+**Delivery → core — THREE from S5's decomposition (`TICKETS-ND-052-S5.md` §8), plus one
+finding carried forward from S4 (§9). T1, T2, T3 and T5 proceed meanwhile.**
 
-**1. Does "uncovered" earn the semantic pair?** Delivery leans **no** — prominence
-without `--ok`/`--bad`. A coverage state is not a verdict, and the map's most dangerous
-row is *declared but inert*, which produces an **allow**; painting *uncovered* red would
-paint the safer state louder than the more dangerous one. Against delivery's own lean: an
-uncovered action type genuinely **is** default-denied, so red would point at a real
-verdict rather than being a category error. Cross-product precedent, so not delivery's to
-set alone.
+**1. How much does the template pack claim?** *"A finance/payments pack"* implies domain
+authority **delivery does not have** — this is a policy engine, not a payments compliance
+authority. Delivery proposes the pack describe itself as **a worked example demonstrating
+the vocabulary**, explicitly not a compliance artifact, with its own gaps on its face. A
+stronger claim needs someone who can stand behind it; delivery cannot, and says so before
+writing a README that implies otherwise.
 
-**2. Is a coverage map evidence or a view?** Delivery leans **a view that cites**, in S1's
-`CitedRange` shape. A coverage map derives entirely from state that is already
-content-addressed, so a `coverage_digest` would be a second address for facts that have
-one — R040's rule. The counter delivery cannot dismiss: shown to an auditor as *"these
-are our gaps"*, it becomes a relied-upon claim, and this programme's answer to those has
-never been "trust the screen".
+**2. What is the pack's digest *of*?** File digest pins *what shipped*; canonical-policy
+digest pins *what it means*. *A digest answers exactly one question*, so delivery leans
+**both, named for their different jobs** — while flagging that two digests on one artifact
+is also the shape of *two fields that must agree* (X-14).
 
-**3. Should a declared-but-inert effect be a validator refusal?** **Escalated rather than
-implemented.** `decision.py` silently drops an effect label with no `effect_policies` row
-behind it — measured on `0.5.0`: the same request is `PERMITTED, effective_tier 1` with
-the label alone and `proposed, effective_tier 3` once the effect policy exists. That is
-R027's rule shape — *a rule whose safety depends on an optional second declaration* — in
-**hand-written** policy rather than generator output. If the rule binds policy generally,
-`validate_policy` should refuse it, which changes what a deployment boots with and is
-therefore core's call.
+**3. Does adopting the pack go through the ratification ceremony?** Delivery leans **yes**:
+loading a pack changes the rules the engine enforces, which is what S2 built a ceremony and
+a receipt for. The alternative — a plain `load_file` upsert — would make the pack the one
+policy change in the product that leaves no receipt.
 
-**The exit-code trap, third appearance — proposal held pending core's ruling** (R048's
-instruction, answered in `escalations/RELEASE-PING-0.5.0-2026-08-24.md` §3). Two layers:
-a **gate runner** (`python -m scripts.gate --expect "…" -- ruff check .`) that runs
-through `subprocess` with no shell and no pipe, asserts both the exit code and the output
-contract, and prints the environment — folding R048's two laws into one act of typing;
-and a **repo-linting test** refusing committed shell that reads `$?` after a pipe.
-Delivery states the honest limit: a runner only helps when it is called, so it reduces
-what must be remembered to one atom rather than eliminating it. **Nothing built** — core
-rules first.
+**Carried forward from S4:** **`UNOBSERVED` has the defect R050 §4 just ruled on, one layer
+up.** The state name says an observation was made and came back empty; effects are never
+observed at all. What it means is *no observed action type would reach this effect under
+this policy set*. **Not renamed** — core named that state in R049 §4 while ruling it into
+existence, and delivery does not rewrite a ruling's vocabulary on its own authority.
+Proposed: `UNREACHED`, or core's better word.
 
-**Core → delivery:** none, as of Response 048 (2026-08-24). `0.5.0` is **published**
-and S4 is decomposed; then S5 the finance pack and S6 the proposer last. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 048 (2026-08-24). `0.5.0` is **published**, S4 is
+built and S5 is decomposed; then S6 the proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

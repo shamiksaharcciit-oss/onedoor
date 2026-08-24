@@ -23,7 +23,7 @@ Four states, ranked by what they do rather than by how they sound (R049 §3)
 |---|---|
 | `DECLARED_INERT` | a policy names an effect with **no effect policy behind it** — the label is dropped, so this is a **silent permit** |
 | `UNCOVERED_OBSERVED` | the ledger saw this action type and no policy declares it — `default_deny`, a **loud denial** |
-| `UNOBSERVED` | a **declared** effect nothing in the cited range exercised — *absent*, never "safe" |
+| `UNOBSERVED` | a **declared** effect that observed traffic **would not** reach under this policy set — *absent*, never "safe" |
 | `COVERED` | declared, and every effect it names has an effect policy |
 
 **Prominence order is `PROMINENCE`, and it is not alphabetical or alarming-sounding.**
@@ -38,13 +38,23 @@ has declared. Action types that were never declared and never seen are an **unbo
 set**, and an unbounded set cannot be a row; that is the map's footer instead, which is
 principle 4 turned on the coverage map.
 
-And one limit found while building it: **`actions_audit` records `action_type` but not
-the effects that resolved.** So effect exercise is **derived** — an effect counts as
-exercised when some observed action type is declared *by the policy set being mapped* to
-carry it — which is a statement about today's rules applied to yesterday's traffic, not a
-record of what the engine actually resolved at the time. Rows decided under an earlier
-`policy_version` may have carried different effects. The footer says so; `DERIVED_NOTE`
-is that sentence, and every rendering carries it.
+This map PROJECTS; it does not recall (R050 §4)
+------------------------------------------------
+`actions_audit` records `action_type` but **not** the effects that resolved. So
+`would_exercise` is exactly what its name says: *under the policy set being mapped, the
+observed traffic would reach these effects.* A projection, never a record.
+
+**For a candidate — the Studio's actual purpose — that is the correct question**, not a
+compromise: *if I ratify this, what does it reach?* The map answers it exactly. The name
+carries the mood so that a reader of the **active** set's map cannot mistake the same
+number for history.
+
+**The historical question is a different product's.** Establishing which effects actually
+resolved for a past row means taking that row's own `policy_version`, loading the snapshot
+in force then, and resolving against that row's **frozen params** — because `param_effects`
+makes effects param-dependent, so no join and no column short of the engine's own
+resolution settles it. That is the engine run over history against sealed inputs. **That is
+a backtest**, which is why a backtest gets a receipt and a map gets a citation.
 """
 
 from __future__ import annotations
@@ -79,11 +89,14 @@ downgraded to a bare count. `EMPTY` — no decisions at all, so every observed-s
 column is a non-measurement rather than a zero.
 """
 
-DERIVED_NOTE = (
-    "Effect exercise is DERIVED, not recorded: the ledger stores action types, not the "
-    "effects that resolved. An effect counts as exercised when an observed action type "
-    "is declared by THIS policy set to carry it — today's rules applied to past traffic. "
-    "Rows decided under an earlier policy version may have carried different effects."
+PROJECTION_NOTE = (
+    "This map PROJECTS, it does not recall: the ledger stores action types, not the "
+    "effects that resolved. An effect is reported as reachable when an observed action "
+    "type is declared BY THIS POLICY SET to carry it — so this is what the traffic WOULD "
+    "exercise under these rules, never a record of what it did. To establish what "
+    "actually resolved, run a backtest over the range: that replays each row against the "
+    "policy in force at the time, with its own frozen params, which is the only thing "
+    "that can settle it."
 )
 
 UNBOUNDED_NOTE = (
@@ -147,7 +160,7 @@ class CoverageMap:
     cited: Range
     actions: list[Row] = field(default_factory=list)
     effects: list[Row] = field(default_factory=list)
-    notes: tuple[str, ...] = (DERIVED_NOTE, UNBOUNDED_NOTE)
+    notes: tuple[str, ...] = (PROJECTION_NOTE, UNBOUNDED_NOTE)
 
     def ranked(self, rows: list[Row]) -> list[Row]:
         """Loudest first, by behaviour (R049 §3), then alphabetically within a state."""
@@ -246,7 +259,12 @@ def build(
             for effect in rule.add_effects:
                 named_by_rules.setdefault(effect, []).append(policy.action_type)
 
-    exercised = {
+    # `would_exercise`, not `exercised` (R050 §4). The old name claimed history and the
+    # computation is a PROJECTION: what the observed traffic would reach under the policy
+    # set being mapped. For a candidate that is the right question — *if I ratify this,
+    # what does it reach?* — and for the active set the historical reading is one the
+    # number cannot support. The fix is the name, not a migration.
+    would_exercise = {
         effect for policy in declared if policy.action_type in observed for effect in policy.effects
     }
 
@@ -265,14 +283,15 @@ def build(
                     ),
                 )
             )
-        elif effect not in exercised:
+        elif effect not in would_exercise:
             effect_rows.append(
                 Row(
                     name=effect,
                     state=UNOBSERVED,
                     detail=(
-                        "declared, and nothing in the cited range exercised it. Absent, "
-                        "not safe: this is a measurement nobody took, not a clean result."
+                        "declared, and no observed action type would reach it under this "
+                        "policy set. Absent, not safe: nothing here says it never happened, "
+                        "only that these rules do not route the traffic we saw to it."
                     ),
                 )
             )

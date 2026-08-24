@@ -7,7 +7,7 @@ row on the map **without asking this store**, and without running the engine.
 R049 §5 made this document a requirement rather than a courtesy, and attached a test to
 it: *if it cannot be written clearly enough for a second implementation, the derivation
 is not as pure as the ruling assumes, and that finding comes back to the board.* It was
-written, and §6 records what writing it exposed.
+written; §6 records the finding it exposed **and the ruling that closed it** (R050 §4).
 
 ---
 
@@ -66,7 +66,7 @@ named_by_rules    = { e -> [p.action_type ...] } for every e in p.effects
                     UNION  every e in r.add_effects for r in p.param_effects
 declared_effects  = { ep.effect                  for ep in effect_policies }
 
-exercised_effects = { e  for p in policies
+would_exercise    = { e  for p in policies
                          if p.action_type in observed_actions
                          for e in p.effects }
 ```
@@ -85,7 +85,7 @@ exercised_effects = { e  for p in policies
 | condition | state |
 |---|---|
 | `e ∉ declared_effects` | `declared_inert` |
-| `e ∈ declared_effects` and `e ∉ exercised_effects` | `unobserved` |
+| `e ∈ declared_effects` and `e ∉ would_exercise` | `unobserved` |
 | otherwise | `covered` |
 
 ### What `declared_inert` means at decision time
@@ -106,25 +106,40 @@ permit** inside a rule its author believes is governing, while `uncovered_observ
 **loud denial** the engine already handles safely. **Rank by what a state does at
 decision time, not by how alarming its name sounds** (R049 §3).
 
-## 6. What this derivation does not measure — and one impurity it exposed
+## 6. What this derivation projects, and what it does not recall — **ruled**
 
-**`actions_audit` records `action_type` but not the effects that resolved.** So
-`exercised_effects` is **derived, not recorded**: an effect counts as exercised when an
-observed action type is declared *by the policy set being mapped* to carry it.
+**`would_exercise` is a projection, and its name now says so** (R050 §4). It was
+`exercised_effects`, which claimed history the computation cannot deliver; the ruling was
+a rename rather than a migration, and this section records the answer rather than the
+deliberation that produced it.
 
-That is **today's rules applied to past traffic**. A row decided under an earlier
-`policy_version` may have carried different effects, and this derivation cannot see that.
-A second implementation will reproduce the map exactly — the function is pure — but both
-implementations inherit the same limitation, so it is stated on every rendering rather
-than left in this file.
+`actions_audit` records `action_type` but **not** the effects that resolved. So
+`would_exercise` means exactly: *under the policy set being mapped, the observed traffic
+would reach these effects.*
 
-**This is the finding R049 §5 asked for if the document could not be written cleanly.**
-The derivation *is* pure over its declared inputs, so the ruling holds and the map stays
-a view that cites. But its inputs are weaker than they look: `exercised_effects` is a
-statement about the current policy set, not a historical record, and no citation can make
-it one. Making it a measurement would require the ledger to record resolved effects per
-row — a new hashed column, a preimage version, and a migration. **Delivery is not
-proposing that here**; it is recorded so the board decides whether the gap matters.
+**For a candidate this is the correct question, not a compromise.** The Studio's purpose
+is to ask *if I ratify this, what does it reach?* — and a projection is the only kind of
+answer that question has. For the **active** set the same number invited a historical
+reading it could not support, and the name is what closed that.
+
+**The historical question belongs to a different product.** Establishing which effects
+actually resolved for a past row means:
+
+1. take that row's own `policy_version`,
+2. load the snapshot in force at the time,
+3. resolve effects against **that row's frozen params** —
+
+because `param_effects` makes effects param-dependent, so **no join and no column short
+of the engine's own resolution settles it.** That is the engine, run over history,
+against sealed inputs. **That is a backtest.**
+
+So there is **no new hashed column, no `onedoor/row-preimage/3`, and no migration.** The
+gap is not in the ledger; it is the boundary between two products, and this finding
+confirms the boundary rather than challenging it: **the map projects and cites; the
+backtest measures and receipts.** A deployer who needs *"which effects did this range
+actually exercise"* runs a backtest over that range — the map does not pretend, and
+`PROJECTION_NOTE` says so on every rendering, naming the backtest as the thing that does
+answer it.
 
 **Unobserved-and-undeclared action types are not rows.** That set is unbounded, and a row
 cannot be drawn for something the map has never heard of. It is the map's footer instead:

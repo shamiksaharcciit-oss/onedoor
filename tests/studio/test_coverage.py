@@ -110,7 +110,7 @@ def test_an_action_the_ledger_saw_and_no_policy_declares_is_uncovered_observed(
     assert _state_of(m.actions, "demo.restore") == coverage.COVERED
 
 
-def test_a_declared_effect_nothing_exercised_is_unobserved_and_never_covered(
+def test_a_declared_effect_no_observed_traffic_reaches_is_unobserved(
     fresh: Connection,
 ) -> None:
     """R049 §4: a row only inside a bounded vocabulary, and rendered **absent**."""
@@ -123,7 +123,7 @@ def test_a_declared_effect_nothing_exercised_is_unobserved_and_never_covered(
     assert _state_of(m.effects, "money.egress") == coverage.UNOBSERVED
     row = next(r for r in m.effects if r.name == "money.egress")
     assert "Absent, not safe" in row.detail
-    assert "measurement nobody took" in row.detail
+    assert "only that these rules do not route" in row.detail
 
 
 def test_the_unbounded_set_is_a_footer_and_never_a_row(fresh: Connection) -> None:
@@ -235,18 +235,21 @@ def test_every_note_the_map_carries_states_a_limit(fresh: Connection) -> None:
     """The map's own non-coverage, stated — principle 4 turned on the coverage map."""
     policy_loader.upsert(fresh, _policy("demo.restore"))
     m = coverage.build(fresh)
-    assert coverage.DERIVED_NOTE in m.notes
-    assert "DERIVED, not recorded" in coverage.DERIVED_NOTE
+    assert coverage.PROJECTION_NOTE in m.notes
+    assert "PROJECTS, it does not recall" in coverage.PROJECTION_NOTE
+    assert "run a backtest over the range" in coverage.PROJECTION_NOTE, (
+        "the note must name what DOES answer the historical question (R050 §4)"
+    )
 
 
-def test_effect_exercise_is_derived_from_todays_rules(
+def test_effect_reachability_is_projected_from_the_mapped_policy_set(
     fresh: Connection, config: EngineConfig
 ) -> None:
     """The limit the note describes, demonstrated rather than only asserted.
 
     The action ran while its policy named no effect. Adding the label afterwards makes
-    the effect read as exercised — because exercise is derived from the policy set being
-    mapped, not recorded in the row. That is exactly what `DERIVED_NOTE` warns about, and
+    the effect read as reachable — because reachability is projected from the policy set being
+    mapped, not recorded in the row. That is exactly what `PROJECTION_NOTE` warns about, and
     a test proves the warning is about real behaviour rather than a hypothetical.
     """
     policy_loader.upsert(fresh, _policy("demo.restore"))

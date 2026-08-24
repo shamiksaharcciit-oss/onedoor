@@ -143,7 +143,7 @@ def test_the_notes_render_and_state_the_maps_own_limits(
     """Principle 4 turned on the coverage map itself."""
     html = skin.render_page(_map(fresh, config))
     assert "what this map does not measure" in html
-    assert "DERIVED, not recorded" in html
+    assert "PROJECTS, it does not recall" in html
     assert "unbounded" in html
 
 
