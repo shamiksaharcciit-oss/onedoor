@@ -313,7 +313,7 @@ certified and originals are requested.
 | U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
 | The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
 | `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
-| `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Staged 2026-08-24**, awaiting Shamik's `twine`/`gh`. |
+| `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Published 2026-08-24**, tag `v0.5.0` @ `fef596e`. Publication verified: PyPI's own recorded `sha256` equals the pre-upload digests for both artifacts, and the GitHub assets are byte-identical to `dist/`. |
 
 **R027 §1's first condition found a defect rather than confirming a property.** U4
 rested on the effect floor, and the effect floor is optional: a policy could declare
@@ -493,45 +493,45 @@ awaiting `ND-004`/`ND-005` rather than implied to exist.
 
 ### Open
 
-**None blocking.** S3's three questions are ruled by R047 and built to.
+**Delivery → core — THREE, from S4's decomposition (`TICKETS-ND-052-S4.md` §8), plus
+one proposal R048 asked for. T1 and T2 proceed meanwhile.**
 
-**S3 is built, T1–T6, and the standing R047 §4 asked for is green.** The **bind refusal**
-holds in both directions and is guarded structurally — an AST test asserts the check is
-an unconditional statement of `serve` and that `serve` grew no override parameter, so a
-future `if not allow_public:` fails at the moment it is written. The **colour-rights**
-rule is a test in both directions: the diff zone carries no state colour, *and* the
-verdict zone still uses the pair, because a "cleanup" that stripped `--ok`/`--bad` from
-the whole page would satisfy a one-sided rule and throw away the signal it protects. The
-wrapper says **"problems found"** in those words, from one constant, and renders its
-incompleteness notice even when the list is empty. The **stale state names both hashes**
-in the model and on the page. T5's **refusals travel verbatim** with their named reasons.
+**1. Does "uncovered" earn the semantic pair?** Delivery leans **no** — prominence
+without `--ok`/`--bad`. A coverage state is not a verdict, and the map's most dangerous
+row is *declared but inert*, which produces an **allow**; painting *uncovered* red would
+paint the safer state louder than the more dangerous one. Against delivery's own lean: an
+uncovered action type genuinely **is** default-denied, so red would point at a real
+verdict rather than being a category error. Cross-product precedent, so not delivery's to
+set alone.
 
-**A gate-fidelity defect of delivery's own, found by CI and fixed at the class.** The
-four gates ran verbatim and green locally; CI went red on both jobs with *"Cannot find
-implementation or library stub for module named uvicorn"*. The command was right and the
-**environment** was not: the local virtualenv had uvicorn, and `[dev]` — all CI installs
-— did not. R010 with a new edge: *a gate is a command **and** the world it runs in, and a
-local environment drifts richer than CI's simply by being used.* The `ignore_missing_imports`
-override that would also have gone green was rejected, because it turns the gate green by
-making it check less. `tests/test_packaging.py` now catches the class locally, and found a
-second, pre-existing instance while being written — `langchain-core`, imported directly and
-reaching CI only as a transitive dependency of `langchain`.
+**2. Is a coverage map evidence or a view?** Delivery leans **a view that cites**, in S1's
+`CitedRange` shape. A coverage map derives entirely from state that is already
+content-addressed, so a `coverage_digest` would be a second address for facts that have
+one — R040's rule. The counter delivery cannot dismiss: shown to an auditor as *"these
+are our gaps"*, it becomes a relied-upon claim, and this programme's answer to those has
+never been "trust the screen".
 
-**Seven sabotages, each failing exactly its own tests**: an addition coloured green (1);
-the pin sentence stripped of its hashes (2); panels computed while stale (3); the bind
-refusal removed (4); the refusal flattened to "could not ratify" (2); the validator
-claiming completeness (3); the validator reimplemented instead of wrapped (2).
+**3. Should a declared-but-inert effect be a validator refusal?** **Escalated rather than
+implemented.** `decision.py` silently drops an effect label with no `effect_policies` row
+behind it — measured on `0.5.0`: the same request is `PERMITTED, effective_tier 1` with
+the label alone and `proposed, effective_tier 3` once the effect policy exists. That is
+R027's rule shape — *a rule whose safety depends on an optional second declaration* — in
+**hand-written** policy rather than generator output. If the rule binds policy generally,
+`validate_policy` should refuse it, which changes what a deployment boots with and is
+therefore core's call.
 
-**One test was renamed after a sabotage showed its name outran what it checked.**
-`test_the_diff_zone_never_reaches_for_a_verdicts_colours` caught nothing when an addition
-was coloured green — the violation was in the stylesheet, and the test only reads markup.
-The stylesheet direction was already held by the verdict-zone test, so the rule was
-covered; the *name* was not honest about which half this test holds, and it is now
-`test_the_diff_zones_markup_carries_no_inline_state_colour` with the split written into
-its docstring.
+**The exit-code trap, third appearance — proposal held pending core's ruling** (R048's
+instruction, answered in `escalations/RELEASE-PING-0.5.0-2026-08-24.md` §3). Two layers:
+a **gate runner** (`python -m scripts.gate --expect "…" -- ruff check .`) that runs
+through `subprocess` with no shell and no pipe, asserts both the exit code and the output
+contract, and prints the environment — folding R048's two laws into one act of typing;
+and a **repo-linting test** refusing committed shell that reads `$?` after a pipe.
+Delivery states the honest limit: a runner only helps when it is called, so it reduces
+what must be remembered to one atom rather than eliminating it. **Nothing built** — core
+rules first.
 
-**Core → delivery:** none, as of Response 048 (2026-08-24). `0.5.0` is staged for
-publication; then S4 the coverage map, S5 the finance pack, and S6 the proposer last. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 048 (2026-08-24). `0.5.0` is **published**
+and S4 is decomposed; then S5 the finance pack and S6 the proposer last. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

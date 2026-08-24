@@ -56,8 +56,12 @@ onedoor-0.5.0.tar.gz            240591 bytes
 
 ## 3. Publish to PyPI — your credentials
 
-```bash
-cd /c/Users/polo2/Downloads/onedoor
+**Shell: PowerShell**, which is what this machine opens. Every command below is a
+**single line with no continuations**, so it pastes correctly into PowerShell *and* into
+bash — see the note under §4 for why that is now the rule.
+
+```powershell
+cd C:\Users\polo2\Downloads\onedoor
 python -m twine upload dist/onedoor-0.5.0-py3-none-any.whl dist/onedoor-0.5.0.tar.gz
 ```
 
@@ -67,10 +71,18 @@ files in it, stop and tell me.
 
 ## 4. Create the GitHub release — same motion as the tag (R011)
 
-```bash
-cd /c/Users/polo2/Downloads/onedoor
-gh release create v0.5.0   dist/onedoor-0.5.0-py3-none-any.whl   dist/onedoor-0.5.0.tar.gz   --title "onedoor 0.5.0"   --notes-file RELEASE_NOTES_v0.5.0.md
+```powershell
+cd C:\Users\polo2\Downloads\onedoor
+gh release create v0.5.0 dist/onedoor-0.5.0-py3-none-any.whl dist/onedoor-0.5.0.tar.gz --title "onedoor 0.5.0" --notes-file RELEASE_NOTES_v0.5.0.md
 ```
+
+> **Corrected after the fact, and recorded rather than quietly patched.** The draft of
+> this handover that reached Shamik wrote this command with bash `\` line continuations.
+> **PowerShell 5.1 does not parse those** — it would have broken at the first line break.
+> Handovers execute on Windows, so the rule is now: **write the commands in the shell
+> they will actually run in, and state which shell that is.** Single-line commands satisfy
+> both shells at once, which is why every command here is one line. A command that cannot
+> be pasted is not a handover.
 
 `--notes-file` rather than pasted text: the notes are a verbatim slice of the changelog
 and stay that way. **Do not** backfill releases onto older tags — a retroactive release

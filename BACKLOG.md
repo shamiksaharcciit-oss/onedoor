@@ -565,6 +565,25 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-050 | **An envelope-validation `malformed` denial writes no audit row** | S 🔺 | **Ticketed on core's instruction (R027 §2)**, found while building `ND-040`/U3 and recorded as **pre-existing: present in `≤0.4.0`, not introduced by `ND-040`.** `decide_raw` denies a request whose envelope fails validation *before* a policy or an `ActionRequest` object exists, so there is nothing to `audit.append` against: the returned `ActionResult` carries no `audit_id` and the ledger has no row. **Severity: low blast radius, high principle.** Low, because the action does not happen — the denial is correct and the caller is told; nothing is mis-permitted, and the affected requests are by definition ones the engine could not parse. High, because *"the audit log is append-only — decisions, results, denials, dry-runs, and kill-switch blocks"* is a claim this repository makes in its README, and one class of denial is silently outside it. An operator watching for a spike of malformed requests has nothing in the evidence store to watch, and a receipt-based product whose ledger omits a category of verdict has a gap in exactly the surface it sells. Note the asymmetry `ND-040` created and did not cause: a malformed **URL** now writes a row with `malformed_kind='url_canonicalization'`, while a malformed **envelope** writes none — which is why migration `0010` names only the value the code emits rather than inventing a `request_validation` one for code nobody wrote. **The fix is not free**: appending needs a row shape for a request that failed to parse (what is `action_type`? what are `params`?), and E10's received-verbatim discipline says the unparseable bytes are exactly what must be frozen — so this is a small ticket with a real design question inside it, not a one-liner. |
 | ND-051 | **The onedoor receipt viewer (oneview skin)** | M 🔺 | **Declared by R028 §4**, Phase-B launch asset, built **before** the crypto epic resumes. `python -m onedoor.viewer` reads a store and emits one static, read-only HTML page: the decision-receipt card with deny-with-budget as hero, plus the tail of verdicts. Spec and reference mockup in `docs/oneview/`; decomposition in `TICKETS-ND-051.md`. The structural rule from the forensics channel binds it: **one verification, and the viewer does not own it** — `onedoor/guardrail/receipt.py` is the single implementation and the viewer renders its output. **Two findings shaped the build:** there was no receipt verification and no CLI to call, so the requirement is met by creating exactly one implementation outside the viewer; and the mockup's chain block cannot be rendered truthfully in `0.4.1` because `row_hash`/`prev_hash`/`seq` are dark until `ND-001`, so it renders the **absent** state naming the ticket. Four outcomes in a UI: verified · absent · unverifiable · failed, with unverifiable as loud as failed. |
 | ND-052 | **The Policy Studio — describe your world, ratify your rules** (EPIC) | XL 🔺 | **S1 BUILT, B1–B5** (R043 §5): `TICKETS-ND-052-S1.md`.
+**S4 DECOMPOSED** (R048 §4): `TICKETS-ND-052-S4.md`. **Four findings.** *(1) "Mentioned"
+has no source before S6 — and the ledger is a better one:* the design note's third column
+comes from a description the proposer reads, and the proposer is last; but the ledger
+already records what the world actually asked for, so a `default_deny`-ed action type is
+an uncovered surface the WORLD named, measured rather than inferred from a paragraph.
+S6's description later joins as a third source, never replacing it. *(2) A declared effect
+with no effect policy behind it is silent TODAY* — `decision.py` drops the label, and it
+was measured on `0.5.0`: `PERMITTED, effective_tier 1` with the label alone,
+`proposed, effective_tier 3` once the effect policy exists. Principle 4's exact target, in
+hand-written policy, no LLM involved. *(3) Two states are not enough — there are four:*
+covered, **declared but inert** (a silent permit), uncovered-and-observed (a loud denial),
+and **unobserved**, which must never render as covered or safe. *(4) A coverage map is a
+measurement*, so it cites its ledger range in S1's `CitedRange` shape rather than
+asserting a bare count. **Three questions** (§8): whether "uncovered" earns the semantic
+pair (delivery leans no — the map's most dangerous row is the one that produces an
+ALLOW); whether the map is evidence or a citing view; and whether a declared-but-inert
+effect should be a `validate_policy` refusal — **escalated, not implemented**, since it
+changes what a deployment boots with. T1 and T2 unblocked.
+
 **S3 BUILT, T1–T6** (R047 §4), **shipped in `0.5.0`**: `TICKETS-ND-052-S3.md`, carrying R046's three fence posts in
 as cited ground — the canvas edits candidates and touches nothing else (ratification is
 **invoked**, never reimplemented); every number shown is produced by an engine function
