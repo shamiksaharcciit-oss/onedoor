@@ -7,6 +7,40 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+### Added — `ND-052` / S6: the policy proposer, and the epic completes
+
+The Studio's last ticket. **The proposer is never the enforcer**: it drafts a candidate and
+has no path to the active set except the ratification ceremony, entering it as a candidate
+like any other.
+
+- **A derivation record, not a receipt.** Every other artifact this project emits is
+  *recomputable* — that is what makes it a receipt. A proposal is not: the same description
+  through the same model twice may differ, and recording the instrument pins the
+  *conditions*, never the output. Constitution principle 5 was **amended rather than
+  stretched** to say so, and the record states on its face both that it is not
+  re-derivable and that **the candidate's authority comes from the checks it passes, never
+  from the record.**
+- **`proposer_provenance: live | fixture`** — the same value pair as `ledger_provenance`,
+  because it is the same distinction and a renderer must not learn a second dialect for it.
+  Inside the record's digest, so relabelling a fixture-drafted candidate as a model's work
+  breaks the record's own address.
+- **Descriptions are received data.** Stored as BLOBs, byte-for-byte, never normalised —
+  the digest a record cites is taken over exactly the bytes the operator wrote.
+- **One surface, two sections, never one table.** The coverage map's rows are measurements;
+  the proposal's mentioned-but-unruled rows are a model's reading of a sentence. Each
+  section states its warrant, and every asserted row cites the coverage state it was
+  checked against.
+- **The decision path cannot reach a proposer** — a structural test walking the import
+  closure from source, lazy imports included, and refusing any network client at all.
+- **A benchmark that publishes its misses first.** No score gates anything; the demo may
+  run when the results, misses included, are published beside it and the demo states its
+  number. The corpus includes adversarial descriptions and the published misses include the
+  security-shaped ones.
+
+New module `onedoor/studio/proposer.py` with a deterministic fixture proposer so CI runs
+with no key and no network. A model-backed proposer is a separate credentialed component
+and is **not** part of this build — and nothing falls back to the fixture silently.
+
 ### Added — `ND-052` / S5: the payments template pack
 
 `onedoor/templates/payments/` — **worked examples**, shipped in the wheel, adopted through

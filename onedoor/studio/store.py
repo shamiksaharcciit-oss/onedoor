@@ -49,9 +49,15 @@ from uuid import uuid4
 from onedoor.guardrail.models import EffectPolicy, Policy
 from onedoor.store.clock import to_iso
 from onedoor.store.db import connect
+from onedoor.studio import descriptions
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 """The Studio store's own version. Not a number from the enforcer's migration sequence.
+
+Version 2 adds S6's `descriptions` and `derivation_records` (see
+`studio.descriptions`). Bumped rather than silently extended: a store written by
+version 1 and read by a build expecting version 2 must be recognisable as such, and
+`open_store` already refuses a store from the FUTURE for the same reason.
 
 R047 §2: the main store's numbered migrations are the enforcer's history. A table in a
 different file that a different process owns does not belong in it, and spending `0019`
@@ -59,7 +65,10 @@ on one would have written the boundary this split exists to draw straight back o
 the record.
 """
 
-_SCHEMA = """
+_S6_SCHEMA = descriptions.SCHEMA_SQL
+
+_SCHEMA = (
+    """
 CREATE TABLE IF NOT EXISTS studio_schema (
     version INTEGER NOT NULL
 );
@@ -77,6 +86,8 @@ CREATE TABLE IF NOT EXISTS policy_candidates (
     updated_at   TEXT NOT NULL
 );
 """
+    + _S6_SCHEMA
+)
 
 
 class StudioStoreError(RuntimeError):
@@ -96,6 +107,12 @@ def open_store(path: str | Path) -> sqlite3.Connection:
         row = conn.execute("SELECT version FROM studio_schema LIMIT 1").fetchone()
         if row is None:
             conn.execute("INSERT INTO studio_schema (version) VALUES (?)", (SCHEMA_VERSION,))
+        elif int(row["version"]) < SCHEMA_VERSION:
+            # Forward-only, and the tables are all `IF NOT EXISTS`, so applying the
+            # current schema to an older store is the upgrade. Stamped afterwards so a
+            # crash between the two leaves the version behind rather than ahead: a store
+            # that claims a schema it does not have is the failure direction that hurts.
+            conn.execute("UPDATE studio_schema SET version=?", (SCHEMA_VERSION,))
         elif int(row["version"]) > SCHEMA_VERSION:
             raise StudioStoreError(
                 f"this studio store was written at schema version {row['version']}, and "

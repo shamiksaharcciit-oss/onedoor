@@ -542,6 +542,15 @@ records who gets audited rather than what goes wrong. R051 §1's line covers it 
 *nothing here is authoritative because of who wrote it* — and a class table that
 exempted its own author would be the clearest counter-example to that.
 
+### Resolved by Response 053 (2026-08-27)
+
+| Was | Ruling |
+|---|---|
+| **Q1** — what a proposal record is called | **A derivation record, and the constitution was amended rather than stretched.** Principle 5 now reads: *every derivation gets a record; a record that promises re-derivation is a receipt; a record that cannot promise it says so on its face.* The word *receipt* was coined when everything was recomputable, and **a constitution whose own noun outruns the computation is R050 §4's defect installed at the top of the document.** One more face sentence required: **the candidate's authority comes from the checks it passes, never from this record** — provenance, not trust. |
+| **Q2** — how the model is supplied | Mechanism approved; the field is **`proposer_provenance: live \| fixture`** — the *same value pair* as `ledger_provenance`, because it is the same decision and **a renderer must not learn a second dialect for one distinction.** The instrument block is **never empty in either case**, and the label survives to every rendering with B5's sabotage shape. |
+| **Q3** — where mentioned rows live | **Adjacent, not merged: one surface, two sections, never one table.** Merging would not make one honest list, it would make one dishonest one, because **a list is honest only if every row carries the same kind of warrant.** The second section states its warrant on its face and each row cites the coverage state it was checked against. |
+| **Q4** — the demo gate | **No score threshold — and that is harder, not softer.** *A threshold we pick for our own generator is the instrument fitted to the finding.* The demo may run when the benchmark's results, **misses included**, are published beside it and the demo states its number. The corpus includes adversarial descriptions; the published misses include the **security-shaped** ones. CI benchmarks the fixture path only. |
+
 ### Resolved by Response 052 (2026-08-27)
 
 | Was | Ruling |
@@ -654,39 +663,47 @@ converts a defect into an outage.
 
 ### Open
 
-**Delivery → core — FOUR, from S6's decomposition (`TICKETS-ND-052-S6.md` §7). T2 and T4
-proceed meanwhile; T4 first, because it is the test that keeps principle 1 true while the
-rest is built.**
+**None blocking.** S6's four questions are ruled by R053 and built to. **`ND-052` is
+complete: S1–S6 all built.**
 
-**1. What is a proposal record called, and what does it say on its face?** Every receipt
-this product emits is **recomputable** — that is what makes it a receipt. A proposal is
-not: the same description through the same model twice may differ, and recording the
-instrument pins the *conditions*, never the output. Delivery proposes it is **not** called
-a receipt — a *derivation record*, with its own schema and an explicit
-not-re-derivable statement in `PROJECTION_NOTE`'s shape. **Against delivery's own lean:**
-constitution principle 5 says *"the derivation gets a receipt"* in those words, so
-renaming it departs from the constitution's language, and that is core's to approve.
+**S6 is built, T1–T7, T4 first as proposed.** The decision path's import closure cannot
+reach the Studio or any network client — walked from source, lazy imports included.
+`proposer_provenance: live | fixture` is inside the derivation record's digest and on every
+rendering. The record carries both face sentences. Descriptions are stored as **BLOBs**,
+byte-for-byte. The proposal surface is one page with two sections that never share a table.
+The benchmark publishes **misses first**, and T7 asserts a proposed candidate passes every
+check a hand-written one passes.
 
-**2. How is the model supplied, in tests and in demos?** Delivery proposes an injectable
-interface with a **deterministic fixture proposer** for CI — no key, no network — and a
-real client behind an extra, with **which one produced a candidate recorded and hashed**,
-exactly as `ledger_provenance: live | fixture` is hashed into a backtest receipt. Delivery
-is confident about the mechanism and asks core to name the field, since it is the same
-decision `ledger_provenance` was.
+**The constitution amendment needed a document that did not exist.** R053 §1 directed the
+amendment be recorded *"in the constitution's own change history"* — and the constitution
+has no change history, because it lives inside an **archived core memo**, which is
+immutable on this programme. Editing the design note to amend a principle would have been
+exactly what the archive rule forbids. So `docs/studio-constitution.md` is now the living
+text with the change history in it, the memo stays as it arrived, and the document states
+which is which: **the memo is the origin; the living text is what is in force.**
 
-**3. Where do mentioned-but-unruled rows live?** Delivery leans **adjacent, not merged**:
-the coverage map keeps holding measurements, and the proposal's dark-surface list cites it
-rather than adding rows to it. Against that: principle 4 asks for *one* honest gap list
-per proposal, and two adjacent lists is two places to look.
+**Two findings from building it, both reported rather than absorbed.**
 
-**4. What counts as a published miss?** The design note requires the generator be
-benchmarked like every instrument — published cases, **published misses**. Delivery can
-build the corpus and harness; **what threshold gates the demo is core's**, and R036 already
-says the Studio never gates the launch, so a failed threshold delays a demo, not a release.
+1. **The benchmark scored 11/11 on its first run, and that was the warning R053 §4
+   describes.** The shipped fixture is a keyword matcher drawing only from a vetted pack —
+   it never interprets instructions, so it passes every prompt-injection case **by
+   construction rather than by judgement**. A real property of the stand-in, and **not
+   evidence about a model.** Probing for genuine weaknesses found two: it is
+   **negation-blind** (*"we do not issue refunds"* → proposes refunds) and
+   **context-blind** (*"our dashboard shows payment volumes"* → proposes a rule that moves
+   money). Both are over-permissive, so one is filed security-shaped. The corpus now
+   contains them, the published score is **9/11**, and a test refuses a corpus that
+   produces no security-shaped miss — *a benchmark whose instrument passes everything is
+   measuring the corpus, not the instrument.*
+2. **A miss reason accused the wrong failure.** Over-proposing a rule the pack *has* and
+   inventing one it does *not* were both reported as *"invented rules the pack does not
+   contain"* — false for every case where the rule exists. The same class R052 named: **a
+   message that outruns its evidence is a false accusation with a stack trace.** Split, and
+   a test pins which reason each case must produce.
 
-**Core → delivery:** none, as of Response 052 (2026-08-27). `0.5.0` is **published**,
-`ND-052` S1–S5 are built, and **S6 is decomposed and awaiting rulings** — GO to decompose
-was explicitly not GO to build. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 053 (2026-08-27). `0.5.0` is **published** and
+**`ND-052` is complete — S1 through S6 all built**, the epic delivered in its normative
+order with no ticket built before its ruling. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.
