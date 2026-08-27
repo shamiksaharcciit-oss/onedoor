@@ -282,13 +282,20 @@ must not read as broken.
 
 ## Known limitations
 
-**Numbers in `params` must be JSON numbers, not decimal strings.** `{"amount_eur": 120.00}`
-works; `{"amount_eur": "120.00"}` is refused by a `numeric` bound as *must be numeric* —
-while `cost_eur` accepts the string form, and the cap path already reads a decimal string
-as money. So the two halves of one request body disagree, and adding a `numeric` bound to
-a policy changes which wire types that action accepts. Found by the first operator to run
-`0.6.0` from PyPI. The failing direction is closed (a denial, never a permit), and the fix
-is escalated rather than taken locally because it changes a verdict — see
+**A decimal string in `params` is refused by a `numeric` bound — and that is a
+conformance defect, ours.** `{"amount_eur": "120.00"}` is refused as *must be numeric*
+while `{"amount_eur": 120.00}` works, and while `cost_eur` and the cap path both already
+read the decimal-string form as money.
+
+AADP §5 requires the opposite: *monetary values are decimal strings, never floating-point
+numbers*, a rule that applies **inside `params`**, and the draft's own worked decide
+request carries `"amount_eur": "40.00"`. Refusing it also pushes integrators toward binary
+floats — the representation the draft's Security Considerations names as an attack surface
+on budget arithmetic — so the stricter-looking check steers callers toward the hazard.
+
+Found by the first operator to run `0.6.0` from PyPI. The failing direction is closed (a
+denial, never a permit). The fix widens a verdict from denied to permitted, so it lands as
+the first post-freeze change rather than a hotfix: see `TICKETS-ND-054.md` and
 `escalations/ESCALATION-20260827-006.md`.
 
 

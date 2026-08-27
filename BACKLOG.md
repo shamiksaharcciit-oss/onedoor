@@ -709,6 +709,8 @@ ledger ships in the wheel. B1 unblocked.
 
 | **`ND-053`** | **`validate_policy` refuses an effect label with no `effect_policies` row behind it.** Ruled by R049 §6 on delivery's escalation: the label is silently dropped today, so the same request is `PERMITTED, effective_tier 1` with it alone and `proposed, effective_tier 3` once the effect policy exists — *a protection that depends on a second, optional declaration is not a protection.* **Breaking**, its own release, **no opt-out flag** (a switch permitting inert effects is the law applied to its own escape hatch), and the refusal names the effect, the rule and the remedy. Detector shipped in `ND-052`/S4 so operators can find every instance first. `TICKETS-ND-053.md`. | **specced**, unbuilt |
 
+| **`ND-054`** | **Numeric bounds accept the decimal-string form.** Ruled by R055 on `ESCALATION-20260827-006`: **a conformance defect against AADP §5 and the draft's own worked example**, which carries `"amount_eur": "40.00"` inside `params`. `caps.resolve_cost` accepts `str` and `bounds` does not, so **adding a `numeric` bound changes which wire types an action accepts** — and the refusal pushes callers toward the binary floats the Security Considerations names as an attack surface. Fix is **one shared `numeric_value()`** used by both paths, parsed as `Decimal` and never through `float`. **Widening (denied → permitted), so it lands as the FIRST POST-FREEZE change**, with tests in both directions. `TICKETS-ND-054.md`. | **specced**, held |
+
 ## Migration-number register
 
 | Number | Ticket | Status |

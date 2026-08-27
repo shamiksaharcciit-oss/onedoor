@@ -543,6 +543,30 @@ records who gets audited rather than what goes wrong. R051 §1's line covers it 
 *nothing here is authoritative because of who wrote it* — and a class table that
 exempted its own author would be the clearest counter-example to that.
 
+### Resolved by Response 055 (2026-08-27) — F-B
+
+| Was | Ruling |
+|---|---|
+| **Q2** — does AADP-01 type `params`? | **Yes.** §5's rule — *monetary values are decimal strings, never floating-point numbers* — **governs the whole message**, and §5.1's worked decide request carries `"params": {"payee": "acme-gmbh", "amount_eur": "40.00"}`. A decimal string in `params` is **the draft's own example**, not merely permitted. |
+| **Q1** — which way do the paths agree? | **The spec's direction.** Numeric bounds over a declared cost parameter accept the decimal-string form (parsed as `Decimal`, never through `float`) and JSON numbers besides. The current refusal is a **conformance defect**, and an ironic one: it forces integrators toward exactly the binary floats the Security Considerations names as an attack surface on budget arithmetic. |
+| **Q3** — before or after the freeze? | **Delivery's lean ratified: it waits.** *`denied` → `permitted` is the one direction that never rides a hotfix into launch week.* Lands as the first post-freeze change (`ND-054`) with tests in both directions: `"40.00"` accepted and evaluated exactly, a float-precision edge case handled deliberately, and a garbage string still refused with the bounds message naming the parameter. |
+
+**Delivery's read was wrong, and the mechanism is recorded because the mechanism repeats.**
+The escalation argued the decimal-string rule belonged to *generated* structures and that
+the spec was silent on `params`. **`-01`'s rule was already unqualified** — *monetary
+values*, full stop. The scope restriction was delivery's inference, drawn from **where it
+first met an example of the rule** (this file's budget-object line) rather than from the
+rule's own words. And beneath that, the plainer failure: **delivery reasoned from this
+document's summary of the spec instead of opening the draft**, which sat on the same disk
+and which delivery opened an hour later for the Appendix B review.
+
+> **A summary is a claim about a source. Check the source before you reason from the
+> claim.**
+
+The escalating was right — a verdict-changing behaviour was flagged rather than taken, and
+the proposal it reached is the one core ruled for. **What was wrong was the read, not the
+escalation.**
+
 ### Resolved by Response 054 (2026-08-27)
 
 | Was | Ruling |
@@ -674,28 +698,23 @@ converts a defect into an outage.
 
 ### Open
 
-**None blocking.** `ND-052` is complete and `0.6.0` is staged for publication.
+**None blocking.** `0.6.1` is staged with the operator-validation fixes; F-B is ruled and
+ticketed as `ND-054`, held behind the freeze.
 
-**One instruction could not be followed literally, and the deviation is stated rather than
-silently smoothed.** R054 §2 asked for *"the memo's integrity hash"* in
-`docs/studio-constitution.md`'s header. **The design note has no integrity hash** — it
-carries no `Integrity:` footer and is recorded **ABSENT — no integrity claim** (R030 §2).
-What is pinned instead is the **observation** already held in `INTEGRITY.md`: a whole-file
-`sha256` computed by delivery over the copy in this repository, true of those bytes and
-asserting nothing about who sealed them. The header says exactly that. Calling it an
-integrity hash would **manufacture a claim nobody made**, which is the one thing a
-provenance document must never do; the instruction's purpose — descent checkable rather
-than narrated — is met, and `tests/studio/test_constitution.py` recomputes the pin so a
-drift fails rather than being noticed.
+**`0.6.1` carries the first operator validation's findings.** F-A — the Studio server
+returned Internal Server Error on every page, because its stores were opened once at
+startup while every route is a sync `def` that FastAPI runs in a threadpool. **Every
+library-level test passed while the served surface was broken.** The regression test was
+written first, reproduced the operator's error verbatim, and reaches the app through the
+server rather than through the function a route calls. Verified after the fix **over a real
+socket, not a test client** — *verify on the terrain that failed.* F-C (`__version__`), F-D
+(the Studio app self-describing as `0.4.x`) and F-E (a PyPI-reader's quickstart, every
+command run before being written) ride with it.
 
-That suite also asserts **the archived memo still says "receipt"**. The old wording
-surviving in the archive is not an inconsistency to tidy — it is the evidence that the
-amendment was an amendment rather than a quiet substitution.
+**`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
+example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**`ND-053` is decomposed and its build is held** under the pre-launch freeze: no breaking
-change lands between here and launch, and the build ruling comes after Sept 12.
-
-**Core → delivery:** none, as of Response 054 (2026-08-27). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 055 (2026-08-27). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
