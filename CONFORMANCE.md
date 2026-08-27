@@ -494,6 +494,51 @@ the artifact to satisfy the check.* Rewording documentation to appease a linter 
 guard erode the thing it guards, which is how a control quietly becomes what it was built
 to prevent. A narrowing is done honestly by testing the boundary **from both sides**.
 
+### Programme law — a summary is a claim about a source
+
+**Check the source before you reason from the claim.**
+
+A summary, a register, a `CONFORMANCE.md` row — each is an *assertion about* a document,
+made at a moment, by someone with a purpose. Reasoning from one without opening what it
+summarises is trusting a claim you could have checked, and the cost lands where the
+summary happened to compress.
+
+| # | Who | What happened |
+|---|---|---|
+| 1 | **core** | answered a correspondent's §9/§10 questions from principle **without the draft open**, and was called on it. The draft was on the same internet. |
+| 2 | **delivery** | argued in `ESCALATION-20260827-006` that AADP was silent on `params` typing, reasoning from **this file's** budget-object line instead of the draft. `-01`'s rule was already unqualified — *monetary values*, full stop. The draft was on the same disk, and delivery opened it an hour later for the Appendix B review. |
+
+Same defect, both parties, **both self-reported after external contact** — which is the
+uncomfortable half: neither was caught by reading more carefully, and both needed someone
+outside to run into it.
+
+The related failure delivery's instance also shows: **a scope restriction inferred from
+where you first met an example of a rule, rather than from the rule's own words.** The
+budget object was simply where the decimal-string rule was first seen; nothing in the rule
+said it lived there.
+
+**And the escalation channel is what survived it.** A verdict-changing behaviour was
+flagged rather than taken, and the proposal reached was the one core ruled for.
+*The escalation channel exists to survive bad reads, not to require good ones.*
+
+### Programme law — a register that silently loses a row invites the question of what else it lost
+
+R056, ruled against delivery's own recommendation and recorded because delivery was wrong.
+
+Reviewing `-02`'s Appendix B, delivery proposed **dropping** the idempotency-propagation
+row: `-02` had drawn a boundary making it a non-gap, so listing it beside real gaps looked
+like inviting a reader to see an unfinished feature. Core ruled it **restated as a
+boundary instead**:
+
+> A row that says *"this stopped being a gap because `-02` drew the boundary"* preserves
+> the register's history and teaches the reader the boundary in one move.
+
+**This binds every register in this repository**, and there are several: the
+migration-number register, the proxy-for-contract table, the substitution class above,
+`INTEGRITY.md`'s digest register. A closed entry is **marked closed with its reason**,
+never deleted. Deleting is the edit that makes a reader wonder what else went quietly —
+and a register's whole value is that a reader does not have to wonder.
+
 ### Programme law — an unasserted substitution fails silently in both directions
 
 **The proxy table's sibling** (R052 §2), and the pairing is the point: *the proxy class
@@ -542,6 +587,16 @@ The enforcer's own lapses belong in the same rows as everyone else's, or the tab
 records who gets audited rather than what goes wrong. R051 §1's line covers it —
 *nothing here is authoritative because of who wrote it* — and a class table that
 exempted its own author would be the clearest counter-example to that.
+
+### Resolved by Response 056 (2026-08-27) — Appendix B
+
+| Was | Ruling |
+|---|---|
+| Gap 1 — structured budget object | **Closed**; replacement text folded into `-02` as supplied. |
+| Gap 2 — `approval_ref` | **Split accepted**, for the reason delivery gave: this repo shipped a release where every library test passed while every served page returned 500, so a register blurring engine capability with served-surface exposure would invite the same misreading. `-02` now reads *"the engine exercises it; the remaining gap belongs to the served surface, stated as such."* |
+| Gap 3 — sender-constrained permits | **Still open**, delivery's sentence intact: *the vocabulary complete, the mechanism absent, the absence declared.* |
+| Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
+| The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
 ### Resolved by Response 055 (2026-08-27) — F-B
 
@@ -714,7 +769,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 055 (2026-08-27). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 056 (2026-08-27). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
