@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import ipaddress
 import sqlite3
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -78,17 +79,31 @@ def require_loopback(host: str) -> str:
 
 @dataclass
 class StudioState:
-    """The two stores, held apart on purpose (R047 §2).
+    """The two stores, held apart on purpose (R047 §2), and safe to serve.
 
     `enforcer` is opened for reading and for the ratification ceremony, which writes
     only through the engine's own functions. `studio` holds drafts and is the only
     thing this process edits directly. **The enforcer's database contains no row the
     Studio can edit.**
+
+    **Both connections are opened for cross-thread use and every route serialises on
+    `lock`** — the same pair `onedoor.service` has always used, and they are a pair.
+    FastAPI runs a sync `def` route in a **threadpool**, a different thread per request,
+    and `sqlite3` refuses a connection touched from a thread other than its creator's.
+
+    Found by the first operator to run `0.6.0`: `GET /` returned Internal Server Error,
+    deterministically, while every library-level test passed. *A gate is a command and
+    the world it runs in* — and the route function and the route under uvicorn's
+    threadpool are different worlds.
+
+    `check_same_thread=False` alone would trade a loud error for a quiet race, so the
+    lock is not optional and `open_state` is the only way to build this.
     """
 
     enforcer: sqlite3.Connection
     studio: sqlite3.Connection
     config: EngineConfig
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
     def close(self) -> None:
         self.enforcer.close()
@@ -101,8 +116,10 @@ def open_state(
     database = Database(db_path)
     database.init()
     return StudioState(
-        enforcer=database.connect(),
-        studio=store.open_store(studio_path),
+        # Cross-thread on both, because both are read on FastAPI's threadpool threads.
+        # `StudioState.lock` is what makes that safe rather than merely quiet.
+        enforcer=database.connect(check_same_thread=False),
+        studio=store.open_store(studio_path, check_same_thread=False),
         config=config or _default_config(),
     )
 
@@ -228,41 +245,51 @@ def create_app(state: StudioState) -> Any:
             "fallback that would be honest."
         ) from exc
 
+    import onedoor
     from onedoor.viewer.canvas import render_page
 
-    app = FastAPI(title="onedoor policy studio", version="0.4.x")
+    # DERIVED, never typed (F-D). This said `version="0.4.x"` -- a literal that was
+    # already wrong when 0.5.0 shipped and had no way of ever becoming right. A name
+    # outrunning its artifact, in the one field whose whole job is to say which artifact
+    # this is.
+    app = FastAPI(title="onedoor policy studio", version=onedoor.__version__)
     app.state.studio = state
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
-        return render_page(None, drafts=store.listing(state.studio))
+        with state.lock:
+            return render_page(None, drafts=store.listing(state.studio))
 
     @app.get("/draft/{draft_id}", response_class=HTMLResponse)
     def draft_page(draft_id: str, backtest: bool = False) -> str:
-        try:
-            model = view(state, draft_id, with_backtest=backtest)
-        except store.StudioStoreError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return render_page(model, drafts=store.listing(state.studio))
+        with state.lock:
+            try:
+                model = view(state, draft_id, with_backtest=backtest)
+            except store.StudioStoreError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            return render_page(model, drafts=store.listing(state.studio))
 
     @app.post("/draft")
     def create_draft(title: str = "untitled draft") -> dict[str, str]:
-        return {"draft_id": new_draft(state, title=title).draft_id}
+        with state.lock:
+            return {"draft_id": new_draft(state, title=title).draft_id}
 
     @app.post("/draft/{draft_id}/repin")
     def repin_draft(draft_id: str) -> dict[str, Any]:
-        try:
-            draft = repin(state, draft_id)
-        except store.StudioStoreError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"draft_id": draft.draft_id, "base_version": draft.base_version}
+        with state.lock:
+            try:
+                draft = repin(state, draft_id)
+            except store.StudioStoreError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            return {"draft_id": draft.draft_id, "base_version": draft.base_version}
 
     @app.post("/draft/{draft_id}/ratify")
     def ratify_endpoint(draft_id: str, session: str) -> dict[str, Any]:
-        try:
-            outcome = ratify_draft(state, draft_id, session=session)
-        except store.StudioStoreError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        with state.lock:
+            try:
+                outcome = ratify_draft(state, draft_id, session=session)
+            except store.StudioStoreError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
         if not outcome.ratified:
             # Verbatim, with the reason, and 409 rather than 400: the request was
             # well-formed and the world declined it.

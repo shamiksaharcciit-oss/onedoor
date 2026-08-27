@@ -94,14 +94,19 @@ class StudioStoreError(RuntimeError):
     """The Studio store could not be opened, or holds a schema this build cannot read."""
 
 
-def open_store(path: str | Path) -> sqlite3.Connection:
+def open_store(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open (creating if needed) the Studio store at `path`.
 
     A store written by a newer build is a **refusal**, not a silent downgrade: reading
     unknown rows as if they were the shape this build expects is how a draft turns into
     a candidate nobody authored.
+
+    `check_same_thread=False` is for callers that serialise access with their own lock —
+    the Studio server, whose routes FastAPI runs in a threadpool. Passing it without a
+    lock would trade a loud `ProgrammingError` for a quiet race, so `StudioState` owns
+    both halves together and neither is optional.
     """
-    conn = connect(str(path))
+    conn = connect(str(path), check_same_thread=check_same_thread)
     try:
         conn.executescript(_SCHEMA)
         row = conn.execute("SELECT version FROM studio_schema LIMIT 1").fetchone()

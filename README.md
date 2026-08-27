@@ -74,14 +74,53 @@ model, an integration guide per surface — [library](docs/integration-library.m
 [LangGraph](docs/integration-langgraph.md) — and the full
 [policy reference](docs/policy-reference.md).
 
-## Quickstart
+## Quickstart — four commands, from PyPI
 
-Requires Python ≥ 3.12.
+Requires Python ≥ 3.12. Nothing below needs this repository.
+
+```bash
+pip install "onedoor[service]"
+python -c "import shutil; from onedoor import templates; shutil.copy(templates.PAYMENTS.policies_path, 'policies.yaml')"
+export ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root ONEDOOR_DB=onedoor.db ONEDOOR_POLICIES=policies.yaml
+python -m uvicorn onedoor.service.app:create_app --factory --host 127.0.0.1 --port 8099
+```
+
+On Windows PowerShell, replace the `export` line with:
+`$env:ONEDOOR_DECIDE_KEYS="dev"; $env:ONEDOOR_ADMIN_KEYS="root"; $env:ONEDOOR_DB="onedoor.db"; $env:ONEDOOR_POLICIES="policies.yaml"`
+
+Step 2 copies the **shipped payments pack** — worked examples, not a compliance
+artifact; read `PACK.md` beside it in the installed package. Without a policy file the
+service has nothing to enforce and will not start.
+
+Then, in another terminal:
+
+```bash
+curl -s localhost:8099/v1/health
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"request_id":"11111111-1111-1111-1111-111111111111","action_type":"payments.transfer","params":{"amount_eur":120.00,"destination_account":"acct-1"},"source":"llm","rationale":"first look"}'
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"request_id":"22222222-2222-2222-2222-222222222222","action_type":"wire.anywhere","params":{},"source":"llm","rationale":"first look"}'
+```
+
+What you should see — the three outputs that tell you it works:
+
+```
+{"status":"ok","kill_switch":false,"pending_intents":0}
+{"decision":"permitted","reason":"passed","effective_tier":2,...,"intent_audit_id":1,...}
+{"decision":"proposed","reason":"default_deny","effective_tier":3,...,"approval_id":1,...}
+```
+
+The second is a **permit** — capped, reversible, and you now owe a `/v1/report`. The
+third is **default-deny**: `wire.anywhere` is in no policy, so it is not refused outright
+but escalated to a human, with an approval waiting. Nothing self-promotes.
+
+**Numbers in `params` are JSON numbers** (`120.00`), not strings — see *Known
+limitations* for the decimal-string asymmetry.
+
+### Working in this repository instead
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # the guardrail suite is the release blocker (count: see the CI badge)
-python -m scripts.demo    # one of everything, end to end, zero external deps
+python -m scripts.gate --all   # the four gates, the documented way
+python -m scripts.demo         # one of everything, end to end, zero external deps
 ```
 
 The demo walks the whole surface: auto-execution and undo, default-deny into a
@@ -242,6 +281,16 @@ does not have. *Not yet in operation*, never *not yet produced*: absent-by-sched
 must not read as broken.
 
 ## Known limitations
+
+**Numbers in `params` must be JSON numbers, not decimal strings.** `{"amount_eur": 120.00}`
+works; `{"amount_eur": "120.00"}` is refused by a `numeric` bound as *must be numeric* —
+while `cost_eur` accepts the string form, and the cap path already reads a decimal string
+as money. So the two halves of one request body disagree, and adding a `numeric` bound to
+a policy changes which wire types that action accepts. Found by the first operator to run
+`0.6.0` from PyPI. The failing direction is closed (a denial, never a permit), and the fix
+is escalated rather than taken locally because it changes a verdict — see
+`escalations/ESCALATION-20260827-006.md`.
+
 
 Stated here rather than left to be discovered. The full list, with the measurement
 behind each, is in [CHANGELOG.md](CHANGELOG.md) and

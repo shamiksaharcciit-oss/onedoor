@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.6.0"
+version = "0.6.1"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -116,6 +116,20 @@ exclude = [
     # The vendored copy of the same artifact. Excluded for the identical reason: it
     # must stay byte-identical to its origin, and `ruff format` would rewrite it.
     "onedoor/_vendor",
+    # ANY virtualenv, whatever it is called. Ruff's defaults exclude `.venv`; they do
+    # not exclude `venv`, and they cannot know about an operator's scratch directory.
+    #
+    # Learned expensively: a `ruff check . --fix` run from the repo root walked into
+    # `onedoor-trial/venv/` -- an operator's validation workspace, untracked, sitting
+    # beside the source -- and rewrote 411 third-party files. Nothing of ours was
+    # touched and nothing was lost, but a formatter reaching outside the tree it was
+    # pointed at is a byte-rewriting tool escaping its fence, which is the exact hazard
+    # E10 exists to name. `tests/test_formatter_fence.py` now fails if a directory
+    # holding a `pyvenv.cfg` is not covered by this list.
+    "**/venv",
+    "**/.venv",
+    "**/site-packages",
+    "onedoor-trial",
     # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
     # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
     # quote matches the file it indicts (reformatting ND-021's snippet would make it
