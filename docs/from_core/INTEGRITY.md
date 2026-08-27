@@ -100,6 +100,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_to_Delivery_Response_049_2026-08-24.md` | `d262c67dd6228b66203388319461aa25591ce1428e87f60f0dabd4effc96c8c9` |
 | `Core_to_Delivery_Response_050_2026-08-24.md` | `61274c6360985b7878c5c3e172ee2c6bd950d75457cc3a6b1160906e88c60136` |
 | `Core_to_Delivery_Response_051_2026-08-24.md` | `d07edfdb8c349eac1a8f3718273d910505b28213bd4fa3f386931494072e579a` |
+| `Core_to_Delivery_Response_052_2026-08-27.md` | `d15901d865030a056879ec4d3fa68811cf4c231c55d6b7baa2a11ac6289aaa48` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |

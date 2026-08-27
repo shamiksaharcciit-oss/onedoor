@@ -565,6 +565,33 @@ Held at epic granularity; decompose when a phase-2 slot frees up.
 | ND-050 | **An envelope-validation `malformed` denial writes no audit row** | S 🔺 | **Ticketed on core's instruction (R027 §2)**, found while building `ND-040`/U3 and recorded as **pre-existing: present in `≤0.4.0`, not introduced by `ND-040`.** `decide_raw` denies a request whose envelope fails validation *before* a policy or an `ActionRequest` object exists, so there is nothing to `audit.append` against: the returned `ActionResult` carries no `audit_id` and the ledger has no row. **Severity: low blast radius, high principle.** Low, because the action does not happen — the denial is correct and the caller is told; nothing is mis-permitted, and the affected requests are by definition ones the engine could not parse. High, because *"the audit log is append-only — decisions, results, denials, dry-runs, and kill-switch blocks"* is a claim this repository makes in its README, and one class of denial is silently outside it. An operator watching for a spike of malformed requests has nothing in the evidence store to watch, and a receipt-based product whose ledger omits a category of verdict has a gap in exactly the surface it sells. Note the asymmetry `ND-040` created and did not cause: a malformed **URL** now writes a row with `malformed_kind='url_canonicalization'`, while a malformed **envelope** writes none — which is why migration `0010` names only the value the code emits rather than inventing a `request_validation` one for code nobody wrote. **The fix is not free**: appending needs a row shape for a request that failed to parse (what is `action_type`? what are `params`?), and E10's received-verbatim discipline says the unparseable bytes are exactly what must be frozen — so this is a small ticket with a real design question inside it, not a one-liner. |
 | ND-051 | **The onedoor receipt viewer (oneview skin)** | M 🔺 | **Declared by R028 §4**, Phase-B launch asset, built **before** the crypto epic resumes. `python -m onedoor.viewer` reads a store and emits one static, read-only HTML page: the decision-receipt card with deny-with-budget as hero, plus the tail of verdicts. Spec and reference mockup in `docs/oneview/`; decomposition in `TICKETS-ND-051.md`. The structural rule from the forensics channel binds it: **one verification, and the viewer does not own it** — `onedoor/guardrail/receipt.py` is the single implementation and the viewer renders its output. **Two findings shaped the build:** there was no receipt verification and no CLI to call, so the requirement is met by creating exactly one implementation outside the viewer; and the mockup's chain block cannot be rendered truthfully in `0.4.1` because `row_hash`/`prev_hash`/`seq` are dark until `ND-001`, so it renders the **absent** state naming the ticket. Four outcomes in a UI: verified · absent · unverifiable · failed, with unverifiable as loud as failed. |
 | ND-052 | **The Policy Studio — describe your world, ratify your rules** (EPIC) | XL 🔺 | **S1 BUILT, B1–B5** (R043 §5): `TICKETS-ND-052-S1.md`.
+**S6 DECOMPOSED** (R052 §3): `TICKETS-ND-052-S6.md`, the epic's last ticket, carrying two
+constraints on its face — **R036** (the Studio never gates the launch; S6 demos only real,
+receipted, limit-stated output) and **the proposer is a proposer** (no path to enacting
+except S2's ceremony; *if S6 can touch the active set by any route that is not the
+ceremony, S6 is wrong by construction*).
+**Four findings.** *(1) This is the first thing in onedoor that calls a model* — measured:
+nothing under `onedoor/` does today, and `Source.LLM` is a label for who REQUESTED an
+action, not a dependency. So: an optional extra, never on the decision path (a structural
+test in the `_insert`-caller shape), and a suite that stays runnable with no model at all.
+*(2) **A proposal record cannot promise what every other receipt promises**.* Every receipt
+here is RECOMPUTABLE — that is what makes it one. A proposal is not: the same description
+through the same model twice may differ, and recording the instrument pins the CONDITIONS,
+never the output. So it attests provenance, not re-derivability, and calling it a receipt
+beside artifacts that are recomputable invites exactly the misreading R050 and R051 spent
+two memos closing. *(3) The description is RECEIVED DATA* — E10, frozen byte-for-byte, with
+a `.gitattributes` fence if any is ever committed as a fixture. *(4) "Mentioned" is a MODEL
+CLAIM and the coverage map holds MEASUREMENTS* — `declared_inert` is a fact about the
+engine's behaviour; *mentioned-but-unruled* is a claim about what someone meant, and
+rendering them as peers lets a model assertion occupy a measurement's row.
+**Four questions** (§7): what a proposal record is called and what it says on its face
+(delivery leans *not* "receipt", against the constitution's own wording — core's to
+approve); how the model is supplied in tests versus demos, with **which one produced a
+candidate hashed into the record** exactly as `ledger_provenance` is; whether
+mentioned-but-unruled rows live in the map or beside it; and what counts as a **published
+miss** in the generator's benchmark. **T2 and T4 unblocked** — T4 first, since it is the
+test that keeps principle 1 true while the rest is built.
+
 **S5 BUILT, T1–T6** (R051 §7), carrying one fence in unasked: **a template pack ships
 policy**, so Q3's law binds it — and the pack is the first artifact that would have shipped
 the defect at scale. **Five findings.** *(1) A pack outside the package does not ship* —
