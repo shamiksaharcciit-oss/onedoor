@@ -1,0 +1,145 @@
+# Worked examples: payments — onedoor policy pack
+#
+# READ `PACK.md` BESIDE THIS FILE BEFORE ADOPTING IT. These are worked examples that
+# demonstrate the policy vocabulary. They are not a compliance artifact, and PACK.md
+# names by name what a payments practitioner will expect here and will not find.
+#
+# NO PLACEHOLDERS. Every value below is concrete and fail-closed, and that is a rule
+# rather than a style choice: a blank is a promise that someone will remember, and a
+# template with blanks cannot be checked, because it is not yet the thing the check
+# checks. `{{daily_cap}}` is not a Policy -- `validate_policy` cannot refuse it and
+# `coverage.build` cannot map it -- so a pack full of blanks would pass its own law
+# tests against an artifact that does not exist yet. Adjust by editing a real number
+# that was already safe.
+#
+# EVERY EFFECT NAMED HERE IS DECLARED BELOW. A label with no `effects:` entry behind
+# it is SILENTLY DROPPED by the engine -- no tier floor, no effect caps -- so it is a
+# protection that depends on a second, optional declaration, which is to say a default.
+# `tests/templates/` asserts this through the engine's own checkers.
+
+policies:
+  # --- money out -----------------------------------------------------------------
+  # Capped rather than free: money movement never runs at plain Tier 1 in this pack.
+  # `amount_eur` is REQUIRED because a cap needs a resolvable amount, and an absent
+  # amount is not a zero amount -- the loader refuses a `cost_param` that is not
+  # required, which is that rule already enforced.
+  - action_type: payments.transfer
+    tier: 2
+    dry_run: false
+    compensating_command: payments.reverse
+    cost_param: amount_eur
+    undo_window_seconds: 900
+    caps:
+      eur_day: 500.00
+      eur_month: 5000.00
+    effects: [money.egress]
+    bounds:
+      required: [amount_eur, destination_account]
+      strict_params: true
+      numeric:
+        amount_eur:
+          min: 0.01
+          max: 2000.00
+
+  # The reversal itself. It must exist and must be auto-executable, or nothing above
+  # it can be: invariant 10 -- no reversal means it cannot be Tier 1 or 2.
+  - action_type: payments.reverse
+    tier: 1
+    dry_run: false
+    compensating_command: payments.reverse
+    undo_window_seconds: 900
+    effects: [money.egress]
+    bounds:
+      required: [original_payment_id]
+      strict_params: true
+
+  # Refunds move money to a customer: same effect, tighter daily ceiling.
+  - action_type: refunds.issue
+    tier: 2
+    dry_run: false
+    compensating_command: payments.reverse
+    cost_param: amount_eur
+    undo_window_seconds: 900
+    caps:
+      eur_day: 300.00
+      eur_month: 2000.00
+    effects: [money.egress]
+    bounds:
+      required: [amount_eur, original_payment_id]
+      strict_params: true
+      numeric:
+        amount_eur:
+          min: 0.01
+          max: 500.00
+
+  # Batch payouts are human-confirmed outright. A batch is the one shape where a cap
+  # per action is the wrong control -- the total is what matters and the engine does
+  # not see it -- so this pack does not pretend a number would govern it.
+  - action_type: payouts.schedule
+    tier: 3
+    bounds:
+      required: [batch_id]
+      strict_params: true
+
+  # --- talking to the outside ------------------------------------------------------
+  # A webhook post. Most posts are ordinary and run at this rule's own tier.
+  #
+  # READ THE URL RULE'S DIRECTION CAREFULLY, because it is the opposite of an allowlist
+  # and a pack author will reach for the wrong one: `hosts` names the SENSITIVE
+  # destinations, and `add_effects` applies WHEN THE TARGET MATCHES. It says "reaching
+  # the partner's payment API is money-adjacent", not "anything not on this list is
+  # suspect". The engine has no rule shape that means the latter, and this pack does not
+  # pretend otherwise.
+  #
+  # `opaque: builtin` closes the hole in that direction (ND-040/U4): `https://t.co/x9k2`
+  # canonicalizes perfectly and is genuinely `t.co`, so it does not match -- but its real
+  # target is unknowable without a network call the PDP will not make. So a member of the
+  # declared opaque class is treated AS THOUGH it were the declared target: the rule's
+  # effects apply and the floor decides. You cannot dodge the control with a shortener.
+  #
+  # `net.egress` is DECLARED below with a real floor -- never a null one. A null floor
+  # beside this opaque block is the U4 defect exactly: the protection would depend on the
+  # floor also being declared, and it would auto-execute when it was not.
+  - action_type: webhooks.post
+    tier: 2
+    dry_run: false
+    compensating_command: payments.reverse
+    undo_window_seconds: 300
+    param_effects:
+      - param: url
+        add_effects: [net.egress]
+        url:
+          hosts: [api.partner.example]
+          include_subdomains: false
+          schemes: [https]
+          opaque:
+            builtin: true
+    bounds:
+      required: [url, payload_id]
+      strict_params: true
+
+  # --- reading ---------------------------------------------------------------------
+  # Observe tier: recorded, never executed. Reads move no money and carry no effect.
+  - action_type: ledger.read
+    tier: 0
+    bounds:
+      required: [account_id]
+      strict_params: true
+
+# --- effects ------------------------------------------------------------------------
+# Each of these is named by at least one rule above, and each names a REAL floor. A
+# `min_tier` of null would leave the label decorative.
+effects:
+  money.egress:
+    # Money never auto-executes uncapped in this pack, whatever tier a rule declares.
+    min_tier: 2
+    caps:
+      eur_day: 750.00
+      eur_month: 6000.00
+  net.egress:
+    # Posting to the partner's payment API is a human decision, not a capped one: it is
+    # a different question from a large amount, so a cap would be the wrong instrument.
+    # The same floor catches an opaque host that MIGHT be the partner.
+    min_tier: 3
+    caps:
+      daily_rate: 500

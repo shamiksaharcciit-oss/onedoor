@@ -103,7 +103,7 @@ def test_the_runner_never_pipes_a_gate_into_anything() -> None:
 # --- 2. Proxy-for-contract, fifth instance ----------------------------------------
 
 
-def _real_output(g: gate.Gate, tmp_path: Path) -> str:
+def _run(g: gate.Gate, tmp_path: Path) -> subprocess.CompletedProcess[str]:
     """What this gate actually prints, run for real.
 
     The tests gate runs `pytest -q` over a generated one-test file rather than the whole
@@ -118,18 +118,37 @@ def _real_output(g: gate.Gate, tmp_path: Path) -> str:
         cwd = tmp_path
     else:
         command, cwd = list(g.command), ROOT
-    completed = subprocess.run(  # noqa: S603 - fixed argv from the declared table
+    return subprocess.run(  # noqa: S603 - fixed argv from the declared table
         command, capture_output=True, text=True, shell=False, check=False, cwd=cwd
     )
-    return completed.stdout + completed.stderr
+
+
+def _real_output(g: gate.Gate, tmp_path: Path) -> str:
+    return (lambda c: c.stdout + c.stderr)(_run(g, tmp_path))
 
 
 def test_each_pattern_matches_its_own_gates_real_output(tmp_path: Path) -> None:
-    """A contract nothing emits would fail every run forever."""
+    """A contract nothing emits would fail every run forever.
+
+    **Three outcomes, not two.** If the gate itself is currently red, this test cannot
+    tell a badly-written contract from a repository that simply does not pass — that is
+    *unverifiable*, and R010 says an unverifiable result is surfaced, never collapsed
+    into the failure next to it. An earlier version reported "the gate can never pass"
+    whenever `mypy` had an error, which sent the reader hunting for a contract bug that
+    was not there.
+    """
     for g in gate.GATES:
-        assert g.satisfied_by(_real_output(g, tmp_path)), (
-            f"{g.name}'s contract {g.expect!r} does not appear in its own output — "
-            "the gate can never pass"
+        completed = _run(g, tmp_path)
+        output = completed.stdout + completed.stderr
+        if completed.returncode != 0:
+            raise AssertionError(
+                f"the {g.name} gate is currently RED, so its contract could not be "
+                f"checked here. This is not a contract defect — fix the gate first. "
+                f"Tail: {output.strip().splitlines()[-1] if output.strip() else '(no output)'}"
+            )
+        assert g.satisfied_by(output), (
+            f"{g.name}'s contract {g.expect!r} does not appear in its own PASSING "
+            "output — the gate can never report success"
         )
 
 

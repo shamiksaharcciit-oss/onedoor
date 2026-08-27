@@ -179,4 +179,15 @@ include = ["onedoor*"]
 # onedoor/store/migrations/*.sql, so Database.init() applies no migrations and the
 # first query fails with "no such table: policies". 0.3.0 on PyPI has this defect.
 [tool.setuptools.package-data]
-onedoor = ["store/migrations/*.sql", "viewer/_vendor/*.md", "studio/_fixture/HEAD"]
+onedoor = [
+    "store/migrations/*.sql",
+    "viewer/_vendor/*.md",
+    "studio/_fixture/HEAD",
+    # ND-052/S5. The shipped policy packs -- the YAML the engine loads AND the PACK.md
+    # boundary statement, because both are inside PACK_DIGEST and because a pack whose
+    # "what this is not" page did not travel would be the overclaim the page prevents.
+    # Caught by `tests/templates/test_pack.py::test_the_pack_is_in_the_built_wheel`,
+    # which failed on the first build exactly as the 0.3.0 defect would have.
+    "templates/*/*.yaml",
+    "templates/*/*.md",
+]
