@@ -313,6 +313,7 @@ certified and originals are requested.
 | U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
 | The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
 | `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
+| `0.6.0` | **R054 §4: cut it before launch week.** Completes `ND-052` — the coverage map, the template packs and the proposer. Additive; **no new enforcer migrations** (last is `0018`). **Staged 2026-08-27**, awaiting Shamik's `twine`/`gh`. |
 | `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Published 2026-08-24**, tag `v0.5.0` @ `fef596e`. Publication verified: PyPI's own recorded `sha256` equals the pre-upload digests for both artifacts, and the GitHub assets are byte-identical to `dist/`. |
 
 **R027 §1's first condition found a defect rather than confirming a property.** U4
@@ -542,6 +543,16 @@ records who gets audited rather than what goes wrong. R051 §1's line covers it 
 *nothing here is authoritative because of who wrote it* — and a class table that
 exempted its own author would be the clearest counter-example to that.
 
+### Resolved by Response 054 (2026-08-27)
+
+| Was | Ruling |
+|---|---|
+| `ND-052` | **Complete.** Six tickets, normative order, no ticket built before its ruling; 857 tests at close against 592 at S1's baseline. The proposer arriving last into a world where the ceremony, validator, law tests and coverage map were already waiting is the epic proving its own sentence about why it was built last. |
+| The constitution decision | **Ratified and elevated to standing law**, not overruled: **the archive is immutable; the constitution is alive; the origin and the in-force text are different documents, and each says so on its face.** *A constitution that could only be amended by editing history would make every amendment a small forgery.* One instruction attached: **pin the origin by digest**, so descent is checkable rather than narrated. |
+| The benchmark handling | **The disclosure gate working as designed.** Recorded in the corpus's own docs: the fixture never interprets instructions, **so it cannot be persuaded, so its injection score is a claim about nothing** — 9/11 must not be read as a model's injection resistance; that measurement belongs to a future budgeted live run. The no-miss-refusing test is **the anti-perfection rule made structural, first of its kind in the repo.** |
+| `0.6.0` | **Cut it before launch week** — the launch narrative points at a released Studio, not at a main branch. |
+| `ND-053` | **GO to decompose, build held.** The **freeze rule stands from now to the firing sequence: no breaking change lands between here and launch.** The build ruling comes after Sept 12. |
+
 ### Resolved by Response 053 (2026-08-27)
 
 | Was | Ruling |
@@ -663,47 +674,29 @@ converts a defect into an outage.
 
 ### Open
 
-**None blocking.** S6's four questions are ruled by R053 and built to. **`ND-052` is
-complete: S1–S6 all built.**
+**None blocking.** `ND-052` is complete and `0.6.0` is staged for publication.
 
-**S6 is built, T1–T7, T4 first as proposed.** The decision path's import closure cannot
-reach the Studio or any network client — walked from source, lazy imports included.
-`proposer_provenance: live | fixture` is inside the derivation record's digest and on every
-rendering. The record carries both face sentences. Descriptions are stored as **BLOBs**,
-byte-for-byte. The proposal surface is one page with two sections that never share a table.
-The benchmark publishes **misses first**, and T7 asserts a proposed candidate passes every
-check a hand-written one passes.
+**One instruction could not be followed literally, and the deviation is stated rather than
+silently smoothed.** R054 §2 asked for *"the memo's integrity hash"* in
+`docs/studio-constitution.md`'s header. **The design note has no integrity hash** — it
+carries no `Integrity:` footer and is recorded **ABSENT — no integrity claim** (R030 §2).
+What is pinned instead is the **observation** already held in `INTEGRITY.md`: a whole-file
+`sha256` computed by delivery over the copy in this repository, true of those bytes and
+asserting nothing about who sealed them. The header says exactly that. Calling it an
+integrity hash would **manufacture a claim nobody made**, which is the one thing a
+provenance document must never do; the instruction's purpose — descent checkable rather
+than narrated — is met, and `tests/studio/test_constitution.py` recomputes the pin so a
+drift fails rather than being noticed.
 
-**The constitution amendment needed a document that did not exist.** R053 §1 directed the
-amendment be recorded *"in the constitution's own change history"* — and the constitution
-has no change history, because it lives inside an **archived core memo**, which is
-immutable on this programme. Editing the design note to amend a principle would have been
-exactly what the archive rule forbids. So `docs/studio-constitution.md` is now the living
-text with the change history in it, the memo stays as it arrived, and the document states
-which is which: **the memo is the origin; the living text is what is in force.**
+That suite also asserts **the archived memo still says "receipt"**. The old wording
+surviving in the archive is not an inconsistency to tidy — it is the evidence that the
+amendment was an amendment rather than a quiet substitution.
 
-**Two findings from building it, both reported rather than absorbed.**
+**`ND-053` is decomposed and its build is held** under the pre-launch freeze: no breaking
+change lands between here and launch, and the build ruling comes after Sept 12.
 
-1. **The benchmark scored 11/11 on its first run, and that was the warning R053 §4
-   describes.** The shipped fixture is a keyword matcher drawing only from a vetted pack —
-   it never interprets instructions, so it passes every prompt-injection case **by
-   construction rather than by judgement**. A real property of the stand-in, and **not
-   evidence about a model.** Probing for genuine weaknesses found two: it is
-   **negation-blind** (*"we do not issue refunds"* → proposes refunds) and
-   **context-blind** (*"our dashboard shows payment volumes"* → proposes a rule that moves
-   money). Both are over-permissive, so one is filed security-shaped. The corpus now
-   contains them, the published score is **9/11**, and a test refuses a corpus that
-   produces no security-shaped miss — *a benchmark whose instrument passes everything is
-   measuring the corpus, not the instrument.*
-2. **A miss reason accused the wrong failure.** Over-proposing a rule the pack *has* and
-   inventing one it does *not* were both reported as *"invented rules the pack does not
-   contain"* — false for every case where the rule exists. The same class R052 named: **a
-   message that outruns its evidence is a false accusation with a stack trace.** Split, and
-   a test pins which reason each case must produce.
-
-**Core → delivery:** none, as of Response 053 (2026-08-27). `0.5.0` is **published** and
-**`ND-052` is complete — S1 through S6 all built**, the epic delivered in its normative
-order with no ticket built before its ruling. `ND-001` is built (C1–C5),
+**Core → delivery:** none, as of Response 054 (2026-08-27). **`ND-052` is complete** and
+`0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
 after the epic with no code before launch.

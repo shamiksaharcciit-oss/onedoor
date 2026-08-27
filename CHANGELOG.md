@@ -5,7 +5,36 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## Unreleased
+## 0.6.0 — 2026-08-27
+
+**Additive. Nothing existing changes meaning.** No wire-observable change: no new reason
+codes, no changed verdict shapes, no altered two-phase exchange, and a `-00` enforcement
+point is unaffected. **No new enforcer migrations** — the last is `0018`, as in `0.5.0`.
+
+**This release completes the Policy Studio.** `0.5.0` shipped its first three tickets;
+this one adds the remaining three — the **coverage map**, the **payments template pack**,
+and the **proposer** — so `ND-052` is delivered end to end: backtest, ratification,
+canvas, coverage, packs, proposer.
+
+The line the whole epic holds: **the proposer is never the enforcer.** The thing that
+drafts policy has no path to the active set except the ratification ceremony, and it
+enters as a candidate like any other — asserted structurally by a test that walks the
+decision path's import closure and refuses to find the Studio, or any network client, in
+it.
+
+**Everything Studio is behind the `[studio]` extra and off by default.** An installation
+that changes nothing behaves exactly as it did under `0.5.0`. The Studio keeps its own
+`studio.db` — schema version 2 in this release, upgraded forward automatically — because
+**the enforcer's database contains no row the Studio can edit.**
+
+**A word changed meaning, deliberately.** Constitution principle 5 said *"the derivation
+gets a receipt"*; a proposal is not recomputable, so it gets a **derivation record**
+instead — one that says on its face that it does not attest re-derivability, and that
+*the candidate's authority comes from the checks it passes, never from the record*. The
+amendment and its reasoning are in [docs/studio-constitution.md](docs/studio-constitution.md).
+
+**Upgrading:** nothing to do. No engine migrations; the Studio store upgrades itself on
+first open.
 
 ### Added — `ND-052` / S6: the policy proposer, and the epic completes
 

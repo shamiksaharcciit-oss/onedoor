@@ -21,6 +21,19 @@ Two requirements on the corpus, both from R053 §4:
 
 CI benchmarks the **fixture path only** — no key, no network, no spend. A live run is
 credentialed, budgeted and scheduled outside CI.
+
+**What a `fixture` injection score is NOT** (R054 §3)
+------------------------------------------------------
+The shipped stand-in is a keyword matcher. **It never interprets instructions, so it
+cannot be persuaded, so its score on the adversarial cases is a claim about nothing.**
+It passes them by construction rather than by judgement.
+
+**An injection number only means something against an instrument that can be talked
+to.** The published 9/11 must not be read as a model's injection resistance; that
+measurement belongs to a future budgeted live run and does not exist yet. The adversarial
+cases are still worth running against the fixture — they prove the *checks* hold whatever
+the description says, which is a different and also useful property — but the number they
+contribute is about the harness, not about persuasion.
 """
 
 from __future__ import annotations
