@@ -100,12 +100,110 @@ table.** Making it a `validate_policy` check means one of:
 **Delivery leans (c)**, because the check genuinely *is* set-level — §5 of the coverage
 derivation says the same thing about `declared_inert` — and because (a) would make the
 single most-called validator in the engine require a connection in order to check a
-property that has nothing to do with the rule in front of it. But (c) has a real cost:
-`validate_policy` would then no longer be the one place a policy author's mistakes surface,
-and **a check nobody thinks to call is a check that does not run.**
+property that has nothing to do with the rule in front of it.
 
-This is a design question with a compatibility tail, and it wants a ruling with the build
-rather than a decision taken quietly inside it.
+### 6a. Core's lean, and the measurement that decides part of it
+
+Core recorded an unbaked lean (post-R054 acknowledgment) and invited attack: *the
+set-level check wants to live where the set already assembles — the ceremony and the
+coverage build — rather than as a second entry point an author must remember.*
+
+**Agreed in direction, and the measurement strengthens it past a lean into an argument.**
+Option (a) — a connection-reading check inside `upsert` — is not merely inelegant. **It is
+wrong, and measurably so**, because the two set-assembling paths write in *opposite
+orders*:
+
+```
+policy_loader.load_file : POLICIES FIRST, then effects
+ratify._apply           : EFFECTS FIRST, then policies
+```
+
+`load_file` upserts every policy before it upserts a single effect policy. So a check
+inside `upsert` that read the `effect_policies` table would see **nothing declared yet**
+and refuse every valid file at boot — while the same policy set, written through the
+ceremony, would pass. **The same rules would get different verdicts depending on which
+path wrote them**, which is precisely the class this programme refuses everywhere else.
+
+That kills (a) on evidence rather than on taste, and it also constrains the rest: the
+check must run **over the assembled set in memory** — before any write, or after all of
+them — never per-row mid-write.
+
+### 6a-pinned. The write-order asymmetry is load-bearing, and a test says so
+
+**This measurement is now evidence in a ruling, so it is pinned**
+(`tests/guardrail/test_policy_write_order.py`).
+
+Harmonising the two orders in a future cleanup would be a defensible change — and it would
+**silently invalidate the analysis above without failing anything**, because nothing in the
+engine depends on the orders differing. Only the *argument* does.
+
+So three tests read the two functions' ASTs and assert the orders, and a fourth asserts the
+asymmetry itself as its own fact — the one the ruling actually uses. **None of them forbids
+the change.** They require whoever makes it to come back here and re-run the reasoning,
+because if both paths were to write effect policies first then option (a) becomes viable
+and the parked lean needs revisiting.
+
+Verified by sabotage: reordering `ratify._apply` to match `load_file` fails
+`test_the_ceremony_writes_effect_policies_before_policies` and
+`test_the_two_orders_are_still_opposite`, each naming §6a.
+
+*Evidence that no test protects is evidence with a shelf life.*
+
+### 6b. Where delivery's reading differs from core's lean
+
+Core named *"the ceremony and the coverage build"*. Two corrections, one of which matters
+a great deal:
+
+- **`load_file` must be included, and it is the important one.** It is the *engine's* own
+  set-assembling path — the documented way a deployment seeds its policy — and **most
+  deployments never touch the Studio at all.** A refusal that lives only in the ceremony
+  would leave the primary boot path unchecked, which is the hole the whole ticket exists
+  to close. `load_file` is also already shaped for it: it validates every rule *before
+  writing any*, so a set-level check drops into an existing before-any-write phase rather
+  than needing a new one.
+- **The coverage build cannot host a refusal**, only a detection. `coverage.build` reports
+  `declared_inert`; it returns a map and refuses nothing, by design and correctly. It is
+  the **pre-flight**, not the gate. Naming it as a home for the check would blur a
+  detector into an enforcer — the same distinction the epic spent six tickets keeping
+  straight.
+
+So delivery's position: the refusal lives at **both set boundaries** — `load_file` and the
+ceremony — computed over the in-memory set, with `coverage.build` remaining the detector
+that lets an operator find every instance first.
+
+### 6c. The residual, named rather than papered over
+
+**A bare `upsert(conn, policy)` of a single rule stays unchecked, and cannot be checked.**
+You cannot tell from one rule whether its effects are declared without reading the table,
+and §6a is the proof that reading the table mid-write gives order-dependent answers.
+
+That is a real gap and it should be stated in the release notes rather than discovered:
+**a library caller who bypasses both set boundaries can still write an inert label.** What
+closes it for them is the same thing that closes it for everyone — `coverage.build`, run
+against their store. Delivery does not propose making `upsert` refuse, because the only
+way to do that correctly is to make it take the whole set, at which point it *is* the
+set-level check under another name.
+
+**Core's underlying point survives intact and is adopted:** the check belongs where the set
+assembles, not as a third entry point an author must remember to call. *A check nobody
+thinks to call is a check that does not run* — which is exactly why it goes into the two
+functions everyone already calls, rather than beside them.
+
+### 6d. The amended lean, as it stands going into the build ruling
+
+Core accepted the attack and amended its lean (R054 acknowledgment). **This is the
+presumptive shape for the build ruling after Sept 12, and remains attackable here until
+then:**
+
+- The set-level inert-effect check lives at **both set-assembling paths** — the ceremony
+  **and `load_file`** — since most deployments never touch the Studio and **the engine's
+  own boot path cannot be the unchecked one**.
+- **`coverage.build` detects and never refuses** — pre-flight, not gate.
+- **The residual is named, not papered:** a bare single-rule `upsert` stays uncheckable,
+  and the release notes say so.
+
+Option (a) is closed on evidence rather than preference: it would give the same rules
+different verdicts depending on which path wrote them.
 
 ## 7. What is unblocked under the freeze
 

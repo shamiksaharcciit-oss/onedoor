@@ -313,7 +313,7 @@ certified and originals are requested.
 | U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
 | The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
 | `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
-| `0.6.0` | **R054 §4: cut it before launch week.** Completes `ND-052` — the coverage map, the template packs and the proposer. Additive; **no new enforcer migrations** (last is `0018`). **Staged 2026-08-27**, awaiting Shamik's `twine`/`gh`. |
+| `0.6.0` | **R054 §4: cut it before launch week.** **Published 2026-08-27**, tag `v0.6.0` @ `0df3afd`. Verified: four independent sources agree on both digests — the handover's **pre-upload** record, PyPI's index API, core's independent fetch, and `dist/` — and the equality is meaningful *because* the record predates the upload: **the build is not byte-reproducible** (measured). The GitHub assets and the PyPI-served wheel are byte-identical to `dist/`. |
 | `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Published 2026-08-24**, tag `v0.5.0` @ `fef596e`. Publication verified: PyPI's own recorded `sha256` equals the pre-upload digests for both artifacts, and the GitHub assets are byte-identical to `dist/`. |
 
 **R027 §1's first condition found a defect rather than confirming a property.** U4

@@ -94,7 +94,16 @@ protection on `main` requires both jobs green.
 7. **No overclaiming.** READMEs, changelogs, and `CONFORMANCE.md` state what is
    implemented and tested, with gaps named.
 8. **Release hygiene.** Bump, tag, publish, changelog; ping core on any release that
-   changes conformance status. Claim migration numbers in `BACKLOG.md`'s register
+   changes conformance status. **Record the artifact digests BEFORE upload, and do not
+   rebuild before publishing** — the build is *not* byte-reproducible (measured: two
+   builds of the same tree differ; the wheel keeps its size and changes its hash, the
+   sdist changes both), so a digest recorded afterwards proves nothing about what was
+   verified. *A digest answers exactly one question, and this one answers "are these the
+   bytes we verified", never "would building again produce them."* Verify publication
+   against the **index API**, not the upload transcript — the receiver's record of what
+   it holds, not the sender's account of what it sent — and remember the tag layer: the
+   git ref API returns the **annotated tag object's** hash, not the commit's, so
+   dereference before comparing or you will report a false alarm about a real artifact. Claim migration numbers in `BACKLOG.md`'s register
    before writing one. **From `v0.3.6` (R011): every tag gets a GitHub release in the
    same motion**, with notes drawn from `CHANGELOG.md` verbatim rather than rewritten.
    **Do not backfill releases onto older tags** — a retroactive release carries a date
