@@ -313,6 +313,7 @@ certified and originals are requested.
 | U2+U3 landing together | **R027 §2: accepted as reported** — "not separable" honestly stated beats a green sequence that was briefly red in the middle. |
 | The unaudited envelope-`malformed` denial | **R027 §2: `ND-050`**, recorded as pre-existing in `≤0.4.0` and backlogged with a severity note. Does not block `0.4.1`. |
 | `0.4.1` | **R027 §3: ship**, standing release rule. **Published 2026-08-22**, tag `v0.4.1` @ `7e9fd07`. |
+| `0.6.1` | **The first operator validation's findings** (F-A/C/D/E). **Published 2026-08-27**, tag `v0.6.1` @ `9f026cc`. Verified: four sources agree on both digests and sizes — the handover's **pre-upload** record, PyPI's index API, core's independent fetch, and `dist/`; the annotated tag dereferences to `9f026cc`; both GitHub assets byte-identical to `dist/`. Core additionally confirmed **F-A from public bytes** — `GET /` 200 across eight sequential requests over a real socket, against the store that returned 500 that morning. |
 | `0.6.0` | **R054 §4: cut it before launch week.** **Published 2026-08-27**, tag `v0.6.0` @ `0df3afd`. Verified: four independent sources agree on both digests — the handover's **pre-upload** record, PyPI's index API, core's independent fetch, and `dist/` — and the equality is meaningful *because* the record predates the upload: **the build is not byte-reproducible** (measured). The GitHub assets and the PyPI-served wheel are byte-identical to `dist/`. |
 | `0.5.0` | **R048 §3: cut it before S4** — the crypto epic is the launch's proof pillar and was sitting unreleased. Additive; Studio behind `[studio]` with S4–S6 named as not included. **Published 2026-08-24**, tag `v0.5.0` @ `fef596e`. Publication verified: PyPI's own recorded `sha256` equals the pre-upload digests for both artifacts, and the GitHub assets are byte-identical to `dist/`. |
 
@@ -520,6 +521,20 @@ said it lived there.
 **And the escalation channel is what survived it.** A verdict-changing behaviour was
 flagged rather than taken, and the proposal reached was the one core ruled for.
 *The escalation channel exists to survive bad reads, not to require good ones.*
+
+**The consequence, ratified as a finding rather than a confession.** Two instances, both
+parties, **both self-reported only after external contact** is a *measurement of
+self-review's limit* — and no amount of additional discipline would have changed either,
+because **the defect class is precisely a confident belief about a source that makes
+opening the source feel unnecessary.** Care cannot catch it; care is what produced it.
+
+So the response is structural, and it is already built: **the operator on a clean machine,
+the correspondents asking cold questions, and the cross-channel relay are not courtesies
+around the quality system — they are the part of it that catches what self-review cannot.**
+`0.6.1` exists because someone installed `0.6.0` from PyPI and clicked; `-02` §5 says what
+it now says because a conforming-looking implementation got it wrong in public. **The
+programme buys external contact on purpose**, and should keep doing so — a cold reader is
+a perishable asset, and the one thing an internal review can never simulate.
 
 ### Programme law — a register that silently loses a row invites the question of what else it lost
 
