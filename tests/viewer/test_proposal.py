@@ -148,12 +148,19 @@ def test_the_proposal_page_uses_no_verdict_colours(rendered) -> None:
 
 
 def test_the_asserted_section_is_visibly_a_different_kind(rendered) -> None:
-    """Separated by heading is not enough — a reader scrolls past headings."""
+    """Separated by heading is not enough — a reader scrolls past headings.
+
+    **Inverted by R056 §4**, in the same commit as the migration. Asserted-vs-measured is
+    a classification a reader must not confuse, which is exactly the job the brand accent
+    must not be given; the distinction now carries on position and surface instead.
+    """
     html, _, _ = rendered
     styles = html.split("<style>")[1].split("</style>")[0]
     rule = " ".join(r for r in styles.split("}") if "section.asserted" in r)
     assert rule, "the asserted section has no distinguishing style"
-    assert "var(--seal)" in rule
+    assert "var(--seal)" not in rule, "the brand accent must not mark this kind (R056 §4)"
+    assert "border-left" in rule, "position"
+    assert "background" in rule, "surface"
 
 
 def test_the_page_escapes_the_descriptions_own_words(fresh: Connection) -> None:

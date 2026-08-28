@@ -138,15 +138,116 @@ def assert_no_foreign_hex_colour(html: str) -> None:
         raise PropertyViolation(f"non-token colours on the page: {sorted(foreign)}")
 
 
-def assert_seal_never_signals_state(html: str) -> None:
-    """Spec §4: seal gold is the brand accent and must not carry a verdict.
+BRAND_TOKENS = ("--seal", "--seal-dim", "--gold", "--gold-dim")
+"""Every brand accent, across both palettes. oneview spells it `--seal`; the Studio's
+ledger-room palette spells it `--gold`. A check that knew only one name would pass the
+Studio by default, which is the failure R056 §4 removed the grandfather clause for."""
 
-    Checked structurally rather than by eye: the verdict badge rules must resolve to
-    the semantic tokens, and no verdict rule may reference `--seal`.
+VERDICT_WORDS = frozenset(
+    {
+        "verdict",
+        "allow",
+        "allowed",
+        "deny",
+        "denied",
+        "refuse",
+        "refused",
+        "permit",
+        "permitted",
+        "approve",
+        "approved",
+        "approval",
+        "review",
+        "blocked",
+        "pass",
+        "fail",
+        "failed",
+        "ok",
+        "bad",
+    }
+)
+"""Verdict vocabulary. Hand-written because verdict words are wire-observable and
+frozen — unlike the state names below, which come from the code that defines them."""
+
+
+def _state_words() -> frozenset[str]:
+    """The state vocabulary, read from the enumerations that DECLARE the states.
+
+    Not a hand-kept list. A new coverage state added to `studio.coverage` is inside
+    this check the moment it exists, without anyone remembering to widen a literal —
+    and the register law applies here too: *a list that silently loses a row invites
+    the question of what else it lost.*
     """
-    for rule in re.findall(r"\.verdict[^{]*\{[^}]*\}", html):
-        if "--seal" in rule:
-            raise PropertyViolation(f"a verdict rule uses the brand accent: {rule[:60]}…")
+    from onedoor.studio import coverage as coverage_model
+
+    words = set(coverage_model.PROMINENCE)
+    for name in dir(coverage_model):
+        if not name.isupper():
+            continue
+        value = getattr(coverage_model, name)
+        if isinstance(value, str) and re.fullmatch(r"[a-z][a-z_]*", value):
+            words.add(value)
+    return frozenset(words)
+
+
+#: Classification words that partition a list into KINDS a reader must not confuse.
+#: Hand-declared, unlike the state words, because no enumeration declares them: the
+#: skins spell `asserted`/`measured` as literal class names. That seam is reported to
+#: core rather than papered over -- a vocabulary half-derived and half-typed is exactly
+#: the shape that goes stale on the typed half.
+CLASSIFICATION_WORDS = frozenset({"asserted", "measured", "uncovered", "covered", "inert"})
+
+_SELECTOR_WORD = re.compile(r"[a-z][a-z_-]*")
+_RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+
+
+def seal_state_violations(html: str) -> list[tuple[str, str]]:
+    """Every rule where a brand accent is routed by a state or verdict selector.
+
+    **Positive form** (R055 V8(a)): rather than checking that `.verdict` rules avoid
+    gold, this enumerates every rule that *uses* gold and asks what routes it. A rule
+    the old check never thought to look at is the rule that hid four violations.
+
+    R056 §2 draws the boundary this deliberately respects: **gold standing near
+    information is brand usage; gold carrying state is not.** So the test is the
+    selector's vocabulary, not gold's presence — an advisory panel styled in gold does
+    not fire, because `store-warning` is not a state. A check that outlawed gold
+    anywhere dynamic would teach people to route around it, which is worse than the
+    violation it caught.
+
+    Returns `(selector, declaration)` pairs so a caller can report them BY NAME.
+    """
+    vocabulary = _state_words() | VERDICT_WORDS | CLASSIFICATION_WORDS
+    found: list[tuple[str, str]] = []
+    # Comments are stripped FIRST. Without this, a rule inherits every word from the
+    # comment above it -- which is how the first run of this check reported
+    # `.store-warning` as a violation. It is not one: R056 §2 names it as the exact
+    # thing that must NOT fire, and it fired only because the sentence above it
+    # explains what a verdict is. A check that reads prose as selectors will condemn
+    # the code that documents itself best.
+    for selector, body in _RULE.findall(_COMMENT.sub(" ", html)):
+        if not any(token in body for token in BRAND_TOKENS):
+            continue
+        words = set(_SELECTOR_WORD.findall(selector.lower()))
+        if words & vocabulary:
+            found.append((" ".join(selector.split()), " ".join(body.split())))
+    return found
+
+
+def assert_seal_never_signals_state(html: str) -> None:
+    """oneview §4: the brand accent must never carry a state or a verdict.
+
+    R056 §4 **superseded R049 §3's `--seal` clause**: the rule binds everywhere, with no
+    grandfathered screens. R049 §3 otherwise stands minus its fourth mechanism —
+    prominence comes from size, position and weight, and *three are enough*. If
+    prominence genuinely fails with three, that is a design escalation and not a reason
+    to readmit gold.
+    """
+    violations = seal_state_violations(html)
+    if violations:
+        named = "; ".join(f"`{selector}` → {body[:70]}" for selector, body in violations)
+        raise PropertyViolation(f"the brand accent is routed by state or verdict: {named}")
 
 
 def assert_semantic_colours_are_not_the_brand(html: str) -> None:

@@ -116,6 +116,10 @@ exclude = [
     # The vendored copy of the same artifact. Excluded for the identical reason: it
     # must stay byte-identical to its origin, and `ruff format` would rewrite it.
     "onedoor/_vendor",
+    # The Studio v2 token block, same discipline: received bytes with a pinned
+    # digest. Ruff does not format CSS, but the exclusion is declared anyway --
+    # a fence that depends on a tool never gaining a feature is not a fence.
+    "onedoor/studio/_vendor",
     # ANY virtualenv, whatever it is called. Ruff's defaults exclude `.venv`; they do
     # not exclude `venv`, and they cannot know about an operator's scratch directory.
     #
@@ -196,6 +200,12 @@ include = ["onedoor*"]
 onedoor = [
     "store/migrations/*.sql",
     "viewer/_vendor/*.md",
+    # ND-055/V1. The Policy Studio v2 token block, extracted verbatim from the
+    # mockup R055 names as binding design authority. `studio/tokens.py` pins its
+    # SHA-256 and RAISES rather than falling back, so a wheel without this file is
+    # a Studio that cannot render at all -- the 0.3.0 missing-migrations failure
+    # shape, and the reason it is declared here in the same breath as being written.
+    "studio/_vendor/*.css",
     "studio/_fixture/HEAD",
     # ND-052/S5. The shipped policy packs -- the YAML the engine loads AND the PACK.md
     # boundary statement, because both are inside PACK_DIGEST and because a pack whose

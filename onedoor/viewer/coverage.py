@@ -13,8 +13,13 @@ be denied**, a prediction about a class. Teach an operator that red is a predict
 one surface and they will read the receipt's red as a prediction too. **A colour that
 means two things means neither**, and the pair is spent everywhere or nowhere.
 
-So prominence comes from **size, position, weight and `--seal`**, and the order comes
-from `coverage.PROMINENCE`, which ranks by behaviour:
+So prominence comes from **size, position and weight** — and, since R056 §4, from
+those three alone. The brand accent was the fourth mechanism here until core
+superseded R049 §3's `--seal` clause: the rule that gold never signals state binds
+everywhere, with no grandfathered screens, and *three mechanisms are enough*. If
+prominence ever genuinely fails with three, that is a design escalation and not a
+reason to readmit gold. The order comes from `coverage.PROMINENCE`, which ranks by
+behaviour:
 
 - **`declared_inert` first** — sounds fine, behaves dangerously: a silent permit inside a
   rule its author believes is governing.
@@ -87,20 +92,25 @@ ul{list-style:none;padding:0;}
 .row .state{display:block;font-size:.65rem;letter-spacing:.1em;color:var(--faint);}
 .row .name{font-family:'IBM Plex Mono',ui-monospace,monospace;}
 .row .detail{color:var(--muted);font-size:.8rem;margin:.3rem 0 0;}
-/* Prominence by SIZE, WEIGHT, POSITION and SEAL -- never by the semantic pair, which
-   belongs to verdicts. A coverage cell is a prediction about a class; a verdict is a
-   fact about one event, and one colour cannot mean both. */
-.row.declared_inert{border-left:3px solid var(--seal);background:var(--card-hi);
+/* Prominence by SIZE, WEIGHT and POSITION -- three mechanisms, and no colour that
+   signals anything. Never the semantic pair, which belongs to verdicts: a coverage
+   cell is a prediction about a class, a verdict is a fact about one event, and one
+   colour cannot mean both. And never the brand accent either (R056 §4) -- gold is
+   who we are, not what happened. `--ink` here is the page's own foreground: it makes
+   the border PRESENT without making it MEAN. */
+.row.declared_inert{border-left:3px solid var(--ink);background:var(--card-hi);
 padding:.8rem;}
 .row.declared_inert .name{font-size:1.05rem;font-weight:700;}
-.row.declared_inert .state{color:var(--seal);font-weight:700;}
-.row.uncovered_observed{border-left:3px solid var(--seal);border-left-style:dashed;}
+.row.declared_inert .state{color:var(--ink);font-weight:700;letter-spacing:.06em;}
+/* Dashed against the solid above: the distinction is TEXTURE, which survives both
+   the colour rule and a monochrome print. */
+.row.uncovered_observed{border-left:3px dashed var(--ink);}
 .row.uncovered_observed .name{font-weight:600;}
 .row.unreached{opacity:.75;}
 .row.unreached .name{font-style:italic;color:var(--muted);}
 .row.covered{opacity:.55;}
 .tally{display:flex;gap:1.25rem;font-size:.8rem;color:var(--muted);}
-.tally .declared_inert b{color:var(--seal);}
+.tally .declared_inert b{color:var(--ink);font-weight:700;}
 .citation{color:var(--muted);font-size:.78rem;}
 .notes{color:var(--faint);font-size:.75rem;border-top:1px solid var(--border-soft);
 padding-top:.6rem;}

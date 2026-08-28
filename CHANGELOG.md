@@ -5,6 +5,51 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## Unreleased
+
+### Added — `ND-055` V1: the Studio shell ("the ledger room")
+
+Ships in `0.7.0`, after Sept 12. Additive; no engine, schema or wire change.
+
+The Studio's own design tokens, vendored from the mockup core named as binding design
+authority and pinned by digest — a warm umber ground, a serif for ceremony, mono with
+tabular numerals for digests, and a `review` state colour oneview has no name for. The
+palette diverges from oneview's deliberately: the design note says *"warm charcoal/umber,
+never blue-black"*, and settles that §4's rule (seal gold never signals state) binds
+everywhere while the palette does not travel.
+
+A header with the wordmark and the version banner — *in force `<digest>` · ratified
+`<date>` · N policies · M effects · loopback only* — and a tab bar over the five
+sections. The banner has **three** words for its date, not two: a date, `never ratified`,
+and `not ratified through this Studio` for when the version in force is not the one the
+latest ratification produced. Printing that ratification's date beside it would be wrong
+confidently, in the field an auditor reads first.
+
+Tabs are links and unbuilt sections render a page saying which stage builds them, rather
+than a dead link or a 404. Digests render `first-8…last-4`, full on hover — and without
+the mockup's `cursor:copy`, because this app runs no JavaScript and a cursor promising a
+copy that cannot happen is an overclaim rendered in CSS.
+
+### Changed — the brand accent no longer carries state, anywhere
+
+Core superseded R049 §3's `--seal` clause: the rule binds everywhere, with no
+grandfathered screens. Seven rules across the coverage map and the proposal page marked
+a state or a classification in seal gold; all seven now distinguish by size, position,
+weight and texture instead — three mechanisms, and three are enough.
+
+The check that finds them was strengthened to its positive form: rather than asking
+whether verdict rules avoid gold, it enumerates every rule that uses gold and asks what
+routes it, with the state vocabulary read from the enumerations that declare the states.
+Two tests that had *required* the old styling were inverted in the same commit as the
+migration — a test that requires a violation must not survive one commit longer than the
+violation it protects.
+
+### Fixed — the shell read the wrong database
+
+`banner_for` looked for `ratifications` in the Studio's draft store; it is an enforcer
+table. Every shell route raised `no such table: ratifications` on a fresh install. Caught
+through the server on the first request, by none of the library-level tests.
+
 ## 0.6.2 — 2026-08-28
 
 ### Fixed — `ND-055` P0: the Studio's empty state, and the silent database trap

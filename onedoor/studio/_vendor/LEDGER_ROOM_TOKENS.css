@@ -1,0 +1,10 @@
+  :root{
+    --ground:#1c1713; --panel:#241d17; --panel2:#2b231c; --line:#3a2f26;
+    --ink:#e8ddcc; --dim:#a5947d; --faint:#6e6152;
+    --gold:#c9a227; --gold-dim:#8f7420;
+    --allow:#4f9e6b; --review:#d07f3c; --refuse:#c05548;
+    --allow-bg:#1e3227; --review-bg:#3a2a18; --refuse-bg:#38201d;
+    --mono:'IBM Plex Mono',Consolas,monospace;
+    --serif:'Libre Caslon Text',Georgia,serif;
+    --sans:'Archivo',system-ui,sans-serif;
+  }

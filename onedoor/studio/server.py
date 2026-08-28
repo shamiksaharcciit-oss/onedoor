@@ -27,6 +27,7 @@ from __future__ import annotations
 import ipaddress
 import sqlite3
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -36,7 +37,7 @@ from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from onedoor.studio import canvas, ratify, store
+from onedoor.studio import canvas, ratify, shell, store
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -173,6 +174,52 @@ def active_policy_count(state: StudioState) -> int:
     """How many policies the enforcer store holds. Zero is F-H's tell."""
     row = state.enforcer.execute("SELECT COUNT(*) AS n FROM policies").fetchone()
     return int(row["n"])
+
+
+def effect_policy_count(state: StudioState) -> int:
+    """How many effect policies the enforcer store holds."""
+    row = state.enforcer.execute("SELECT COUNT(*) AS n FROM effect_policies").fetchone()
+    return int(row["n"])
+
+
+def banner_for(state: StudioState) -> shell.Banner:
+    """What the V1 header states, resolved from the enforcer store.
+
+    Both facts come from the **enforcer** database: `policy_loader.current_version`
+    reads what is in force, and `ratifications` is an enforcer table (migration `0017`)
+    because a ratification receipt is a fact about the store whose rules it changed.
+    `ratify.ratify` already writes there; reading anywhere else would be reading a
+    different question's answer.
+
+    Delivery's own defect, caught here: the first version of this function passed
+    `state.studio`, and every shell route raised `no such table: ratifications` on a
+    fresh store. It was found by `test_every_shell_route_renders_over_http` -- through
+    the server, on the first request -- and not by any of the library-level tests, which
+    is F-A's lesson holding: *a served surface is tested through the server.* The
+    programme rule it broke has a name too: **select on fields you have verified, not
+    the record** -- `state.studio` is a Connection, `state.enforcer` is a Connection,
+    and only one of them has the table.
+
+    The date is reported only when the latest ratification is the one that produced the
+    version actually in force. When it is not, the banner says so in words rather than
+    printing a date belonging to a different version -- see `shell.RATIFIED_ELSEWHERE`
+    and the three-outcome rule it is an instance of.
+    """
+    in_force = policy_loader.current_version(state.enforcer)
+    latest = ratify.latest(state.enforcer)
+    ratified: str | None
+    if latest is None:
+        ratified = None  # the log is empty; the banner's word for that is NEVER_RATIFIED
+    elif str(latest.get("to_version")) == in_force:
+        ratified = str(latest.get("ratified_at", ""))[:10] or None
+    else:
+        ratified = shell.RATIFIED_ELSEWHERE
+    return shell.Banner(
+        in_force=in_force,
+        ratified=ratified,
+        policies=active_policy_count(state),
+        effects=effect_policy_count(state),
+    )
 
 
 def repin(state: StudioState, draft_id: str) -> store.Draft:
@@ -328,6 +375,27 @@ def create_app(state: StudioState) -> Any:
             # 303: the result of a POST is a page to GO TO, not a body to re-post.
             return RedirectResponse(url=f"/draft/{draft_id}", status_code=303)
         return {"draft_id": draft_id}
+
+    # V1: every tab in the shell resolves to a route. The ones whose screens are not
+    # built say so in the page rather than 404-ing -- a 404 tells the operator the
+    # Studio is broken; this tells them which stage builds it. `shell.TABS` is the only
+    # place that knowledge lives, so the bar and the routes cannot disagree.
+    def _unbuilt(tab: shell.Tab) -> Callable[[], str]:
+        def route() -> str:
+            with state.lock:
+                return shell.render(
+                    body=shell.unbuilt_html(tab),
+                    banner=banner_for(state),
+                    active=tab.key,
+                    title=f"onedoor policy studio — {tab.label.lower()}",
+                )
+
+        route.__name__ = f"{tab.key}_page"
+        return route
+
+    for _tab in shell.TABS:
+        if not _tab.built:
+            app.get(_tab.path, response_class=HTMLResponse)(_unbuilt(_tab))
 
     @app.post("/draft/{draft_id}/repin")
     def repin_draft(draft_id: str) -> dict[str, Any]:

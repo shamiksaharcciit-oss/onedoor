@@ -117,8 +117,10 @@ section{background:var(--card);border:1px solid var(--border);border-radius:6px;
 padding:1rem 1.25rem;margin:1rem 0;}
 /* The two sections are visibly different KINDS, not two lists that happen to be apart:
    the asserted one is inset and marked, so a reader cannot mistake a claim for a
-   measurement by scrolling past a heading. */
-section.asserted{border-left:3px solid var(--seal);background:var(--surface);}
+   measurement by scrolling past a heading. Marked by POSITION and SURFACE, not by the
+   brand accent (R056 §4): asserted-vs-measured is a classification a reader must not
+   confuse, which is precisely the job gold must not be given. */
+section.asserted{border-left:3px solid var(--ink);background:var(--surface);}
 .warrant{color:var(--muted);font-size:.8rem;border-bottom:1px solid var(--border-soft);
 padding-bottom:.6rem;}
 .citation,.digest{color:var(--faint);font-size:.75rem;word-break:break-all;}
@@ -126,14 +128,14 @@ padding-bottom:.6rem;}
 ul{list-style:none;padding:0;}
 .row{border-left:2px solid var(--border-soft);padding:.5rem .8rem;margin:.4rem 0;}
 .row .state{display:block;font-size:.65rem;letter-spacing:.1em;color:var(--faint);}
-.row.declared_inert{border-left:3px solid var(--seal);background:var(--card-hi);}
+.row.declared_inert{border-left:3px solid var(--ink);background:var(--card-hi);}
 .row.declared_inert .name{font-weight:700;}
 .row.unreached{opacity:.75;}
 .row.unreached .name{font-style:italic;color:var(--muted);}
 .row.covered{opacity:.55;}
 .quote{color:var(--muted);font-size:.8rem;font-style:italic;margin:.3rem 0 0;}
 .checked{font-size:.75rem;color:var(--faint);margin:.2rem 0 0;}
-.uncovered{color:var(--seal);font-weight:600;}
+.uncovered{color:var(--ink);font-weight:600;}
 .face{color:var(--muted);font-size:.8rem;border-top:1px solid var(--border-soft);
 padding-top:.6rem;}
 .instrument dt{color:var(--faint);font-size:.7rem;text-transform:uppercase;}

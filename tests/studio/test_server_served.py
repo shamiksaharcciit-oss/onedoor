@@ -116,3 +116,85 @@ def test_the_studio_app_reports_the_installed_version(studio_client: TestClient)
     assert schema.status_code == 200
     assert schema.json()["info"]["version"] == onedoor.__version__
     assert schema.json()["info"]["version"] != "0.4.x"
+
+
+# --- V1: the shell's routes, held to exactly the same standard ------------------------
+#
+# R055's V1 asks for the F-A regression rerun "against every new route". The reason is
+# not ceremony: F-A was a *threading* fault, so it appears once a route is reached from
+# a threadpool thread and never when the same code is called directly. A new route added
+# without this check is a new route that has never been served.
+#
+# The routes are read from `shell.TABS` rather than listed here. A route added to the
+# shell and forgotten here would be a route with no test, and it would look exactly like
+# a route with a passing one.
+
+
+def _unbuilt_paths() -> list[str]:
+    from onedoor.studio import shell
+
+    return [tab.path for tab in shell.TABS if not tab.built]
+
+
+@pytest.mark.parametrize("path", _unbuilt_paths())
+def test_every_shell_route_renders_over_http(studio_client: TestClient, path: str) -> None:
+    """F-A, rerun per route. 200 and a page, not a 500 and not a 404."""
+    response = studio_client.get(path)
+    assert response.status_code == 200, f"GET {path} returned {response.status_code}"
+    assert "onedoor" in response.text.lower()
+
+
+@pytest.mark.parametrize("path", _unbuilt_paths())
+def test_every_shell_route_survives_eight_sequential_requests(
+    studio_client: TestClient, path: str
+) -> None:
+    """The F-A shape specifically: the fault needs more than one request to show.
+
+    The first request may land on the thread that opened the connection. Eight is the
+    count the original regression used, and it is kept rather than reduced because the
+    thing being tested is a race, and a race tested once is a race not tested.
+    """
+    for i in range(8):
+        response = studio_client.get(path)
+        assert response.status_code == 200, f"request {i + 1} to {path} failed"
+
+
+@pytest.mark.parametrize("path", _unbuilt_paths())
+def test_an_unbuilt_section_says_so_rather_than_pretending(
+    studio_client: TestClient, path: str
+) -> None:
+    """A route that exists so the tab bar has somewhere to point must be honest.
+
+    Not a 404 — the section is real and is coming — and not an empty page, which reads
+    as a failure. V8(f) one layer up from the button: the *page* must not overclaim
+    either.
+    """
+    text = studio_client.get(path).text
+    assert "not built yet" in text
+    assert "nothing here yet" in text
+
+
+def test_the_shell_reaches_both_stores_without_either_being_ratified(
+    studio_client: TestClient,
+) -> None:
+    """The banner reads the enforcer store AND the Studio's log, on a threadpool thread.
+
+    This fixture has a policy and no ratification, which is the three-outcome case that
+    a two-state banner gets wrong — and it is reached here through the server, because
+    the banner is the one part of the shell that touches sqlite on every request.
+    """
+    from onedoor.studio import shell
+
+    text = studio_client.get("/history").text
+    assert shell.NEVER_RATIFIED in text
+    assert "1 policy" in text
+    assert "0 effects" in text
+
+
+def test_no_shell_page_reaches_off_the_machine(studio_client: TestClient) -> None:
+    """The header promises nothing leaves this machine, on every page that shows it."""
+    import re
+
+    for path in ["/", *_unbuilt_paths()]:
+        html = studio_client.get(path).text
+        assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path

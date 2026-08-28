@@ -76,3 +76,11 @@ docs/incoming/** -text
 # the other would break that test in a way that looks like a vendoring error.
 docs/oneview/** -text
 onedoor/viewer/_vendor/** -text
+
+# onedoor/studio/_vendor/** is the Policy Studio v2 token block, extracted verbatim
+# from the mockup core named as binding design authority in R055 (artifact
+# ee38c587-7761-4773-881a-764d21c0abdc, approved by Shamik 2026-08-28). Same
+# discipline as the oneview spec above and for the same reason: `studio/tokens.py`
+# pins its SHA-256, so a CRLF rewrite here would present as a design tamper rather
+# than as an encoding bug. It is RECEIVED data; it is not ours to reformat.
+onedoor/studio/_vendor/** -text

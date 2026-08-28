@@ -72,15 +72,25 @@ def test_the_map_still_distinguishes_its_states_visually(
     """The other direction: refusing the pair must not flatten the map into one style.
 
     A rule checked one way forbids the wrong thing without requiring the right one, so
-    prominence has to be *present* — seal, weight and size — not merely not-red.
+    prominence has to be *present* — size, position and weight — not merely not-red.
+
+    **Inverted by R056 §4**, in the same commit as the migration that made it true. This
+    test used to REQUIRE `var(--seal)` on the state row; when core superseded R049 §3's
+    fourth mechanism, that requirement became a test demanding a violation. *A test that
+    requires a violation becomes a defect the moment the law strengthens, and it must not
+    survive one commit longer than the violation it protects.*
+
+    The three mechanisms it now requires are the three R049 §3 kept.
     """
     html = skin.render_page(_map(fresh, config))
     styles = html.split("<style>")[1].split("</style>")[0]
     inert = [rule for rule in styles.split("}") if ".row.declared_inert" in rule]
     assert inert, "the most dangerous state has no distinguishing style at all"
     joined = " ".join(inert)
-    assert "var(--seal)" in joined
-    assert "font-weight:700" in joined or "font-size" in joined
+    assert "var(--seal)" not in joined, "the brand accent must not carry this state (R056 §4)"
+    assert "font-weight:700" in joined, "weight"
+    assert "font-size" in joined, "size"
+    assert "border-left" in joined, "position"
 
 
 # --- Prominence, ranked by behaviour ----------------------------------------------
