@@ -169,6 +169,57 @@ def _divergence_block(panels: canvas_module.Panels) -> str:
     )
 
 
+STORE_WARNING = (
+    "This store has never seen the engine: it holds no policies at all. Did you point "
+    "--db at the service's database? The decision service defaults to "
+    "`onedoor-service.db` and this Studio's --db defaults to `onedoor.db`, so the two "
+    "disagree unless you name one explicitly. A draft ratified here would apply to a "
+    "store nothing enforces."
+)
+"""F-H. The Studio cannot know which file you meant; it can know the one it opened has
+never held a policy, and that observation is what makes the mistake findable.
+
+*A wrong default that cannot be noticed is a defect twice.* Configuration advice, not a
+verdict — so it is styled with `--seal` and never with the semantic pair."""
+
+
+def _store_warning(active_policies: int | None) -> str:
+    """Rendered only when the enforcer store is provably empty.
+
+    `None` means the count was not taken, which is not the same as zero and must not
+    render as a warning — absent and measured-zero are different facts.
+    """
+    if active_policies is None or active_policies > 0:
+        return ""
+    return f"<section class='{DIFF_ZONE} store-warning'><p>{_e(STORE_WARNING)}</p></section>"
+
+
+def _create_form() -> str:
+    """F-G. The empty state's next move, and a plain form so it needs no JavaScript.
+
+    Posts `application/x-www-form-urlencoded` — what a browser sends — which the route
+    parses with the standard library. `python-multipart` would be needed for
+    `request.form()` even on urlencoded bodies, and a dependency for one field is a
+    dependency the extra does not need.
+
+    The command line sits beside it because an operator who is automating should not have
+    to read the HTML to learn the route.
+    """
+    return (
+        f"<section class='{DIFF_ZONE} create-block'>"
+        "<h2>start a draft</h2>"
+        "<form method='post' action='/draft'>"
+        "<input name='title' placeholder='what this draft changes' "
+        "aria-label='draft title' required>"
+        "<button type='submit'>create draft</button>"
+        "</form>"
+        "<p class='cli'>or, from a terminal:</p>"
+        "<pre class='cli'>curl -X POST 'http://127.0.0.1:8787/draft' "
+        "--data-urlencode 'title=what this draft changes'</pre>"
+        "</section>"
+    )
+
+
 def _draft_list(drafts: list[store_module.Draft], current: str | None) -> str:
     items = "".join(
         f"<li class='{'on' if d.draft_id == current else ''}'>"
@@ -209,10 +260,26 @@ padding-top:.6rem;margin-top:.8rem;}
 .drafts ul{list-style:none;padding:0;display:flex;gap:1rem;}
 .drafts a{color:var(--muted);text-decoration:none;}
 .drafts .on a{color:var(--ink);}
+/* F-G. A next move, plainly. */
+.create-block form{display:flex;gap:.6rem;align-items:center;margin:.6rem 0;}
+.create-block input{background:var(--surface);color:var(--ink);border:1px solid var(--border);
+border-radius:4px;padding:.5rem .7rem;font-family:inherit;font-size:.9rem;flex:1;max-width:28rem;}
+.create-block button{background:var(--card-hi);color:var(--ink);border:1px solid var(--seal);
+border-radius:4px;padding:.5rem 1rem;font-family:inherit;font-size:.85rem;cursor:pointer;}
+.create-block .cli{color:var(--faint);font-size:.75rem;margin:.4rem 0 0;}
+.create-block pre.cli{white-space:pre-wrap;word-break:break-all;}
+/* F-H. Configuration advice, not a verdict: seal and rule, never the semantic pair. */
+.store-warning{border-left:3px solid var(--seal);background:var(--card-hi);}
+.store-warning p{margin:0;font-size:.85rem;}
 """
 
 
-def render_page(view: canvas_module.CanvasView | None, *, drafts: list[store_module.Draft]) -> str:
+def render_page(
+    view: canvas_module.CanvasView | None,
+    *,
+    drafts: list[store_module.Draft],
+    active_policies: int | None = None,
+) -> str:
     """The whole canvas as one HTML document.
 
     `root_css()` raises when the vendored spec is missing or has drifted, and this page
@@ -223,8 +290,9 @@ def render_page(view: canvas_module.CanvasView | None, *, drafts: list[store_mod
     # selector and the markup's class must be the same fact, and R045 §1 ruled on what
     # happens to two names for one fact.
     css = root_css() + _PAGE_CSS.replace("__VERDICT__", VERDICT_ZONE)
+    warning = _store_warning(active_policies)
     if view is None:
-        body = f"<h1>onedoor policy studio</h1>{_draft_list(drafts, None)}"
+        body = f"<h1>onedoor policy studio</h1>{warning}{_draft_list(drafts, None)}{_create_form()}"
     else:
         panels = (
             f"{_changes_block(view.panels)}{_divergence_block(view.panels)}"
@@ -236,10 +304,11 @@ def render_page(view: canvas_module.CanvasView | None, *, drafts: list[store_mod
             )
         )
         body = (
-            f"<h1>onedoor policy studio</h1>"
+            f"<h1>onedoor policy studio</h1>{warning}"
             f"{_draft_list(drafts, view.draft.draft_id)}"
             f"<h2>{_e(view.draft.title)}</h2>"
             f"{_pin_block(view)}{_problems_block(view)}{panels}"
+            f"{_create_form()}"
         )
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"

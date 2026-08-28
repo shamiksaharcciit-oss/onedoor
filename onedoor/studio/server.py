@@ -29,13 +29,31 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs
 
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 from onedoor.studio import canvas, ratify, store
+
+if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
+    from fastapi import Request
+else:  # pragma: no cover - which branch runs depends on whether the extra is installed
+    try:
+        from fastapi import Request
+    except ImportError:
+        # `from __future__ import annotations` makes every annotation a STRING, and
+        # FastAPI resolves route annotations against the MODULE's globals -- not the
+        # closure `create_app` builds them in. A `Request` imported only inside that
+        # function is invisible at resolution time, so FastAPI read `request: Request`
+        # as an unresolvable QUERY parameter and every browser form POST returned 422.
+        #
+        # So the name lives at module scope. The X-6 property is unchanged: importing
+        # this module still works without FastAPI, and `create_app` still refuses with a
+        # remedy -- and if it did not refuse, this import already succeeded.
+        Request = object
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
@@ -151,6 +169,12 @@ def view(state: StudioState, draft_id: str, *, with_backtest: bool = False) -> c
     )
 
 
+def active_policy_count(state: StudioState) -> int:
+    """How many policies the enforcer store holds. Zero is F-H's tell."""
+    row = state.enforcer.execute("SELECT COUNT(*) AS n FROM policies").fetchone()
+    return int(row["n"])
+
+
 def repin(state: StudioState, draft_id: str) -> store.Draft:
     """Re-pin a moved draft to the version now in force.
 
@@ -237,7 +261,7 @@ def create_app(state: StudioState) -> Any:
     """
     try:
         from fastapi import FastAPI, HTTPException
-        from fastapi.responses import HTMLResponse
+        from fastapi.responses import HTMLResponse, RedirectResponse
     except ImportError as exc:  # pragma: no cover - exercised by the extra being absent
         raise RuntimeError(
             "the Studio server needs FastAPI: install `onedoor[studio]`. The canvas has "
@@ -258,7 +282,11 @@ def create_app(state: StudioState) -> Any:
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         with state.lock:
-            return render_page(None, drafts=store.listing(state.studio))
+            return render_page(
+                None,
+                drafts=store.listing(state.studio),
+                active_policies=active_policy_count(state),
+            )
 
     @app.get("/draft/{draft_id}", response_class=HTMLResponse)
     def draft_page(draft_id: str, backtest: bool = False) -> str:
@@ -267,12 +295,39 @@ def create_app(state: StudioState) -> Any:
                 model = view(state, draft_id, with_backtest=backtest)
             except store.StudioStoreError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
-            return render_page(model, drafts=store.listing(state.studio))
+            return render_page(
+                model,
+                drafts=store.listing(state.studio),
+                active_policies=active_policy_count(state),
+            )
 
     @app.post("/draft")
-    def create_draft(title: str = "untitled draft") -> dict[str, str]:
+    async def create_draft(request: Request, title: str = "untitled draft") -> Any:
+        """Create a draft. Serves a browser form and the JSON API from one route.
+
+        A browser sends `application/x-www-form-urlencoded`; the JSON API passes `title`
+        as a query parameter. Both are read here, and **the caller's content type decides
+        which answer it gets** — a form submission lands on the draft it created, an API
+        call still receives JSON. Rendering a form whose body the server ignored would
+        create a draft silently titled "untitled draft", which looks like success.
+
+        Parsed with the standard library rather than `request.form()`: Starlette requires
+        `python-multipart` even for urlencoded bodies, and a dependency for one text field
+        is one the `[studio]` extra does not need.
+        """
+        from_form = "application/x-www-form-urlencoded" in (
+            request.headers.get("content-type") or ""
+        )
+        if from_form:
+            fields = parse_qs((await request.body()).decode("utf-8"))
+            submitted = (fields.get("title") or [""])[0].strip()
+            title = submitted or title
         with state.lock:
-            return {"draft_id": new_draft(state, title=title).draft_id}
+            draft_id = new_draft(state, title=title).draft_id
+        if from_form:
+            # 303: the result of a POST is a page to GO TO, not a body to re-post.
+            return RedirectResponse(url=f"/draft/{draft_id}", status_code=303)
+        return {"draft_id": draft_id}
 
     @app.post("/draft/{draft_id}/repin")
     def repin_draft(draft_id: str) -> dict[str, Any]:

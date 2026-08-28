@@ -115,6 +115,28 @@ but escalated to a human, with an approval waiting. Nothing self-promotes.
 **Numbers in `params` are JSON numbers** (`120.00`), not strings — see *Known
 limitations* for the decimal-string asymmetry.
 
+### The Studio — point it at the same database
+
+```bash
+pip install "onedoor[studio]"
+python -m onedoor.studio --db onedoor.db --studio-db studio.db
+```
+
+Then open `http://127.0.0.1:8787`.
+
+**`--db onedoor.db` must name the same file the service is using.** It is spelled out in
+both commands on purpose: the service defaults to `onedoor-service.db` and the Studio's
+`--db` defaults to `onedoor.db`, so accepting both defaults points them at **different
+stores** — the Studio comes up, works, and shows an empty world. If the store it opened
+has never held a policy, the Studio now says so on its face rather than letting you
+conclude your policies vanished.
+
+`--studio-db` is a **separate** file and should stay separate: drafts are the Studio's
+working state, and the enforcer's database contains no row the Studio can edit.
+
+The Studio binds loopback only and refuses anything else, so nothing it renders leaves the
+machine.
+
 ### Working in this repository instead
 
 ```bash

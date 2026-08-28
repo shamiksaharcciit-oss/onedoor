@@ -49,6 +49,7 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_Forward_003_Protocol_Clarification_2026-08-21.md` | `a3f0170a11508c8a5b432c7bf12c2493d5048b956ea707be8f16d01aab96253e` |
 | `Core_Forward_004_Gate_Execution_2026-08-21.md` | `7960e78acc1485c403684849bdf4e896d9b3e34c87cb9c68baab7a28ccb7cde2` |
 | `Core_Forward_004a_Exit_Codes_Travel_Badly_2026-08-21.md` | `7a375526ed54952a39f4252c6a0fa8d35ea5e264522b95df4689c53483f7aaf1` |
+| `Core_Forward_005_Seal_Test_Shape_2026-08-28.md` | `f3142274d08892e195217c53e082e8b5515a917667dd08b2b042bca194e02ba2` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none |
@@ -103,9 +104,11 @@ the very thing the rule forbids, even when it is quoted as an example of the mis
 | `Core_to_Delivery_Response_052_2026-08-27.md` | `d15901d865030a056879ec4d3fa68811cf4c231c55d6b7baa2a11ac6289aaa48` |
 | `Core_to_Delivery_Response_053_2026-08-27.md` | `eb4c7e3a478c3d8e3f3bcca9e5cd795c87ccc1682ed202bbda53e7513c012051` |
 | `Core_to_Delivery_Response_054_2026-08-27.md` | `f6610a9b4215277ffb34c04299d0fe75edd3208ab6a94421b473d3a19e5470ff` |
+| `Core_to_Delivery_Response_055_2026-08-28.md` | `95dd6ea60cdb4e7f18a7531ec659cdc5af234488b43228cfb971f65297235bf5` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |
+| `Design_Note_Policy_Studio_V2_2026-08-28.md` | `118c61b3cc83712053820b76dc6320619141b3a2f49bb56f8fd3afbfd7a724ca` |
 | `Forward_001_from_forensics_2026-08-21.md` | none |
 | `Forward_002_from_forensics_2026-08-21.md` | none |
 | `Policy_Studio_Design_Note_2026-08-22.md` | none |

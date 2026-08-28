@@ -711,6 +711,8 @@ ledger ships in the wheel. B1 unblocked.
 
 | **`ND-054`** | **Numeric bounds accept the decimal-string form.** Ruled by R055 on `ESCALATION-20260827-006`: **a conformance defect against AADP §5 and the draft's own worked example**, which carries `"amount_eur": "40.00"` inside `params`. `caps.resolve_cost` accepts `str` and `bounds` does not, so **adding a `numeric` bound changes which wire types an action accepts** — and the refusal pushes callers toward the binary floats the Security Considerations names as an attack surface. Fix is **one shared `numeric_value()`** used by both paths, parsed as `Decimal` and never through `float`. **Widening (denied → permitted), so it lands as the FIRST POST-FREEZE change**, with tests in both directions. `TICKETS-ND-054.md`. | **specced**, held |
 
+| **`ND-055`** | **Policy Studio v2, "The Ledger Room."** Authorized to build by R055 under three constraints: **additive only**, **never gates launch**, and `ND-053`/`ND-054` stay frozen. Binding design authority is `Design_Note_Policy_Studio_V2_2026-08-28.md` (digest `118c61b3…`) plus the approved mockup; deviations are escalations. **P0 (F-G empty state, F-H db trap) BUILT** — ships as `0.6.2`, doc-and-additive. **V1–V8 held for `0.7.0` after Sept 12.** Forward 005 (`f3142274…`) pins V8(a)'s test shape as a **sabotage pair** — literal injection and the class route — that must fail against the current implementation first. | **P0 built**, V1–V8 held |
+
 ## Migration-number register
 
 | Number | Ticket | Status |
