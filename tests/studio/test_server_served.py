@@ -224,14 +224,35 @@ def test_a_policy_detail_page_renders_over_http(studio_client: TestClient) -> No
     assert "demo.restore" in response.text
 
 
-def test_an_unknown_action_is_answered_rather_than_404ed(studio_client: TestClient) -> None:
-    """The route is valid and the answer is a fact about the deployed system: that
-    action is denied, because absence is denial. A 404 would say the page does not
-    exist; the page exists, and what it reports is that the rule does not."""
+def test_an_unknown_action_answers_404_in_every_channel(studio_client: TestClient) -> None:
+    """R058 §6, correcting V2.
+
+    V2 answered 200 with an honest body, reasoning that the route is valid and the
+    absence is a fact about the deployed system. Core ruled that a defect: **the status
+    code is the machine-readable verdict, and a 200 whose body says "not found" is the
+    right-typed lie for machines.** Every crawler, cache, monitor and script reads the
+    type and believes the page exists — the prose being honest is what makes the
+    mismatch dangerous rather than harmless.
+
+    The media type is asserted too, because the first fix broke it: raising
+    `HTTPException` gives a 404 whose `content-type` is `application/json` and whose
+    body is HTML, which moves the lie to a different header instead of removing it.
+    """
     response = studio_client.get("/policies/nothing.here")
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("text/html")
     assert "denied" in response.text
     assert "only what is deployed now" in response.text
+    assert response.text.lstrip().startswith("<!doctype html"), (
+        "the 404 body must be the page, not a serialised error object"
+    )
+
+
+def test_a_known_action_still_answers_200(studio_client: TestClient) -> None:
+    """The other direction: a fix that 404s everything would pass the test above."""
+    response = studio_client.get("/policies/demo.restore")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
 
 
 def test_the_absence_is_denial_sentence_survives_the_round_trip(studio_client: TestClient) -> None:
@@ -244,3 +265,50 @@ def test_the_policies_tab_is_a_link_now_that_the_screen_exists(studio_client: Te
     """`shell.TABS` is the single source; this checks the flag was flipped with the
     screen rather than before or after it."""
     assert 'href="/policies"' in studio_client.get("/policies").text
+
+
+# --- V3: the History register, over HTTP ------------------------------------------------
+
+
+def test_the_history_page_renders_over_http(studio_client: TestClient) -> None:
+    """F-A rerun against V3's routes."""
+    response = studio_client.get("/history")
+    assert response.status_code == 200
+    assert "History" in response.text
+
+
+def test_the_history_page_survives_eight_sequential_requests(studio_client: TestClient) -> None:
+    for i in range(8):
+        assert studio_client.get("/history").status_code == 200, f"request {i + 1} failed"
+
+
+def test_filters_travel_in_the_query_string(studio_client: TestClient) -> None:
+    """An auditor must be able to paste the address of what they were looking at and
+    have it mean the same thing tomorrow. A filter held in memory is a view nobody else
+    can reach."""
+    response = studio_client.get("/history?action=demo.restore&verdict=denied")
+    assert response.status_code == 200
+    assert 'value="demo.restore" selected' in response.text
+
+
+def test_a_missing_history_entry_answers_404(studio_client: TestClient) -> None:
+    response = studio_client.get("/history/999999")
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("text/html")
+    assert "No decision with this id" in response.text
+
+
+def test_the_history_page_states_the_filter_it_cannot_offer(studio_client: TestClient) -> None:
+    from onedoor.studio import history as history_model
+
+    assert history_model.MISSING_ACTOR_FILTER in studio_client.get("/history").text
+
+
+def test_no_studio_page_reaches_off_the_machine_including_the_new_ones(
+    studio_client: TestClient,
+) -> None:
+    import re
+
+    for path in ["/", "/policies", "/history", *_unbuilt_paths()]:
+        html = studio_client.get(path).text
+        assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path

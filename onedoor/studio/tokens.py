@@ -79,12 +79,30 @@ CORRECTIONS = {
         "3.33:1 on --refuse-bg -- the worst of the three, and the "
         "verdict a reader most needs to see",
     ),
+    "--faint": (
+        "#927e67",
+        "2.96:1 on --ground; it styles table headers, empty-state text, key labels and "
+        "the footer's loopback claim -- text that must be read, so 4.5:1 applies (R058 §4)",
+    ),
 }
 """`{token: (corrected value, the measurement that forced it)}` — R057 §5.
 
-Hue and saturation are held; only lightness moves, and only as far as 4.55:1 (a hair
-over the 4.5:1 requirement, so a rounding difference in any checker cannot flip a
-passing build). Backgrounds and brand tokens are untouched.
+Hue is held to a fraction of a degree throughout, and lightness moves only as far as
+4.55:1 -- a hair over the 4.5:1 requirement, so a rounding difference in any checker
+cannot flip a passing build. Backgrounds and brand tokens are untouched.
+
+Saturation is held for the **state triple**, where a saturation change would be a
+different design decision wearing an accessibility hat. `--faint` is a near-neutral at
+15% saturation where 8-bit rounding makes hue and saturation trade against each other,
+and core's constraint is *hue preserved*: the value chosen holds hue to **0.05 degrees**
+and lets saturation drift 2.7 points, rather than the reverse. Choosing the other way
+would have moved the hue 24x further to protect a number nobody stated.
+
+`--faint` also has to stay the dimmest token, because `.tab.unbuilt` uses it and a
+disabled tab that looks enabled is the V8(f) overclaim. It does: ink 13.24, dim 6.04,
+faint 4.57. **Readable and still visibly the quietest** -- the exemption WCAG offers for
+inactive controls was available and not taken, because a disabled control that is also
+unreadable is bad twice.
 """
 
 STATE_TOKENS = ("--allow", "--review", "--refuse")

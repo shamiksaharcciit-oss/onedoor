@@ -52,6 +52,39 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V3: the execution ledger (S4)
+
+The History register: every decision the engine made, filterable by action, verdict,
+policy version, request origin and date range, with a detail view showing the rule path,
+the frozen parameters, the four digests and the chain fields.
+
+Entries are numbered by the hash chain's own sequence, not by their position on the page
+— an ordinal that changed with the filter would mean an auditor quoting "entry 14" was
+quoting the page rather than the ledger. Rows predating the chain say `unchained` rather
+than showing a number nobody assigned. Filters travel in the query string, so the address
+of a view is the view, and a filter value the ledger no longer holds is echoed back
+marked as absent rather than silently dropped.
+
+**Filtering by API key is not offered, and the page says why**: the service authenticates
+callers with bearer keys but no caller identity is written to the audit row, so the
+ledger cannot say who asked. Offering the nearest column instead would answer a question
+about identity with a fact about provenance.
+
+The page states that it shows what was recorded and does not re-verify the chain — that
+is the Verify page's job, against the receipt rather than against a rendering of it.
+
+### Fixed — a detail page for a rule that does not exist now answers 404
+
+It answered 200 with an honest body. The status code is the machine-readable verdict, and
+every crawler, cache, monitor and script reads the type rather than the prose.
+
+### Changed — all chrome text clears WCAG AA
+
+Table headers, empty-state messages, key labels and the footer's loopback claim were all
+styled in a token at 2.96:1. Audited by use: everything that must be read was corrected,
+and the one decorative case — a disabled tab — kept its readability anyway, because a
+disabled control that is also unreadable is bad twice.
+
 ### Changed — the state colours clear WCAG AA, and no state is colour alone
 
 The approved palette's chips failed AA at chip size — the refusal chip worst of all, at

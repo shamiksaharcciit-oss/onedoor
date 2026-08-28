@@ -118,9 +118,26 @@ def test_corrections_move_lightness_only() -> None:
     for token, (corrected, _why) in tokens.CORRECTIONS.items():
         was_h, was_l, was_s = colour.hsl(mockup[token])
         now_h, now_l, now_s = colour.hsl(corrected)
-        assert abs(now_h - was_h) < 1.0, f"{token} hue moved {abs(now_h - was_h):.1f} degrees"
-        assert abs(now_s - was_s) < 0.02, f"{token} saturation moved"
+        assert abs(now_h - was_h) < 0.5, f"{token} hue moved {abs(now_h - was_h):.2f} degrees"
         assert now_l > was_l, f"{token} did not get lighter"
+        if token in tokens.STATE_TOKENS:
+            # Held for the state triple only, and scoped deliberately: a saturation
+            # change there would be a different design decision wearing an accessibility
+            # hat. `--faint` is a near-neutral where 8-bit rounding trades hue against
+            # saturation, and core's stated constraint is hue.
+            assert abs(now_s - was_s) < 0.02, f"{token} saturation moved"
+
+
+def test_faint_stays_the_dimmest_token_after_its_correction() -> None:
+    """`.tab.unbuilt` is styled with `--faint`, and a disabled tab that looks enabled is
+    the V8(f) overclaim. Readability must not cost the hierarchy that carries it."""
+    palette = tokens.palette()
+    ground = palette["--ground"]
+    ink = colour.contrast_ratio(palette["--ink"], ground)
+    dim = colour.contrast_ratio(palette["--dim"], ground)
+    faint = colour.contrast_ratio(palette["--faint"], ground)
+    assert ink > dim > faint, f"the hierarchy inverted: {ink:.2f} / {dim:.2f} / {faint:.2f}"
+    assert faint >= WCAG_AA_NORMAL_TEXT
 
 
 def test_brand_and_background_tokens_are_untouched() -> None:
@@ -164,33 +181,24 @@ def test_the_contrast_check_can_actually_fail() -> None:
     assert colour.contrast_ratio("#ffffff", "#000000") > WCAG_AA_NORMAL_TEXT
 
 
-def test_chrome_text_clears_aa_and_the_one_gap_is_named(capsys) -> None:
-    """The states are not the only text on the page.
+def test_all_chrome_text_clears_aa(capsys) -> None:
+    """R058 §4 granted the scope Q1 withheld, and the gap is closed.
 
-    `--faint` is excluded and **named** rather than quietly skipped: it styles uppercase
-    table headers at `.7rem/600` and is the one token that does not clear AA. It is
-    reported to core rather than corrected here, because unlike the state chips it was
-    not inside Q1's approved scope — **a token quietly widened past its ruling is the
-    drift the corrections layer exists to prevent.**
-
-    The assertion runs in the *unexpected* direction on purpose: if `--faint` is ever
-    fixed, this test fails and tells whoever fixed it to delete the exception.
+    This test previously asserted `--faint` FAILING, in the deliberately unexpected
+    direction, so that whoever fixed it would be forced to delete the exception rather
+    than leave a stale carve-out behind. That is what happened: the exception is gone and
+    `--faint` is asserted like every other token.
     """
     palette = tokens.palette()
     ground = palette["--ground"]
     rows = []
-    for token in ("--ink", "--dim", "--gold"):
+    for token in ("--ink", "--dim", "--gold", "--faint"):
         ratio = colour.contrast_ratio(palette[token], ground)
         rows.append(f"  {token:<9} on --ground  {ratio:5.2f}:1")
         assert ratio >= WCAG_AA_NORMAL_TEXT, f"{token} is {ratio:.2f}:1 on the page ground"
-    faint = colour.contrast_ratio(palette["--faint"], ground)
     with capsys.disabled():
         print("\nchrome text on the page ground:")
         print("\n".join(rows))
-        print(f"  --faint   on --ground  {faint:5.2f}:1   KNOWN GAP, reported to core")
-    assert faint < WCAG_AA_NORMAL_TEXT, (
-        "--faint now clears AA; delete this known-gap branch and assert it like the rest"
-    )
 
 
 # --- Separation: what the contrast fix cost, measured and disclosed --------------------

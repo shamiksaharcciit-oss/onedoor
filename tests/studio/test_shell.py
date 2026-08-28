@@ -190,7 +190,12 @@ def test_a_tab_whose_screen_is_not_built_is_not_a_link() -> None:
 def test_an_unbuilt_tab_names_the_stage_that_builds_it() -> None:
     """Greying something out says "not for you". Naming the stage says "not yet"."""
     html = shell.nav_html("drafts")
-    assert 'title="not built yet — V3"' in html
+    unbuilt = [tab for tab in shell.TABS if not tab.built]
+    assert unbuilt, "every tab is built; this test has nothing left to guard — delete it"
+    for tab in unbuilt:
+        # Read from TABS rather than naming a stage: hard-coding "V3" made this test
+        # fail when History was built, which is a test breaking on success.
+        assert f'title="not built yet — {tab.stage}"' in html
     assert "aria-disabled" in html
 
 

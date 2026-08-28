@@ -18,8 +18,8 @@
 | **P0** | F-G empty state, F-H database trap | **shipped** — `0.6.2` |
 | **V1** | Shell: tokens, tabs, header, version banner | **built** |
 | **V2** | S1 Policies | **built** |
-| **V3** | S4 History | next |
-| **V4** | S5 Live state | held |
+| **V3** | S4 History · Q4 · Q6 | **built** |
+| **V4** | S5 Live state | next |
 | **V5** | S3 Drafts | held |
 | **V6** | Re-evaluate under version — the flagship | held (premise verified, R056) |
 | **V7** | S2 Editor | held |
@@ -238,6 +238,90 @@ something the engine would not load. JSON is a subset of YAML, so what is shown 
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
 
+## V3 — S4 History, with Q4 and Q6
+
+`onedoor/studio/history.py` (read model), two routes, and the Q4/Q6 fixes R058 §8
+assigned to this stage.
+
+**Entries are numbered by the chain, not by the page.** `seq` is the sequence the row
+was sealed with — the number `prev_hash`/`row_hash` link. Numbering by position in a
+filtered listing would invent an ordinal that changes when a filter changes, so an
+auditor quoting "entry 14" would be quoting the page. **A register's numbers belong to
+the register.** Rows predating the chain render `unchained`, never `0`.
+
+**Read-only, asserted against the source.** `test_the_history_module_contains_no_write`
+scans the module for any write statement, because the property is that no write path
+*exists* — a behavioural test only proves the paths it happened to take.
+
+**No silent caps.** A page shows 50 and says how many matched.
+
+**The digest labels were checked, not guessed.** E/I/T/V are evidence, instrument, trust
+and verdict, read from `guardrail/digests.py`. A screen that captioned `t_digest` as
+"target" — because the canary pillar uses T that way — would be confidently wrong in a
+compliance product.
+
+### The fifth filter R055 V3 asks for cannot be built — escalated as Q7
+
+R055 V3 lists filters for *"time, action, verdict, policy version, key"*. Four are
+columns. **The fifth is not recorded anywhere.** `onedoor.service` authenticates callers
+with bearer API keys (`Authorization: Bearer`), but `audit.append` takes **no caller
+identity** and `actions_audit` has **no column for one**. The ledger cannot say who
+asked.
+
+`source` is the nearest column and means something else — *how the request was built*
+(scheduler, rule, llm, ui), which the model documents as *"informational only, never
+affects the decision"*. Offering it as an actor filter would answer a question about
+identity with a fact about provenance, so it is offered under its own name and the
+missing filter is **stated on the page**: an absent capability that is silently omitted
+reads as a capability that exists and found nothing.
+
+Recording an actor is a **schema change**, which R055 constraint 1 freezes until Sept 12
+— *"if any stage genuinely needs an engine change, STOP and escalate; do not land it
+early"*. So: stopped, and escalated.
+
+### Q4 — the `--faint` audit, by use
+
+| use | must be read? | outcome |
+|---|---|---|
+| `th` — table headers | yes, they are the column labels | corrected |
+| `.empty` — empty-state text | yes, it is the whole message | corrected |
+| `.kv dt` — key labels | yes | corrected |
+| `footer` — the loopback claim | yes, it is a product claim | corrected |
+| `.tab.unbuilt` — a disabled tab | WCAG exempts inactive controls | **exemption available, not taken** |
+
+`--faint` `#6e6152` → `#927e67`, **2.96 → 4.57:1**, hue held to **0.05°**. The exemption
+was not taken because a disabled control that is also unreadable is bad twice, and
+because the hierarchy that makes a disabled tab *look* disabled survives anyway: ink
+13.24 > dim 6.04 > faint 4.57. Nothing was left at "matters slightly less".
+
+The saturation assertion is now scoped to the state triple, with the reason recorded:
+`--faint` is a near-neutral where 8-bit rounding trades hue against saturation, and
+core's stated constraint is **hue**. Holding saturation instead would have moved the hue
+24× further to protect a number nobody stated.
+
+`test_chrome_text_clears_aa_and_the_one_gap_is_named` asserted the gap **in the failing
+direction** so that fixing it would force the exception to be deleted. That is exactly
+what happened.
+
+### Q6 — the 404, in every channel
+
+The detail route answers 404 for a rule absent from the version in force. **The first
+fix was wrong and was caught before commit:** `raise HTTPException(404, detail=html)`
+answers with `content-type: application/json` wrapping HTML — it fixed the status code
+and broke the media type, moving the lie to a different header. It is now an
+`HTMLResponse` with `status_code=404`. Both directions tested, including that a known
+action still answers 200 and that the body is the page rather than a serialised error
+object.
+
+### Defect self-caught: a form that did not echo its own filter
+
+Found by the served test. A filter value not among the ledger's choices vanished from
+the form while still filtering the page — so a bookmarked filter whose rows had aged out
+rendered as "any" over an empty register, and the emptiness read as *"no such decisions
+ever"* instead of *"none match"*. The value is now echoed and marked `not in this
+ledger`, with both directions tested. **A form that does not echo what it filtered on is
+a page lying quietly.**
+
 ## Ruled by R057 — what changed
 
 **Q1 approved, and the defect is core's.** The failing ratios are defects in the
@@ -314,7 +398,31 @@ Meanwhile `test_chrome_text_clears_aa_and_the_one_gap_is_named` asserts the gap 
 failing direction** — it fails if `--faint` ever starts passing — so whoever fixes it is
 forced to delete the exception rather than leave a stale carve-out behind.
 
-**V2 does not block on this.** The headers render either way; only their hex changes.
+**Q4, Q5 and Q6 are closed by R058.** Q4 and Q6 landed in V3. Q5's two-voice layout lands
+wherever the detail view next changes — V3 changed the detail *route*, not its body. The
+plumbing is verified reachable: `proposer.Mention` links a description phrase to an action
+type, and a ratification's `candidate_digest` **is** the proposal's `policy_digest`, so
+`descriptions.records_for_policy` reaches the frozen words for a given rule with no new
+stored pointer.
+
+**Q7 — the ledger does not record who asked, and R055 V3 assumed it did.** Detail in the
+V3 section above. This is a gap in an audit ledger for a compliance product: every
+decision row says what was asked and what was decided, and none says by whom. The service
+authenticates with bearer keys and then discards the identity.
+
+Adding it is a schema change and therefore frozen until Sept 12, so this is stopped and
+escalated rather than worked around.
+
+**Proposal:** an additive migration after the freeze adding a nullable `actor_hash` to
+`actions_audit`, written by the service from the authenticated bearer key — **hashed,
+never raw**, because an audit row is exportable evidence and a raw key inside one is a
+credential in a receipt. Rows predating the column render *"not recorded"*, never blank.
+The History filter arrives with the column.
+
+**Not proposed:** back-filling from any other column. There is nothing to back-fill from,
+and inferring an actor from `source` would manufacture exactly the identity claim this
+note exists to say the store cannot make.
+
 
 **Q5 — `descriptions.py` cannot do what R055 V2 cites it for.** Detail above. V2 ships
 `library.sentences()`, derived from the policy. The open question is whether the detail

@@ -37,7 +37,7 @@ from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from onedoor.studio import canvas, library, ratify, screens, shell, store
+from onedoor.studio import canvas, history, library, ratify, screens, shell, store
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -389,27 +389,100 @@ def create_app(state: StudioState) -> Any:
             )
 
     @app.get("/policies/{action_type}", response_class=HTMLResponse)
-    def policy_detail(action_type: str) -> str:
+    def policy_detail(action_type: str) -> Any:
         """One rule: what it does, beside what it says.
 
-        A policy absent from the version in force is **not** a 404. The route is valid
-        and the answer is a fact about the deployed system -- that action is denied,
-        because absence is denial. A 404 would say "this page does not exist"; the page
-        exists, and what it has to report is that the rule does not.
+        A rule absent from the version in force answers **404**, with an honest body
+        that still explains what the absence means (R058 §6).
+
+        V2 answered 200 here, reasoning that the route is valid and the absence is a
+        fact about the deployed system. Core ruled that a defect, and the reason is the
+        audience: **the status code is the machine-readable verdict, and a 200 whose
+        body says "not found" is the right-typed lie for machines.** Every crawler,
+        cache, monitor and script reads the type and believes the page exists -- so the
+        prose being honest is precisely what makes the mismatch dangerous rather than
+        harmless. Both channels now say the same thing.
         """
         with state.lock:
             model = library.build(state.enforcer)
             policy = library.policy_at(state.enforcer, action_type)
-            body = (
-                screens.not_found_body(action_type)
-                if policy is None
-                else screens.policy_body(policy, model)
-            )
+            if policy is None:
+                # An HTMLResponse rather than HTTPException: FastAPI serialises an
+                # exception's `detail` as JSON, which would answer 404 with a
+                # `content-type: application/json` body full of HTML. Fixing the status
+                # code while breaking the media type just moves the lie to a different
+                # header -- and the whole point of this ruling is that every
+                # machine-readable channel says what the prose says.
+                return HTMLResponse(
+                    content=shell.render(
+                        body=screens.not_found_body(action_type),
+                        banner=banner_for(state),
+                        active="policies",
+                        title=f"onedoor policy studio — {action_type}",
+                    ),
+                    status_code=404,
+                )
             return shell.render(
-                body=body,
+                body=screens.policy_body(policy, model),
                 banner=banner_for(state),
                 active="policies",
                 title=f"onedoor policy studio — {action_type}",
+            )
+
+    @app.get("/history", response_class=HTMLResponse)
+    def history_page(
+        action: str = "",
+        verdict: str = "",
+        version: str = "",
+        source: str = "",
+        since: str = "",
+        until: str = "",
+    ) -> str:
+        """S4: the execution ledger. Filters live in the query string, so an auditor can
+        paste the address of what they were looking at and have it mean the same thing
+        tomorrow."""
+        filters = history.Filters(
+            action=action,
+            verdict=verdict,
+            version=version,
+            source=source,
+            since=since,
+            until=until,
+        )
+        with state.lock:
+            return shell.render(
+                body=screens.history_body(
+                    history.page(state.enforcer, filters), history.choices(state.enforcer)
+                ),
+                banner=banner_for(state),
+                active="history",
+                title="onedoor policy studio — history",
+            )
+
+    @app.get("/history/{row_id}", response_class=HTMLResponse)
+    def history_entry(row_id: int) -> Any:
+        """One decision in full. 404 when the entry does not exist (R058 §6)."""
+        with state.lock:
+            row = history.entry(state.enforcer, row_id)
+            if row is None:
+                return HTMLResponse(
+                    content=shell.render(
+                        body=(
+                            f'<h2>Entry {row_id}</h2><div class="rulebar"></div>'
+                            '<div class="empty">No decision with this id is recorded in '
+                            "this ledger.</div>"
+                        ),
+                        banner=banner_for(state),
+                        active="history",
+                        title=f"onedoor policy studio — entry {row_id}",
+                    ),
+                    status_code=404,
+                )
+            return shell.render(
+                body=screens.entry_body(row),
+                banner=banner_for(state),
+                active="history",
+                title=f"onedoor policy studio — entry {row_id}",
             )
 
     # V1: every tab in the shell resolves to a route. The ones whose screens are not

@@ -112,7 +112,7 @@ class Tab:
 TABS: tuple[Tab, ...] = (
     Tab("policies", "Policies", "/policies", True, "V2"),
     Tab("drafts", "Drafts", "/", True, "V1"),
-    Tab("history", "History", "/history", False, "V3"),
+    Tab("history", "History", "/history", True, "V3"),
     Tab("state", "Live state", "/state", False, "V4"),
     Tab("verify", "Verify", "/verify", False, "V8"),
 )
@@ -325,6 +325,17 @@ pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:var(--wel
 .kv{display:grid;grid-template-columns:170px 1fr;gap:.3rem .8rem;font-size:.88rem}
 .kv dt{color:var(--faint)}
 .kv dd{color:var(--ink);margin:0}
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .8rem}
+.filters select,.filters input,.filters button{background:var(--well);color:var(--ink);
+  border:1px solid var(--line);border-radius:5px;font-family:var(--sans);
+  font-size:.85rem;padding:.4rem .7rem}
+.filters button{cursor:pointer;border-color:var(--gold-dim);color:var(--gold)}
+.filters .clear{color:var(--dim);font-size:.85rem;text-decoration:none;padding:.4rem}
+.filters .clear:hover{color:var(--ink)}
+.note{font-size:.8rem;color:var(--faint);margin:.6rem 0}
+.note code{font-family:var(--mono)}
+td.num,.num{color:var(--dim);font-family:var(--mono)}
+h2 .num{font-size:1rem}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

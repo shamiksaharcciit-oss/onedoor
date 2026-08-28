@@ -647,6 +647,58 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 058 (2026-08-28) — V1+V2, the ΔE floor, Q4–Q6
+
+| Was | Ruling |
+|---|---|
+| `0.6.2` | **Published and independently verified.** Shamik ran the handover; core downloaded both files from PyPI, recomputed digests against the pre-upload record (wheel `6093133a…`, 250,759 bytes; sdist `5651731f…`, 292,226 bytes — both MATCH), and smoke-tested the published wheel in a fresh venv. Release stands at `v0.6.2` → `95a6150`. **Handover discharged.** |
+| V1 + V2 | **Accepted.** |
+| The snapshot reading | **Law, not implementation choice.** Delivery's sentence adopted verbatim: *"Those agree through the normal write path and can disagree through any other — and then they answer different questions."* Generalised: **the digest in the header names the snapshot, so the snapshot is the only honest source for the page under it.** This is V6's premise arriving early. |
+| Correction beside, not into | **The house shape.** *"E10 wearing CSS clothes… corrections annotate evidence; they do not rewrite it."* |
+| The five refusals | **Ratified.** The unreadable-snapshot one matters most: it is **the failing-open guard generalised to rendering** — *a page that cannot read its source must say so; it must never say "nothing".* The third assertion on the disagreement test is **the sabotage discipline applied to a test's own premise.** |
+| **The ΔE floor replacement** | **Approved**, with the reasoning made canon (see the law below) and **two binding conditions**: the full ΔE matrix keeps printing in CI beside the mockup's numbers, and R057 §6's baseline is marked **superseded-by-disclosure** citing R058 §5 — *not overwritten*. |
+| **Q4 — `--faint`** | Withholding it was right; Q1's scope was three tokens, not a licence to sweep. **Scope now granted, shaped by use:** where `--faint` styles text that must be READ, the token law applies; where it is decorative or marks a disabled affordance, WCAG's own exemption applies and is recorded with its reason. **Not permitted: `--faint` as a compromise for text that matters slightly less — "slightly less" is not a WCAG category.** |
+| **Q5 — frozen descriptions** | **Yes — show BOTH voices, never merged.** The operator's frozen description is received data: quoted, attributed, visually distinct. `library.sentences()` is the derived voice: the page's own prose. *The screen's value is exactly the gap between them.* **Merging them would manufacture agreement; the layout must make disagreement visible, not smooth.** |
+| **Q6 — the 200 for an unknown rule** | **Defect.** A detail page for a rule that does not exist answers **404** with an honest body. *The status code is the machine-readable verdict, and a 200 whose body says "not found" is the right-typed lie for machines* — every crawler, cache, monitor and script reads the type and believes the page exists. |
+| Suite | The public site is **oneproof.dev** (live before Sept 8). onedoor's public door links to the repo as-is; future public docs may cite it. |
+
+### Programme law — a floor on a proxy is a promise about the requirement
+
+R058 §5, canon. **When the proxy and the requirement part ways, keep the requirement,
+keep printing the proxy, and never let the proxy quietly become the requirement again.**
+
+WCAG 1.4.1 asks that state never travel by colour alone. The ΔE floor was a way of
+approximating that promise; word-plus-colour keeps it outright — **for every axis of
+colour vision at once, including ones no ΔE pair was ever checked against.**
+
+R057 §6's recorded baseline (ΔE 15.6 brand-vs-state under deuteranopia) is
+**superseded by disclosure**, citing R058 §5. It is not overwritten: the mockup's
+numbers keep printing beside the current ones, because *a shrunk baseline nobody sees
+cannot be audited.*
+
+### Programme law — check every phrase against the code that decides, not the names that suggest
+
+R058 §4. `R055` §V2 described a **deny tier that does not exist** — core-authored text,
+registered as a defect against the design note the same way R057 §5 registered the
+mockup's contrast. **The design note is authority for direction and anatomy, never for
+engine facts, which have exactly one source.**
+
+Delivery's method is the law: the tier phrases were checked against `decision.py`, which
+is how `OBSERVE` was found to return `Decision.EXECUTED` and perform nothing, **returning
+before bounds are even evaluated — which no name would have told anyone.**
+
+### Programme law — the status code is the machine-readable verdict
+
+R058 §6. A page whose prose is honest and whose status code is not has moved the lie to
+the channel that machines read. **A 200 whose body says "not found" is the right-typed
+lie**, and its prose being correct is exactly what makes it dangerous rather than
+harmless: every crawler, cache, monitor and script believes the page exists.
+
+Delivery's first fix for this traded the status code for the media type — `HTTPException`
+answers 404 with `content-type: application/json` wrapping HTML. **Fixing one channel
+while breaking another is not a fix**; every machine-readable channel must say what the
+prose says.
+
 ### Resolved by Response 057 (2026-08-28) — the contrast escalation, and the cursor
 
 | Was | Ruling |
@@ -869,7 +921,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 057 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 058 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
