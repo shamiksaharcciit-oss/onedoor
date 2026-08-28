@@ -309,3 +309,66 @@ def _drop_nulls(value: object) -> object:
     if isinstance(value, list):
         return [_drop_nulls(v) for v in value]
     return value
+
+
+# --- Q5: the operator's own words, kept apart from the engine's -----------------------
+
+
+@dataclass(frozen=True)
+class FrozenWords:
+    """What an operator wrote about the proposal this rule came from.
+
+    **Received data.** The description is frozen byte-for-byte (E10) and reaches the
+    page as a quotation, attributed, never merged into the derived sentences. R058 §6:
+    *the screen's value is exactly the gap between them — merging them would manufacture
+    agreement.*
+    """
+
+    description_digest: str
+    quotes: tuple[str, ...]
+    """The phrases whose mentions name this action. Empty when the description exists
+    and says nothing about this rule — which is itself worth showing, because a rule
+    nobody described is a different thing from a rule with no description."""
+
+    whole: str | None
+    """The full description, or None when the bytes are not in this Studio's store."""
+
+
+def frozen_words(
+    enforcer: sqlite3.Connection, studio: sqlite3.Connection, action_type: str
+) -> FrozenWords | None:
+    """The operator's words for one rule, or None when there are none to show.
+
+    The chain needs no stored pointer, which is why it can exist at all: a
+    ratification's `candidate_digest` **is** the proposal's `policy_digest`, so the
+    frozen description is reachable by recomputation from the version in force.
+
+    Returns None rather than an empty shell when nothing links: absent is rendered by
+    the caller omitting the pane, and an empty quotation would look like an operator who
+    wrote nothing rather than a rule that was never proposed through the Studio.
+    """
+    from onedoor.studio import descriptions as descriptions_model
+    from onedoor.studio import ratify as ratify_model
+
+    latest = ratify_model.latest(enforcer)
+    if latest is None:
+        return None
+    candidate = str(latest.get("candidate_digest") or "")
+    if not candidate:
+        return None
+    records = descriptions_model.records_for_policy(studio, candidate)
+    if not records:
+        return None
+
+    record = records[-1]
+    digest = str(record.get("description_digest") or "")
+    quotes = tuple(
+        str(m.get("quote") or "")
+        for m in record.get("mentions", [])
+        if action_type in (m.get("covered_by") or []) or m.get("subject") == action_type
+    )
+    return FrozenWords(
+        description_digest=digest,
+        quotes=tuple(q for q in quotes if q),
+        whole=descriptions_model.load(studio, digest) if digest else None,
+    )

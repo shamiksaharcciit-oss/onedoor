@@ -12,8 +12,8 @@ from html import escape
 from typing import Any
 
 from onedoor.guardrail.models import Policy
+from onedoor.studio import canvas, drafts, history, library, live, shell, validate
 from onedoor.studio import coverage as coverage_model
-from onedoor.studio import history, library, live, shell
 
 COVERAGE_WORDS = {
     coverage_model.COVERED: ("covered", "the ledger has seen this action"),
@@ -108,7 +108,9 @@ def library_body(model: library.Library) -> str:
     )
 
 
-def policy_body(policy: Policy, model: library.Library) -> str:
+def policy_body(
+    policy: Policy, model: library.Library, words: library.FrozenWords | None = None
+) -> str:
     """S1 detail: what the rule does, beside what it says.
 
     Two panes, labelled as **different kinds of claim**. The left is derived from the
@@ -127,8 +129,42 @@ def policy_body(policy: Policy, model: library.Library) -> str:
         f'<div class="plain">{said}</div></div>'
         f'<div class="panel"><h3>The rule</h3><pre>{escape(library.yaml_text(policy))}</pre>'
         "</div>"
-        "</div>"
-        f'<p class="lede">{escape(library.ABSENCE_IS_DENIAL)}</p>'
+        "</div>" + _frozen_voice(words) + f'<p class="lede">{escape(library.ABSENCE_IS_DENIAL)}</p>'
+    )
+
+
+def _frozen_voice(words: library.FrozenWords | None) -> str:
+    """The operator's own words, quoted and attributed — never merged (R058 §6).
+
+    A third block rather than a third column, and styled as a quotation, because the
+    two are **different kinds of claim**: the panes above say what the rule *does*,
+    derived from the policy; this says what someone *said it was for*, frozen as
+    received bytes. *The screen's value is exactly the gap between them; the layout must
+    make disagreement visible, not smooth.*
+
+    Omitted entirely when nothing links. An empty quotation would read as an operator
+    who wrote nothing, which is a different fact from a rule never proposed through the
+    Studio.
+    """
+    if words is None:
+        return ""
+    if words.quotes:
+        body = "".join(f"<blockquote>{escape(q)}</blockquote>" for q in words.quotes)
+    else:
+        body = (
+            '<p class="plain">The description this rule was derived from does not '
+            "mention it. The rule came with the proposal; these words did not describe "
+            "it.</p>"
+        )
+    return (
+        '<div class="panel voice"><h3>What the operator said it was for</h3>'
+        + body
+        + '<p class="note">Frozen as written and quoted verbatim — an operator’s '
+        "words, not the engine’s. Nothing above is derived from this, and nothing "
+        "here is checked against the rule; the two are shown side by side so a reader "
+        "can see where they differ. Description "
+        + shell.digest_html(words.description_digest)
+        + ".</p></div>"
     )
 
 
@@ -449,4 +485,241 @@ def live_body(model: live.LiveState) -> str:
         + approvals
         + '<p class="note">This page reads the enforcer store and changes nothing in it. '
         "Every number is as of the moment the page was built.</p>"
+    )
+
+
+# --- V5 / S3: drafts, and the ceremony ----------------------------------------------
+
+
+def _honesty_footnote() -> str:
+    """`validate.INCOMPLETE_NOTICE`, VERBATIM (R055 V5).
+
+    Interpolated from the constant rather than retyped, so the page and the validator
+    cannot drift apart. The design note calls this a feature: *honest limits are part of
+    the brand.*
+    """
+    return f'<p class="note honesty">{escape(validate.INCOMPLETE_NOTICE)}</p>'
+
+
+def drafts_body(listing: list[Any], active_version: str | None) -> str:
+    """S3 index: the drafts, and the form that makes one."""
+    head = '<h2>Drafts</h2><div class="rulebar"></div>'
+    create = (
+        '<div class="panel create-block"><h3>New draft</h3>'
+        '<form method="post" action="/drafts">'
+        '<input name="title" placeholder="what this draft is for" aria-label="Draft title">'
+        '<button type="submit">Open a draft</button></form>'
+        '<p class="note">A draft is pinned to the version in force when it is opened, '
+        "and edits nothing until it is ratified.</p></div>"
+    )
+    if not listing:
+        return (
+            head + create + '<div class="empty">No drafts yet. A draft is where rules are written; '
+            "the live rules are never edited directly.</div>"
+        )
+    rows = []
+    for d in listing:
+        moved = d.base_version != active_version
+        pin = (
+            '<span class="chip c-review">base moved</span>'
+            if moved
+            else '<span class="chip c-allow">current</span>'
+        )
+        rows.append(
+            "<tr>"
+            f'<td><a href="/drafts/{escape(d.draft_id)}">{escape(d.title)}</a></td>'
+            f"<td>{shell.digest_html(d.base_version)}</td>"
+            f"<td>{pin}</td>"
+            f'<td class="mono">{escape(str(len(d.policies)))}</td>'
+            "</tr>"
+        )
+    table = (
+        '<div class="panel"><table><thead><tr><th>Draft</th><th>Pinned base</th>'
+        "<th>Pin</th><th>Rules</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+    )
+    return head + create + table
+
+
+def _diff_block(view: drafts.DraftView) -> str:
+    if not view.diffs:
+        return (
+            '<div class="panel"><h3>Changes</h3><div class="empty">This draft matches '
+            "the version in force. Ratifying it would change nothing.</div></div>"
+        )
+    rows = []
+    for d in view.diffs:
+        was = "\u2014" if d.was is None else escape(" ".join(library.sentences(d.was)))
+        becomes = "\u2014" if d.becomes is None else escape(" ".join(library.sentences(d.becomes)))
+        rows.append(
+            f'<div class="diff"><div class="barhead">'
+            f'<span class="mono">{escape(d.action_type)}</span>'
+            f'<span class="tier">{escape(d.kind)}</span></div>'
+            f'<div class="was"><b>was</b> {was}</div>'
+            f'<div class="becomes"><b>would become</b> {becomes}</div></div>'
+        )
+    return '<div class="panel"><h3>Changes</h3>' + "".join(rows) + "</div>"
+
+
+def _problems_block(view: drafts.DraftView) -> str:
+    found = view.problems
+    if not found:
+        body = '<div class="empty">The validator found no problems in these rules.</div>'
+    else:
+        items = "".join(
+            f'<li><span class="mono">{escape(getattr(p, "action_type", "") or "")}</span> '
+            f"{escape(getattr(p, 'message', str(p)))}</li>"
+            for p in found
+        )
+        body = f'<ul class="problems">{items}</ul>'
+    return f'<div class="panel"><h3>Validation</h3>{body}{_honesty_footnote()}</div>'
+
+
+def _backtest_block(view: drafts.DraftView) -> str:
+    panels = view.view.panels
+    if panels is None:
+        return ""
+    divergence = panels.divergence
+    if divergence.state == canvas.BACKTEST_NOT_REQUESTED:
+        return (
+            '<div class="panel"><h3>Backtest</h3><div class="empty">Not run. '
+            '<a href="?backtest=1">Replay this ledger against the draft</a>.</div>'
+            f'<p class="note">{escape(drafts.BACKTEST_IS_ABOUT_THE_PAST)}</p></div>'
+        )
+    if divergence.state == canvas.BACKTEST_REFUSED:
+        return (
+            '<div class="panel"><h3>Backtest</h3>'
+            f'<div class="empty">The replay refused: '
+            f"{escape(str(divergence.refusal or ''))}. No numbers are shown, because "
+            "there are none to show.</div></div>"
+        )
+    receipt = divergence.receipt
+    if receipt is None:
+        # The state says the replay ran and no receipt came back. mypy found this
+        # fourth case; it is not "no divergence" and it is not a refusal, so it gets
+        # its own words. **Unverifiable and malformed are failures to surface, never
+        # skips** -- and a backtest panel that rendered zeroes here would report a
+        # clean replay that never happened.
+        return (
+            '<div class="panel"><h3>Backtest</h3><div class="empty">The replay reports '
+            "that it ran and carries no receipt. No numbers are shown: this is a "
+            "malformed result, not a clean one.</div></div>"
+        )
+    counts = receipt.divergence
+    flips = []
+    for key, count in sorted(counts.flips.items()):
+        sentence, widening = drafts.flip_sentence(key)
+        chip = shell.chip("review" if widening else "allow", sentence)
+        flips.append(f'<li>{chip} <span class="mono">{escape(str(count))}</span></li>')
+    flip_list = (
+        f'<ul class="flips">{"".join(flips)}</ul>'
+        if flips
+        else '<p class="plain">No recorded decision changes verdict under these rules.</p>'
+    )
+    skipped = (
+        f' <span class="tier">{escape(str(len(receipt.skipped)))} skipped</span>'
+        if receipt.skipped
+        else ""
+    )
+    return (
+        '<div class="panel"><h3>Backtest</h3>'
+        f'<p class="plain"><b>{escape(str(receipt.replayed))}</b> decisions replayed, '
+        f"<b>{escape(str(sum(counts.flips.values())))}</b> changed verdict.{skipped}</p>"
+        + flip_list
+        + f'<p class="note">{escape(drafts.BACKTEST_IS_ABOUT_THE_PAST)}</p>'
+        f'<p class="note">Receipt {shell.digest_html(receipt.policy_digest)}</p></div>'
+    )
+
+
+def draft_body(view: drafts.DraftView) -> str:
+    """S3 detail: the pin, the diff, the problems, the backtest, and the way to ratify."""
+    pin = view.view.pin
+    head = (
+        f'<h2>{escape(view.draft.title)}</h2><div class="rulebar"></div>'
+        f'<p class="lede">Pinned to {shell.digest_html(pin.base_version)}; '
+        f"in force now {shell.digest_html(pin.active_version)}.</p>"
+    )
+    if view.stale:
+        return head + (
+            f'<div class="empty">{escape(drafts.STALE_BASE)}</div>'
+            f'<form method="post" action="/drafts/{escape(view.draft.draft_id)}/repin">'
+            '<button type="submit">Re-pin to the version in force</button></form>'
+        )
+    ceremony = (
+        '<div class="panel"><h3>Ratify</h3>'
+        f'<p class="plain">{escape(drafts.IRREVERSIBLE)}</p>'
+        f'<p><a class="sealbtn" href="/drafts/{escape(view.draft.draft_id)}/ratify">'
+        "Review and ratify</a></p></div>"
+    )
+    return head + _diff_block(view) + _problems_block(view) + _backtest_block(view) + ceremony
+
+
+def ceremony_body(view: drafts.DraftView) -> str:
+    """The ratify page: three true things and one deliberate confirm.
+
+    Its gravity comes from the digest, the diff and the irreversibility stated — R060
+    §5. Nothing here dramatizes beyond what the engine does: no countdown, no warning
+    the engine cannot back, and no claim that the change is irreversible in a stronger
+    sense than *the way back is forward*.
+    """
+    panels = view.view.panels
+    if panels is None:
+        return (
+            '<h2>Ratify</h2><div class="rulebar"></div>'
+            f'<div class="empty">{escape(drafts.STALE_BASE)}</div>'
+        )
+    preview = panels.preview
+    changed = len(view.diffs)
+    return (
+        f'<h2>Ratify {escape(view.draft.title)}</h2><div class="rulebar"></div>'
+        '<div class="panel"><h3>What will be in force</h3>'
+        f'<div class="bigdigest">{escape(preview.to_version)}</div>'
+        '<dl class="kv">'
+        f"<dt>Replacing</dt><dd>{shell.digest_html(preview.from_version)}</dd>"
+        f"<dt>Candidate</dt><dd>{shell.digest_html(preview.candidate_digest)}</dd>"
+        f'<dt>Rules changed</dt><dd class="mono">{escape(str(changed))}</dd>'
+        "</dl></div>"
+        + _diff_block(view)
+        + _problems_block(view)
+        + '<div class="panel"><h3>Confirm</h3>'
+        + f'<p class="plain">{escape(drafts.IRREVERSIBLE)}</p>'
+        + f'<form method="post" action="/drafts/{escape(view.draft.draft_id)}/ratify">'
+        + '<input name="session" required aria-label="Session note" '
+        + 'placeholder="who is ratifying (recorded on the receipt)">'
+        + '<button class="sealbtn" type="submit">Ratify</button></form>'
+        + '<p class="note">The name given is recorded as <code>ratified_by_session</code> '
+        + "on the receipt. It is what this store knows, not an authenticated identity.</p>"
+        + "</div>"
+    )
+
+
+def receipt_body(outcome: Any, draft_id: str) -> str:
+    """What came back. A refusal keeps the ceremony's own words (R047 §S2-T5)."""
+    if not outcome.ratified:
+        return (
+            '<h2>Not ratified</h2><div class="rulebar"></div>'
+            f'<div class="panel"><p>{shell.chip("refuse", "refused")} '
+            f'<span class="mono">{escape(str(outcome.reason or ""))}</span></p>'
+            f'<p class="plain">{escape(str(outcome.message or ""))}</p>'
+            f'<p class="note"><a href="/drafts/{escape(draft_id)}">Back to the draft</a>. '
+            "Nothing was applied.</p></div>"
+        )
+    receipt = outcome.receipt
+    switch = (
+        shell.chip("refuse", "engaged")
+        if receipt.kill_switch_engaged
+        else shell.chip("allow", "not engaged")
+    )
+    return (
+        '<h2>Ratified</h2><div class="rulebar"></div>'
+        '<div class="panel"><h3>In force</h3>'
+        f'<div class="bigdigest">{escape(receipt.to_version)}</div>'
+        '<dl class="kv">'
+        f"<dt>Replaced</dt><dd>{shell.digest_html(receipt.from_version)}</dd>"
+        f"<dt>Receipt</dt>"
+        f"<dd>{shell.digest_html(receipt.sealed()['ratification_digest'])}</dd>"
+        f'<dt>Ratified at</dt><dd class="mono">{escape(receipt.ratified_at)}</dd>'
+        f'<dt>By session</dt><dd class="mono">{escape(receipt.ratified_by_session)}</dd>'
+        f"<dt>Kill switch</dt><dd>{switch}</dd></dl>"
+        '<p class="note">Recorded at ratification. The switch does not block ratifying '
+        "\u2014 nothing ratified can move while it holds.</p></div>"
     )

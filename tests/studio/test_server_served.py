@@ -360,3 +360,141 @@ def test_reading_the_live_page_over_http_changes_nothing(studio_client: TestClie
         state.enforcer.execute("SELECT COUNT(*) AS n FROM actions_audit").fetchone()["n"],
     )
     assert before == after
+
+
+# --- V5: drafts and the ceremony, over HTTP ---------------------------------------------
+
+
+def _open_draft(client: TestClient) -> str:
+    response = client.post(
+        "/drafts",
+        content=b"title=over+http",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    return response.headers["location"].rsplit("/", 1)[-1]
+
+
+def test_the_drafts_page_renders_over_http(studio_client: TestClient) -> None:
+    """F-A rerun against V5's routes."""
+    response = studio_client.get("/drafts")
+    assert response.status_code == 200
+    assert "Drafts" in response.text
+
+
+def test_the_drafts_page_survives_eight_sequential_requests(studio_client: TestClient) -> None:
+    for i in range(8):
+        assert studio_client.get("/drafts").status_code == 200, f"request {i + 1} failed"
+
+
+def test_a_browser_form_opens_a_draft_and_lands_on_it(studio_client: TestClient) -> None:
+    """F-G's content-type dispatch, unchanged: a browser gets a redirect to the thing it
+    made, and the JSON caller is untouched."""
+    draft_id = _open_draft(studio_client)
+    page = studio_client.get(f"/drafts/{draft_id}")
+    assert page.status_code == 200
+    assert "over http" in page.text
+
+
+def test_the_json_caller_still_gets_json(studio_client: TestClient) -> None:
+    response = studio_client.post("/drafts?title=api")
+    assert response.status_code == 200
+    assert "draft_id" in response.json()
+
+
+def test_the_ceremony_is_a_page_before_it_is_an_action(studio_client: TestClient) -> None:
+    """A GET that changes nothing. Splitting the reading from the doing is the whole
+    reason this is a page and not a button."""
+    draft_id = _open_draft(studio_client)
+    before = studio_client.app.state.studio.enforcer.execute(
+        "SELECT version_hash FROM policy_current WHERE id=1"
+    ).fetchone()["version_hash"]
+    response = studio_client.get(f"/drafts/{draft_id}/ratify")
+    assert response.status_code == 200
+    after = studio_client.app.state.studio.enforcer.execute(
+        "SELECT version_hash FROM policy_current WHERE id=1"
+    ).fetchone()["version_hash"]
+    assert before == after, "reading the ceremony page ratified something"
+
+
+def test_ratifying_without_a_session_note_is_refused(studio_client: TestClient) -> None:
+    """The note is what the receipt records about who ratified; a blank one would seal a
+    receipt that says nothing."""
+    draft_id = _open_draft(studio_client)
+    response = studio_client.post(
+        f"/drafts/{draft_id}/ratify",
+        content=b"session=",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 400
+    assert "Nothing was applied" in response.text
+
+
+def test_a_refused_ratification_answers_409_and_says_why(studio_client: TestClient) -> None:
+    """R059 §2: status, media type and body are one statement. A refusal is not a server
+    error and not a success -- the request was well-formed and the engine declined it.
+    """
+    from onedoor.guardrail import policy_loader
+    from onedoor.guardrail.models import Bounds, Policy, Tier
+
+    draft_id = _open_draft(studio_client)
+    policy_loader.upsert(
+        studio_client.app.state.studio.enforcer,
+        Policy(
+            action_type="moved.the.base",
+            tier=Tier.OBSERVE,
+            dry_run=False,
+            compensating_command="",
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    response = studio_client.post(
+        f"/drafts/{draft_id}/ratify",
+        content=b"session=tester",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 409
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Nothing was applied" in response.text
+
+
+def test_a_repin_recomputes_and_lands_back_on_the_draft(studio_client: TestClient) -> None:
+    from onedoor.guardrail import policy_loader
+    from onedoor.guardrail.models import Bounds, Policy, Tier
+
+    draft_id = _open_draft(studio_client)
+    policy_loader.upsert(
+        studio_client.app.state.studio.enforcer,
+        Policy(
+            action_type="moved.again",
+            tier=Tier.OBSERVE,
+            dry_run=False,
+            compensating_command="",
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    stale = studio_client.get(f"/drafts/{draft_id}")
+    assert "no longer in force" in stale.text
+
+    response = studio_client.post(f"/drafts/{draft_id}/repin", follow_redirects=False)
+    assert response.status_code == 303
+    assert studio_client.get(f"/drafts/{draft_id}").status_code == 200
+    assert "no longer in force" not in studio_client.get(f"/drafts/{draft_id}").text
+
+
+def test_an_unknown_draft_answers_404_on_every_route(studio_client: TestClient) -> None:
+    for path in ("/drafts/nope", "/drafts/nope/ratify"):
+        response = studio_client.get(path)
+        assert response.status_code == 404, path
+        assert response.headers["content-type"].startswith("text/html"), path
+
+
+def test_the_honesty_footnote_survives_the_round_trip(studio_client: TestClient) -> None:
+    from html import escape
+
+    from onedoor.studio import validate
+
+    draft_id = _open_draft(studio_client)
+    for path in (f"/drafts/{draft_id}", f"/drafts/{draft_id}/ratify"):
+        assert escape(validate.INCOMPLETE_NOTICE) in studio_client.get(path).text, path

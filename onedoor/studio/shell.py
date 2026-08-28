@@ -111,7 +111,7 @@ class Tab:
 
 TABS: tuple[Tab, ...] = (
     Tab("policies", "Policies", "/policies", True, "V2"),
-    Tab("drafts", "Drafts", "/", True, "V1"),
+    Tab("drafts", "Drafts", "/drafts", True, "V5"),
     Tab("history", "History", "/history", True, "V3"),
     Tab("state", "Live state", "/state", True, "V4"),
     Tab("verify", "Verify", "/verify", False, "V8"),
@@ -350,6 +350,35 @@ h2 .num{font-size:1rem}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:.3rem;
   border:1px solid var(--line)}
 .kswitch p{margin:.4rem 0}
+.diff{border-left:3px solid var(--line);padding:.5rem .9rem;margin:.5rem 0}
+.diff .was{color:var(--dim);font-size:.88rem}
+.diff .becomes{color:var(--ink);font-size:.88rem}
+.diff b{color:var(--faint);font-weight:600;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.1em;margin-right:.4rem}
+.problems{list-style:none;padding:0;font-size:.9rem}
+.problems li{padding:.35rem 0;border-bottom:1px solid var(--line)}
+.honesty{font-style:italic}
+.flips{list-style:none;padding:0;margin:.5rem 0}
+.flips li{padding:.25rem 0;display:flex;gap:.6rem;align-items:center}
+.bigdigest{font-family:var(--mono);font-size:1.05rem;letter-spacing:.02em;color:var(--ink);
+  word-break:break-all;background:var(--well);border:1px solid var(--gold-dim);
+  border-radius:6px;padding:.8rem 1rem;margin:.6rem 0}
+.sealbtn{display:inline-flex;align-items:center;gap:.6rem;background:none;
+  border:1px solid var(--gold);color:var(--gold);font-family:var(--serif);font-size:1rem;
+  padding:.65rem 1.6rem;border-radius:4px;cursor:pointer;letter-spacing:.06em;
+  text-decoration:none}
+.sealbtn:hover{background:rgba(201,162,39,.08)}
+.create-block input{background:var(--well);color:var(--ink);border:1px solid var(--line);
+  border-radius:5px;font-family:var(--sans);font-size:.9rem;padding:.45rem .7rem;
+  min-width:22rem;max-width:100%}
+.create-block button,.panel form button{background:var(--well);color:var(--ink);
+  border:1px solid var(--gold-dim);border-radius:5px;font-family:var(--sans);
+  font-size:.9rem;padding:.45rem 1rem;cursor:pointer;margin-left:.4rem}
+.panel form input{background:var(--well);color:var(--ink);border:1px solid var(--line);
+  border-radius:5px;font-family:var(--sans);font-size:.9rem;padding:.45rem .7rem;
+  min-width:22rem;max-width:100%}
+.voice blockquote{margin:.5rem 0;padding:.6rem 1rem;border-left:3px solid var(--dim);
+  background:var(--well);font-family:var(--serif);font-size:1rem;color:var(--ink)}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

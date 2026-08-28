@@ -647,6 +647,49 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 060 (2026-08-28) — V4, and the third case
+
+| Was | Ruling |
+|---|---|
+| V4 | **Accepted.** 1048 passed, four gates green, CI green on both jobs. Q7 closed until the freeze lifts. |
+| **The third case** | **Ratified, and it supplies the clause R059 §5's binary did not draw.** The API exists *and the Studio may not use it*. The deeper reason is the first: `set_engaged` through the enforcer connection would falsify R047 §2's sentence, **and that sentence is the two-process design.** |
+| Saying what the switch does not stop | **Ratified as a shape**, and generalised — see the law below. Rank read from `decision.py`, **R058 §4 holding its second door.** |
+| The budget arithmetic | **Accepted as specced.** *A counter means what the code that increments it means, not what its name suggests* — the same law as R058 §4, now proven on arithmetic. The pinned-snapshot limits, sabotaged by writing a different cap into live `policies`, are *the V6 spine tested the only way that counts.* |
+| The no-bar rule | Its own small law — see below. |
+| Q7 | **Closed properly.** The one-step-short instinct kept in the record rather than smoothed away *is how the register is supposed to read.* |
+| V5 | Proceed, with Q5's two-voice layout. Two reminders carried into the ticket: the mockup's ratify screen is authority for **direction and anatomy, never engine facts** (R058 §4 binds hardest where the rendering is most theatrical), and **the ceremony's gravity must come from what is true.** |
+
+### Programme law — capability is not authority
+
+R060 §1. **An API that exists but would break a load-bearing separation is, for this
+caller, an API that does not exist.** The correct rendering of that law is: state shown,
+no control drawn, reason stated on the page — asserted on both the rendered body and the
+received bytes, which closes the door both ways.
+
+### Programme law — where a control's name invites a wrong model, the page says what the control does not do
+
+R060 §2. The live page states that policy-making continues under ENGAGED, because
+nothing ratified can move while the switch holds. **The incident screen corrects the
+operator's model at exactly the moment the wrong model is most expensive.**
+
+### Programme law — a counter means what the code that increments it means
+
+R060 §3. `cap_counters` is bumped at *reserve* time, so it is consumed **plus** reserved;
+the name says neither. Read the incrementer, not the column name. R058 §4's law, proven
+on arithmetic rather than on an enumeration.
+
+### Programme law — an undeclared limit permits two lies, so draw neither
+
+R060 §3. **A bar chart has two lies available — full and empty — and an undeclared limit
+permits both.** Draw nothing and say why. *A proportion needs a declared denominator.*
+
+### Programme law — a ceremony that overstates is a design-study banner away from a lie
+
+R060 §5. Where a rendering is most theatrical, R058 §4 binds hardest: the design study is
+authority for **direction and anatomy, never engine facts**. The weight of a ceremony
+comes from the digest, the diff and the irreversibility **stated as the engine can back
+it** — never from an element that dramatizes beyond what the engine does.
+
 ### Resolved by Response 059 (2026-08-28) — V3, and the Q7 actor ruling
 
 | Was | Ruling |
@@ -960,7 +1003,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 059 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 060 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

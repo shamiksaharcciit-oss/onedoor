@@ -20,8 +20,8 @@
 | **V2** | S1 Policies | **built** |
 | **V3** | S4 History · Q4 · Q6 | **built** |
 | **V4** | S5 Live state | **built** |
-| **V5** | S3 Drafts | next |
-| **V6** | Re-evaluate under version — the flagship | held (premise verified, R056) |
+| **V5** | S3 Drafts · the ceremony · Q5 | **built** |
+| **V6** | Re-evaluate under version — the flagship | next |
 | **V7** | S2 Editor | held |
 | **V8** | S6 Verify + the law tests | held |
 
@@ -237,6 +237,87 @@ parses one way, and the first quoting difference between them would be a screen 
 something the engine would not load. JSON is a subset of YAML, so what is shown is
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
+
+## V5 — S3 Drafts, the ceremony, and Q5's two voices
+
+`onedoor/studio/drafts.py` (read model), five routes, and the two-voice pane on S1's
+detail view. The Drafts tab moves from `/` to `/drafts` and the whole pipeline now wears
+the ledger-room shell.
+
+### The ceremony's gravity comes from what is true
+
+R060 §5 shaped every sentence on the ratify page. It says three things — what will be in
+force, what changes, what this does not undo — and a confirm. What it **refuses** to say
+is the tested part:
+
+- **Not "this cannot be undone."** That would be false *and* falsely frightening. The
+  truth is narrower and more useful: there is no un-ratify, and **the way back is
+  forward** — ratifying again, which is a new version and a new receipt, with the record
+  keeping both. `test_the_ceremony_does_not_claim_the_change_cannot_be_undone` fails on
+  the words "cannot be undone" and "irreversible".
+- **No drama the engine does not do.** No countdown, no "are you sure", no "permanent" —
+  asserted as a list of forbidden words.
+- **The session note is described as what it is:** what this store knows, not an
+  authenticated identity. The same discipline as `ratified_by_session`'s own naming.
+
+The ceremony is a **GET before it is a POST**, and a served test proves reading it
+ratifies nothing. Splitting the reading from the doing is the whole reason it is a page
+and not a button.
+
+### The backtest panel is about the past, and says so
+
+*A backtest replays decisions this ledger already recorded. It says what would have
+happened, not what will.* A divergence count read as a forecast is the overclaim this
+screen most invites, so the limit is printed on the panel that could invite it.
+
+**Each flip direction gets its own sentence**, one per direction, because a single "N
+verdicts changed" hides the one an operator must never miss: **`permits what was
+refused`**. Widening directions are marked apart from tightening ones — a count alone
+treats a loosening and a tightening as the same event. A direction with no sentence is
+rendered raw rather than paraphrased.
+
+### The honesty footnote, verbatim and proven verbatim
+
+`validate.INCOMPLETE_NOTICE` is interpolated from the constant, never retyped. The test
+checks **both** the escaped markup and the unescaped rendering, because the page
+correctly emits `engine&#x27;s` — asserting only the raw form would have made a
+correctly-escaped page look like a paraphrase.
+
+### A fourth case mypy found
+
+`Divergence.receipt` is `BacktestReceipt | None` even when `state == ran`. That is a
+fourth outcome — the replay reports it ran and carries no receipt — and it now has its
+own words: *"this is a malformed result, not a clean one."* A panel rendering zeroes
+there would report a clean replay that never happened. **Unverifiable and malformed are
+failures to surface, never skips**, and a type checker is a perfectly good way to find
+one.
+
+### Q5 — the two voices, never merged
+
+`library.frozen_words` reaches the operator's own words with **no new stored pointer**: a
+ratification's `candidate_digest` *is* the proposal's `policy_digest`, so
+`descriptions.records_for_policy` finds the derivation, and its `Mention` rows link
+description phrases to action types.
+
+Rendered as a **quotation, attributed, in a separate block** — never merged into the
+derived sentences. The panel says in words that nothing above is derived from it and
+nothing in it is checked against the rule, *so a reader can see where they differ*. R058
+§6: the screen's value is exactly the gap between them, and merging would manufacture
+agreement.
+
+Three states, kept apart: a description that mentions the rule (quoted), a description
+that **does not** mention it (said, because silence about a rule is itself a finding),
+and no description at all (**the pane is omitted** — an empty quotation would read as an
+operator who wrote nothing, which is a different fact from a rule never proposed through
+the Studio).
+
+### A refusal answers 409
+
+R059 §2 applied: a refused ratification is not a server error and not a success — the
+request was well-formed and the engine declined it. The body keeps the ceremony's own
+words, with the named reason, and says *nothing was applied*. A missing session note
+answers 400.
+
 
 ## V4 — S5 the live room
 

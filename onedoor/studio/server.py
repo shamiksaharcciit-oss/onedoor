@@ -30,6 +30,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from html import escape
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs
 
@@ -37,7 +38,17 @@ from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from onedoor.studio import canvas, history, library, live, ratify, screens, shell, store
+from onedoor.studio import (
+    canvas,
+    drafts,
+    history,
+    library,
+    live,
+    ratify,
+    screens,
+    shell,
+    store,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -376,6 +387,145 @@ def create_app(state: StudioState) -> Any:
             return RedirectResponse(url=f"/draft/{draft_id}", status_code=303)
         return {"draft_id": draft_id}
 
+    @app.get("/drafts", response_class=HTMLResponse)
+    def drafts_page() -> str:
+        """S3 index."""
+        with state.lock:
+            return shell.render(
+                body=screens.drafts_body(
+                    drafts.listing(state.studio),
+                    policy_loader.current_version(state.enforcer),
+                ),
+                banner=banner_for(state),
+                active="drafts",
+                title="onedoor policy studio \u2014 drafts",
+            )
+
+    @app.post("/drafts")
+    async def create_draft_v5(request: Request, title: str = "untitled draft") -> Any:
+        """Same content-type dispatch F-G established: a browser gets a redirect, the
+        JSON caller gets JSON, and neither learns about the other."""
+        from_form = "application/x-www-form-urlencoded" in (
+            request.headers.get("content-type") or ""
+        )
+        if from_form:
+            fields = parse_qs((await request.body()).decode("utf-8"))
+            submitted = (fields.get("title") or [""])[0].strip()
+            title = submitted or title
+        with state.lock:
+            draft = new_draft(state, title=title)
+        if from_form:
+            return RedirectResponse(url=f"/drafts/{draft.draft_id}", status_code=303)
+        return {"draft_id": draft.draft_id}
+
+    @app.get("/drafts/{draft_id}", response_class=HTMLResponse)
+    def draft_detail(draft_id: str, backtest: bool = False) -> Any:
+        with state.lock:
+            try:
+                view = drafts.build(
+                    state.enforcer,
+                    state.studio,
+                    draft_id,
+                    config=state.config,
+                    with_backtest=backtest,
+                )
+            except store.StudioStoreError:
+                return _draft_missing(draft_id)
+            return shell.render(
+                body=screens.draft_body(view),
+                banner=banner_for(state),
+                active="drafts",
+                title=f"onedoor policy studio \u2014 {view.draft.title}",
+            )
+
+    @app.get("/drafts/{draft_id}/ratify", response_class=HTMLResponse)
+    def ceremony_page(draft_id: str) -> Any:
+        """The ceremony, shown before it is performed.
+
+        A GET that changes nothing: the operator reads what will be in force, what
+        changes, and what ratifying does not undo, and only then confirms. Splitting the
+        reading from the doing is the whole reason this is a page and not a button.
+        """
+        with state.lock:
+            try:
+                view = drafts.build(state.enforcer, state.studio, draft_id, config=state.config)
+            except store.StudioStoreError:
+                return _draft_missing(draft_id)
+            return shell.render(
+                body=screens.ceremony_body(view),
+                banner=banner_for(state),
+                active="drafts",
+                title=f"onedoor policy studio \u2014 ratify {view.draft.title}",
+            )
+
+    @app.post("/drafts/{draft_id}/ratify", response_class=HTMLResponse)
+    async def ceremony_confirm(request: Request, draft_id: str) -> Any:
+        """Perform it, and render what came back \u2014 receipt or refusal, in the
+        ceremony's own words."""
+        fields = parse_qs((await request.body()).decode("utf-8"))
+        session = (fields.get("session") or [""])[0].strip()
+        if not session:
+            return HTMLResponse(
+                content=shell.render(
+                    body=(
+                        '<h2>Not ratified</h2><div class="rulebar"></div>'
+                        '<div class="empty">A session note is required: it is what the '
+                        "receipt records about who ratified. Nothing was applied.</div>"
+                    ),
+                    banner=banner_for(state),
+                    active="drafts",
+                    title="onedoor policy studio \u2014 not ratified",
+                ),
+                status_code=400,
+            )
+        with state.lock:
+            try:
+                outcome = ratify_draft(state, draft_id, session=session)
+            except store.StudioStoreError:
+                return _draft_missing(draft_id)
+            body = screens.receipt_body(outcome, draft_id)
+            banner = banner_for(state)
+        return HTMLResponse(
+            content=shell.render(
+                body=body,
+                banner=banner,
+                active="drafts",
+                title="onedoor policy studio \u2014 ratified"
+                if outcome.ratified
+                else "onedoor policy studio \u2014 not ratified",
+            ),
+            # A refused ratification is not a server error and not a success: the
+            # request was well-formed and the engine declined it. 409 is the status for
+            # a state conflict, which is exactly what a moved base or a failed citation
+            # is. R059 §2: status, media type and body are one statement.
+            status_code=200 if outcome.ratified else 409,
+        )
+
+    @app.post("/drafts/{draft_id}/repin", response_class=HTMLResponse)
+    def repin_page(draft_id: str) -> Any:
+        """Re-pin a stale draft to the version in force, then show it recomputed."""
+        with state.lock:
+            try:
+                repin(state, draft_id)
+            except store.StudioStoreError:
+                return _draft_missing(draft_id)
+        return RedirectResponse(url=f"/drafts/{draft_id}", status_code=303)
+
+    def _draft_missing(draft_id: str) -> Any:
+        return HTMLResponse(
+            content=shell.render(
+                body=(
+                    '<h2>Draft not found</h2><div class="rulebar"></div>'
+                    f'<div class="empty">No draft <code>{escape(draft_id)}</code> exists '
+                    "in this Studio store.</div>"
+                ),
+                banner=banner_for(state),
+                active="drafts",
+                title="onedoor policy studio \u2014 draft not found",
+            ),
+            status_code=404,
+        )
+
     @app.get("/policies", response_class=HTMLResponse)
     def policies_page() -> str:
         """S1: the library, read from the snapshot behind the version in force."""
@@ -423,7 +573,11 @@ def create_app(state: StudioState) -> Any:
                     status_code=404,
                 )
             return shell.render(
-                body=screens.policy_body(policy, model),
+                body=screens.policy_body(
+                    policy,
+                    model,
+                    library.frozen_words(state.enforcer, state.studio, action_type),
+                ),
                 banner=banner_for(state),
                 active="policies",
                 title=f"onedoor policy studio — {action_type}",

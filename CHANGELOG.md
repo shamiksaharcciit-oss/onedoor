@@ -52,6 +52,34 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V5: drafts, and ratification as a ceremony page (S3)
+
+The drafting pipeline the engine already had, made visible: the pinned base, a per-rule
+was / would-become diff, the validator's findings with its honesty notice verbatim, the
+backtest panel, and a repin that refuses a stale base by showing no numbers at all rather
+than numbers computed from a version no longer in force.
+
+**Ratification is a page before it is an action.** A GET shows what will be in force,
+what changes, and what ratifying does not undo; only then is there a confirm. The page
+does not say the change cannot be undone, because that is false — there is no un-ratify,
+and the way back is forward: ratifying again, a new version and a new receipt, with the
+record keeping both. A refused ratification answers 409 in the ceremony's own words and
+says nothing was applied.
+
+The backtest panel states its own limit: it replays decisions already recorded and says
+what would have happened, not what will. Each changed verdict is described by direction,
+because a single count hides the one direction that matters most — permitting what was
+refused.
+
+### Added — a policy's two voices, side by side and never merged
+
+A rule's detail page now shows the operator's own frozen description beside the
+plain-language rendering of what the rule does — quoted, attributed, and visually
+distinct. The page states that neither is derived from or checked against the other, so a
+reader can see where the two disagree. A description that does not mention the rule says
+so; where no description exists the panel is omitted entirely, because an empty quotation
+would read as an operator who wrote nothing.
+
 ### Added — `ND-055` V4: the live room (S5)
 
 Cumulative budget bars per cap window, open reservations with their ages, approval
