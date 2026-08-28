@@ -51,7 +51,7 @@ def _measured(m: coverage_model.CoverageMap) -> str:
         for row in m.ranked(m.effects)
     )
     return (
-        "<section class='measured'>"
+        "<section class='" + proposer_model.MEASURED + "'>"
         "<h2>coverage — measured</h2>"
         f"<p class='warrant'>{_e(MEASURED_WARRANT)}</p>"
         f"<p class='citation'>{_e(m.cited.sentence())}</p>"
@@ -71,14 +71,14 @@ def _asserted(mentions: list[proposer_model.Mention], citation: dict[str, Any]) 
             else "<span class='uncovered'>no rule covers it</span>"
         )
         rows.append(
-            f"<li class='row asserted'>"
+            f"<li class='row {proposer_model.ASSERTED}'>"
             f"<span class='state'>MENTIONED · {_e(mention.kind)}</span>"
             f"<span class='name'>{_e(mention.subject)}</span>"
             f"<p class='quote'>&ldquo;{_e(mention.quote)}&rdquo;</p>"
             f"<p class='checked'>{checked}</p></li>"
         )
     return (
-        "<section class='asserted'>"
+        "<section class='" + proposer_model.ASSERTED + "'>"
         "<h2>mentioned in the description — asserted</h2>"
         f"<p class='warrant'>{_e(ASSERTED_WARRANT)}</p>"
         f"<p class='citation'>checked against coverage citation "

@@ -216,6 +216,22 @@ hidden would make the benchmark a claim about nothing.
 
 FIXTURE_VERSION = "1"
 
+MEASURED = "measured"
+ASSERTED = "asserted"
+KINDS = (MEASURED, ASSERTED)
+"""The two kinds of row this proposal renders, declared rather than spelled in a skin.
+
+`measured` is what the engine observed; `asserted` is what a description *claims*. The
+distinction is the whole point of the page — a reader must not mistake a claim for a
+measurement — which is exactly why it must not be marked in the brand accent (R056 §4)
+and why the seal check has to know these words.
+
+Promoted from literal class names by R057 §6. They were spelled in `viewer/proposal.py`
+and declared nowhere, so the check that guards them needed one hand-typed entry beside
+a vocabulary derived from every other enumeration. **A vocabulary half-derived and
+half-typed drifts from both ends:** type it once, import it everywhere.
+"""
+
 
 class FixtureProposer:
     """A deterministic keyword proposer. Same description in, same candidate out.

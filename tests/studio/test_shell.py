@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from onedoor.studio import shell
 
 FULL = "29e85d2cbb9f4a1c7e0d3a55f61b2c8d90a4e7f3b6c1d2e5a8f9b0c3d4e5f5166"
@@ -54,17 +56,95 @@ def test_the_full_digest_is_available_on_hover_and_to_a_copy_control() -> None:
     assert f'data-digest="{FULL}"' in html
 
 
-def test_no_copy_cursor_is_promised_while_nothing_can_copy() -> None:
-    """V8(f) one layer down. This app runs no JavaScript, so a `cursor:copy` over a
-    digest would be an affordance that cannot act — an overclaim rendered in CSS.
+def test_the_copy_cursor_is_granted_by_the_script_and_never_by_the_server() -> None:
+    """R057 §2: copy-on-click returns as progressive enhancement.
 
-    When a working copy control lands, this test changes in the same commit as the
-    cursor. Until then it holds the line.
+    The structural guarantee V8(f) actually needs — the cursor lives on
+    `.digest.copyable`, and nothing the server emits carries `copyable`. With scripting
+    off there is no cursor, because there is no copy.
     """
     css = shell.css()
-    for rule in css.split("}"):
-        if "cursor:copy" in rule:
-            raise AssertionError(f"a copy cursor is promised by `{rule.split('{')[0]}`")
+    cursor_rules = [r for r in css.split("}") if "cursor:copy" in r]
+    assert cursor_rules, "copy-on-click is mandated by the design note; the cursor is missing"
+    for rule in cursor_rules:
+        selector = rule.split("{")[0]
+        assert "copyable" in selector, (
+            f"`{selector.strip()}` promises a copy cursor without requiring the class the "
+            "script grants; a page with scripting off would show it"
+        )
+    classes = re.findall(r'class="([^"]*)"', _page())
+    assert not [c for c in classes if "copyable" in c], (
+        "the server emitted the class that grants the cursor; only the script may add it"
+    )
+
+
+def test_the_handler_and_the_cursor_are_granted_in_the_same_act() -> None:
+    """The two must not drift apart: a class added anywhere the handler is not attached
+    is the overclaim returning by a different route."""
+    script = shell.COPY_SCRIPT
+    grant = script.index("classList.add('copyable')")
+    attach = script.index("addEventListener('click'")
+    loop = script.index("for(const el of document.querySelectorAll('[data-digest]'))")
+    assert loop < grant < attach, "the grant and the handler are not in one loop body"
+
+
+def test_no_cursor_is_granted_where_the_clipboard_does_not_exist() -> None:
+    """The capability is checked, not assumed. 127.0.0.1 is a secure context by spec,
+    but an operator reaching the Studio through a tunnel under some other origin would
+    otherwise get a cursor over a call that throws."""
+    script = shell.COPY_SCRIPT
+    assert "if(!navigator.clipboard)return;" in script
+    assert script.index("navigator.clipboard)return") < script.index("copyable")
+
+
+def test_the_only_script_on_the_page_is_the_one_this_module_declares() -> None:
+    """A page that promises nothing leaves the machine must not run code nobody read."""
+    import re as _re
+
+    html = _page()
+    scripts = _re.findall(r"<script[^>]*>(.*?)</script>", html, _re.S)
+    assert scripts == [shell.COPY_SCRIPT]
+    assert "src=" not in html.split("<script")[1].split(">")[0]
+    for reaching_out in ("fetch(", "XMLHttpRequest", "WebSocket", "import(", "localStorage"):
+        assert reaching_out not in shell.COPY_SCRIPT
+
+
+# --- Redundant coding: what the contrast correction cost, made safe --------------------
+
+
+def test_no_state_is_signalled_by_colour_alone() -> None:
+    """**The property that replaces the delta-E floor** (R057 §5/§6).
+
+    Lightening `--refuse` to clear WCAG AA pushed it toward `--review` under tritanopia
+    (ΔE 15.1 → 2.5) and toward `--allow` under deuteranopia (18.0 → 6.5). No hex avoids
+    that: the darkness that separated refuse *was* what failed the contrast requirement.
+
+    So the guarantee moves off the number and onto the markup. Every chip carries its
+    verdict as a word, which is what WCAG 1.4.1 requires and what a ΔE floor was only
+    ever a proxy for. A chip rendered with a colour and no text fails here.
+    """
+    for state, word in shell.STATE_WORDS.items():
+        markup = shell.chip(state)
+        assert f"c-{state}" in markup, f"{state} carries no state class"
+        text = re.sub(r"<[^>]+>", "", markup).strip()
+        assert text == word, f"{state} renders as {text!r}; a colour alone is not a verdict"
+        assert len(text) > 2
+
+
+def test_a_chip_cannot_be_rendered_for_a_state_that_is_not_one() -> None:
+    """A typo must not produce an unstyled, unlabelled span that looks like a bug."""
+    with pytest.raises(ValueError, match="not one of"):
+        shell.chip("allowed")
+
+
+def test_every_state_token_has_a_chip_and_every_chip_has_a_token() -> None:
+    """Two lists that must agree, so they are checked rather than maintained (X-14)."""
+    from onedoor.studio import tokens
+
+    assert {f"--{s}" for s in shell.STATE_WORDS} == set(tokens.STATE_TOKENS)
+    css = shell.css()
+    for state in shell.STATE_WORDS:
+        assert f".c-{state}{{background:var(--{state}-bg);color:var(--{state})}}" in css
 
 
 def test_an_unratified_store_says_so_rather_than_rendering_a_blank() -> None:
@@ -143,9 +223,13 @@ def test_the_page_fetches_nothing_from_anywhere() -> None:
     assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html)
 
 
-def test_the_shell_runs_no_javascript() -> None:
+def test_the_shell_carries_no_inline_event_handlers() -> None:
+    """V1 asserted the page ran NO JavaScript. R057 §2 overruled that — R055 §3 permits
+    minimal inline JS and copy-on-click is mandated — so what survives is the narrower
+    rule that still holds: behaviour is attached by the one declared script, never
+    sprinkled through the markup as `onclick=` attributes nobody audits as a whole.
+    """
     html = _page()
-    assert "<script" not in html.lower()
     assert not re.findall(r"\son[a-z]+\s*=", html), "an inline event handler is JavaScript"
 
 

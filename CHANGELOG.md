@@ -26,9 +26,26 @@ latest ratification produced. Printing that ratification's date beside it would 
 confidently, in the field an auditor reads first.
 
 Tabs are links and unbuilt sections render a page saying which stage builds them, rather
-than a dead link or a 404. Digests render `first-8…last-4`, full on hover — and without
-the mockup's `cursor:copy`, because this app runs no JavaScript and a cursor promising a
-copy that cannot happen is an overclaim rendered in CSS.
+than a dead link or a 404. Digests render `first-8…last-4`, full on hover, with
+copy-on-click as progressive enhancement: one small inline script adds the class that
+enables `cursor:copy` in the same statement that attaches the handler, and returns early
+where no clipboard API exists. Nothing the server emits carries that class, so with
+scripting off the page promises nothing it cannot do.
+
+### Changed — the state colours clear WCAG AA, and no state is colour alone
+
+The approved palette's chips failed AA at chip size — the refusal chip worst of all, at
+3.33:1, which is the wrong one to lose. All three foregrounds are lightened until each
+clears 4.5:1 on its own background, hue and saturation held, brand untouched. The fix is
+recorded beside the vendored token block rather than edited into it, so the palette that
+renders can still be compared with the palette that was approved, and each correction
+carries the measurement that forced it.
+
+That correction costs colourblind separation, and no choice of colour avoids it: the
+refusal red failed contrast *because* it was dark, and any red light enough to read
+converges with amber under tritanopia. So the guarantee moved off the number and onto the
+markup — every state chip renders a colour **and a word**, which is what accessibility
+guidance actually asks for. The contrast and separation figures now print in CI.
 
 ### Changed — the brand accent no longer carries state, anywhere
 

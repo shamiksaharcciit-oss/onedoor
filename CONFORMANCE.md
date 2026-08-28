@@ -647,6 +647,46 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 057 (2026-08-28) — the contrast escalation, and the cursor
+
+| Was | Ruling |
+|---|---|
+| **Q1: the state chips fail WCAG AA** | **Approved as proposed, and the defect is core's.** The failing ratios are defects in the **approved mockup** — a core-authored artifact. *"The mockup is design authority for direction and anatomy, never for a failing measurement. Accessibility is not a deviation from the design; inaccessibility is."* Lighten the three state foregrounds until each clears 4.5:1 on its muted background, hue preserved, brand untouched; backgrounds may darken slightly at delivery's judgment, measurements reported. |
+| **Token law** | **State text at chip size clears WCAG AA 4.5:1, measured in CI, or the token does not ship.** *The verdict a user most needs to read must never be the faintest.* |
+| **The digest cursor** | **Amended.** Delivery resolved a real spec conflict *in the more austere direction than R055 requires*: §3 mandates copy-on-click **and** permits "minimal inline JS", and delivery dropped the feature to keep zero JS. Copy-on-click **returns as progressive enhancement** — the same inline script attaches the handler and adds the class that enables `cursor:copy`, so **the affordance and the capability arrive in the same instant or not at all** and V8(f) is satisfied structurally. |
+| No design-study banner; tabs as links | **Both correct.** *The banner marks studies; its absence marks the product.* Server-rendered navigation is the architecture, not a fallback. |
+| The seal migration | **Closed.** Seven caught and cleared, *"one more than Forward 005's census predicted, which is the positive check out-reading its own advertisement."* The R049 supersession is fully discharged. |
+| Colourblind numbers; `asserted`/`measured` | **Both approved.** *A passing check whose numbers nobody sees cannot be audited* — ΔE 15.6 brand-vs-state under deuteranopia is a recorded baseline, and a change that shrinks it must say so. Type the classification words once, import them everywhere, including in the seal check. |
+| **Core's own producer obligation** | **Effective immediately:** every core→delivery communication carries either a response number or the explicit marker `(unnumbered acknowledgment — cite by date)`. *A source that is easy to cite wrongly shares the fault with the citer.* The citation defect had two parents. |
+
+### Programme law — a route's first honest test is a request, not an import
+
+R057 §4, generalising F-A. `banner_for` read an enforcer table from the draft store and
+every shell route raised `no such table` on a fresh install; **no library-level test saw
+it**, because a library call happens on the calling thread and a route happens on a
+threadpool thread, against whatever connection the app actually holds.
+
+The served-app smoke test over *every* route exists for this shape. Keep it merciless.
+
+### Programme law — a checker must parse the language it checks, not the prose around it
+
+R057 §4, from delivery's own second defect. The strengthened seal check condemned
+`.store-warning` — the advisory panel R056 §2 names as the thing that must **not** fire —
+because it read the explanatory comment above the rule as part of the selector.
+
+**A check that reads comments condemns the code that documents itself best.** Fix
+pattern: strip comments or use a real tokenizer; never regex over raw text.
+
+### Programme law — a correction to received data is a new artifact that cites it
+
+E10's two-discipline, arriving at a design system. Core's mockup carried a measured
+defect, and the fix is recorded in `studio/tokens.CORRECTIONS` **beside** the vendored
+block rather than edited **into** it. The block keeps its bytes and its digest; each
+correction carries the measurement that forced it and the ruling that approved it.
+
+Editing the block would have been quicker and would have destroyed the one property that
+makes the palette auditable — that it can still be compared with what core approved.
+
 ### Resolved by Response 056 (2026-08-28) — the R049 §3 conflict
 
 | Was | Ruling |
@@ -829,7 +869,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 056 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 057 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

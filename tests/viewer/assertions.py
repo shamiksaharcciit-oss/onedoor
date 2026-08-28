@@ -190,12 +190,19 @@ def _state_words() -> frozenset[str]:
     return frozenset(words)
 
 
-#: Classification words that partition a list into KINDS a reader must not confuse.
-#: Hand-declared, unlike the state words, because no enumeration declares them: the
-#: skins spell `asserted`/`measured` as literal class names. That seam is reported to
-#: core rather than papered over -- a vocabulary half-derived and half-typed is exactly
-#: the shape that goes stale on the typed half.
-CLASSIFICATION_WORDS = frozenset({"asserted", "measured", "uncovered", "covered", "inert"})
+def _classification_words() -> frozenset[str]:
+    """Words that partition a list into KINDS a reader must not confuse.
+
+    Read from `studio.proposer.KINDS` since R057 §6 promoted them out of the skin. The
+    seam this closes was real and was reported rather than papered over: the state words
+    came from an enumeration and these two were typed, so half the vocabulary could go
+    stale while the other half kept itself current -- and the stale half would still
+    report green.
+    """
+    from onedoor.studio import proposer as proposer_model
+
+    return frozenset({*proposer_model.KINDS, "uncovered", "covered", "inert"})
+
 
 _SELECTOR_WORD = re.compile(r"[a-z][a-z_-]*")
 _RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
@@ -218,7 +225,7 @@ def seal_state_violations(html: str) -> list[tuple[str, str]]:
 
     Returns `(selector, declaration)` pairs so a caller can report them BY NAME.
     """
-    vocabulary = _state_words() | VERDICT_WORDS | CLASSIFICATION_WORDS
+    vocabulary = _state_words() | VERDICT_WORDS | _classification_words()
     found: list[tuple[str, str]] = []
     # Comments are stripped FIRST. Without this, a rule inherits every word from the
     # comment above it -- which is how the first run of this check reported

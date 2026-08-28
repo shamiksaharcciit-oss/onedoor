@@ -60,12 +60,20 @@ one static file. R055 V1 asks for the F-A regression against *"every new route"*
 routes, server-side — and the Studio has held a no-JavaScript line since F-G. Same
 design, delivered by the transport this app has.
 
-**No `cursor:copy` on digests.** The note asks for `first-8…last-4` *"with
-copy-on-click, full on hover"*. Two of three are free: truncation is arithmetic, and
-the full value goes in `title` and `data-digest`. Copy-on-click needs JavaScript, and
-this app runs none — so the cursor is not emitted. **V8(f) one layer down: a cursor
-that says *copy* over an element that cannot copy is an overclaim rendered in CSS.**
-*An affordance is a promise; do not render the promise before the thing.*
+**No `cursor:copy` on digests — ~~and this one was wrong~~, amended by R057 §2.**
+V1 argued that copy-on-click needs JavaScript, that the app runs none, and that a cursor
+promising a copy it cannot perform is an overclaim rendered in CSS. The second and third
+clauses hold. **The first premise did not:** R055 §3 permits *"minimal inline JS"* in the
+same breath as it mandates copy-on-click, so V1 dropped a required affordance to keep a
+rule core had never made — and did it by reasoning from the Studio's habit rather than
+from the ruling's words. *The summary-vs-source law, met from a new direction: the habit
+was real, and it was not the authority.*
+
+The affordance is now progressive enhancement, and the V8(f) point survives intact
+because it moved into the mechanism: `COPY_SCRIPT` adds `copyable` in the same loop body
+that attaches the handler, and returns early where no clipboard exists. Nothing the
+server emits carries the class. *An affordance is a promise; the promise and the thing
+must be one act.*
 
 An unbuilt tab is not a link either, for the same reason — it renders as text naming
 the stage that builds it. `shell.TABS` is the only place that knowledge lives, so the
@@ -166,49 +174,83 @@ grandfather clause R056 removed.
 
 ---
 
+## Ruled by R057 — what changed
+
+**Q1 approved, and the defect is core's.** The failing ratios are defects in the
+approved mockup; *"accessibility is not a deviation from the design; inaccessibility
+is."* The three state foregrounds are corrected — **and the correction is recorded
+beside the vendored block, never edited into it**, so the palette the Studio renders can
+still be diffed against the palette core approved. Each entry in `tokens.CORRECTIONS`
+carries the measurement that forced it.
+
+| token | mockup | corrected | on its chip |
+|---|---|---|---|
+| `--allow` | `#4f9e6b` | `#53a670` | 4.18 → **4.58:1** |
+| `--review` | `#d07f3c` | `#d18240` | 4.45 → **4.58:1** |
+| `--refuse` | `#c05548` | `#cc766b` | 3.33 → **4.58:1** |
+
+Hue and saturation held (all three drift under 0.4°); backgrounds and brand untouched.
+Target was 4.55 rather than 4.50 so a rounding difference in any checker cannot flip a
+passing build.
+
+**What the correction cost, disclosed per R057 §6.** The V1 ΔE floor of 15.0 does not
+survive, and no choice of hex would have saved it — `--refuse` failed AA *because* it
+was dark, and any red light enough to read converges with `--review` under tritanopia
+and `--allow` under deuteranopia. Four searches were run (foreground-only, background
+darkening, joint, saturation-free); the best reached 13.8, still under the floor and
+only by darkening the refusal chip until it vanished into the page ground.
+
+| pair | mockup | corrected |
+|---|---|---|
+| `--review` / `--refuse`, tritanopia | 15.1 | **2.5** |
+| `--allow` / `--refuse`, deuteranopia | 18.0 | **6.5** |
+
+**The floor is replaced rather than lowered.** Contrast decides whether a person can
+read the word; ΔE decides whether they can tell two colours apart *when colour is the
+only signal* — and colour is not the only signal here. `shell.chip()` renders a colour
+**and a word**, always, and `test_no_state_is_signalled_by_colour_alone` holds that as a
+property. That is what WCAG 1.4.1 actually requires and what a ΔE floor was only ever a
+proxy for. Under normal vision a floor still binds (24.0, measured minimum 27.9), and
+the dichromat matrix prints in CI so a future shrink shows up in a log rather than in
+silence.
+
+**A second gap, found by the same check and NOT fixed:** `--faint` on `--ground` is
+**2.96:1**, below AA. It styles uppercase table headers at `.7rem/600`. Left uncorrected
+because it was outside Q1's approved scope — *a token quietly widened past its ruling is
+the drift the corrections layer exists to prevent* — and asserted in the failing
+direction so that fixing it forces the exception to be deleted. **Asked as Q4 below.**
+
+**The cursor, amended.** R057 §2 is right and delivery's read was too austere: R055 §3
+mandates copy-on-click *and* permits "minimal inline JS", and V1 dropped a mandated
+affordance to keep a rule core had not made. Copy-on-click returns as progressive
+enhancement — `shell.COPY_SCRIPT` adds `copyable` in the same loop body that attaches
+the handler, and returns early where no clipboard API exists, so **the cursor cannot
+appear over an element that will not copy**. Nothing the server emits carries the class.
+With scripting off the page is exactly what V1 shipped. Not escalated; implemented.
+
+**`asserted`/`measured` promoted** to `studio.proposer.KINDS`, used by the skin and read
+by the seal check, which no longer types any part of its vocabulary.
+
 ## Questions for core
 
-**Q1 — the state chips fail WCAG AA, measured.** The approved palette's chip colours on
-their own chip backgrounds, at the mockup's `font-size:.72rem; font-weight:600` (~11.5px
-bold — **not** WCAG "large text", so 4.5:1 applies):
+**Q1, Q2 and Q3 are closed by R057.** Their outcomes are recorded above.
 
-| | measured | AA |
-|---|---|---|
-| `--allow` on `--allow-bg` | **4.18:1** | fails |
-| `--review` on `--review-bg` | **4.45:1** | fails |
-| `--refuse` on `--refuse-bg` | **3.33:1** | fails |
-| `--refuse` on `--ground` | **3.92:1** | fails |
-| `--faint` on `--ground` | **2.96:1** | fails (table headers) |
+**Q4 — `--faint` fails AA too, and was left alone deliberately.** The contrast check
+that R057 §5 put into CI found a second failure outside Q1's scope: `--faint` on
+`--ground` is **2.96:1**, and it styles the uppercase table headers V2 is about to
+render at `.7rem/600`. It is not a state colour, so the new token law does not reach it,
+and correcting it under Q1's approval would be **widening a ruling past what was asked**
+— the drift the corrections layer exists to prevent.
 
-The refusal chip is the worst of them, which is the wrong one to lose. Deviating from
-the approved palette is an escalation, so this is asked rather than fixed. **Proposal:**
-lighten the three state foregrounds until each clears 4.5:1 on its own background,
-leaving hue and the brand tokens untouched — the ledger-room look is carried by the
-ground and the gold, not by the chip's exact lightness. V1 does not depend on the
-answer; **V2 is the first stage that renders a chip.**
+Proposal: lighten `--faint` to clear 4.5:1 on `--ground` (it needs roughly `#7f715f`),
+hue held, as a second entry in `CORRECTIONS` citing this ruling. It is a header colour;
+nothing about the ledger-room look depends on it being the faintest possible.
 
-**Q2 — the palette survives a colourblind check; here are the numbers.** The note asks
-for state colours "colorblind-checked", so they were, under Viénot 1999 (CIE76 ΔE):
+Meanwhile `test_chrome_text_clears_aa_and_the_one_gap_is_named` asserts the gap **in the
+failing direction** — it fails if `--faint` ever starts passing — so whoever fixes it is
+forced to delete the exception rather than leave a stale carve-out behind.
 
-| pair | normal | protan | deutan | tritan |
-|---|---|---|---|---|
-| `--gold` / `--review` | 28.7 | 22.6 | **15.6** | 18.2 |
-| `--review` / `--refuse` | 27.8 | 26.8 | 20.8 | **15.1** |
-| `--allow` / `--refuse` | 79.3 | 19.1 | 18.0 | 70.2 |
-
-Nothing collapses. The tightest pair is **brand-vs-state under deuteranopia** — exactly
-the boundary §4 draws — so it is the one under a test floor (15.0, the measured value
-rounded down). Reported because a passing check nobody sees the numbers of is a passing
-check nobody can audit. **No action requested.**
-
-**Q3 — a hand-typed word in a derived vocabulary.** The strengthened check derives its
-state vocabulary from `studio.coverage`'s enumerations, so it cannot go stale. It cannot
-do that for `asserted`/`measured`: those are literal class names in
-`viewer/proposal.py`, declared nowhere, and R056 §4 requires `section.asserted`
-migrated — so the check needed one hand-declared entry. **A vocabulary half-derived and
-half-typed goes stale on the typed half.** Proposal: promote `asserted`/`measured` to
-declared constants in `studio.proposer` so the check reads them like the rest. Small,
-additive, and not urgent.
+**V2 does not block on this.** The headers render either way; only their hex changes.
 
 **Transitional state, noted rather than hidden:** `/` and `/draft/{id}` still wear the
 oneview canvas skin and do not show the shell chrome; V5 restyles them. So the tab bar

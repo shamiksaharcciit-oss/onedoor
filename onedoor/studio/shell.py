@@ -23,19 +23,30 @@ build it named, so an operator meets the truth rather than a dead link. `TABS` i
 single place that knowledge lives; a screen becomes reachable by flipping one flag,
 which is why the flag is not duplicated into a template.
 
-## The digest affordance, and the thing it deliberately does not claim
+## The digest affordance, and how the promise stays tied to the capability
 
 The design note asks for digests rendered `first-8…last-4`, *"with copy-on-click, full
-on hover."* Two of those three are free: the truncation is arithmetic and the full
-value goes in `title`. **Copy-on-click needs JavaScript, and this app does not run
-any** — so the `cursor:copy` the mockup declares is not emitted here.
+on hover."* Truncation is arithmetic and the full value goes in `title`; copy-on-click
+needs JavaScript.
 
-That is V8(f) again, one layer down. A cursor that says *copy* over an element that
-cannot copy is an overclaim rendered in CSS: it costs one character to write and it
-teaches the operator that clicking does something, which it does not. The full digest
-is on hover and selectable, and when a copy control that works arrives, the cursor
-arrives with it. *An affordance is a promise; do not render the promise before the
-thing.*
+V1 first dropped the feature to keep the page script-free. **That was stricter than the
+ruling and cost a mandated affordance** — R055 §3 permits *"minimal inline JS, matching
+the current architecture"*, and R057 §2 restored copy-on-click as **progressive
+enhancement**.
+
+The shape is the point. `cursor:copy` lives on `.digest.copyable`, and **nothing in the
+served HTML carries that class**: the inline script adds it in the same statement that
+attaches the click handler, and only after checking the clipboard API is actually
+there. So the cursor and the capability arrive in the same instant or not at all, and
+V8(f) is satisfied *structurally* rather than by anyone remembering. With scripting off,
+the page is exactly what V1 shipped — a digest, truncated, complete on hover.
+
+*An affordance is a promise; the promise and the thing must be one act.*
+
+The clipboard API needs a secure context, and `http://127.0.0.1` is one — localhost is
+potentially-trustworthy by specification. The guard is still checked rather than assumed,
+because an operator who reaches the Studio through a tunnel under some other origin
+would otherwise get a cursor over a function that throws.
 """
 
 from __future__ import annotations
@@ -141,8 +152,9 @@ def short_digest(digest: str | None) -> str:
 def digest_html(digest: str | None, *, css_class: str = "digest") -> str:
     """A digest, truncated for reading and complete for checking.
 
-    The full value is in `title` (hover) and in `data-digest` (a copy control's future
-    handle, and a test's present one). No `cursor:copy` — see the module docstring.
+    The full value is in `title` (hover) and in `data-digest`, which is both the copy
+    handler's handle and the test's. The `copyable` class is **not** emitted here — see
+    the module docstring: the script that can copy is the thing that grants the cursor.
     """
     if not digest:
         return f'<span class="{css_class} absent">{escape(NOTHING_IN_FORCE)}</span>'
@@ -150,6 +162,31 @@ def digest_html(digest: str | None, *, css_class: str = "digest") -> str:
         f'<span class="{css_class}" title="{escape(digest)}" data-digest="{escape(digest)}">'
         f"{escape(short_digest(digest))}</span>"
     )
+
+
+#: The verdict words, which are what actually makes a state readable to someone who
+#: cannot distinguish the colours. See `chip`.
+STATE_WORDS = {"allow": "allowed", "review": "review", "refuse": "refused"}
+
+
+def chip(state: str, label: str | None = None) -> str:
+    """A state chip: a colour **and** a word, never a colour alone.
+
+    This is the design system's answer to what the contrast correction cost. Lightening
+    `--refuse` far enough to be readable (R057 §5) pushed it toward `--review` under
+    tritanopia and toward `--allow` under deuteranopia — measured, disclosed, and not
+    fixable by any choice of hex, because the darkness that separated it *was* the
+    thing that failed the contrast requirement.
+
+    Colour therefore carries no state on its own anywhere in this Studio. It is
+    redundant coding over a word, which is what WCAG 1.4.1 asks for and what a
+    delta-E floor was only ever a proxy for. `test_no_state_is_signalled_by_colour_alone`
+    holds it as a property, so the guarantee does not depend on the palette staying
+    lucky.
+    """
+    if state not in STATE_WORDS:
+        raise ValueError(f"{state!r} is not one of {sorted(STATE_WORDS)}")
+    return f'<span class="chip c-{state}">{escape(label or STATE_WORDS[state])}</span>'
 
 
 def _count(n: int, singular: str, plural: str) -> str:
@@ -256,6 +293,15 @@ h3{font-family:var(--serif);font-weight:400;font-size:1.12rem;margin:0 0 .6rem}
 .digest{font-family:var(--mono);font-size:.82rem;color:var(--dim)}
 .empty{border:1px dashed var(--line);border-radius:8px;padding:1rem 1.2rem;
   color:var(--faint);font-size:.88rem;font-style:italic}
+.chip{display:inline-block;padding:.13rem .55rem;border-radius:999px;font-size:.72rem;
+  font-weight:600;letter-spacing:.05em}
+.c-allow{background:var(--allow-bg);color:var(--allow)}
+.c-review{background:var(--review-bg);color:var(--review)}
+.c-refuse{background:var(--refuse-bg);color:var(--refuse)}
+/* The cursor is granted by the script, never by the server. Nothing the server emits
+   carries `copyable`, so a page with scripting off promises nothing it cannot do. */
+.digest.copyable{cursor:copy}
+.digest.copied{color:var(--ink)}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """
@@ -275,6 +321,36 @@ party when an operator opens their policy console. The token stacks name real
 fallbacks (`Georgia`, `system-ui`, `Consolas`), so the page renders in the intended
 shapes without asking anyone's permission. `test_studio_pages_reference_no_external_
 origin` fails if this ever gets emitted.
+"""
+
+
+COPY_SCRIPT = (
+    "(function(){"
+    "if(!navigator.clipboard)return;"
+    "for(const el of document.querySelectorAll('[data-digest]')){"
+    "el.classList.add('copyable');"
+    "el.addEventListener('click',function(){"
+    "navigator.clipboard.writeText(el.dataset.digest).then(function(){"
+    "el.classList.add('copied');"
+    "setTimeout(function(){el.classList.remove('copied')},1200)"
+    "})"
+    "})"
+    "}"
+    "})();"
+)
+"""Copy-on-click, as progressive enhancement (R057 §2).
+
+Inline, tiny, and it touches nothing but elements the server already marked with
+`data-digest`. Two properties are load-bearing and are tested rather than trusted:
+
+1. **`copyable` is added in the same loop that attaches the handler**, so the cursor
+   cannot appear over an element that will not copy.
+2. **The whole thing returns early without a clipboard API**, so no cursor appears in a
+   context where the call would throw.
+
+It fetches nothing, stores nothing, and reads nothing but its own page — the header
+promises that nothing leaves this machine, and a script is the most obvious way to
+break that promise, so this one is short enough to read in full.
 """
 
 
@@ -298,5 +374,6 @@ def render(
         f"{header_html(banner)}{nav_html(active)}"
         f"<main>{body}</main>"
         f"<footer>{escape(LOOPBACK_LINE)}</footer>"
+        f"<script>{COPY_SCRIPT}</script>"
         "</body></html>"
     )

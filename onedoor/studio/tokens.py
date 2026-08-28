@@ -58,6 +58,35 @@ SOURCE = "https://claude.ai/code/artifact/ee38c587-7761-4773-881a-764d21c0abdc"
 _DECL = re.compile(r"(--[a-z0-9-]+)\s*:\s*([^;]+);")
 _HEX = re.compile(r"^#[0-9a-f]{6}$")
 
+#: Core's own artifact carried a measured defect, so the fix is recorded HERE rather
+#: than edited INTO the vendored block. The block stays byte-identical to the mockup and
+#: keeps its digest; the corrections are generated data beside it, each with the
+#: measurement that forced it and the ruling that approved it.
+#:
+#: E10's two-discipline, arriving at a design system: **received bytes are never
+#: rewritten, and a correction to received data is a new artifact that cites it.**
+#: Editing the block would have been quicker and would have destroyed the one thing that
+#: makes the palette auditable -- that it can still be compared to what core approved.
+#:
+#: R057 §5: *"the mockup is design authority for direction and anatomy, never for a
+#: failing measurement. Accessibility is not a deviation from the design;
+#: inaccessibility is."*
+CORRECTIONS = {
+    "--allow": ("#53a670", "4.18:1 on --allow-bg; WCAG AA needs 4.5:1 at chip size"),
+    "--review": ("#d18240", "4.45:1 on --review-bg; WCAG AA needs 4.5:1 at chip size"),
+    "--refuse": (
+        "#cc766b",
+        "3.33:1 on --refuse-bg -- the worst of the three, and the "
+        "verdict a reader most needs to see",
+    ),
+}
+"""`{token: (corrected value, the measurement that forced it)}` — R057 §5.
+
+Hue and saturation are held; only lightness moves, and only as far as 4.55:1 (a hair
+over the 4.5:1 requirement, so a rounding difference in any checker cannot flip a
+passing build). Backgrounds and brand tokens are untouched.
+"""
+
 STATE_TOKENS = ("--allow", "--review", "--refuse")
 """The semantic triple. These three, and only these three, may carry a verdict."""
 
@@ -94,9 +123,24 @@ def css_block() -> str:
 
 
 @lru_cache(maxsize=1)
-def declarations() -> dict[str, str]:
-    """`{token: value}` for every custom property in the block, colours and stacks."""
+def mockup_declarations() -> dict[str, str]:
+    """`{token: value}` exactly as the approved mockup declares them, uncorrected.
+
+    Kept reachable so the corrections can be *diffed against their source* rather than
+    merely asserted. A correction nobody can compare to what it corrected is a value
+    with a story attached, not a provenance.
+    """
     return {name: value.strip() for name, value in _DECL.findall(css_block())}
+
+
+@lru_cache(maxsize=1)
+def declarations() -> dict[str, str]:
+    """The palette the Studio actually renders: the mockup's, with R057 §5 applied."""
+    values = dict(mockup_declarations())
+    for token, (corrected, _why) in CORRECTIONS.items():
+        assert token in values, f"correcting {token}, which the mockup does not declare"
+        values[token] = corrected
+    return values
 
 
 def palette() -> dict[str, str]:

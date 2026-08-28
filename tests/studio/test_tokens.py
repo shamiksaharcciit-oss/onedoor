@@ -1,29 +1,29 @@
-"""The Studio's palette: pinned to its source, and measured rather than trusted.
+"""The Studio's palette: pinned to its source, corrected on the record, measured in CI.
 
-Two kinds of check live here.
+Three kinds of check live here.
 
-**Provenance** — the block is the mockup's bytes, the digest is generated, and a
-changed block fails loudly instead of being absorbed. Same shape as
-`tests/viewer/test_tokens.py` because it is the same discipline: *a design system that
-drifts quietly is the same failure mode as an instrument that drifts quietly.*
+**Provenance** — the vendored block is the mockup's bytes and its digest is generated,
+so a changed block fails loudly instead of being absorbed. *A design system that drifts
+quietly is the same failure mode as an instrument that drifts quietly.*
 
-**Separation** — oneview §4 says seal gold never signals state, and the design note
-says the state colours are "muted, colorblind-checked". Neither is a claim a stylesheet
-can make; both are claims about *perception*, so they are measured. The floors below
-are the **measured values rounded down**, not thresholds picked to pass: a floor
-invented above what the palette achieves is a test that fails on arrival, and one
-invented far below it is a test that would not notice the palette going wrong.
+**Correction** — core's approved mockup carried a measured accessibility defect (R057
+§5). The fix is recorded *beside* the received data rather than edited *into* it, so the
+palette the Studio renders can still be diffed against the palette core approved.
+
+**Measurement** — "seal gold never signals state" and "muted, colorblind-checked" are
+claims about perception, not about a stylesheet, so they are measured and the numbers
+are printed. R057 §6: *a passing check whose numbers nobody sees cannot be audited.*
 """
 
 from __future__ import annotations
 
 import hashlib
-import math
 import re
 
 import pytest
 
 from onedoor.studio import shell, tokens
+from tests.viewer import colour
 
 # --- Provenance ---------------------------------------------------------------------
 
@@ -82,89 +82,188 @@ def test_the_emitted_css_carries_every_declaration() -> None:
         assert f"{name}:{value};" in css
 
 
-# --- Separation, measured -------------------------------------------------------------
+# --- The corrections layer (R057 §5) --------------------------------------------------
 
 
-def _linear(hex_colour: str) -> tuple[float, float, float]:
-    channels = [int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
-    return tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels)
+def test_the_vendored_block_still_holds_the_mockups_own_failing_values() -> None:
+    """The correction is recorded beside the received data, never edited into it.
+
+    E10's two-discipline arriving at a design system: **a correction to received data is
+    a new artifact that cites it.** Editing the block would have been quicker and would
+    have destroyed the only thing that makes the palette auditable — that it can still
+    be compared with what core approved.
+    """
+    mockup = tokens.mockup_declarations()
+    assert mockup["--refuse"] == "#c05548"
+    assert mockup["--allow"] == "#4f9e6b"
+    assert mockup["--review"] == "#d07f3c"
+    for token, (corrected, _why) in tokens.CORRECTIONS.items():
+        assert mockup[token] != corrected, f"{token} is listed as corrected and is unchanged"
 
 
-def _lab(hex_colour: str) -> tuple[float, float, float]:
-    r, g, b = _linear(hex_colour)
-    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
-    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
-
-    def f(t: float) -> float:
-        return t ** (1 / 3) if t > 216 / 24389 else (841 / 108) * t + 4 / 29
-
-    fx, fy, fz = f(x), f(y), f(z)
-    return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+def test_every_correction_says_which_measurement_forced_it() -> None:
+    """A value with a story attached is not a provenance; a value with a number is."""
+    for token, (_value, why) in tokens.CORRECTIONS.items():
+        assert re.search(r"\d\.\d+:1", why), f"{token}'s reason cites no measurement: {why!r}"
 
 
-def _delta_e(a: str, b: str) -> float:
-    """CIE76. Coarse, and coarse is the right instrument for a floor."""
-    return math.sqrt(sum((x - y) ** 2 for x, y in zip(_lab(a), _lab(b), strict=True)))
+def test_corrections_move_lightness_only() -> None:
+    """R057 §5 approved lightening with hue preserved.
+
+    Saturation is held too: the correction should be the smallest thing that makes the
+    text readable, and a saturation change is a different design decision wearing an
+    accessibility hat.
+    """
+    mockup = tokens.mockup_declarations()
+    for token, (corrected, _why) in tokens.CORRECTIONS.items():
+        was_h, was_l, was_s = colour.hsl(mockup[token])
+        now_h, now_l, now_s = colour.hsl(corrected)
+        assert abs(now_h - was_h) < 1.0, f"{token} hue moved {abs(now_h - was_h):.1f} degrees"
+        assert abs(now_s - was_s) < 0.02, f"{token} saturation moved"
+        assert now_l > was_l, f"{token} did not get lighter"
 
 
-# Vienot/Brettel/Mollon 1999, the sRGB-space dichromat matrices.
-_SIMULATIONS = {
-    "protanopia": ((0.11238, 0.88762, 0.0), (0.11238, 0.88762, 0.0), (0.00401, -0.00401, 1.0)),
-    "deuteranopia": ((0.29275, 0.70725, 0.0), (0.29275, 0.70725, 0.0), (-0.02234, 0.02234, 1.0)),
-    "tritanopia": ((1.0, 0.14461, -0.14461), (0.0, 0.85653, 0.14347), (0.0, 0.85653, 0.14347)),
-}
+def test_brand_and_background_tokens_are_untouched() -> None:
+    """The correction is surgical. Everything core got right stays exactly as approved."""
+    mockup = tokens.mockup_declarations()
+    for token, value in tokens.declarations().items():
+        if token in tokens.CORRECTIONS:
+            continue
+        assert value == mockup[token], f"{token} changed and is not a declared correction"
 
 
-def _simulate(hex_colour: str, kind: str) -> str:
-    lin = _linear(hex_colour)
-    matrix = _SIMULATIONS[kind]
-    out = []
-    for row in matrix:
-        v = max(0.0, min(1.0, sum(row[c] * lin[c] for c in range(3))))
-        srgb = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
-        out.append(f"{round(srgb * 255):02x}")
-    return "#" + "".join(out)
+# --- WCAG contrast: core's ruling, measured in CI with its numbers printed -------------
+
+#: R057 §5, recorded as token law: *state text at chip size clears WCAG AA 4.5:1,
+#: measured in CI, or the token does not ship.* The chip is .72rem/600 — about 11.5px
+#: bold, which is NOT WCAG "large text" (18.66px bold), so 4.5:1 applies and not 3:1.
+WCAG_AA_NORMAL_TEXT = 4.5
 
 
-#: Measured on the pinned palette, floored to the next whole number below. The tightest
-#: pair in the whole set is brand-vs-state under deuteranopia (--gold / --review, 15.6),
-#: which is exactly the boundary oneview §4 draws -- so it is the one under a floor.
-MINIMUM_DELTA_E = 15.0
+def test_state_text_clears_wcag_aa_on_its_own_chip(capsys) -> None:
+    """The ruling, enforced. The numbers are printed so the check can be audited."""
+    palette = tokens.palette()
+    mockup = tokens.mockup_declarations()
+    rows, failures = [], []
+    for token in tokens.STATE_TOKENS:
+        fg, bg = palette[token], palette[f"{token}-bg"]
+        ratio = colour.contrast_ratio(fg, bg)
+        was = colour.contrast_ratio(mockup[token], bg)
+        rows.append(f"  {token:<9} {fg} on {bg}  {ratio:5.2f}:1   (mockup was {was:4.2f}:1)")
+        if ratio < WCAG_AA_NORMAL_TEXT:
+            failures.append(f"{token} is {ratio:.2f}:1, below {WCAG_AA_NORMAL_TEXT}:1")
+    with capsys.disabled():
+        print("\nstate text on its chip (WCAG AA needs 4.5:1 at this size):")
+        print("\n".join(rows))
+    assert not failures, "; ".join(failures)
 
 
-@pytest.mark.parametrize("kind", [None, *_SIMULATIONS])
-def test_no_two_signalling_colours_collapse_into_each_other(kind: str | None) -> None:
-    """Brand and the three states stay apart, for normal and dichromatic vision.
+def test_the_contrast_check_can_actually_fail() -> None:
+    """A threshold nothing can fall below is a threshold that measures nothing."""
+    assert colour.contrast_ratio("#c05548", "#38201d") < WCAG_AA_NORMAL_TEXT
+    assert colour.contrast_ratio("#ffffff", "#000000") > WCAG_AA_NORMAL_TEXT
 
-    The design note asks for state colours that are "colorblind-checked". This is that
-    check, run rather than asserted, and run over the brand token too: a review-amber a
-    reader could mistake for the wordmark would break §4 from the other side, without a
-    single line of CSS being wrong.
+
+def test_chrome_text_clears_aa_and_the_one_gap_is_named(capsys) -> None:
+    """The states are not the only text on the page.
+
+    `--faint` is excluded and **named** rather than quietly skipped: it styles uppercase
+    table headers at `.7rem/600` and is the one token that does not clear AA. It is
+    reported to core rather than corrected here, because unlike the state chips it was
+    not inside Q1's approved scope — **a token quietly widened past its ruling is the
+    drift the corrections layer exists to prevent.**
+
+    The assertion runs in the *unexpected* direction on purpose: if `--faint` is ever
+    fixed, this test fails and tells whoever fixed it to delete the exception.
     """
     palette = tokens.palette()
-    names = [*tokens.BRAND_TOKENS[:1], *tokens.STATE_TOKENS]
+    ground = palette["--ground"]
+    rows = []
+    for token in ("--ink", "--dim", "--gold"):
+        ratio = colour.contrast_ratio(palette[token], ground)
+        rows.append(f"  {token:<9} on --ground  {ratio:5.2f}:1")
+        assert ratio >= WCAG_AA_NORMAL_TEXT, f"{token} is {ratio:.2f}:1 on the page ground"
+    faint = colour.contrast_ratio(palette["--faint"], ground)
+    with capsys.disabled():
+        print("\nchrome text on the page ground:")
+        print("\n".join(rows))
+        print(f"  --faint   on --ground  {faint:5.2f}:1   KNOWN GAP, reported to core")
+    assert faint < WCAG_AA_NORMAL_TEXT, (
+        "--faint now clears AA; delete this known-gap branch and assert it like the rest"
+    )
+
+
+# --- Separation: what the contrast fix cost, measured and disclosed --------------------
+
+#: Under NORMAL vision every signalling pair stays far apart. This floor is the measured
+#: minimum (27.9, --review / --refuse) rounded down — it is the floor that still binds
+#: after the contrast correction.
+MINIMUM_DELTA_E_NORMAL = 24.0
+
+
+def test_no_two_signalling_colours_collapse_for_normal_vision(capsys) -> None:
+    palette = tokens.palette()
+    names = ["--gold", *tokens.STATE_TOKENS]
+    rows, worst = [], (99.0, "")
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
-            ca, cb = palette[a], palette[b]
-            if kind is not None:
-                ca, cb = _simulate(ca, kind), _simulate(cb, kind)
-            delta = _delta_e(ca, cb)
-            assert delta >= MINIMUM_DELTA_E, (
-                f"{a} and {b} are {delta:.1f} apart under "
-                f"{kind or 'normal vision'}; the palette must keep them "
-                f"at least {MINIMUM_DELTA_E} apart or a verdict is unreadable"
-            )
+            d = colour.delta_e(palette[a], palette[b])
+            rows.append(f"  {a} / {b:<9} dE {d:5.1f}")
+            worst = min(worst, (d, f"{a}/{b}"))
+    with capsys.disabled():
+        print("\nseparation under normal vision:")
+        print("\n".join(rows))
+    assert worst[0] >= MINIMUM_DELTA_E_NORMAL, f"{worst[1]} collapsed to dE {worst[0]:.1f}"
 
 
-def test_the_separation_check_can_actually_fail() -> None:
-    """A measurement that cannot come out low is not a measurement.
+def test_the_dichromat_numbers_are_printed_even_where_no_floor_binds(capsys) -> None:
+    """**The disclosure R057 §6 requires, and the honest part of this stage.**
 
-    Two colours one step apart must land far under the floor; otherwise the parametrised
-    test above is passing because the metric is flat, not because the palette is good.
+    The 15.0 floor this file carried in V1 does not survive the contrast fix, and no
+    choice of hex would have saved it: `--refuse` failed AA *because* it was dark, and
+    any red light enough to read converges with `--review` under tritanopia and with
+    `--allow` under deuteranopia. Four searches were run — foreground-only, background
+    darkening, joint, and saturation-free — and the best any of them reached was 13.8,
+    still under the old floor and only by making the refusal chip nearly invisible
+    against the page.
+
+    Measured cost at the worst pairs:
+
+    | pair | mockup | corrected |
+    |---|---|---|
+    | `--review` / `--refuse` under tritanopia | 15.1 | **2.5** |
+    | `--allow` / `--refuse` under deuteranopia | 18.0 | **6.5** |
+
+    Contrast was chosen over separation deliberately, and the reasoning is the point.
+    Contrast decides whether a person can **read the word**; delta-E decides whether they
+    can tell two colours apart *when colour is the only signal*. **Colour is not the only
+    signal here** — every chip carries its verdict as text, which is what WCAG 1.4.1
+    actually requires, and `test_no_state_is_signalled_by_colour_alone` enforces that as
+    a property rather than leaving it to a number that cannot be met.
+
+    So there is no dichromat floor. There is a printed matrix, so a future token change
+    that shrinks these further shows up in a CI log rather than passing in silence.
     """
-    assert _delta_e("#c9a227", "#c9a228") < 1.0
-    assert _delta_e("#1c1713", "#e8ddcc") > MINIMUM_DELTA_E
+    palette = tokens.palette()
+    mockup = tokens.mockup_declarations()
+    names = ["--gold", *tokens.STATE_TOKENS]
+    with capsys.disabled():
+        print("\nseparation under dichromatic vision — dE now [mockup]:")
+        print(f"  {'pair':<24}" + "".join(f"{k:>18}" for k in colour.SIMULATIONS))
+        for i, a in enumerate(names):
+            for b in names[i + 1 :]:
+                cells = []
+                for kind in colour.SIMULATIONS:
+                    now = colour.delta_e(
+                        colour.simulate(palette[a], kind), colour.simulate(palette[b], kind)
+                    )
+                    was = colour.delta_e(
+                        colour.simulate(mockup[a], kind), colour.simulate(mockup[b], kind)
+                    )
+                    cells.append(f"{now:6.1f} [{was:5.1f}]")
+                print(f"  {a + ' / ' + b:<24}" + "".join(f"{c:>18}" for c in cells))
+        print("  no floor binds here: colour is redundant coding, the chip carries its word")
+    assert palette["--gold"] == mockup["--gold"], "brand must not have moved"
 
 
 # --- The rule oneview §4 states, applied to the shell ----------------------------------
@@ -187,10 +286,6 @@ def test_gold_is_never_used_where_a_state_word_is_used() -> None:
     state. The seal region is hunted for verdict vocabulary rather than for gold itself,
     because a check that outlawed gold anywhere dynamic would teach people to route
     around it."""
-    state_words = ("allow", "deny", "denied", "refuse", "refused", "permit", "permitted", "review")
-    for rule in shell.css().split("}"):
-        if "var(--gold" not in rule:
-            continue
-        selector = rule.split("{")[0].lower()
-        hits = [w for w in state_words if re.search(rf"\b{w}\b", selector)]
-        assert not hits, f"gold carries state in `{selector.strip()}`: {hits}"
+    from tests.viewer.assertions import seal_state_violations
+
+    assert seal_state_violations(shell.css()) == []
