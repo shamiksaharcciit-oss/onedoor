@@ -43,6 +43,21 @@ operation and it landed in a cell meant for the other register. Removed — and 
 value is deliberately not repeated here, because a hand-typed digest in a ledger is
 the very thing the rule forbids, even when it is quoted as an example of the mistake.
 
+## A correction, recorded here because the archive is immutable
+
+`ed58070`'s message quotes the tests gate as **"1168 passed, 9 skipped"**. The gate run it
+describes reported **1169 passed, 9 skipped** — `R065` arriving added one more case to
+`test_memo_integrity`, which is parametrised per archived memo, and the message carried
+the previous stage's number.
+
+Recorded rather than amended: the memo archive and the commits that describe it are both
+append-only here, and *a verification claim about a gate must come from the gate's own
+commands, verbatim* (R010). A number transcribed from the last run instead of read from
+this one is that rule broken in miniature, and it is the same class as X-11's
+digest-generated-never-transcribed.
+
+The gate itself was green on all four; only the transcription was wrong.
+
 <!-- BEGIN GENERATED digests: python -m scripts.verify_memo --table docs/from_core/*.md -->
 | Memo | Body digest (`Integrity:` register) |
 |---|---|
