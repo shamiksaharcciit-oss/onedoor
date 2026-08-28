@@ -189,14 +189,15 @@ def test_a_tab_whose_screen_is_not_built_is_not_a_link() -> None:
 
 def test_an_unbuilt_tab_names_the_stage_that_builds_it() -> None:
     """Greying something out says "not for you". Naming the stage says "not yet"."""
-    html = shell.nav_html("drafts")
-    unbuilt = [tab for tab in shell.TABS if not tab.built]
-    assert unbuilt, "every tab is built; this test has nothing left to guard — delete it"
-    for tab in unbuilt:
-        # Read from TABS rather than naming a stage: hard-coding "V3" made this test
-        # fail when History was built, which is a test breaking on success.
-        assert f'title="not built yet — {tab.stage}"' in html
+    # Every tab is built as of V8, so the live nav has no unbuilt entry to inspect. The
+    # rendering is exercised against a synthetic tab instead: the guard has to survive
+    # the day it has nothing real to guard, or it quietly stops guarding whoever adds
+    # the next screen.
+    synthetic = shell.Tab("later", "Later", "/later", False, "V99")
+    html = shell.nav_html("drafts", tabs=(*shell.TABS, synthetic))
+    assert 'title="not built yet — V99"' in html
     assert "aria-disabled" in html
+    assert 'href="/later"' not in html
 
 
 def test_the_active_tab_is_marked_for_a_screen_reader_too() -> None:
@@ -253,7 +254,8 @@ def test_the_loopback_promise_in_the_header_is_one_the_binder_keeps() -> None:
 
 
 def test_an_unbuilt_section_body_says_nothing_is_hidden() -> None:
-    tab = next(t for t in shell.TABS if not t.built)
+    """Also exercised against a synthetic tab: see the note above."""
+    tab = shell.Tab("later", "Later", "/later", False, "V99")
     body = shell.unbuilt_html(tab)
     assert "not built yet" in body
     assert tab.stage in body

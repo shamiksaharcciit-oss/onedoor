@@ -647,6 +647,44 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 063 (2026-08-28) — V7, and the last stage
+
+| Was | Ruling |
+|---|---|
+| V7 | **Accepted.** 1135 passed, four gates green, CI green on both jobs. |
+| One parser | *"They can't drift because there's nothing to drift between."* And the defect an hour later is **the whole discipline in miniature: a claim of impossibility is a test, or it is a boast.** Rendering the dumped values makes the canonical form the display form — *the same doctrine ND-054 will complete for decimals.* |
+| The fence check's irony | **The purest instance yet of checker-parses-prose: it punished the code for explaining itself.** Three exhibits now — CSS comments, this docstring, the ticket-quote line wrap. *The law needs no strengthening; it needs application at every new checker's birth.* |
+| The ND-054 note | **Ratified as the house pattern for every frozen defect.** Forbidden words held as a test **plus** the wording pinned to what the ticket measured: *a note that describes today is pinned to today by a test, or it drifts into tomorrow one edit at a time.* |
+| The declared subset | **Canon, verbatim:** *a partial editor that writes a whole object deletes what it never displayed.* And the second half matters as much: **an editor that silently edits a subset teaches its user a false schema.** |
+| Q8 | **Conducted exactly as ruled.** The reach-CI verification is *"the run above is how I know" applied to reporting itself* — a reporting move that quietly stopped reporting would have defeated its own purpose. *Two green runs is indeed not yet a healthy number.* |
+| V8 | The deposition page is **the screen built for a stranger** — assume its reader distrusts the operator, the vendor, and the page. *It should read like the exhibit it will one day be.* The universal pass is **where per-screen discipline either generalizes or gets caught pretending.** |
+
+### Programme law — a claim of impossibility is a test, or it is a boast
+
+R063 §1. The editor claimed its two panes could not disagree, and they disagreed within
+the hour — caught only because the claim had been written down as an assertion that could
+fail. **Any design whose value rests on something being impossible owes a test that would
+notice if it were not.**
+
+### Programme law — a checker is written at the moment its law is most easily broken
+
+R063 §2. The fence check condemned the module for the docstring documenting the fence.
+Three exhibits, one shape. **Apply the parse-the-language-you-check law at every new
+checker's birth**, not after it accuses something.
+
+### Programme law — a note about today is pinned to today by a test
+
+R063 §3, the house pattern for any UI text describing a known frozen defect. Two tests:
+one forbidding the words that hedge toward a fix, one pinning the wording to the
+measurement the frozen ticket recorded. **Otherwise it drifts into tomorrow one edit at a
+time.**
+
+### Programme law — a screen built for a stranger assumes the stranger distrusts it
+
+R063 §6. Everything the deposition page asserts must be checkable by a reader who trusts
+neither the operator, the vendor, nor the page: **commands they can run, digests they can
+recompute, outcomes in the three-outcome vocabulary.**
+
 ### Resolved by Response 062 (2026-08-28) — V6, and the Q8 ruling
 
 | Was | Ruling |
@@ -1085,7 +1123,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 062 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 063 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

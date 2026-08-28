@@ -22,8 +22,10 @@ from onedoor.studio import (
     reevaluate,
     shell,
     validate,
+    verify,
 )
 from onedoor.studio import coverage as coverage_model
+from onedoor.viewer import canvas as canvas_skin
 
 COVERAGE_WORDS = {
     coverage_model.COVERED: ("covered", "the ledger has seen this action"),
@@ -511,16 +513,32 @@ def _honesty_footnote() -> str:
     return f'<p class="note honesty">{escape(validate.INCOMPLETE_NOTICE)}</p>'
 
 
-def drafts_body(listing: list[Any], active_version: str | None) -> str:
-    """S3 index: the drafts, and the form that makes one."""
+def drafts_body(
+    listing: list[Any], active_version: str | None, active_policies: int | None = None
+) -> str:
+    """S3 index: the drafts, and the form that makes one.
+
+    Carries F-H's empty-store warning, which shipped in `0.6.2` on the old `/` page.
+    When V5 moved Drafts to `/drafts` the warning stayed behind on a page nothing linked
+    to — **a shipped fix quietly stranded by a redesign.** Caught by V8's universal pass;
+    it lives here now, on the page the operator actually reaches.
+    """
     head = '<h2>Drafts</h2><div class="rulebar"></div>'
+    if active_policies == 0:
+        head += f'<div class="empty store-warning">{escape(canvas_skin.STORE_WARNING)}</div>'
     create = (
         '<div class="panel create-block"><h3>New draft</h3>'
         '<form method="post" action="/drafts">'
         '<input name="title" placeholder="what this draft is for" aria-label="Draft title">'
         '<button type="submit">Open a draft</button></form>'
         '<p class="note">A draft is pinned to the version in force when it is opened, '
-        "and edits nothing until it is ratified.</p></div>"
+        "and edits nothing until it is ratified.</p>"
+        # F-G shipped this in 0.6.2 and V5 left it behind on the old page, the same way
+        # it stranded F-H's warning. An affordance discoverable only by the lost is
+        # worth keeping discoverable.
+        '<p class="note">or, from a terminal:</p>'
+        "<pre>curl -X POST 'http://127.0.0.1:8787/drafts' "
+        "--data-urlencode 'title=what this draft changes'</pre></div>"
     )
     if not listing:
         return (
@@ -937,4 +955,92 @@ def editor_body(
         + banner
         + f'<div class="cols">{guided}{raw}</div>'
         + f'<div class="panel"><h3>Validation</h3>{validation}{_honesty_footnote()}</div>'
+    )
+
+
+# --- V8 / S6: the deposition page ---------------------------------------------------
+
+
+VERIFY_CHIPS = {
+    verify.VERIFIED: "allow",
+    verify.FAILED: "refuse",
+    verify.UNREADABLE: "review",
+}
+"""Three outcomes, three chips. `unreadable` is **not** a failure — the check never ran,
+and telling a stranger their receipt is bad when what is bad is their download would be
+the worst error this page could make."""
+
+
+def verify_index_body(receipts: tuple[Any, ...]) -> str:
+    """S6 index: which receipts this store can hand a stranger."""
+    head = (
+        '<h2>Verify</h2><div class="rulebar"></div>'
+        f'<p class="lede">{escape(verify.CANNOT_VERIFY)}</p>'
+    )
+    if not receipts:
+        return head + (
+            '<div class="empty">This store holds no ratification receipts yet. '
+            "A receipt is sealed when a draft is ratified.</div>"
+        )
+    rows = "".join(
+        "<tr>"
+        f'<td><a href="/verify/{escape(digest)}">{shell.digest_html(digest)}</a></td>'
+        f'<td class="mono">{escape(at)}</td></tr>'
+        for digest, at in receipts
+    )
+    return head + (
+        '<div class="panel"><table><thead><tr><th>Receipt</th><th>Sealed</th>'
+        "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+    )
+
+
+def deposition_body(dep: Any) -> str:
+    """One receipt, for a reader who trusts nobody here.
+
+    Ordered for that reader: what to run, then the files to run it on, then what this
+    software got when it ran the same command — **in that order on purpose**, so the
+    method is read before the answer and the answer is never the first thing offered.
+    """
+    chip = shell.chip(VERIFY_CHIPS.get(dep.outcome, "review"), dep.outcome)
+    return (
+        '<h2>Verify a receipt</h2><div class="rulebar"></div>'
+        f'<p class="lede">{escape(verify.CANNOT_VERIFY)}</p>'
+        '<div class="panel"><h3>Run this</h3>'
+        f"<pre>{escape(verify.COMMAND)}</pre>"
+        f'<p class="plain">{escape(verify.INDEPENDENCE)}</p>'
+        '<dl class="kv">'
+        "<dt>verified</dt><dd>exit 0 — the receipt matches its own digest, and the "
+        "snapshot hashes to the version the receipt ratified</dd>"
+        "<dt>failed</dt><dd>exit 1 — one of those two checks did not hold</dd>"
+        "<dt>unreadable</dt><dd>exit 2 — a file could not be read or parsed, so the "
+        "check never ran. This is not a failed verification</dd>"
+        "</dl></div>"
+        '<div class="cols">'
+        f'<div class="panel"><h3>receipt.json</h3>'
+        f'<p class="note">{escape(str(dep.receipt_bytes))} bytes. Its SHA-256 over the '
+        "body, excluding <code>ratification_digest</code>, is that digest.</p>"
+        f"<pre>{escape(dep.receipt_json)}</pre></div>"
+        f'<div class="panel"><h3>snapshot.json</h3>'
+        f'<p class="note">{escape(str(dep.snapshot_bytes))} bytes, byte-for-byte as '
+        "stored. Its SHA-256 <em>is</em> the version this receipt ratified, so "
+        "reformatting it breaks the check it exists for.</p>"
+        f"<pre>{escape(dep.snapshot_text)}</pre></div>"
+        "</div>"
+        '<div class="panel"><h3>What this software got</h3>'
+        f'<p>{chip} <span class="plain">{escape(dep.detail)}</span></p>'
+        f'<dl class="kv"><dt>Receipt</dt><dd>{shell.digest_html(dep.ratification_digest)}</dd>'
+        f"<dt>Ratified version</dt><dd>{shell.digest_html(dep.to_version)}</dd></dl>"
+        '<p class="note">Running the same command over the same two files is what makes '
+        "this line worth reading. It is shown so you can check that you got the same "
+        "answer, not so you can take it instead of checking.</p></div>"
+    )
+
+
+def deposition_missing_body(digest: str) -> str:
+    """Absent, and not a failed verification."""
+    return (
+        '<h2>Verify a receipt</h2><div class="rulebar"></div>'
+        f'<div class="empty">This store holds no receipt '
+        f"{shell.digest_html(digest)}. That is an absence, not a failed check — nothing "
+        "was verified and nothing was refuted.</div>"
     )

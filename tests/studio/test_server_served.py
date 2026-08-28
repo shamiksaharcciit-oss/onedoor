@@ -112,10 +112,13 @@ def test_the_studio_app_reports_the_installed_version(studio_client: TestClient)
     """
     import onedoor
 
-    schema = studio_client.get("/openapi.json")
-    assert schema.status_code == 200
-    assert schema.json()["info"]["version"] == onedoor.__version__
-    assert schema.json()["info"]["version"] != "0.4.x"
+    # Read from the app object rather than `/openapi.json`, which V8 turned off: the
+    # auto-docs served Swagger UI from a CDN on a server that promises nothing leaves
+    # this machine. The property F-D is about -- the version is DERIVED, never typed --
+    # is unchanged and is asserted at its source.
+    assert studio_client.app.version == onedoor.__version__
+    assert studio_client.app.version != "0.4.x"
+    assert studio_client.get("/openapi.json").status_code == 404
 
 
 # --- V1: the shell's routes, held to exactly the same standard ------------------------
@@ -136,42 +139,83 @@ def _unbuilt_paths() -> list[str]:
     return [tab.path for tab in shell.TABS if not tab.built]
 
 
-@pytest.mark.parametrize("path", _unbuilt_paths())
-def test_every_shell_route_renders_over_http(studio_client: TestClient, path: str) -> None:
-    """F-A, rerun per route. 200 and a page, not a 500 and not a 404."""
-    response = studio_client.get(path)
-    assert response.status_code == 200, f"GET {path} returned {response.status_code}"
+@pytest.fixture
+def synthetic_unbuilt(tmp_path):
+    """An app carrying one deliberately unbuilt tab.
+
+    **Every real tab is built as of V8**, which made the three parametrised tests that
+    used to live here collect an empty parameter set and skip — three guards that
+    silently stopped guarding, reported as `got empty parameter set for (path)`. That is
+    the shape this project distrusts most: a test still listed, still green-adjacent, and
+    testing nothing.
+
+    So the mechanism is exercised against a tab that does not exist, which keeps the
+    route factory, the honest body and the F-A rerun under test for whoever adds the next
+    screen. *A guard has to survive the day it has nothing real to guard.*
+    """
+    from onedoor.studio import server as server_module
+    from onedoor.studio import shell
+
+    real = shell.TABS
+    later = shell.Tab("later", "Later", "/later", False, "V99")
+    shell.TABS = (*real, later)
+    try:
+        state = server_module.open_state(str(tmp_path / "e.db"), str(tmp_path / "s.db"))
+        with TestClient(server_module.create_app(state)) as client:
+            yield client
+        state.close()
+    finally:
+        shell.TABS = real
+
+
+def test_an_unbuilt_shell_route_renders_over_http(synthetic_unbuilt: TestClient) -> None:
+    """F-A, rerun for the unbuilt-section mechanism. 200 and a page, not a 500."""
+    response = synthetic_unbuilt.get("/later")
+    assert response.status_code == 200
     assert "onedoor" in response.text.lower()
 
 
-@pytest.mark.parametrize("path", _unbuilt_paths())
-def test_every_shell_route_survives_eight_sequential_requests(
-    studio_client: TestClient, path: str
+def test_an_unbuilt_shell_route_survives_eight_sequential_requests(
+    synthetic_unbuilt: TestClient,
 ) -> None:
     """The F-A shape specifically: the fault needs more than one request to show.
 
     The first request may land on the thread that opened the connection. Eight is the
-    count the original regression used, and it is kept rather than reduced because the
-    thing being tested is a race, and a race tested once is a race not tested.
+    count the original regression used, kept rather than reduced because the thing being
+    tested is a race, and a race tested once is a race not tested.
     """
     for i in range(8):
-        response = studio_client.get(path)
-        assert response.status_code == 200, f"request {i + 1} to {path} failed"
+        assert synthetic_unbuilt.get("/later").status_code == 200, f"request {i + 1} failed"
 
 
-@pytest.mark.parametrize("path", _unbuilt_paths())
 def test_an_unbuilt_section_says_so_rather_than_pretending(
-    studio_client: TestClient, path: str
+    synthetic_unbuilt: TestClient,
 ) -> None:
     """A route that exists so the tab bar has somewhere to point must be honest.
 
-    Not a 404 — the section is real and is coming — and not an empty page, which reads
-    as a failure. V8(f) one layer up from the button: the *page* must not overclaim
-    either.
+    Not a 404 — the section is real and is coming — and not an empty page, which reads as
+    a failure. V8(f) one layer up from the button: the *page* must not overclaim either.
     """
-    text = studio_client.get(path).text
+    text = synthetic_unbuilt.get("/later").text
     assert "not built yet" in text
     assert "nothing here yet" in text
+    assert "V99" in text
+
+
+def test_every_real_tab_is_built() -> None:
+    """The fact that made the tests above synthetic, asserted so it stays a fact.
+
+    If a tab is ever added unbuilt, this fails and points at the parametrised form that
+    should come back — rather than leaving the synthetic fixture as the only coverage of
+    a case that is real again.
+    """
+    from onedoor.studio import shell
+
+    unbuilt = [t.label for t in shell.TABS if not t.built]
+    assert not unbuilt, (
+        f"{unbuilt} are unbuilt again: restore the parametrised served tests over "
+        "`_unbuilt_paths()` so the real routes are covered, not just the synthetic one"
+    )
 
 
 def test_the_shell_reaches_both_stores_without_either_being_ratified(
@@ -195,7 +239,7 @@ def test_no_shell_page_reaches_off_the_machine(studio_client: TestClient) -> Non
     """The header promises nothing leaves this machine, on every page that shows it."""
     import re
 
-    for path in ["/", *_unbuilt_paths()]:
+    for path in ["/drafts", "/policies", "/history", "/state", "/verify"]:
         html = studio_client.get(path).text
         assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path
 
@@ -309,7 +353,7 @@ def test_no_studio_page_reaches_off_the_machine_including_the_new_ones(
 ) -> None:
     import re
 
-    for path in ["/", "/policies", "/history", *_unbuilt_paths()]:
+    for path in ["/drafts", "/policies", "/history", "/state", "/verify"]:
         html = studio_client.get(path).text
         assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path
 

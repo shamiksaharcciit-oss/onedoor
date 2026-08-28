@@ -51,6 +51,7 @@ from onedoor.studio import (
     shell,
     store,
     validate,
+    verify,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
@@ -331,36 +332,50 @@ def create_app(state: StudioState) -> Any:
         ) from exc
 
     import onedoor
-    from onedoor.viewer.canvas import render_page
 
     # DERIVED, never typed (F-D). This said `version="0.4.x"` -- a literal that was
     # already wrong when 0.5.0 shipped and had no way of ever becoming right. A name
     # outrunning its artifact, in the one field whose whole job is to say which artifact
     # this is.
-    app = FastAPI(title="onedoor policy studio", version=onedoor.__version__)
+    # The auto-generated API docs are OFF, and this is a correctness fix rather than a
+    # preference. `/docs` serves Swagger UI from `cdn.jsdelivr.net`, `/redoc` pulls
+    # fonts from `fonts.googleapis.com`, and both fetch a favicon from
+    # `fastapi.tiangolo.com` -- on a server whose own header promises **"loopback only
+    # -- nothing leaves this machine."** Two live pages made that promise false, and
+    # every per-screen test missed them because they only ever looked at screens this
+    # project wrote. V8's universal pass over the app's OWN route table found them.
+    #
+    # Turning them off rather than vendoring the assets: the Studio is an operator GUI
+    # on loopback, not an API surface for third parties, and the JSON endpoints it does
+    # have are documented in the README where they do not cost a network call.
+    app = FastAPI(
+        title="onedoor policy studio",
+        version=onedoor.__version__,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     app.state.studio = state
 
-    @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        with state.lock:
-            return render_page(
-                None,
-                drafts=store.listing(state.studio),
-                active_policies=active_policy_count(state),
-            )
+    @app.get("/")
+    def index() -> Any:
+        """The documented entry point, now the Studio's front door to the shell.
 
-    @app.get("/draft/{draft_id}", response_class=HTMLResponse)
-    def draft_page(draft_id: str, backtest: bool = False) -> str:
-        with state.lock:
-            try:
-                model = view(state, draft_id, with_backtest=backtest)
-            except store.StudioStoreError as exc:
-                raise HTTPException(status_code=404, detail=str(exc)) from exc
-            return render_page(
-                model,
-                drafts=store.listing(state.studio),
-                active_policies=active_policy_count(state),
-            )
+        Until V8 this rendered the pre-V1 canvas, so the Studio served **two designs at
+        once**: the ledger-room shell behind every tab, and the old skin at `/` and
+        `/draft/{id}`, reachable by anyone who kept a bookmark. The legacy pages bypassed
+        every law V8 makes universal.
+
+        Redirected rather than deleted: `README` and `0.6.2`'s handover both tell
+        operators to open `http://127.0.0.1:8787`, and a link that has been published is
+        a link that keeps working.
+        """
+        return RedirectResponse(url="/drafts", status_code=303)
+
+    @app.get("/draft/{draft_id}")
+    def legacy_draft(draft_id: str) -> Any:
+        """The pre-V5 draft page. Same reasoning as `/`: published links keep working."""
+        return RedirectResponse(url=f"/drafts/{draft_id}", status_code=303)
 
     @app.post("/draft")
     async def create_draft(request: Request, title: str = "untitled draft") -> Any:
@@ -398,6 +413,7 @@ def create_app(state: StudioState) -> Any:
                 body=screens.drafts_body(
                     drafts.listing(state.studio),
                     policy_loader.current_version(state.enforcer),
+                    active_policy_count(state),
                 ),
                 banner=banner_for(state),
                 active="drafts",
@@ -607,6 +623,40 @@ def create_app(state: StudioState) -> Any:
                 title="onedoor policy studio \u2014 rule not found",
             ),
             status_code=404,
+        )
+
+    @app.get("/verify", response_class=HTMLResponse)
+    def verify_index() -> str:
+        """S6: the receipts this store can hand a stranger."""
+        with state.lock:
+            return shell.render(
+                body=screens.verify_index_body(verify.available(state.enforcer)),
+                banner=banner_for(state),
+                active="verify",
+                title="onedoor policy studio \u2014 verify",
+            )
+
+    @app.get("/verify/{ratification_digest}", response_class=HTMLResponse)
+    def verify_receipt(ratification_digest: str) -> Any:
+        """The deposition page. Read-only, and it opens no socket."""
+        with state.lock:
+            dep = verify.deposition(state.enforcer, ratification_digest)
+            banner = banner_for(state)
+        if dep is None:
+            return HTMLResponse(
+                content=shell.render(
+                    body=screens.deposition_missing_body(ratification_digest),
+                    banner=banner,
+                    active="verify",
+                    title="onedoor policy studio \u2014 verify",
+                ),
+                status_code=404,
+            )
+        return shell.render(
+            body=screens.deposition_body(dep),
+            banner=banner,
+            active="verify",
+            title="onedoor policy studio \u2014 verify",
         )
 
     @app.get("/policies", response_class=HTMLResponse)

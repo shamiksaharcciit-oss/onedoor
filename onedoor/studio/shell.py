@@ -114,7 +114,7 @@ TABS: tuple[Tab, ...] = (
     Tab("drafts", "Drafts", "/drafts", True, "V5"),
     Tab("history", "History", "/history", True, "V3"),
     Tab("state", "Live state", "/state", True, "V4"),
-    Tab("verify", "Verify", "/verify", False, "V8"),
+    Tab("verify", "Verify", "/verify", True, "V8"),
 )
 """The five tabs of the design note's six screens — S2 (the editor) lives inside a
 draft rather than beside it, which is fence-post one restated in navigation: there is
@@ -210,10 +210,15 @@ def banner_html(banner: Banner) -> str:
     )
 
 
-def nav_html(active: str) -> str:
-    """The five tabs. Built ones are links; the rest say which stage builds them."""
+def nav_html(active: str, tabs: tuple[Tab, ...] | None = None) -> str:
+    """The five tabs. Built ones are links; the rest say which stage builds them.
+
+    `tabs` exists so the unbuilt rendering stays testable now that every real tab is
+    built. **A guard has to survive the day it has nothing real to guard**, or it
+    quietly stops guarding whoever adds the next screen.
+    """
     out = ['<nav aria-label="Studio sections">']
-    for tab in TABS:
+    for tab in tabs or TABS:
         on = " on" if tab.key == active else ""
         if tab.built:
             aria = ' aria-current="page"' if on else ""
@@ -397,6 +402,12 @@ h2 .num{font-size:1rem}
 textarea{background:var(--well);color:var(--ink);border:1px solid var(--line);
   border-radius:6px;font-family:var(--mono);font-size:.82rem;line-height:1.6;
   padding:.8rem 1rem;width:100%;resize:vertical}
+/* F-H's empty-store advice. Configuration advice, NOT a verdict: it gets its own
+   weight from a border and a surface, never from the semantic triple -- and never from
+   the brand accent either (R056 §4). It must look different from an ordinary empty
+   state, because it is telling the operator something is wrong with their setup. */
+.store-warning{border-left:3px solid var(--ink);background:var(--panel2);
+  color:var(--ink);font-style:normal}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

@@ -11,6 +11,111 @@
 
 ---
 
+# `ND-055` — the full-arc ledger
+
+**Every stage, every law test, every owed item: discharged or named.** R063 §6 asks for
+this before `0.7.0` assembles after Sept 12.
+
+**Status: complete.** P0 shipped in `0.6.2`; V1–V8 are built and held for the `0.7.0`
+line. Nothing in V1–V8 has shipped, and nothing breaking landed during the freeze.
+
+## The eight stages
+
+| | Stage | State | Ruled by |
+|---|---|---|---|
+| **P0** | F-G empty state, F-H database trap | **shipped `0.6.2`**, verified by core against PyPI | R055, R058 §0 |
+| **V1** | Shell: tokens, tabs, header, version banner | built | R055, R056, R057 |
+| **V2** | S1 Policies | built | R055, R058 |
+| **V3** | S4 History | built | R055, R059 |
+| **V4** | S5 Live state | built | R055, R060 |
+| **V5** | S3 Drafts + the ceremony | built | R055, R061 |
+| **V6** | Re-evaluate under version — the flagship | built | R055, R062 |
+| **V7** | S2 Editor | built | R055, R063 |
+| **V8** | S6 Verify + the universal law pass | built | R055, R063 |
+
+## The six law tests R055 V8 owed
+
+| | Law | Where it is enforced | State |
+|---|---|---|---|
+| **(a)** | seal never signals state, positive form | `assertions.seal_state_violations`, over every emitted page | **discharged** |
+| **(b)** | an empty state for every list view | parametrised over all five list screens, against a fresh store | **discharged** |
+| **(c)** | no external origin on any page | every served page, plus the script allow-list | **discharged** — and it caught `/docs` and `/redoc` |
+| **(d)** | honesty footnote verbatim | wherever the validator renders, checked escaped **and** unescaped | **discharged** |
+| **(e)** | digest format 8…4, copy handle, full on hover | every `digest` span on every page | **discharged** |
+| **(f)** | a control that cannot act must not render enabled | every form checked against the app's route table; no button outside a form | **discharged** |
+
+## Owed items folded in by R055
+
+| Item | State |
+|---|---|
+| **R015's owed positive-form seal test** | **discharged** — landed V1, universal in V8 |
+| **oneview §5.4, anchor-status out of the seal** | **discharged** — the spec contradicts its own §4; §4 wins, the spec is not edited, and a test proves the clause never reached a page |
+| **R056 §4's S4/S6 seal migration** | **discharged** in V1, seven violations caught then cleared, both required tests inverted in the same commit |
+| **Forward 005's sabotage pair** | **discharged** in V1 |
+| **R057 §5's contrast correction + CI numbers** | **discharged** in V1/V3; the matrices print in the run summary since V7 |
+| **R058 §4's `--faint` audit** | **discharged** in V3, by use, with the one available exemption declined |
+| **R058 §6's Q5 two-voice layout** | **discharged** in V5 |
+| **R059 §3's `key_id` shape** | **specced, frozen** — post-Sept-12, see Q7 |
+
+## Defects self-caught across the arc
+
+Counted because the register is worth more with them than without.
+
+| Where | What |
+|---|---|
+| V1 | `banner_for` read `ratifications` from the draft store; every shell route raised on a fresh install |
+| V1 | the strengthened seal check condemned `.store-warning` — it read a comment as a selector |
+| V3 | a filter value absent from the ledger vanished from the form while still filtering the page |
+| V3 (Q6 fix) | the first 404 fix answered `application/json` wrapping HTML — the lie moved headers |
+| V5 | `Divergence.receipt` `None` while the state says the replay ran — a fourth case mypy found |
+| V7 | the two panes disagreed on `500.00` vs `500`, within an hour of the claim that they cannot |
+| V7 | the editor's own fence check failed on the docstring documenting the fence |
+| V8 | `/docs`, `/redoc`, `/openapi.json` broke the header's promise, live since V1 |
+| V8 | `/` and `/draft/{id}` still served the pre-V1 design |
+| V8 | F-H's warning and F-G's `curl` line stranded by V5's move to `/drafts` |
+| V8 | three served tests had silently stopped testing |
+
+## Defects found in core's own artifacts
+
+Registered on core's instruction, on the shelf R058 §4 opened.
+
+| Artifact | Defect | Ruling |
+|---|---|---|
+| The approved mockup | state chips fail WCAG AA at chip size; refusal worst at 3.33:1 | R057 §5 — *accessibility is not a deviation from the design; inaccessibility is* |
+| `R055` §V2 | described a **deny tier the engine does not have** | R058 §4 |
+| `R055` §V2 | cited `descriptions.py` as a plain-language renderer; it is not one | R058 (Q5) |
+| `R055` §V3 | assumed the ledger records a caller identity; it does not | R059 §3 |
+| `R060` §5 | the word **"irreversibility"** — false, and falsely frightening | R061 §2 — *finality is not irreversibility* |
+| oneview spec §5.4 | *"anchor status in seal color"*, contradicting its own §4 | R055 V8(a); closed in V8 |
+
+## Open, and named rather than closed
+
+- **Q7 — the ledger records no caller identity.** Ruled (R059 §3): a non-secret `key_id`
+  assigned at creation, `actor_id` on `actions_audit`, backfill nothing, `audit.append`
+  grows the parameter in the same change. **Schema change; frozen until Sept 12.**
+- **Q8 — one pytest-internal `StashKey` failure**, seen once, never reproduced. The
+  reporting move was made on design grounds and **explicitly not as a fix** (R062 §4). The
+  entry closes only by recurrence-with-investigation, or by a healthy number of
+  consecutive passes recorded as *"not observed since the reporting move; cause never
+  established."* Full-suite runs since the move, all
+  green: **three local gate runs** (V7's, and V8's two), **two CI jobs** on `eb5df1a`
+  (3.12 and 3.13), and **one direct `pytest -q`**. Six. Recorded as a count, not claimed
+  as closure — core set the bar at *some healthy number*, and six is a number, not yet a
+  verdict.
+- **`ND-053`, `ND-054`** — frozen, unchanged, and `ND-054`'s divergence is noted at the
+  editor's decimal fields in the words the engine's behaviour justifies today.
+
+## What has not been done
+
+- **Nothing in V1–V8 has shipped.** The last release is `0.6.2`.
+- **No breaking change landed during the freeze.** Every stage is additive.
+- **The Studio has not been run by an operator since `0.6.2`.** Every claim above rests on
+  tests and on served requests in this repository, not on a person using it — which is
+  how F-A, F-G and F-H were found, and is worth arranging again before `0.7.0`.
+
+
+---
+
 ## Stage board
 
 | | Stage | State |
@@ -23,7 +128,7 @@
 | **V5** | S3 Drafts · the ceremony · Q5 | **built** |
 | **V6** | Re-evaluate under version — the flagship | **built** |
 | **V7** | S2 Editor · Q8's move | **built** |
-| **V8** | S6 Verify + the law tests | next |
+| **V8** | S6 Verify + the law tests | **built** |
 
 ---
 
@@ -237,6 +342,105 @@ parses one way, and the first quoting difference between them would be a screen 
 something the engine would not load. JSON is a subset of YAML, so what is shown is
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
+
+## V8 — S6 Verify, the universal law pass, and the owed items
+
+`onedoor/studio/verify.py` (read model **and** the command), two routes,
+`tests/studio/test_law_tests.py`.
+
+### The deposition page, written for a stranger
+
+R063 §6: assume the reader distrusts the operator, the vendor, and the page. So the page
+does two honest things instead of one dishonest one — it **shows a verification that was
+run**, and it **shows how to repeat it** without this program's cooperation:
+
+> This page cannot verify anything for you. It was produced by the same software that
+> produced the receipt, so it shows you a check that was run and the exact command to run
+> it yourself, on files you hold, without this program's cooperation.
+
+Ordered for that reader: **what to run, then the files, then what this software got** —
+so the method is read before the answer, and the answer is never the first thing offered.
+
+`python -m onedoor.studio.verify receipt.json snapshot.json` is real and new. It reads two
+files, opens no database, and carries **three outcomes in the exit code as well as the
+words**: `0` verified, `1` failed, `2` unreadable. *Unreadable is not a failed check* —
+telling a stranger their receipt is bad when what is bad is their download would be the
+worst error this page could make. The page and the command run the same
+`ratify.verify_files` over the same bytes; a page that reimplemented the check would be a
+second implementation of the answer, and R062 §1 has ruled on those.
+
+### The universal pass caught two live pages no law had ever seen
+
+The six laws passed on first run — and that would have been the wrong thing to report,
+because **the first version of this file trusted my own list of paths**. Sabotaging each
+law confirmed all six can fail; then reading the route table off the running app found
+what the list was missing.
+
+**Caught, then cleared — by name:**
+
+1. **`/docs`** — FastAPI's Swagger UI, served from `cdn.jsdelivr.net`, with a favicon from
+   `fastapi.tiangolo.com`.
+2. **`/redoc`** — ReDoc from `cdn.jsdelivr.net`, fonts from `fonts.googleapis.com`.
+3. **`/openapi.json`** — an API surface the Studio never meant to publish.
+4. **`/`** — still rendering the **pre-V1 oneview canvas**. V5 moved Drafts to `/drafts`
+   and left the old page live: the Studio served **two designs at once**, and the legacy
+   one bypassed every law V8 makes universal.
+5. **`/draft/{draft_id}`** — the same, one level down.
+
+The first three are the sharper finding. **The Studio's own header promises "loopback
+only — nothing leaves this machine", and two live pages made that false from V1 until
+now.** Every per-screen test missed them for the same reason: *they only ever looked at
+screens this project wrote.*
+
+Auto-docs are off — the Studio is an operator GUI on loopback, not an API surface, and
+its JSON endpoints are documented in the README where they cost no network call. `/` and
+`/draft/{id}` **redirect** rather than 404, because `README` and `0.6.2`'s handover both
+tell operators to open `http://127.0.0.1:8787`, and *a link that has been published is a
+link that keeps working.*
+
+`test_the_universe_of_this_file_is_the_app_itself` now derives its universe from the
+app's route table, with two named exclusions. **A universal test whose universe is
+incomplete is a per-screen test with ambition.**
+
+### Two shipped fixes had been stranded by V5
+
+Both surfaced while fixing the above, and both are `0.6.2` behaviour that quietly stopped
+reaching operators when Drafts moved to `/drafts`:
+
+6. **F-H's empty-store warning** — still rendered, on a page nothing linked to.
+7. **F-G's `curl` one-liner** — same.
+
+Restored on `/drafts`, with the warning given its own style (border and surface, never a
+verdict colour, never the brand accent). Caught by the P0 regressions, which is what they
+are for: *a shipped fix quietly stranded by a redesign* is invisible to every test that
+only reads the new page.
+
+### Three tests had silently stopped testing
+
+8. With every tab built, `_unbuilt_paths()` returned empty and three parametrised served
+   tests collected nothing — pytest reported `got empty parameter set for (path)`, and
+   they sat in the suite guarding nothing.
+
+Replaced with a fixture that registers a synthetic unbuilt tab, so the route factory, the
+honest body and the F-A rerun stay under test for whoever adds the next screen — plus
+`test_every_real_tab_is_built`, which fails if a tab is ever added unbuilt and says to
+restore the parametrised form. **A guard has to survive the day it has nothing real to
+guard.** `nav_html` gained a `tabs=` seam for the same reason.
+
+### The owed oneview §5.4 item
+
+**The vendored spec contradicts itself.** §4: seal gold never signals state. §5.4:
+*"anchor status in seal color."* Anchor status **is** a state — anchored, not anchored,
+unverifiable — so §4 wins and §5.4's clause does not survive it.
+
+The spec is core's received data and digest-pinned, so **it is not edited**; the
+resolution is recorded and enforced as a test, the same shape as the palette's corrections
+layer. Nothing shipped ever implemented the clause, so the item closes by **proving the
+defect never reached a page** rather than by removing it.
+
+The positive-form seal test (R055 V8(a)) landed in V1 and is now asserted over every
+emitted page rather than per-skin.
+
 
 ## V7 — S2 the editor, and Q8's approved move
 

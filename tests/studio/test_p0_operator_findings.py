@@ -71,7 +71,11 @@ def test_the_empty_index_offers_a_way_to_create_a_draft(seeded_client: TestClien
     # Attribute-shaped rather than spelling-shaped: this repo's markup uses single
     # quotes, and an assertion pinned to double quotes tests the renderer's punctuation
     # instead of its behaviour.
-    assert re.search(r"action=['\"]/draft['\"]", html), "the form posts nowhere useful"
+    # `/drafts` since V5 moved the page; `/draft` still redirects there, so a
+    # published link keeps working. What this asserts is unchanged: the form posts
+    # somewhere real, and `test_no_page_offers_a_control_it_cannot_honour` checks
+    # every form on every page against the app's own route table.
+    assert re.search(r"action=['\"]/drafts['\"]", html), "the form posts nowhere useful"
     assert re.search(r"method=['\"]post['\"]", html, re.I), "the form is not a POST"
 
 

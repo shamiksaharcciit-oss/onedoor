@@ -52,6 +52,31 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V8: the Verify page, and the law tests across every screen
+
+A deposition page for a reader who trusts nobody involved: it states that it cannot verify
+anything for you, shows the two files, and prints the exact command to check them
+yourself. `python -m onedoor.studio.verify receipt.json snapshot.json` reads two files,
+opens no database, and reports three outcomes in its exit code as well as its words —
+verified, failed, and unreadable, which is not a failed check but a check that never ran.
+
+The six properties this build owes are now asserted over every page the Studio serves,
+with the set of pages read from the app's own route table rather than from a list.
+
+### Fixed — two pages contradicted the promise in the Studio's own header
+
+`/docs` and `/redoc` served Swagger UI and ReDoc from a CDN, with fonts from Google and a
+favicon from a third site, on a server whose header reads *"loopback only — nothing leaves
+this machine."* The auto-generated API docs are now off: the Studio is an operator GUI on
+loopback, not an API surface, and its JSON endpoints are documented in the README.
+
+### Fixed — the Studio served two designs at once
+
+`/` and `/draft/{id}` still rendered the pre-shell page after the Drafts screen moved to
+`/drafts`. Both now redirect, because published links keep working — and two fixes that had
+been stranded on the old page, the empty-store warning and the create-a-draft `curl`
+one-liner, are restored on the page operators actually reach.
+
 ### Added — `ND-055` V7: the editor (S2)
 
 A guided form and the raw rule, side by side, inside a draft. Both panes are rendered from
