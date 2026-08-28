@@ -52,6 +52,33 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V4: the live room (S5)
+
+Cumulative budget bars per cap window, open reservations with their ages, approval
+lifecycles, and the kill switch's state with its rank stated in words.
+
+**Held money is not shown as spent.** A reservation is written into the cap counter at
+reserve time, so the counter is consumed *plus* reserved; the page subtracts what open
+reservations are holding rather than reading the counter as spend. A budget that showed
+reclaimable money as gone would mislead in exactly the screen an operator opens during an
+incident.
+
+A window with no declared cap draws **no bar at all** — a full bar and an empty bar both
+state a proportion, and there is none to state. A declared cap with no counter yet is
+shown at zero, so a fresh deployment does not look as though it had no budgets. Limits
+come from the snapshot behind the pinned version, not the live tables.
+
+Reservation deadlines have three outcomes, not two: within, past, and unreadable. A
+screen must not answer a question it could not evaluate.
+
+**The kill switch is read-only, and the page says why.** An admin API exists on the
+decision service, and reaching it from the Studio would need either a second write path
+into the enforcer's database or the PDP's admin credential inside a policy editor — the
+two things the split between these processes exists to prevent. The state is shown and no
+control is drawn, because a control that renders as operable and is not is a lie in the
+shape of a button. The page also states what the switch does *not* stop: policy-making
+continues, because nothing ratified can move while the switch holds.
+
 ### Added — `ND-055` V3: the execution ledger (S4)
 
 The History register: every decision the engine made, filterable by action, verdict,

@@ -37,7 +37,7 @@ from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from onedoor.studio import canvas, history, library, ratify, screens, shell, store
+from onedoor.studio import canvas, history, library, live, ratify, screens, shell, store
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -483,6 +483,17 @@ def create_app(state: StudioState) -> Any:
                 banner=banner_for(state),
                 active="history",
                 title=f"onedoor policy studio — entry {row_id}",
+            )
+
+    @app.get("/state", response_class=HTMLResponse)
+    def live_page() -> str:
+        """S5: the live room. Reads the enforcer store and writes nothing to it."""
+        with state.lock:
+            return shell.render(
+                body=screens.live_body(live.build(state.enforcer, state.config)),
+                banner=banner_for(state),
+                active="state",
+                title="onedoor policy studio — live state",
             )
 
     # V1: every tab in the shell resolves to a route. The ones whose screens are not

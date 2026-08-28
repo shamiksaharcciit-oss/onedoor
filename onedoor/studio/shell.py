@@ -113,7 +113,7 @@ TABS: tuple[Tab, ...] = (
     Tab("policies", "Policies", "/policies", True, "V2"),
     Tab("drafts", "Drafts", "/", True, "V1"),
     Tab("history", "History", "/history", True, "V3"),
-    Tab("state", "Live state", "/state", False, "V4"),
+    Tab("state", "Live state", "/state", True, "V4"),
     Tab("verify", "Verify", "/verify", False, "V8"),
 )
 """The five tabs of the design note's six screens — S2 (the editor) lives inside a
@@ -336,6 +336,20 @@ pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:var(--wel
 .note code{font-family:var(--mono)}
 td.num,.num{color:var(--dim);font-family:var(--mono)}
 h2 .num{font-size:1rem}
+.bar-row{margin:0 0 1rem}
+.barhead{display:flex;gap:.6rem;align-items:baseline;margin-bottom:.15rem}
+.figures{font-size:.8rem;color:var(--dim);margin-bottom:.3rem}
+.figures b{color:var(--ink);font-weight:500}
+.bar{height:14px;background:var(--well);border:1px solid var(--line);border-radius:4px;
+  overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.b-used{background:var(--dim)}
+.b-res{background:var(--review)}
+.legend{font-size:.75rem;color:var(--faint);display:flex;gap:1.1rem;margin-bottom:.9rem;
+  align-items:center}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:.3rem;
+  border:1px solid var(--line)}
+.kswitch p{margin:.4rem 0}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

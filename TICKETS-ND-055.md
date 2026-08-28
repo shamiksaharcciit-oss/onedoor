@@ -19,8 +19,8 @@
 | **V1** | Shell: tokens, tabs, header, version banner | **built** |
 | **V2** | S1 Policies | **built** |
 | **V3** | S4 History · Q4 · Q6 | **built** |
-| **V4** | S5 Live state | next |
-| **V5** | S3 Drafts | held |
+| **V4** | S5 Live state | **built** |
+| **V5** | S3 Drafts | next |
 | **V6** | Re-evaluate under version — the flagship | held (premise verified, R056) |
 | **V7** | S2 Editor | held |
 | **V8** | S6 Verify + the law tests | held |
@@ -238,6 +238,75 @@ something the engine would not load. JSON is a subset of YAML, so what is shown 
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
 
+## V4 — S5 the live room
+
+`onedoor/studio/live.py` (read model), one route.
+
+### The kill switch: read-only, and here is the check R055 V4 asked for
+
+**An admin API exists — and it is not one the Studio may use.** `POST /v1/killswitch`
+lives on `onedoor.service`, the PDP. Both routes from the Studio to the switch break
+something load-bearing:
+
+1. **`killswitch.set_engaged(state.enforcer, …)` directly** — R047 §2 is that *the
+   enforcer's database contains no row the Studio can edit*, with the ratification
+   ceremony as the single sealed exception. A second write path makes that sentence
+   false, and it is the sentence the two-process design rests on.
+2. **Calling the service over HTTP** — that needs the PDP's admin credential inside a
+   policy editor, which is exactly what R047 §1 separates the processes to prevent, and
+   it would make a page promising *nothing leaves this machine* open a socket.
+
+So: state shown, control not offered, reason stated on the page. R059 §5's test — *a
+control that renders as operable and isn't would be the right-typed lie as a button* —
+is asserted both on the rendered body and on the page a browser actually receives.
+
+**The page also says what the switch does not stop.** From `killswitch`'s own docstring:
+it does not stop policy-making, because nothing ratified can move while the switch
+holds. An operator who reads ENGAGED and assumes ratification is blocked has the wrong
+model of their own incident. Its rank was checked against `decision.py` — step 1, clamp
+unconditional — not inferred from the name, per R058 §4.
+
+### The budget arithmetic is not the obvious one
+
+**A reservation is already written into `cap_counters`.** `caps._reserve_all` bumps the
+counter at reserve time, so the counter is *consumed plus reserved*. Rendering it as
+"consumed" would show **held money as money gone** — an operator reading a budget as
+spent while it is still reclaimable, in the screen they open during an incident. So:
+
+```
+reserved = the deltas of reservations still `held`
+consumed = counter − reserved
+free     = limit − counter
+```
+
+Asserted three ways: the decomposition itself, that `consumed + reserved + free == limit`,
+and that a release landing between the two reads clamps at zero rather than rendering
+negative spend — *a view of a moving store, said as such.*
+
+**An undeclared cap draws no bar at all.** A window with no limit is not a full bar or an
+empty one; both state a proportion nobody declared. The counter is shown and the page
+says why there is no bar. Conversely a **declared cap with no counter yet is shown at
+zero** — omitting it would make a fresh deployment look as though it had no budgets.
+
+Limits come from the **snapshot behind the pinned version** (R058 §1), not the live
+tables, tested by writing a different cap straight into `policies` and asserting the bar
+does not move. A bar measured against an unsnapshotted limit would draw a boundary the
+engine is not enforcing.
+
+### Three outcomes on the reservation deadline
+
+Within deadline, past it, and **unreadable**. Unparseable is not "fine": a screen must
+not answer a question it could not evaluate, so it renders `deadline unreadable` rather
+than quietly counting as healthy.
+
+### Read-only, both ways
+
+`test_the_live_module_contains_no_write` scans the source — R059 §1's ruling that the
+structural assertion is the fence — and `test_reading_the_live_page_over_http_changes_nothing`
+drives eight requests through the server and compares the switch, the counters and the
+audit row count before and after, which is the smoke.
+
+
 ## V3 — S4 History, with Q4 and Q6
 
 `onedoor/studio/history.py` (read model), two routes, and the Q4/Q6 fixes R058 §8
@@ -405,23 +474,31 @@ type, and a ratification's `candidate_digest` **is** the proposal's `policy_dige
 `descriptions.records_for_policy` reaches the frozen words for a given rule with no new
 stored pointer.
 
-**Q7 — the ledger does not record who asked, and R055 V3 assumed it did.** Detail in the
-V3 section above. This is a gap in an audit ledger for a compliance product: every
-decision row says what was asked and what was decided, and none says by whom. The service
-authenticates with bearer keys and then discards the identity.
+**Q7 is ruled by R059 §3 — and delivery's proposed shape was rejected, correctly.**
 
-Adding it is a schema change and therefore frozen until Sept 12, so this is stopped and
-escalated rather than worked around.
+The interim rendering is approved as built: `source` under its own name, the missing
+actor filter stated on the page.
 
-**Proposal:** an additive migration after the freeze adding a nullable `actor_hash` to
-`actions_audit`, written by the service from the authenticated bearer key — **hashed,
-never raw**, because an audit row is exportable evidence and a raw key inside one is a
-credential in a receipt. Rows predating the column render *"not recorded"*, never blank.
-The History filter arrives with the column.
+**`actor_hash` over the bearer key fails "never digest secrets."** Core: *a hash of a
+credential is an oracle* — anyone holding the key list, or guessing at weak keys, can
+test candidates against exported audit rows, which ships a credential-checking service
+inside every export. Delivery's instinct (*a raw key in a receipt is a credential in a
+receipt*) was right and **stopped one step short: a digest of a credential is still a
+function of the credential.**
 
-**Not proposed:** back-filling from any other column. There is nothing to back-fill from,
-and inferring an actor from `source` would manufacture exactly the identity claim this
-note exists to say the store cannot make.
+**Ruled shape, for the `0.7.0` line after Sept 12:**
+
+- a **non-secret `key_id`** assigned at key creation — assigned, stable, meaningless;
+- `key_id` column on the key store, `actor_id` on `actions_audit`;
+- **nothing derived from the secret ever touches a row** — revealing the ledger reveals
+  which key acted, never anything about the key;
+- **backfill nothing**: rows predating the column render an explicit `unattributed`
+  marker, the same honesty `unchained` already established;
+- **`audit.append` grows the parameter in the same change**, so no future row can be
+  written without deciding what to put there;
+- the History filter arrives with the column.
+
+Not before the firing sequence ends.
 
 
 **Q5 — `descriptions.py` cannot do what R055 V2 cites it for.** Detail above. V2 ships

@@ -13,7 +13,7 @@ from typing import Any
 
 from onedoor.guardrail.models import Policy
 from onedoor.studio import coverage as coverage_model
-from onedoor.studio import history, library, shell
+from onedoor.studio import history, library, live, shell
 
 COVERAGE_WORDS = {
     coverage_model.COVERED: ("covered", "the ledger has seen this action"),
@@ -293,4 +293,160 @@ def entry_body(row: Any) -> str:
         '<p class="note">This page shows what was recorded. It does not re-verify the '
         "chain — that is what the Verify page will do, against the receipt rather than "
         "against this rendering.</p>"
+    )
+
+
+# --- V4 / S5: the live room ---------------------------------------------------------
+
+
+def _bar(bar: live.Bar) -> str:
+    """One budget window. Numbers first; the bar is a second reading of them.
+
+    An unbounded window draws no bar at all — a full bar and an empty bar both state a
+    proportion, and there is no proportion when nothing declared a limit.
+    """
+    consumed, reserved, free, limit = bar.texts()
+    label = (
+        f'<div class="barhead"><span class="mono">{escape(bar.action_type)}</span> '
+        f'<span class="tier">{escape(bar.unit)} / {escape(bar.window)}</span></div>'
+    )
+    figures = (
+        f'<div class="figures mono">consumed <b>{escape(consumed)}</b> · '
+        f"reserved <b>{escape(reserved)}</b> · free <b>{escape(free)}</b> · "
+        f"limit <b>{escape(limit)}</b></div>"
+    )
+    if bar.unbounded:
+        return (
+            f'<div class="bar-row">{label}{figures}'
+            '<p class="note">No cap is declared for this window, so nothing here is a '
+            "proportion of anything. The counter is shown; no bar is drawn.</p></div>"
+        )
+    used = bar.pct(bar.consumed)
+    held = bar.pct(bar.reserved)
+    return (
+        f'<div class="bar-row">{label}{figures}'
+        f'<div class="bar" role="img" aria-label="consumed {escape(consumed)} of '
+        f'{escape(limit)}, {escape(reserved)} reserved">'
+        f'<i class="b-used" style="width:{used:.2f}%"></i>'
+        f'<i class="b-res" style="width:{held:.2f}%"></i>'
+        "</div></div>"
+    )
+
+
+def live_body(model: live.LiveState) -> str:
+    """S5: budgets, reservations, approvals, and the switch this Studio cannot throw."""
+    state = "refuse" if model.engaged else "allow"
+    word = "engaged" if model.engaged else "not engaged"
+    since = (
+        f"Engaged {escape(model.engaged_since or '')}"
+        + (f" by {escape(model.engaged_origin or '')}" if model.engaged_origin else "")
+        + (
+            f", policy version {shell.digest_html(model.version_at_engagement)}"
+            if model.version_at_engagement
+            else ""
+        )
+        + "."
+        if model.engaged
+        else ""
+    )
+    switch = (
+        '<div class="panel kswitch"><h3>Kill switch</h3>'
+        f"<p>{shell.chip(state, word)} {since}</p>"
+        f'<p class="plain">{escape(live.RANK)}</p>'
+        f'<p class="plain">{escape(live.DOES_NOT_STOP)}</p>'
+        f'<p class="note">{escape(live.NO_CONTROL)}</p></div>'
+    )
+
+    if model.bars:
+        bars = "".join(_bar(b) for b in model.bars)
+        budgets = (
+            '<div class="panel"><h3>Budgets</h3>'
+            '<p class="legend"><i class="b-used"></i>consumed '
+            '<i class="b-res"></i>reserved, not yet settled '
+            "<i></i>free</p>" + bars + "</div>"
+        )
+    else:
+        budgets = (
+            '<div class="panel"><h3>Budgets</h3><div class="empty">No policy in force '
+            "declares a cap, and no counter has been written. Nothing is being metered."
+            "</div></div>"
+        )
+
+    if model.reservations:
+        rows = []
+        for r in model.reservations:
+            age = r.age_seconds(model.now)
+            overdue = r.overdue(model.now)
+            # Three outcomes: within deadline, past it, and unreadable. "Unknown" is not
+            # "fine" -- a screen that answers a question it could not evaluate is worse
+            # than one that says it could not.
+            flag = (
+                '<span class="chip c-review">past deadline</span>'
+                if overdue is True
+                else "held"
+                if overdue is False
+                else '<span class="chip c-review">deadline unreadable</span>'
+            )
+            rows.append(
+                "<tr>"
+                f'<td class="mono">{escape(str(r.intent_audit_id))}</td>'
+                f'<td class="mono">{escape(r.request_id)}</td>'
+                f'<td class="mono">{"—" if age is None else escape(str(age)) + "s"}</td>'
+                f'<td class="mono">{escape(r.deadline)}</td>'
+                f"<td>{flag}</td>"
+                f'<td class="mono">'
+                + escape(", ".join(f"{a} {k} {amount}" for a, k, amount in r.deltas) or "—")
+                + "</td></tr>"
+            )
+        reservations = (
+            '<div class="panel"><h3>Open reservations</h3><table><thead><tr>'
+            "<th>Intent</th><th>Request</th><th>Age</th><th>Deadline</th>"
+            "<th>State</th><th>Holding</th></tr></thead><tbody>"
+            + "".join(rows)
+            + "</tbody></table></div>"
+        )
+    else:
+        reservations = (
+            '<div class="panel"><h3>Open reservations</h3><div class="empty">Nothing is '
+            "held. Every reservation has settled, released or been reclaimed.</div></div>"
+        )
+
+    if model.approvals:
+        rows = []
+        for a in model.approvals:
+            chip = {"approved": "allow", "denied": "refuse", "expired": "refuse"}.get(
+                a.state, "review"
+            )
+            rows.append(
+                "<tr>"
+                f'<td class="mono">{escape(str(a.approval_id))}</td>'
+                f'<td class="mono">{escape(a.action_type)}</td>'
+                f"<td>{shell.chip(chip, a.state)}</td>"
+                f'<td class="mono">{escape(a.created_at)}</td>'
+                f'<td class="mono">{escape(a.expires_at or "—")}</td>'
+                f'<td class="mono">{escape(a.decided_at or "—")}</td>'
+                f'<td class="mono">{escape(a.decided_by_session or "—")}</td>'
+                "</tr>"
+            )
+        approvals = (
+            '<div class="panel"><h3>Approval lifecycles</h3><table><thead><tr>'
+            "<th>#</th><th>Action</th><th>State</th><th>Raised</th><th>Expires</th>"
+            "<th>Decided</th><th>By session</th></tr></thead><tbody>"
+            + "".join(rows)
+            + "</tbody></table></div>"
+        )
+    else:
+        approvals = (
+            '<div class="panel"><h3>Approval lifecycles</h3><div class="empty">No action '
+            "has ever needed a human decision in this store.</div></div>"
+        )
+
+    return (
+        '<h2>Live state</h2><div class="rulebar"></div>'
+        + switch
+        + budgets
+        + reservations
+        + approvals
+        + '<p class="note">This page reads the enforcer store and changes nothing in it. '
+        "Every number is as of the moment the page was built.</p>"
     )

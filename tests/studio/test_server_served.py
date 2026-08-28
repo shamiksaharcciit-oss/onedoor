@@ -312,3 +312,51 @@ def test_no_studio_page_reaches_off_the_machine_including_the_new_ones(
     for path in ["/", "/policies", "/history", *_unbuilt_paths()]:
         html = studio_client.get(path).text
         assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path
+
+
+# --- V4: the live room, over HTTP -------------------------------------------------------
+
+
+def test_the_live_state_page_renders_over_http(studio_client: TestClient) -> None:
+    """F-A rerun against V4's route."""
+    response = studio_client.get("/state")
+    assert response.status_code == 200
+    assert "Live state" in response.text
+    assert "Kill switch" in response.text
+
+
+def test_the_live_state_page_survives_eight_sequential_requests(studio_client: TestClient) -> None:
+    for i in range(8):
+        assert studio_client.get("/state").status_code == 200, f"request {i + 1} failed"
+
+
+def test_the_served_live_page_offers_no_control_it_cannot_honour(
+    studio_client: TestClient,
+) -> None:
+    """The V8(f) property checked where it matters — on the page a browser receives."""
+    html = studio_client.get("/state").text
+    body = html.split("<main>")[1].split("</main>")[0]
+    assert "<button" not in body
+    assert "<form" not in body
+    assert "cannot engage or release" in body
+
+
+def test_reading_the_live_page_over_http_changes_nothing(studio_client: TestClient) -> None:
+    """Read-only, asserted through the server: eight requests, and the switch and the
+    counters are where they were."""
+    from onedoor.guardrail import killswitch
+
+    state = studio_client.app.state.studio
+    before = (
+        killswitch.is_engaged(state.enforcer),
+        state.enforcer.execute("SELECT COUNT(*) AS n FROM cap_counters").fetchone()["n"],
+        state.enforcer.execute("SELECT COUNT(*) AS n FROM actions_audit").fetchone()["n"],
+    )
+    for _ in range(8):
+        studio_client.get("/state")
+    after = (
+        killswitch.is_engaged(state.enforcer),
+        state.enforcer.execute("SELECT COUNT(*) AS n FROM cap_counters").fetchone()["n"],
+        state.enforcer.execute("SELECT COUNT(*) AS n FROM actions_audit").fetchone()["n"],
+    )
+    assert before == after

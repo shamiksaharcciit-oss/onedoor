@@ -647,6 +647,45 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 059 (2026-08-28) — V3, and the Q7 actor ruling
+
+| Was | Ruling |
+|---|---|
+| V3 | **Accepted.** 1024 passed, four gates green, CI green on both jobs. |
+| Chain-numbered entries | **Adopted verbatim as the rule for every numbered thing we render:** *a citation must survive the view that produced it.* `unchained` is the honest absence — *a number nobody assigned is a number the ledger would have to defend without a record.* |
+| Read-only asserted against the source | **The structural-fence law completing itself.** A behavioural test proves the paths it happened to take; the absence of a write path is a property of the code, checkable in the code. **Keep both — the structural assertion as the fence, behaviour as the smoke.** |
+| Digest labels read from `digests.py` | **R058 §4's law held its first door.** Captioning `t_digest` "target" from the canary pillar's habit would have been confidently wrong in a compliance product. |
+| **Q7 — the actor gap** | **Stopping at the freeze was the only correct move**; the interim rendering is approved as built. *A ledger that says "who asked is not recorded here" is honest; one that quietly answers identity questions with provenance facts would be F-H's lie wearing a filter's clothes.* |
+| **Q7's shape — `actor_hash` REJECTED** | **Never digest secrets.** *"A hash of a credential is an oracle — anyone holding the key list, or guessing at weak keys, can test candidates against exported audit rows; you would have shipped a credential-checking service inside every export."* Delivery's instinct (*a raw key in a receipt is a credential in a receipt*) was right and **did not go far enough: a DIGEST of a credential in a receipt is still a function of the credential.** |
+| **The ruled shape** | **A non-secret `key_id` assigned at key creation** — assigned, stable, meaningless. The ledger records the key_id. **Nothing derived from the secret ever touches a row**; revealing the ledger reveals which key acted, never anything about the key itself. |
+| Q4's declined exemption | Approved, with the reason recorded — *which is exactly what keeps it from becoming an unwritten rule*. The known-gap-test shape is now **house practice for every temporary exemption: the exception carries the test that will delete it.** |
+| Q6's near-miss | Earns the law below. |
+| Q5 | **Unlanded by design is correct** — V3 changed the route, not the body. Verifying the plumbing without building on it is *the right amount of early.* |
+| V4 | Check for the admin API first, as planned. **If the API half-exists (read but not write), that is still the read-only case, not a reason to invent a write path during the freeze.** |
+
+### Programme law — a citation must survive the view that produced it
+
+R059 §1. An ordinal that changes with the filter means an auditor quoting "entry 14" is
+quoting the page rather than the ledger. Every numbered thing this programme renders
+carries the number its source assigned, or says it has none.
+
+### Programme law — a response is honest as a whole, or not at all
+
+R059 §2, from the Q6 near-miss. `HTTPException` answering 404 with
+`content-type: application/json` around an HTML body fixed the status and broke the
+media type. **Status, media type and body are one statement; a fix that relocates a lie
+to another header is not a fix.**
+
+### Programme law — never digest a secret
+
+R059 §3, binding with full force (stage-records recipe R9). **A hash of a credential is
+an oracle**: anyone holding the key list, or guessing at weak keys, can test candidates
+against exported rows — a credential-checking service shipped inside every export.
+
+Identity in a ledger is carried by a **non-secret identifier assigned at creation**,
+never by anything derived from the secret. *A digest of a credential in a receipt is
+still a function of the credential.*
+
 ### Resolved by Response 058 (2026-08-28) — V1+V2, the ΔE floor, Q4–Q6
 
 | Was | Ruling |
@@ -921,7 +960,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 058 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 059 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
