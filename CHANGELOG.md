@@ -5,7 +5,7 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## Unreleased
+## 0.6.2 — 2026-08-28
 
 ### Fixed — `ND-055` P0: the Studio's empty state, and the silent database trap
 

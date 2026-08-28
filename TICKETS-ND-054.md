@@ -1,6 +1,6 @@
 # `ND-054` — numeric bounds accept the decimal-string form · decomposition
 
-**Ruled:** R055 (core's ruling on `ESCALATION-20260827-006`, F-B).
+**Ruled:** core's F-B ruling, 2026-08-27 — an **unnumbered acknowledgment**, not a numbered memo (`R055` is `ND-055`, the Studio build; see §8).
 **Status:** specced, **build held**. Lands as the **first post-freeze change**.
 **Kind:** widening — `denied` → `permitted` for input the engine accepts today.
 
@@ -69,7 +69,7 @@ fix; accepting decimal strings is what it makes true in both places at once.
 - `bool` excluded, as both paths already do; `NaN`/`Infinity` stay **malformed**, not
   "not numeric".
 
-## 5. The three tests R055 requires, both directions
+## 5. The three tests the ruling requires, both directions
 
 1. **`"40.00"` accepted and evaluated exactly** — including that a bound of `40.00`
    admits `"40.00"` and refuses `"40.01"`, which is the equality a float would blur.
@@ -86,7 +86,7 @@ one value.
 ## 6. Why it waits
 
 **`denied` → `permitted` is the one direction that never rides a hotfix into launch
-week** (R055, ratifying delivery's own lean). It is not a launch blocker: the failing
+week** (the F-B ruling, ratifying delivery's own lean). It is not a launch blocker: the failing
 direction is closed, and `README.md`'s *Known limitations* carries the gap meanwhile so an
 integrator meets it in documentation rather than in a refusal.
 
@@ -114,3 +114,24 @@ The escalation itself was still the right act: it flagged a verdict-changing beh
 rather than taking it, and it surfaced the engine-internal inconsistency that the spec
 question sat on top of. **What was wrong was the read, not the escalating** — and the
 proposal it reached was the one core ruled for.
+
+## 8. A citation defect, self-caught and corrected
+
+This ticket cited its ruling as **`R055`**. That was wrong, and the way it was wrong is
+worth keeping.
+
+Core's F-B ruling arrived as an **unnumbered acknowledgment**. Delivery gave it the next
+sequential response number *by assumption* — and the same for the Appendix B ruling, which
+became "R056". Both real memos then arrived on 2026-08-28 and took those numbers: `R055` is
+the `ND-055` Studio build authorisation, `R056` is the seal ruling.
+
+So two response numbers each meant two different things, in the register whose entire value
+is that a reader does not have to wonder. **A number that names two rulings names neither.**
+
+Caught by an audit of every `Resolved by Response NNN (date)` heading against the archived
+memo bearing that number — **exactly two mismatched, both delivery's, both from numbering
+something core had not numbered.** `tests/protocol/test_ruling_citations.py` now runs that
+audit, so a citation cannot drift from the archive again.
+
+The rule: **cite what the source calls itself.** An unnumbered acknowledgment gets a date
+and a subject, never a number invented to make it look like the ones around it.

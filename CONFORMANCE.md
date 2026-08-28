@@ -495,6 +495,40 @@ the artifact to satisfy the check.* Rewording documentation to appease a linter 
 guard erode the thing it guards, which is how a control quietly becomes what it was built
 to prevent. A narrowing is done honestly by testing the boundary **from both sides**.
 
+### Programme law — deferred annotations resolve where the module lives, not where the code runs
+
+Registered with its shape (R056 §3), because it is a trap and not a one-off.
+
+`from __future__ import annotations` makes every annotation a **string**. A framework that
+resolves those strings — FastAPI does, to build its request model — resolves them against
+the **module's** globals. A name imported inside the function that builds the routes is
+invisible at resolution time, however plainly it sits in the source.
+
+**Symptom:** `request: Request` read as an unresolvable **query parameter**; every browser
+form POST returned `422` *before reaching the handler*, with a message about a missing
+query field that names nothing wrong with the request.
+
+**Found:** building `ND-055` P0's create-draft form. **Fix:** the name lives at module
+scope behind an import guard, so the annotation resolves where the framework looks. The
+X-6 property survives — importing the module still works without the extra, and
+`create_app` still refuses with a remedy, because if it did not refuse then the guarded
+import already succeeded.
+
+*The next closure-built app should hit this register before it hits the 422.*
+
+### Seal-boundary doctrine — configuration advice is not a verdict
+
+R056 §2, recorded because the line is easy to over-draw in either direction.
+
+- **The semantic pair is reserved for verdicts and states.** Allow/refuse and their kin
+  never decorate anything that is not one.
+- **Seal gold as a brand frame on an advisory panel is brand usage**, not state signalling.
+  §4 forbids gold **carrying** state; it does not forbid gold standing near information.
+- **So V8(a)'s strengthened check is scoped accordingly**: it hunts state and verdict
+  vocabulary and semantic-class routes *inside the seal region*. It must **not** fire on a
+  conditionally-rendered advisory panel — a check that did would outlaw gold anywhere
+  dynamic, and **teach people to route around it**, which is worse than the violation.
+
 ### Programme law — a summary is a claim about a source
 
 **Check the source before you reason from the claim.**
@@ -538,7 +572,7 @@ a perishable asset, and the one thing an internal review can never simulate.
 
 ### Programme law — a register that silently loses a row invites the question of what else it lost
 
-R056, ruled against delivery's own recommendation and recorded because delivery was wrong.
+Core's Appendix B ruling (2026-08-27), against delivery's own recommendation and recorded because delivery was wrong.
 
 Reviewing `-02`'s Appendix B, delivery proposed **dropping** the idempotency-propagation
 row: `-02` had drawn a boundary making it a non-gap, so listing it beside real gaps looked
@@ -603,7 +637,7 @@ records who gets audited rather than what goes wrong. R051 §1's line covers it 
 *nothing here is authoritative because of who wrote it* — and a class table that
 exempted its own author would be the clearest counter-example to that.
 
-### Resolved by Response 056 (2026-08-27) — Appendix B
+### Resolved by core's Appendix B ruling (2026-08-27, unnumbered acknowledgment)
 
 | Was | Ruling |
 |---|---|
@@ -613,7 +647,18 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
-### Resolved by Response 055 (2026-08-27) — F-B
+### Resolved by Response 056 (2026-08-28) — the R049 §3 conflict
+
+| Was | Ruling |
+|---|---|
+| `ND-055` P0 | **Accepted** at `a889300`. *Eight of eleven tests failing against the shipped code before the fix is the sentence that makes the other numbers credible — tests that have never failed have never been shown to look.* |
+| F-G's generalisation | **Adopted as the pattern for every empty-state fix in this build**: an affordance that exists only in the empty state is *an affordance discoverable only by the lost.* |
+| The `parse_qs` choice | **Approved with approval underlined** — content-type dispatch, JSON API byte-identical, no new dependency: *the no-framework ethos holding under pressure to bend it.* |
+| **R049 §3's `--seal` clause** | **SUPERSEDED.** The strengthened rule binds **everywhere** — no grandfathered screens, no channel where gold may carry state. R049 was ruled before the seal/state contradiction surfaced; **its premises moved, so the ruling comes back — it does not stretch.** R049 §3 stands *except its fourth mechanism*: size, position and weight remain, and three are enough. If prominence genuinely fails with three, that is a **design escalation, not a reason to readmit gold.** |
+| Sequencing of the migration | **Delivery's second option.** S4/S6 migrate off seal-in-state **as part of V1's shell work**, so the token change lands exactly once, in the `0.7.0` line after Sept 12. **`test_coverage_map.py:82` and `test_proposal.py:156` invert in the SAME COMMIT as the migration** — *a test that requires a violation becomes a defect the moment the law strengthens, and it must not survive one commit longer than the violation it protects.* Afterwards, run Forward 005's sabotage pair against S4/S6 and report the four violations as **caught-then-cleared, by name**. |
+| V6's premise | **Accepted as verified.** No new table, no escalation. Screen copy: the version dropdown lists what `snapshot_for()` can honestly serve; anything it cannot serve renders **"not retrievable", never as absent.** |
+
+### Resolved by core's F-B ruling (2026-08-27, unnumbered acknowledgment)
 
 | Was | Ruling |
 |---|---|
@@ -784,7 +829,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 056 (2026-08-27). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 056 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced
