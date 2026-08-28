@@ -52,6 +52,28 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V6: re-evaluate a past decision under any version
+
+The flagship. From any decision in the History ledger, replay it against the rules of any
+version this store can rebuild, with the original verdict beside the one those rules would
+have reached. *Was this refusal right under last week's policy?* — one click.
+
+The replay runs the **engine itself** against a throwaway database loaded with the
+historical policies, not a hand-written comparison of rules: the instrument is identical,
+not merely the answer plausible. Replaying against the version that actually decided
+reproduces the recorded verdict, which is the control case the feature rests on. Nothing
+in the real store changes.
+
+Both versions are named together — the one that decided, the one replaying — and every
+state of the panel carries the limit: it says what would have been decided, not what will
+be, and nothing was re-executed.
+
+A version this store holds no snapshot for renders **not retrievable** and shows no
+verdict at all. Replaying against an empty policy set would return a confident refusal
+with the shape of a real verdict and none of its meaning, so the comparison reports that
+it could not be made rather than that it found no difference. A row whose recorded
+parameters cannot be rebuilt is a separate failure with its own words.
+
 ### Added — `ND-055` V5: drafts, and ratification as a ceremony page (S3)
 
 The drafting pipeline the engine already had, made visible: the pinned base, a per-rule

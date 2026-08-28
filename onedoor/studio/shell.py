@@ -379,6 +379,13 @@ h2 .num{font-size:1rem}
   min-width:22rem;max-width:100%}
 .voice blockquote{margin:.5rem 0;padding:.6rem 1rem;border-left:3px solid var(--dim);
   background:var(--well);font-family:var(--serif);font-size:1rem;color:var(--ink)}
+.then-now{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.8rem}
+@media(max-width:900px){.then-now{grid-template-columns:1fr}}
+.then-now .cell{background:var(--well);border:1px solid var(--line);border-radius:6px;
+  padding:.7rem .9rem}
+.cell h5{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+  margin-bottom:.4rem;font-weight:600}
+.cell p{margin:.25rem 0}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

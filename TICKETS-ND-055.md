@@ -21,8 +21,8 @@
 | **V3** | S4 History · Q4 · Q6 | **built** |
 | **V4** | S5 Live state | **built** |
 | **V5** | S3 Drafts · the ceremony · Q5 | **built** |
-| **V6** | Re-evaluate under version — the flagship | next |
-| **V7** | S2 Editor | held |
+| **V6** | Re-evaluate under version — the flagship | **built** |
+| **V7** | S2 Editor | next |
 | **V8** | S6 Verify + the law tests | held |
 
 ---
@@ -237,6 +237,80 @@ parses one way, and the first quoting difference between them would be a screen 
 something the engine would not load. JSON is a subset of YAML, so what is shown is
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
+
+## V6 — the flagship: re-evaluate under version
+
+`onedoor/studio/reevaluate.py`, a block on the History detail page, and one query
+parameter.
+
+### The premise, verified as a test rather than as a sentence
+
+R055 V6 asked that retrievability be checked first. It holds:
+`policy_loader.record_snapshot` writes the whole set into `policy_versions` keyed by its
+hash, `snapshot_for` returns it, `ratify._policies_at` rebuilds the `Policy` objects.
+V4 already leaned on the same path for its budget limits. **No escalation was needed**,
+and `test_policy_sets_are_retrievable_by_version` keeps the verification where it can
+fail rather than in a report where it cannot.
+
+### The engine decides, not this module
+
+The replay builds a **scratch database in a temporary directory**, loads the historical
+policies, and calls `decide_and_reserve` — the entry point the live service calls.
+`backtest.run` established the pattern and the reason: *the instrument is identical, not
+merely the answer plausible.* A hand-written comparison of rules would be a second
+implementation of the verdict, and the two would disagree the first time anything subtle
+changed. Asserted structurally: the module must contain `decide_and_reserve` and must
+not contain a tier check, a counter read, or a `_verdict` function of its own.
+
+**The control case is the strongest evidence the instrument is right:** replayed against
+the version that actually decided, the engine reaches the verdict the record holds.
+
+### Three outcomes, and the most dangerous available answer
+
+| | rendered as |
+|---|---|
+| the replay ran | both verdicts, side by side, with `changed` true or false |
+| the version has no snapshot | **`not retrievable`** — no verdict at all |
+| the row cannot be rebuilt into a request | **`cannot be replayed`** — a different failure |
+
+The middle row is the one that matters. An empty policy set replays as default-deny and
+returns a confident `denied` — **the shape of a real verdict carrying none of its
+meaning**, and the most dangerous answer this screen could give. `Comparison.changed`
+returns `None` there, never `False`, so a comparison that could not be made can never
+render as one that found no difference. The two failures never share a word: one is a
+fact about the yardstick, the other about the question, and they have different
+remedies.
+
+The dropdown offers only what `snapshot_for` can serve (R056), read from
+`policy_versions` rather than from the audit log's distinct version values — *a version
+some row once named is not necessarily one this store can rebuild*, tested by inserting
+a row naming a ghost version and asserting it never appears as an option.
+
+### What the screen says (R061 §5)
+
+**Both versions in the same breath** — *"Decided under `26e92ec9…520c`; replayed under
+`0f4dca01…f248`"* — with the deciding version marked in the dropdown so a reader can
+find the control case without comparing digests by eye. And the would-have sentence on
+every state of the block, including the failures:
+
+> This replays one recorded decision against a different version's rules. It says what
+> would have been decided, not what will be. Nothing was re-executed and nothing in the
+> ledger changed.
+
+Both clauses are load-bearing. *Would have, not will* keeps the counterfactual from
+reading as a prediction. **Nothing was re-executed** keeps it from reading as an action —
+this page runs a decision function, and an operator who thinks a payment was attempted
+twice has been badly misled by a button. Proven by eight served requests leaving the
+ledger, the counters and the version pointer exactly where they were.
+
+### A recurring mistake earns a named tool
+
+`assert_reader_sees` in `tests/viewer/assertions.py`, written after the same error three
+times: a constant containing an apostrophe reaches the page as `&#x27;`, and a test
+asserting the raw constant fails against a page that is **correct**. It checks the
+escaped form in the markup and the unescaped rendering back to the constant, which is
+R061 §3's law with somewhere to live.
+
 
 ## V5 — S3 Drafts, the ceremony, and Q5's two voices
 
@@ -554,6 +628,24 @@ plumbing is verified reachable: `proposer.Mention` links a description phrase to
 type, and a ratification's `candidate_digest` **is** the proposal's `policy_digest`, so
 `descriptions.records_for_policy` reaches the frozen words for a given rule with no new
 stored pointer.
+
+**Q8 — a pytest-internal failure seen once and not reproduced.** One gate run failed with
+`KeyError: <_pytest.stash.StashKey object …>` from `_pytest/stash.py`, with no test
+named. The immediately preceding and following full runs both passed (1104 passed, 9
+skipped), as did a bare `pytest -q` in between; the gate is green on the committed tree.
+
+Reported rather than swallowed, because a suite that fails once in three runs is a green
+gate worth less than it looks. **Suspected but unproven:** the token tests call
+`capsys.disabled()` to print the contrast and ΔE matrices R057 §5 requires in CI, and the
+error came from pytest's capture stash. That is the documented API for the job, so this
+is a suspicion and not a finding.
+
+**Proposal if it recurs:** move the measurement printing out of the tests and into a
+`pytest_terminal_summary` hook in `conftest.py`. That is where report output belongs, it
+touches no per-test capture, and the numbers become part of the run's report rather than
+incidental output — which is a better home for them regardless. Not done now: changing
+the mechanism on one unreproduced flake would be treating a suspicion as a diagnosis, and
+the current arrangement is what core ruled and can audit.
 
 **Q7 is ruled by R059 §3 — and delivery's proposed shape was rejected, correctly.**
 

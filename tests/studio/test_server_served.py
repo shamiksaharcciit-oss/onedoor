@@ -498,3 +498,124 @@ def test_the_honesty_footnote_survives_the_round_trip(studio_client: TestClient)
     draft_id = _open_draft(studio_client)
     for path in (f"/drafts/{draft_id}", f"/drafts/{draft_id}/ratify"):
         assert escape(validate.INCOMPLETE_NOTICE) in studio_client.get(path).text, path
+
+
+# --- V6: the flagship, over HTTP ---------------------------------------------------------
+
+
+def _one_decision(client: TestClient) -> tuple[int, str, str]:
+    """Decide once under a tight cap, then loosen it. Returns (row id, tight, loose)."""
+    from uuid import uuid4
+
+    from onedoor.guardrail import policy_loader
+    from onedoor.guardrail.decision import decide_and_reserve
+    from onedoor.guardrail.models import ActionRequest, Bounds, Caps, Policy, Source, Tier
+    from onedoor.store.clock import now_utc
+
+    state = client.app.state.studio
+
+    def capped(eur_day: str) -> str:
+        policy_loader.upsert(
+            state.enforcer,
+            Policy(
+                action_type="payments.transfer",
+                tier=Tier.AUTO_CAPPED,
+                dry_run=False,
+                compensating_command="payments.reverse",
+                cost_param="amount_eur",
+                caps=Caps(eur_day=eur_day),
+                bounds=Bounds(required=["amount_eur"], strict_params=False),
+            ),
+        )
+        return policy_loader.current_version(state.enforcer)
+
+    tight = capped("100.00")
+    request = ActionRequest(
+        request_id=uuid4(),
+        action_type="payments.transfer",
+        params={"amount_eur": "400.00"},
+        source=Source.LLM,
+        rationale="served",
+        created_at=now_utc(),
+    )
+    decide_and_reserve(request, conn=state.enforcer, config=state.config, now=request.created_at)
+    loose = capped("5000.00")
+    row_id = int(
+        state.enforcer.execute(
+            "SELECT id FROM actions_audit WHERE kind='decision' ORDER BY id DESC LIMIT 1"
+        ).fetchone()["id"]
+    )
+    return row_id, tight, loose
+
+
+def test_the_flagship_appears_on_the_history_detail_page(studio_client: TestClient) -> None:
+    """R055 V6: *put it where nobody can miss it.*"""
+    row_id, _tight, _loose = _one_decision(studio_client)
+    response = studio_client.get(f"/history/{row_id}")
+    assert response.status_code == 200
+    assert "Re-evaluate under version" in response.text
+
+
+def test_re_evaluating_over_http_shows_the_answer_changing(studio_client: TestClient) -> None:
+    """The one click the product is sold on."""
+    row_id, _tight, loose = _one_decision(studio_client)
+    response = studio_client.get(f"/history/{row_id}?against={loose}")
+    assert response.status_code == 200
+    assert "the answer would have changed" in response.text
+    assert "Decided then" in response.text and "Would be now" in response.text
+
+
+def test_re_evaluating_under_the_deciding_version_agrees(studio_client: TestClient) -> None:
+    row_id, tight, _loose = _one_decision(studio_client)
+    response = studio_client.get(f"/history/{row_id}?against={tight}")
+    assert "the answer would have been the same" in response.text
+
+
+def test_the_served_page_names_both_versions(studio_client: TestClient) -> None:
+    """R061 §5, checked on the bytes a browser receives."""
+    from onedoor.studio import shell as shell_module
+
+    row_id, tight, loose = _one_decision(studio_client)
+    text = studio_client.get(f"/history/{row_id}?against={loose}").text
+    assert shell_module.short_digest(tight) in text
+    assert shell_module.short_digest(loose) in text
+
+
+def test_the_served_page_wears_the_would_have_sentence(studio_client: TestClient) -> None:
+    from html import escape
+
+    from onedoor.studio import reevaluate as reevaluate_module
+
+    row_id, _tight, loose = _one_decision(studio_client)
+    for query in ("", f"?against={loose}"):
+        text = studio_client.get(f"/history/{row_id}{query}").text
+        assert escape(reevaluate_module.WOULD_HAVE) in text, query
+
+
+def test_an_unretrievable_version_over_http_shows_no_verdict(studio_client: TestClient) -> None:
+    row_id, _tight, _loose = _one_decision(studio_client)
+    text = studio_client.get(f"/history/{row_id}?against={'de' * 32}").text
+    assert "not retrievable" in text
+    assert "would have been the same" not in text
+    assert "would have changed" not in text
+
+
+def test_re_evaluating_over_http_writes_nothing(studio_client: TestClient) -> None:
+    """The flagship runs a decision function. Eight requests must leave the ledger, the
+    counters and the version pointer exactly where they were."""
+    from onedoor.guardrail import policy_loader
+
+    row_id, _tight, loose = _one_decision(studio_client)
+    state = studio_client.app.state.studio
+
+    def snapshot() -> tuple:
+        return (
+            state.enforcer.execute("SELECT COUNT(*) AS n FROM actions_audit").fetchone()["n"],
+            state.enforcer.execute("SELECT COUNT(*) AS n FROM cap_counters").fetchone()["n"],
+            policy_loader.current_version(state.enforcer),
+        )
+
+    before = snapshot()
+    for _ in range(8):
+        assert studio_client.get(f"/history/{row_id}?against={loose}").status_code == 200
+    assert snapshot() == before

@@ -647,6 +647,44 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 061 (2026-08-28) — V5, and core's wrong word
+
+| Was | Ruling |
+|---|---|
+| V5 | **Accepted.** 1081 passed, four gates green, CI green on both jobs. **Q5 discharged** — *"with the layout ruled in R058 §6, and better than ruled."* |
+| The ceremony's spine | **Canon as written: ratification is a GET before it is a POST.** A served test proving that reading the page ratifies nothing *is the whole justification for a ceremony page over a button, stated as an assertion instead of an intention.* |
+| **R060 §5's word "irreversibility"** | **Core's defect, registered.** Had the page followed core's word it would have carried *a falsely frightening claim in its most solemn sentence*. Filed on the same shelf as the deny tier and the mockup contrast: **core's language, agent's correction.** |
+| The malformed fourth case | Closes a hole the three-outcome doctrine left implicit — **malformed is its own outcome.** *The right-typed lie found in a dataclass, caught by mypy doing its job.* |
+| The backtest panel | Ratified. Per-direction flip sentences are correct *because a single count buries the only direction that pages an operator.* |
+| Q5's three states | **The finish the ruling lacked.** The page stating that neither voice is derived from or checked against the other is *the two-voice boundary made legible to the reader instead of merely held in the code.* |
+| V6 | Proceed. One addition: **the re-evaluation screen names BOTH versions in the same breath and wears the would-have limit sentence.** *A counterfactual that does not name its counterfactual-ness on the screen where it renders is the backtest panel's lie one click deeper.* |
+
+### Programme law — finality is not irreversibility
+
+R061 §2, correcting R060 §5. **The record is permanent, the way back is forward, and a
+ceremony that overstates finality is lying in the direction that LOOKS like caution.**
+
+The forbidden-word list held as a test is the right fence, and the reason it matters is
+the sting in the ruling: **caution-flavoured lies are the ones nobody audits.** A page
+saying "this cannot be undone" would never be challenged for being too careful — which
+is exactly why it has to be challenged for being false.
+
+### Programme law — malformed is its own outcome
+
+R061 §3. A state that says the work ran, carrying no result, is neither success nor
+refusal. **Zeroes in a malformed result would report a clean run that never happened.**
+Found in a dataclass by a type checker, which is a perfectly good place to find one.
+
+### Programme law — prove verbatim in the form the reader receives
+
+R061 §3. A constant containing an apostrophe reaches the page escaped, which is the page
+being *correct*. **Asserting only the raw constant makes a correctly-escaped page look
+like a paraphrase.** Check both: the escaped form in the markup, and the unescaped
+rendering back to the constant character for character.
+
+`tests/viewer/assertions.assert_reader_sees` is that check, written after the mistake
+recurred three times — *a recurring mistake earns a named tool.*
+
 ### Resolved by Response 060 (2026-08-28) — V4, and the third case
 
 | Was | Ruling |
@@ -1003,7 +1041,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 060 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 061 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

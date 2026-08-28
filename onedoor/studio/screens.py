@@ -12,7 +12,16 @@ from html import escape
 from typing import Any
 
 from onedoor.guardrail.models import Policy
-from onedoor.studio import canvas, drafts, history, library, live, shell, validate
+from onedoor.studio import (
+    canvas,
+    drafts,
+    history,
+    library,
+    live,
+    reevaluate,
+    shell,
+    validate,
+)
 from onedoor.studio import coverage as coverage_model
 
 COVERAGE_WORDS = {
@@ -722,4 +731,110 @@ def receipt_body(outcome: Any, draft_id: str) -> str:
         f"<dt>Kill switch</dt><dd>{switch}</dd></dl>"
         '<p class="note">Recorded at ratification. The switch does not block ratifying '
         "\u2014 nothing ratified can move while it holds.</p></div>"
+    )
+
+
+# --- V6: re-evaluate under version --------------------------------------------------
+
+
+def reevaluate_block(
+    row: Any,
+    versions: tuple[str, ...],
+    comparison: Any = None,
+) -> str:
+    """The flagship, on the History detail page.
+
+    **Both versions are named in the same breath** (R061 §5) — the one that decided
+    then and the one replaying now — and the block wears the would-have sentence. A
+    counterfactual that does not name its counterfactual-ness on the screen where it
+    renders is the backtest panel\u2019s lie one click deeper.
+
+    The dropdown offers only versions `snapshot_for` can actually serve (R056). A
+    version this store cannot rebuild is not an option that returns nothing; it is not
+    an option.
+    """
+    decided_under = row["policy_version"]
+    options = ['<option value="">Choose a version to replay against</option>']
+    for version in versions:
+        marker = " \u2014 the version that decided" if version == decided_under else ""
+        selected = (
+            " selected"
+            if comparison is not None and version == getattr(comparison, "against", None)
+            else ""
+        )
+        options.append(
+            f'<option value="{escape(version)}"{selected}>'
+            f"{escape(shell.short_digest(version))}{escape(marker)}</option>"
+        )
+    form = (
+        f'<form class="filters" method="get" action="/history/{escape(str(row["id"]))}">'
+        f'<select name="against">{"".join(options)}</select>'
+        '<button type="submit">Re-evaluate</button></form>'
+    )
+
+    if comparison is None:
+        return (
+            '<div class="panel"><h3>Re-evaluate under version</h3>'
+            f'<p class="plain">This decision was made under '
+            f"{shell.digest_html(decided_under)}. Replay it against another version to "
+            "see whether the answer would have been different.</p>"
+            + form
+            + f'<p class="note">{escape(reevaluate.WOULD_HAVE)}</p></div>'
+        )
+
+    then, now = comparison.then, comparison.now
+    heading = (
+        '<div class="panel"><h3>Re-evaluate under version</h3>'
+        f'<p class="plain">Decided under {shell.digest_html(then.version)}; '
+        f"replayed under {shell.digest_html(comparison.against)}.</p>" + form
+    )
+
+    if now is None:
+        # Three outcomes, and neither of these is "no difference". A comparison that
+        # could not be made must never render as one that found nothing.
+        why = (
+            "This store holds no snapshot for that version, so its rules cannot be "
+            "rebuilt. No verdict is shown: replaying against an empty policy set would "
+            "return a confident refusal that means nothing."
+            if comparison.reason == reevaluate.NOT_RETRIEVABLE
+            else "This row cannot be rebuilt into a request \u2014 its recorded "
+            "parameters are absent or unreadable \u2014 so there is nothing to replay."
+        )
+        return (
+            heading
+            + f'<div class="empty"><b>{escape(str(comparison.reason))}.</b> {escape(why)}</div>'
+            + f'<p class="note">{escape(reevaluate.WOULD_HAVE)}</p></div>'
+        )
+
+    verdict_chip = {
+        "allowed": "allow",
+        "to_approval": "review",
+        "denied": "refuse",
+    }
+    banner = (
+        shell.chip("review", "the answer would have changed")
+        if comparison.changed
+        else shell.chip("allow", "the answer would have been the same")
+    )
+    cells = ""
+    for label, verdict in (("Decided then", then), ("Would be now", now)):
+        chip = shell.chip(verdict_chip.get(verdict.shape, "review"), verdict.decision)
+        cells += (
+            '<div class="cell"><h5>'
+            + escape(label)
+            + "</h5>"
+            + f"<p>{chip}</p>"
+            + f'<p class="note">under {shell.digest_html(verdict.version)}'
+            + (
+                f', tier <span class="mono">{escape(str(verdict.tier))}</span>'
+                if verdict.tier is not None
+                else ""
+            )
+            + "</p></div>"
+        )
+    return (
+        heading
+        + f"<p>{banner}</p>"
+        + f'<div class="then-now">{cells}</div>'
+        + f'<p class="note">{escape(reevaluate.WOULD_HAVE)}</p></div>'
     )

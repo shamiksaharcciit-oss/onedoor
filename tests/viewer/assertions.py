@@ -311,6 +311,29 @@ def assert_store_values_are_escaped(html: str) -> None:
         raise PropertyViolation("unescaped store content reached the page")
 
 
+def assert_reader_sees(html: str, text: str) -> None:
+    """Assert the page shows `text` to a reader, escaping included.
+
+    **Written after making the same mistake three times.** A constant containing an
+    apostrophe (`the engine's validator`, `a different version's rules`) reaches the page
+    as `engine&#x27;s`, which is the page being *correct* about HTML — and a test
+    asserting the raw constant fails, making a correctly-escaped page look like a
+    paraphrase.
+
+    So the check runs in both directions: the escaped form must appear in the markup, and
+    stripping tags and unescaping must give the constant back character for character.
+    R061 §3's law: **prove verbatim in the form the reader receives.**
+    """
+    from html import escape as _escape
+    from html import unescape as _unescape
+
+    if _escape(text) not in html:
+        raise PropertyViolation(f"the page does not carry: {text[:70]!r}")
+    rendered = _unescape(re.sub(r"<[^>]+>", "", html))
+    if text not in rendered:
+        raise PropertyViolation(f"the page carries it escaped but a reader sees: {rendered[:90]!r}")
+
+
 ALL_PROPERTIES = (
     assert_every_displayed_digest_is_in_the_store,
     assert_every_displayed_budget_number_matches_the_store,

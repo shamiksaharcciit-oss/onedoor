@@ -45,6 +45,7 @@ from onedoor.studio import (
     library,
     live,
     ratify,
+    reevaluate,
     screens,
     shell,
     store,
@@ -614,7 +615,7 @@ def create_app(state: StudioState) -> Any:
             )
 
     @app.get("/history/{row_id}", response_class=HTMLResponse)
-    def history_entry(row_id: int) -> Any:
+    def history_entry(row_id: int, against: str = "") -> Any:
         """One decision in full. 404 when the entry does not exist (R058 §6)."""
         with state.lock:
             row = history.entry(state.enforcer, row_id)
@@ -632,8 +633,16 @@ def create_app(state: StudioState) -> Any:
                     ),
                     status_code=404,
                 )
+            comparison = (
+                reevaluate.compare(state.enforcer, row, against, config=state.config)
+                if against
+                else None
+            )
+            flagship = screens.reevaluate_block(
+                row, reevaluate.retrievable_versions(state.enforcer), comparison
+            )
             return shell.render(
-                body=screens.entry_body(row),
+                body=screens.entry_body(row) + flagship,
                 banner=banner_for(state),
                 active="history",
                 title=f"onedoor policy studio — entry {row_id}",
