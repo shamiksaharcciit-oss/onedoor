@@ -17,8 +17,8 @@
 |---|---|---|
 | **P0** | F-G empty state, F-H database trap | **shipped** — `0.6.2` |
 | **V1** | Shell: tokens, tabs, header, version banner | **built** |
-| **V2** | S1 Policies | next |
-| **V3** | S4 History | held |
+| **V2** | S1 Policies | **built** |
+| **V3** | S4 History | next |
 | **V4** | S5 Live state | held |
 | **V5** | S3 Drafts | held |
 | **V6** | Re-evaluate under version — the flagship | held (premise verified, R056) |
@@ -174,6 +174,70 @@ grandfather clause R056 removed.
 
 ---
 
+## V2 — S1 Policies
+
+`onedoor/studio/library.py` (read model), `onedoor/studio/screens.py` (markup), two
+routes.
+
+**It reads the snapshot behind the pinned version, not the live tables.** Through
+`policy_loader.upsert` the two never disagree — it records a snapshot on every write —
+but a row written around it makes them disagree, and then they are *different facts*:
+the tables are what the next snapshot would hold, the pinned version is what the engine
+is deciding against and what the header's digest names. A page built from the tables
+would contradict the digest in its own header, on the screen an auditor uses to say what
+was deployed. Tested by writing straight into the table and asserting the page does not
+move — with a third assertion that the fixture actually created the disagreement, so the
+test cannot pass by proving nothing.
+
+**Three outcomes, and the middle one is the dangerous one.** No version in force; a
+version whose snapshot cannot be read; a real set. Collapsing the second into the first
+would tell an operator that **nothing is permitted** while the engine is permitting
+things — the one error this page must never make. It renders as *"this is not an empty
+policy set — the engine is deciding against rules this page cannot read."*
+
+**The chip is a claim about what the engine will decide**, and `dry_run` outranks the
+tier: a rule that would permit but runs dry permits nothing, and `allowed` would be the
+screen making a promise the engine is not keeping.
+
+**A correction to R055's own model of the engine.** V2 was written against tiers
+`AUTO/CONFIRM/APPROVE/DENY`; the engine's are `OBSERVE/AUTO/AUTO_CAPPED/CONFIRM` and
+**there is no deny tier at all** — refusal comes from default-deny, bounds, caps or the
+kill switch. Each phrase was checked against `guardrail/decision.py` rather than inferred
+from the constant's spelling; `OBSERVE` in particular returns `Decision.EXECUTED` and
+*performs nothing*, returning at step 5 before bounds are evaluated. Three chips over
+four tiers means one must be approximate, so `OBSERVE` wears `allowed` and the tier gets
+its own column: **the approximation belongs where a second column already carries the
+exact answer.**
+
+**R015 caught on the way out.** `NumericBound(max=…)` dumps `{"max": "500", "min": null}`,
+and rendering that would show an operator a bound they never wrote on the page that
+exists to tell them what their rules say. Stripped recursively — the first nested shape
+that needed it was two levels down.
+
+### `descriptions.py` is not a plain-language renderer — R055 V2's pointer is wrong
+
+R055 V2 says *"plain-language rendering (descriptions.py exists for this)"*.
+`studio/descriptions.py` freezes **the operator's own words** as received data, the input
+to S6's proposer, and contains no renderer. The design note asks for something else:
+*"plain-language rendering of each rule beside its YAML"*, generated from the rule.
+
+So `library.sentences()` was written — strictly derived, every clause from a field, and a
+field with nothing to say produces no sentence rather than a reassuring one. **A rendering
+that adds a clause the policy does not contain is a rendering that will be trusted for a
+guarantee nobody wrote.**
+
+Reported rather than silently resolved because the two are easy to conflate on screen —
+what a rule **does** versus what someone **said it was for** — and conflating them is
+exactly the mistake S6's asserted/measured split exists to prevent. **Q5 below.**
+
+### The YAML pane shows JSON, deliberately
+
+A hand-rolled YAML writer would be a second serializer for a format the loader already
+parses one way, and the first quoting difference between them would be a screen showing
+something the engine would not load. JSON is a subset of YAML, so what is shown is
+loadable as written — the property that matters more than the file extension. Named for
+what it is rather than labelled "YAML".
+
 ## Ruled by R057 — what changed
 
 **Q1 approved, and the defect is core's.** The failing ratios are defects in the
@@ -251,6 +315,20 @@ failing direction** — it fails if `--faint` ever starts passing — so whoever
 forced to delete the exception rather than leave a stale carve-out behind.
 
 **V2 does not block on this.** The headers render either way; only their hex changes.
+
+**Q5 — `descriptions.py` cannot do what R055 V2 cites it for.** Detail above. V2 ships
+`library.sentences()`, derived from the policy. The open question is whether the detail
+view should *also* show the operator's frozen description where one exists, labelled as
+a separate kind of claim. **Proposal:** yes, in V7 when the editor makes descriptions
+reachable, under a heading that says whose words they are. Not now, because a third pane
+on a two-pane screen with no way to author the content is a feature with nothing in it.
+
+**Q6 — the detail route answers rather than 404s, and that is a wire-adjacent choice.**
+`GET /policies/{unknown}` returns **200** with *"no policy exists in the version in
+force, so this action is denied."* The reasoning: the route is valid and the answer is a
+fact about the deployed system, where a 404 would say the page does not exist. It is a
+Studio page and not an AADP surface, so no wire behaviour is involved — flagged because
+it is the kind of decision that should be core's if it ever moves onto one.
 
 **Transitional state, noted rather than hidden:** `/` and `/draft/{id}` still wear the
 oneview canvas skin and do not show the shell chrome; V5 restyles them. So the tab bar

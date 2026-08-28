@@ -198,3 +198,49 @@ def test_no_shell_page_reaches_off_the_machine(studio_client: TestClient) -> Non
     for path in ["/", *_unbuilt_paths()]:
         html = studio_client.get(path).text
         assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path
+
+
+# --- V2: the Policies screen, reached the way a browser reaches it ---------------------
+
+
+def test_the_policies_page_renders_over_http(studio_client: TestClient) -> None:
+    """F-A rerun against V2's route. The library touches both the policy tables and the
+    coverage builder, so it is the shell route with the most to go wrong on a
+    threadpool thread."""
+    response = studio_client.get("/policies")
+    assert response.status_code == 200, f"GET /policies returned {response.status_code}"
+    assert "demo.restore" in response.text
+
+
+def test_the_policies_page_survives_eight_sequential_requests(studio_client: TestClient) -> None:
+    for i in range(8):
+        assert studio_client.get("/policies").status_code == 200, f"request {i + 1} failed"
+
+
+def test_a_policy_detail_page_renders_over_http(studio_client: TestClient) -> None:
+    response = studio_client.get("/policies/demo.restore")
+    assert response.status_code == 200
+    assert "What this rule does" in response.text
+    assert "demo.restore" in response.text
+
+
+def test_an_unknown_action_is_answered_rather_than_404ed(studio_client: TestClient) -> None:
+    """The route is valid and the answer is a fact about the deployed system: that
+    action is denied, because absence is denial. A 404 would say the page does not
+    exist; the page exists, and what it reports is that the rule does not."""
+    response = studio_client.get("/policies/nothing.here")
+    assert response.status_code == 200
+    assert "denied" in response.text
+    assert "only what is deployed now" in response.text
+
+
+def test_the_absence_is_denial_sentence_survives_the_round_trip(studio_client: TestClient) -> None:
+    from onedoor.studio import library as library_model
+
+    assert library_model.ABSENCE_IS_DENIAL in studio_client.get("/policies").text
+
+
+def test_the_policies_tab_is_a_link_now_that_the_screen_exists(studio_client: TestClient) -> None:
+    """`shell.TABS` is the single source; this checks the flag was flipped with the
+    screen rather than before or after it."""
+    assert 'href="/policies"' in studio_client.get("/policies").text

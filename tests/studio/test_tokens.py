@@ -271,14 +271,32 @@ def test_the_dichromat_numbers_are_printed_even_where_no_floor_binds(capsys) -> 
 _HEX_IN_CSS = re.compile(r"#[0-9a-fA-F]{6}")
 
 
-def test_the_shell_emits_no_colour_that_is_not_a_token_or_a_declared_exception() -> None:
-    """One hand-picked hex per screen is how a design system dies."""
-    stray = {
-        h.lower()
-        for h in _HEX_IN_CSS.findall(shell.css())
-        if h.lower() not in tokens.hex_values() and h.lower() not in shell.ALLOWED_NON_TOKEN_COLOURS
-    }
-    assert not stray, f"colours outside the palette and undeclared: {sorted(stray)}"
+def test_no_stylesheet_emits_a_colour_that_is_not_a_token_or_a_declared_exception() -> None:
+    """One hand-picked hex per screen is how a design system dies.
+
+    Every stylesheet the Studio can emit is scanned, not just the shell's — the drift
+    this prevents arrives one screen at a time, so a check that only ever looked at the
+    first screen would report green through all of it.
+    """
+    from onedoor.studio import screens
+
+    for name, sheet in (("shell", shell.css()), ("screens", screens.css())):
+        stray = {
+            h.lower()
+            for h in _HEX_IN_CSS.findall(sheet)
+            if h.lower() not in tokens.hex_values()
+            and h.lower() not in shell.ALLOWED_NON_TOKEN_COLOURS
+        }
+        assert not stray, f"{name}: colours outside the palette and undeclared: {sorted(stray)}"
+
+
+def test_every_declared_colour_exception_is_actually_used() -> None:
+    """An exception nobody uses is a permission left lying around."""
+    from onedoor.studio import screens
+
+    sheets = shell.css() + screens.css()
+    for hex_colour in shell.ALLOWED_NON_TOKEN_COLOURS:
+        assert hex_colour in sheets, f"{hex_colour} is excused and never used; delete it"
 
 
 def test_gold_is_never_used_where_a_state_word_is_used() -> None:

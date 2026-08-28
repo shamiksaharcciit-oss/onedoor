@@ -110,7 +110,7 @@ class Tab:
 
 
 TABS: tuple[Tab, ...] = (
-    Tab("policies", "Policies", "/policies", False, "V2"),
+    Tab("policies", "Policies", "/policies", True, "V2"),
     Tab("drafts", "Drafts", "/", True, "V1"),
     Tab("history", "History", "/history", False, "V3"),
     Tab("state", "Live state", "/state", False, "V4"),
@@ -263,6 +263,9 @@ ALLOWED_NON_TOKEN_COLOURS = {
 }
 
 _CSS = """
+/* The one colour that is not in the pinned block, declared as a named token so
+   screens can use a name and the exception stays in exactly one place. */
+:root{--well:#171310}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:14.5px;
   line-height:1.55;min-height:100vh}
@@ -302,6 +305,26 @@ h3{font-family:var(--serif);font-weight:400;font-size:1.12rem;margin:0 0 .6rem}
    carries `copyable`, so a page with scripting off promises nothing it cannot do. */
 .digest.copyable{cursor:copy}
 .digest.copied{color:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+  font-weight:600;text-align:left;padding:.45rem .7rem;border-bottom:1px solid var(--line)}
+td{padding:.6rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+td a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+td a:hover{border-bottom-color:var(--gold)}
+.badge{font-size:.7rem;color:var(--dim);white-space:nowrap}
+.tier{font-family:var(--mono);font-size:.78rem;color:var(--dim)}
+.lede{color:var(--dim);font-size:.9rem;margin:0 0 1rem;max-width:62ch}
+.plain p{margin:.45rem 0;font-size:.92rem}
+.plain code{font-family:var(--mono);font-size:.85rem;color:var(--ink)}
+.plain strong{color:var(--ink)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:1.15rem}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:var(--well);
+  border:1px solid var(--line);border-radius:6px;padding:.9rem 1rem;overflow-x:auto;
+  color:var(--dim)}
+.kv{display:grid;grid-template-columns:170px 1fr;gap:.3rem .8rem;font-size:.88rem}
+.kv dt{color:var(--faint)}
+.kv dd{color:var(--ink);margin:0}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """

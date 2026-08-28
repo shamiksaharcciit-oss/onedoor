@@ -32,6 +32,26 @@ enables `cursor:copy` in the same statement that attaches the handler, and retur
 where no clipboard API exists. Nothing the server emits carries that class, so with
 scripting off the page promises nothing it cannot do.
 
+### Added — `ND-055` V2: the policy library (S1)
+
+The Policies screen: every rule in the version in force, with its decision, tier, caps,
+bounds, effects and coverage badge, and a detail page that says in plain English what
+each rule does beside the rule itself.
+
+It reads the **snapshot behind the pinned version**, not the live policy tables. The two
+agree through the normal write path and can disagree through any other, and then they
+answer different questions — the tables are what the next version would contain, the
+pinned version is what the engine is deciding against and what the page's own digest
+names.
+
+Three outcomes are kept apart: no version in force, a version whose snapshot cannot be
+read, and a real set. The middle one renders as *"this is not an empty policy set"*,
+because reporting it as empty would tell an operator nothing is permitted while the
+engine is permitting things.
+
+Every page carries the sentence that an action with no policy is denied — a list of
+permissions reads as a list of restrictions unless it says otherwise.
+
 ### Changed — the state colours clear WCAG AA, and no state is colour alone
 
 The approved palette's chips failed AA at chip size — the refusal chip worst of all, at

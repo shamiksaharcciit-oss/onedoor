@@ -37,7 +37,7 @@ from onedoor.guardrail import policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
-from onedoor.studio import canvas, ratify, shell, store
+from onedoor.studio import canvas, library, ratify, screens, shell, store
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -375,6 +375,42 @@ def create_app(state: StudioState) -> Any:
             # 303: the result of a POST is a page to GO TO, not a body to re-post.
             return RedirectResponse(url=f"/draft/{draft_id}", status_code=303)
         return {"draft_id": draft_id}
+
+    @app.get("/policies", response_class=HTMLResponse)
+    def policies_page() -> str:
+        """S1: the library, read from the snapshot behind the version in force."""
+        with state.lock:
+            model = library.build(state.enforcer)
+            return shell.render(
+                body=screens.library_body(model),
+                banner=banner_for(state),
+                active="policies",
+                title="onedoor policy studio — policies",
+            )
+
+    @app.get("/policies/{action_type}", response_class=HTMLResponse)
+    def policy_detail(action_type: str) -> str:
+        """One rule: what it does, beside what it says.
+
+        A policy absent from the version in force is **not** a 404. The route is valid
+        and the answer is a fact about the deployed system -- that action is denied,
+        because absence is denial. A 404 would say "this page does not exist"; the page
+        exists, and what it has to report is that the rule does not.
+        """
+        with state.lock:
+            model = library.build(state.enforcer)
+            policy = library.policy_at(state.enforcer, action_type)
+            body = (
+                screens.not_found_body(action_type)
+                if policy is None
+                else screens.policy_body(policy, model)
+            )
+            return shell.render(
+                body=body,
+                banner=banner_for(state),
+                active="policies",
+                title=f"onedoor policy studio — {action_type}",
+            )
 
     # V1: every tab in the shell resolves to a route. The ones whose screens are not
     # built say so in the page rather than 404-ing -- a 404 tells the operator the
