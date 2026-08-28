@@ -52,6 +52,20 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — a dogfooding walkthrough, with its commands under test
+
+`docs/DOGFOODING.md` walks a person through all eight Studio screens on a fresh install,
+ending with the verify command run against a receipt the walkthrough itself produced.
+
+Its commands are read out of the document by a test and either run or checked, and each
+one says which: three are executed to completion with their exit codes asserted, four are
+validated with the reason they cannot be run and with whatever they claim checked instead.
+A command added to the walkthrough that nothing checks fails the build.
+
+`python -m onedoor.studio.walkthrough` is a walkthrough aid rather than a product feature:
+it puts one real decision through the engine so the History and re-evaluate screens have
+something to show.
+
 ### Added — `ND-055` V8: the Verify page, and the law tests across every screen
 
 A deposition page for a reader who trusts nobody involved: it states that it cannot verify

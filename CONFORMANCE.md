@@ -647,6 +647,42 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 064 (2026-08-28) — `ND-055` COMPLETE
+
+| Was | Ruling |
+|---|---|
+| V8 | **Accepted. `ND-055` is COMPLETE.** The full-arc ledger accepted as stated. *"Eight screens in one arc, under a freeze the arc never touched."* |
+| The deposition page | Accepted, and its sentence kept verbatim: **unreadable is not a failed check — telling a stranger their receipt is bad when what's bad is their download would be the worst error this page could make.** *That is the three-outcome doctrine protecting the STRANGER, which is who it was always for.* |
+| **The universal pass** | **The finding of the arc.** *Six laws green on the first run, and you treated that as a claim requiring sabotage rather than a result deserving a report.* |
+| The three framework routes | **A framework's defaults are part of your app; a promise about the app binds them too.** |
+| The two stranded pages | **A page nothing links to is still a page anyone can load; when a fix moves, its old address dies or redirects — it does not keep serving the past.** |
+| The three vacuous tests | **A test whose triggering condition vanished passes forever and proves nothing. When the world changes, every test keyed to the old world must be shown to still be able to fail.** |
+| The §5.4 resolution | **Closed.** *The beside-not-into doctrine applied to a document instead of a palette.* |
+| **Q8 — the bar** | **Twenty consecutive green full-suite runs, counted from the reporting move.** At twenty the entry closes with the ruled wording: *"not observed since the reporting move; cause never established."* A recurrence before twenty reopens it as a real investigation with the full stash trace captured. |
+| The dogfooding gap | **Real, and core's to arrange** with Shamik before `0.7.0`. Delivery prepares the walkthrough; **every command in it is executed by a test before a person ever types it.** |
+| Assembly | **Nothing before Sept 12.** The freeze holds, the two open questions stay named, `0.7.0` assembles on the other side of launch week. |
+
+### Programme law — an app's surface is what the server serves, not what the project remembers writing
+
+R064 §2, the finding of the arc. Six per-screen disciplines all reported green while five
+routes had never been shown to any of them. **Route enumeration from the running app is a
+permanent fence, not a one-time audit.**
+
+Its corollary, ruled in the same section: **a framework's defaults are part of your app.**
+`/docs` and `/redoc` were never written here and were served here, and a promise the app
+makes binds them exactly as much as it binds a page this project typed.
+
+### Programme law — when a fix moves, its old address dies or redirects
+
+R064 §2. **A page nothing links to is still a page anyone can load.** It does not get to
+keep serving the past because the navigation stopped pointing at it.
+
+### Programme law — a test whose triggering condition vanished proves nothing
+
+R064 §2. It passes forever and guards nothing, and pytest's *"got empty parameter set"* is
+the only sign. **When the world changes, every test keyed to the old world must be shown
+to still be able to fail** — or replaced with one that can.
+
 ### Resolved by Response 063 (2026-08-28) — V7, and the last stage
 
 | Was | Ruling |
@@ -1123,7 +1159,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 063 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 064 (2026-08-28). **`ND-055` is complete; the channel stands down to ready.** Nothing assembles before Sept 12. **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

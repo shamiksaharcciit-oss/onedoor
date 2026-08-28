@@ -97,11 +97,13 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   reporting move was made on design grounds and **explicitly not as a fix** (R062 §4). The
   entry closes only by recurrence-with-investigation, or by a healthy number of
   consecutive passes recorded as *"not observed since the reporting move; cause never
-  established."* Full-suite runs since the move, all
-  green: **three local gate runs** (V7's, and V8's two), **two CI jobs** on `eb5df1a`
-  (3.12 and 3.13), and **one direct `pytest -q`**. Six. Recorded as a count, not claimed
-  as closure — core set the bar at *some healthy number*, and six is a number, not yet a
-  verdict.
+  established."* **R064 §4 set the bar: twenty consecutive green full-suite runs,
+  counted from the reporting move.** A recurrence before twenty reopens it as a real
+  investigation with the full stash trace captured.
+
+  **Banked so far: nine.** Three local gate runs across V7/V8, two CI jobs on
+  `eb5df1a`, one direct `pytest -q`, two local gate runs in this stage, and one CI job
+  on `d785d4a`. Counted, not claimed — eleven to go.
 - **`ND-053`, `ND-054`** — frozen, unchanged, and `ND-054`'s divergence is noted at the
   editor's decimal fields in the words the engine's behaviour justifies today.
 
@@ -113,6 +115,51 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   tests and on served requests in this repository, not on a person using it — which is
   how F-A, F-G and F-H were found, and is worth arranging again before `0.7.0`.
 
+
+---
+
+## The dogfooding walkthrough (R064 §5)
+
+`docs/DOGFOODING.md`, with `tests/studio/test_dogfooding.py` reading **that file** and
+running what it finds. The commands are extracted from the document rather than copied
+into the test: a test running *similar* commands would drift the moment either changed,
+and the drift would be invisible — test green, walkthrough wrong, and the person following
+it finds out. X-11's reasoning, applied to a runbook.
+
+Seven commands. **Three are run** to completion with their exit codes asserted; **four are
+checked** with the reason and with whatever the command claims verified instead. Each is
+marked in the document, so a reader sees the distinction rather than only the test.
+
+| Command | | What happens |
+|---|---|---|
+| `python -m venv .venv` | `[checked]` | would test venv, not onedoor |
+| `pip install -e ".[studio]"` | `[checked]` | needs network; the extra is declared and everything it names imports |
+| `python -m onedoor.studio --help` | **`[run]`** | exit 0, and all four documented flags present |
+| `python -m onedoor.studio --db … --port 8787` | `[checked]` | serves forever; its argv goes through the real parser, an unknown flag is refused |
+| `curl -X POST …/drafts` | `[checked]` | CI need not have curl; the route is checked against the app's POST table and the field against the form |
+| `python -m onedoor.studio.walkthrough --db onedoor.db` | **`[run]`** | exit 0, and exactly one audit row written |
+| `python -m onedoor.studio.verify receipt.json snapshot.json` | **`[run]`** | **all three exit codes**, against a receipt the test itself ratified |
+
+The last one is R064 §5's requirement met literally: the walkthrough ends with a verify
+command run **against a receipt the walkthrough itself produced**, not a fixture.
+
+`onedoor/studio/walkthrough.py` is new and is a **walkthrough aid, not a product feature**
+— it exists so step 7 has a decision to look at without a person writing Python. It writes
+to the enforcer store, which the Studio never does; it is a separate command precisely so
+that distinction stays visible.
+
+### Defect self-caught: the walkthrough overclaimed its own testing
+
+The first draft said *"every command below is executed… two cannot be"*. **Three could
+not**: the start command serves forever, and the curl line needs a binary CI need not
+have. Both were being validated, not run, and the document called them executed.
+
+That is the overclaim this project spends its time removing from other people's pages, and
+it does not get to keep one of its own. The claim now names two categories, marks every
+command with which it is, and `test_every_command_is_accounted_for_as_run_or_as_checked`
+requires the two lists to **partition the document exactly** — nothing missing, nothing
+invented, nothing in both. Sabotage-verified: a command added to the document fails the
+build by name.
 
 ---
 
