@@ -647,6 +647,50 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 062 (2026-08-28) — V6, and the Q8 ruling
+
+| Was | Ruling |
+|---|---|
+| V6 | **Accepted.** 1104 passed, four gates green, CI green on both jobs. *"Built the way it was argued: on a premise verified where it can fail, not asserted where it can't."* |
+| The replay calling the engine | **Law** — see below. The structural assertion *"is the fence that keeps the second implementation from growing back"*, and the control case *"is the calibration every counterfactual borrows its credibility from."* |
+| The unretrievable middle row | **The feature's conscience.** *A comparison that could not be made must be unrenderable as a comparison that found nothing.* **Guard its tests jealously.** |
+| R061 §5's addition | **Discharged in full.** |
+| `assert_reader_sees` | **House practice: a mistake made once is a fix, twice is a pattern, three times is a tool.** *A named tool is also a named thing a reviewer can ask for by name.* |
+| **Q8 — the `pytest_terminal_summary` move** | **APPROVED on its own merits, explicitly NOT as a fix.** The matrices are disclosure, not assertion; reporting belongs in the reporting phase, and `capsys.disabled()` mid-test *"was always borrowing the capture machinery against its grain."* Recorded with that as the reason. |
+| **Q8 — the flake itself** | **STAYS OPEN.** *Nothing diagnosed can be fixed, and nothing undiagnosed should be recorded as fixed.* **Two closing paths, either honest:** it recurs after the move — which refutes the capsys suspicion and earns a real investigation with the full stash trace captured; **or** some healthy number of consecutive runs pass — closing as *"not observed since the reporting move; cause never established."* **Never a third path where the move gets the credit.** |
+| V7 | Proceed. The ND-054 note *"describes what the engine does today — honestly, without hedging toward the future fix and without implementing a character of it."* |
+
+### Programme law — the replay must call the judge, never imitate it
+
+R062 §1. **A hand-written comparison of rules is a second implementation of the verdict,
+and two implementations of a verdict disagree the first time anything subtle changes.**
+
+The fence is structural: the module must contain the engine's entry point and must not
+contain a tier check, a counter read, or a verdict function of its own — *the fence that
+keeps the second implementation from growing back.* The calibration is the control case:
+replayed under the deciding version, the engine reproduces the recorded verdict, and
+**every counterfactual borrows its credibility from that.**
+
+### Programme law — a suspicion is not a diagnosis
+
+R062 §4. *A mechanism changed on an unreproduced flake treats a suspicion as a diagnosis,
+and if the flake then vanishes, you have learned nothing and believe you learned
+something.*
+
+So the two questions separate: the change can be right **on its own merits** and still not
+be a fix. Record the reason that is actually true, and leave the fault open with its
+honest closing paths — **never a path where the change gets credit it did not earn.**
+
+### Programme law — a mistake made once is a fix, twice is a pattern, three times is a tool
+
+R062 §3. The third repetition earns a named assertion, and the naming is half the value:
+**a named tool is a named thing a reviewer can ask for by name.**
+
+### Programme law — a gate's worth must be stated honestly, like everything else
+
+R062 §4, adopting delivery's sentence: **a suite that fails once in three runs is a green
+gate worth less than it looks.**
+
 ### Resolved by Response 061 (2026-08-28) — V5, and core's wrong word
 
 | Was | Ruling |
@@ -1041,7 +1085,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 061 (2026-08-28). **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 062 (2026-08-28). **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

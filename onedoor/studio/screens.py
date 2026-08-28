@@ -15,6 +15,7 @@ from onedoor.guardrail.models import Policy
 from onedoor.studio import (
     canvas,
     drafts,
+    editor,
     history,
     library,
     live,
@@ -837,4 +838,103 @@ def reevaluate_block(
         + f"<p>{banner}</p>"
         + f'<div class="then-now">{cells}</div>'
         + f'<p class="note">{escape(reevaluate.WOULD_HAVE)}</p></div>'
+    )
+
+
+# --- V7 / S2: the editor ------------------------------------------------------------
+
+
+def _field_html(field: Any) -> str:
+    label = f'<label for="f-{escape(field.name)}">{escape(field.label)}</label>'
+    if field.kind == "select":
+        options = "".join(
+            f'<option value="{escape(value)}"'
+            + (" selected" if value == field.value else "")
+            + f">{escape(text)}</option>"
+            for value, text in field.options
+        )
+        control = (
+            f'<select id="f-{escape(field.name)}" name="{escape(field.name)}">{options}</select>'
+        )
+    elif field.kind == "checkbox":
+        checked = " checked" if field.value else ""
+        control = (
+            f'<input type="checkbox" id="f-{escape(field.name)}" '
+            f'name="{escape(field.name)}" value="1"{checked}>'
+        )
+    else:
+        control = (
+            f'<input type="text" id="f-{escape(field.name)}" name="{escape(field.name)}" '
+            f'value="{escape(field.value)}">'
+        )
+    note = f'<p class="note">{escape(field.note)}</p>' if field.note else ""
+    return f'<div class="field">{label}{control}{note}</div>'
+
+
+def editor_body(
+    draft: Any,
+    policy: Any,
+    problems: list[Any],
+    message: str = "",
+    error: str = "",
+) -> str:
+    """S2: the guided form and the raw rule, rendered from ONE object.
+
+    Both panes come from the same `policy`, so "always in sync" is true by construction
+    rather than maintained by two parsers agreeing — see `editor` for why that matters.
+    """
+    banner = ""
+    if error:
+        banner = (
+            f'<div class="panel"><p>{shell.chip("refuse", "not saved")} '
+            f'<span class="plain">{escape(error)}</span></p>'
+            '<p class="note">The draft is unchanged. Nothing was written.</p></div>'
+        )
+    elif message:
+        banner = (
+            f'<div class="panel"><p>{shell.chip("allow", "saved to the draft")} '
+            f'<span class="plain">{escape(message)}</span></p></div>'
+        )
+
+    fields = "".join(_field_html(f) for f in editor.fields_for(policy))
+    guided = (
+        '<div class="panel"><h3>Guided</h3>'
+        f'<form method="post" action="/drafts/{escape(draft.draft_id)}/edit/'
+        f'{escape(policy.action_type)}">'
+        f'<input type="hidden" name="pane" value="form">{fields}'
+        '<button type="submit">Save from this pane</button></form>'
+        f'<p class="note">This form does not offer '
+        + escape(", ".join(editor.NOT_IN_THE_FORM))
+        + ". Those are edited in the raw pane, and saving from here leaves them "
+        "untouched.</p></div>"
+    )
+    raw = (
+        '<div class="panel"><h3>The rule</h3>'
+        f'<form method="post" action="/drafts/{escape(draft.draft_id)}/edit/'
+        f'{escape(policy.action_type)}">'
+        '<input type="hidden" name="pane" value="raw">'
+        f'<textarea name="raw" rows="20" spellcheck="false">{escape(editor.raw_for(policy))}</textarea>'
+        '<button type="submit">Save from this pane</button></form>'
+        '<p class="note">JSON, which is loadable YAML. Both panes are rendered from the '
+        "same parsed rule, so they cannot disagree.</p></div>"
+    )
+
+    if problems:
+        items = "".join(
+            f'<li><span class="mono">{escape(getattr(p, "action_type", "") or "")}</span> '
+            f"{escape(getattr(p, 'message', str(p)))}</li>"
+            for p in problems
+        )
+        validation = f'<ul class="problems">{items}</ul>'
+    else:
+        validation = '<div class="empty">The validator found no problems in this rule.</div>'
+
+    return (
+        f'<h2>{escape(policy.action_type)}</h2><div class="rulebar"></div>'
+        f'<p class="lede">Editing inside the draft <a href="/drafts/'
+        f'{escape(draft.draft_id)}">{escape(draft.title)}</a>. The rules in force are '
+        "not touched by anything on this page.</p>"
+        + banner
+        + f'<div class="cols">{guided}{raw}</div>'
+        + f'<div class="panel"><h3>Validation</h3>{validation}{_honesty_footnote()}</div>'
     )

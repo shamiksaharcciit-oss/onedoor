@@ -619,3 +619,101 @@ def test_re_evaluating_over_http_writes_nothing(studio_client: TestClient) -> No
     for _ in range(8):
         assert studio_client.get(f"/history/{row_id}?against={loose}").status_code == 200
     assert snapshot() == before
+
+
+# --- V7: the editor, over HTTP ------------------------------------------------------------
+
+
+def _post(client: TestClient, path: str, body: str, **kw):
+    return client.post(
+        path,
+        content=body.encode("utf-8"),
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        **kw,
+    )
+
+
+def test_the_editor_page_renders_over_http(studio_client: TestClient) -> None:
+    """F-A rerun against V7's routes."""
+    draft_id = _open_draft(studio_client)
+    response = studio_client.get(f"/drafts/{draft_id}/edit/demo.restore")
+    assert response.status_code == 200
+    assert "Guided" in response.text and "The rule" in response.text
+
+
+def test_the_editor_page_survives_eight_sequential_requests(studio_client: TestClient) -> None:
+    draft_id = _open_draft(studio_client)
+    for i in range(8):
+        assert studio_client.get(f"/drafts/{draft_id}/edit/demo.restore").status_code == 200, (
+            f"request {i + 1} failed"
+        )
+
+
+def test_saving_from_the_form_updates_both_panes(studio_client: TestClient) -> None:
+    """The round trip that makes "always in sync" true: one parse, two renderings."""
+    draft_id = _open_draft(studio_client)
+    saved = _post(
+        studio_client,
+        f"/drafts/{draft_id}/edit/demo.restore",
+        "pane=form&action_type=demo.restore&tier=3&caps.eur_day=750.00",
+        follow_redirects=False,
+    )
+    assert saved.status_code == 303
+    text = studio_client.get(f"/drafts/{draft_id}/edit/demo.restore").text
+    assert text.count("750") >= 2, "the two panes do not both show the saved value"
+
+
+def test_a_bad_raw_pane_answers_400_and_writes_nothing(studio_client: TestClient) -> None:
+    """The operator's text is not silently dropped and the draft is not half-saved."""
+    from onedoor.studio import store as store_module
+
+    draft_id = _open_draft(studio_client)
+    state = studio_client.app.state.studio
+    before = store_module.load(state.studio, draft_id).policies
+
+    response = _post(studio_client, f"/drafts/{draft_id}/edit/demo.restore", "pane=raw&raw=%7Bnope")
+    assert response.status_code == 400
+    assert "not saved" in response.text
+    assert "The draft is unchanged" in response.text
+    assert store_module.load(state.studio, draft_id).policies == before
+
+
+def test_editing_a_draft_never_touches_the_rules_in_force(studio_client: TestClient) -> None:
+    """Fence post one, checked through the server: the enforcer store is untouched by
+    every route on this page."""
+    from onedoor.guardrail import policy_loader
+
+    draft_id = _open_draft(studio_client)
+    state = studio_client.app.state.studio
+    before = (
+        policy_loader.current_version(state.enforcer),
+        state.enforcer.execute("SELECT caps_json FROM policies").fetchone()[0],
+    )
+    _post(
+        studio_client,
+        f"/drafts/{draft_id}/edit/demo.restore",
+        "pane=form&action_type=demo.restore&tier=3&caps.eur_day=9999.00",
+        follow_redirects=False,
+    )
+    after = (
+        policy_loader.current_version(state.enforcer),
+        state.enforcer.execute("SELECT caps_json FROM policies").fetchone()[0],
+    )
+    assert before == after
+
+
+def test_the_nd054_note_survives_the_round_trip(studio_client: TestClient) -> None:
+    from html import escape
+
+    from onedoor.studio import editor as editor_module
+
+    draft_id = _open_draft(studio_client)
+    text = studio_client.get(f"/drafts/{draft_id}/edit/demo.restore").text
+    assert escape(editor_module.DECIMAL_DIVERGENCE) in text
+
+
+def test_a_rule_the_draft_does_not_have_answers_404(studio_client: TestClient) -> None:
+    draft_id = _open_draft(studio_client)
+    response = studio_client.get(f"/drafts/{draft_id}/edit/nothing.here")
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("text/html")

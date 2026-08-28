@@ -41,6 +41,7 @@ from onedoor.store.db import Database
 from onedoor.studio import (
     canvas,
     drafts,
+    editor,
     history,
     library,
     live,
@@ -49,6 +50,7 @@ from onedoor.studio import (
     screens,
     shell,
     store,
+    validate,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
@@ -523,6 +525,86 @@ def create_app(state: StudioState) -> Any:
                 banner=banner_for(state),
                 active="drafts",
                 title="onedoor policy studio \u2014 draft not found",
+            ),
+            status_code=404,
+        )
+
+    @app.get("/drafts/{draft_id}/edit/{action_type}", response_class=HTMLResponse)
+    def editor_page(draft_id: str, action_type: str, saved: bool = False) -> Any:
+        """S2, inside a draft only. Fence post one: nothing here reaches the live rules."""
+        with state.lock:
+            draft = store.load(state.studio, draft_id)
+            if draft is None:
+                return _draft_missing(draft_id)
+            policy = next((p for p in draft.policies if p.action_type == action_type), None)
+            if policy is None:
+                return _rule_missing(draft, action_type)
+            return shell.render(
+                body=screens.editor_body(
+                    draft,
+                    policy,
+                    validate.problems([policy], list(draft.effects)),
+                    message="Both panes below are rendered from what was stored." if saved else "",
+                ),
+                banner=banner_for(state),
+                active="drafts",
+                title=f"onedoor policy studio \u2014 {action_type}",
+            )
+
+    @app.post("/drafts/{draft_id}/edit/{action_type}", response_class=HTMLResponse)
+    async def editor_save(request: Request, draft_id: str, action_type: str) -> Any:
+        """Parse whichever pane was submitted, save into the DRAFT, re-render both.
+
+        A parse failure re-renders the page with the message and **writes nothing** --
+        the operator's text is not silently dropped and the draft is not half-saved.
+        """
+        fields = parse_qs((await request.body()).decode("utf-8"))
+        pane = (fields.get("pane") or ["form"])[0]
+        with state.lock:
+            draft = store.load(state.studio, draft_id)
+            if draft is None:
+                return _draft_missing(draft_id)
+            base = next((p for p in draft.policies if p.action_type == action_type), None)
+            if base is None:
+                return _rule_missing(draft, action_type)
+            try:
+                updated = (
+                    editor.policy_from_raw((fields.get("raw") or [""])[0], base=base)
+                    if pane == "raw"
+                    else editor.policy_from_form(fields, base=base)
+                )
+            except editor.EditError as exc:
+                return HTMLResponse(
+                    content=shell.render(
+                        body=screens.editor_body(
+                            draft,
+                            base,
+                            validate.problems([base], list(draft.effects)),
+                            error=str(exc),
+                        ),
+                        banner=banner_for(state),
+                        active="drafts",
+                        title=f"onedoor policy studio \u2014 {action_type}",
+                    ),
+                    status_code=400,
+                )
+            policies = [updated if p.action_type == action_type else p for p in draft.policies]
+            save_draft(state, draft_id, policies=policies, effects=list(draft.effects))
+        return RedirectResponse(
+            url=f"/drafts/{draft_id}/edit/{updated.action_type}?saved=1", status_code=303
+        )
+
+    def _rule_missing(draft: Any, action_type: str) -> Any:
+        return HTMLResponse(
+            content=shell.render(
+                body=(
+                    f'<h2>{escape(action_type)}</h2><div class="rulebar"></div>'
+                    '<div class="empty">This draft has no rule for '
+                    f"<code>{escape(action_type)}</code>.</div>"
+                ),
+                banner=banner_for(state),
+                active="drafts",
+                title="onedoor policy studio \u2014 rule not found",
             ),
             status_code=404,
         )

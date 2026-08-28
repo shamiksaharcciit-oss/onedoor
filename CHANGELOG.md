@@ -52,6 +52,29 @@ engine is permitting things.
 Every page carries the sentence that an action with no policy is denied — a list of
 permissions reads as a list of restrictions unless it says otherwise.
 
+### Added — `ND-055` V7: the editor (S2)
+
+A guided form and the raw rule, side by side, inside a draft. Both panes are rendered from
+one parsed object, so they cannot disagree: editing either and saving re-renders both from
+what the server stored. Syncing them in the browser would have meant a second
+implementation of the policy parser, and the two would have differed on exactly the inputs
+this engine cares about — decimal strings, unicode, key order.
+
+The guided form is a declared subset and the page says which fields it does not offer;
+saving from it leaves those untouched rather than dropping what it never displayed. A rule
+that cannot be parsed answers 400, says the draft is unchanged, and writes nothing.
+
+Decimal fields carry a note describing how the engine treats decimal strings today: a cap
+reads one exactly, a numeric bound over the same parameter refuses it, so declaring a bound
+changes which wire types the action accepts. Nothing on this page edits the rules in force.
+
+### Changed — the palette measurements print in the run's summary
+
+The contrast and colour-separation matrices moved out of test bodies and into pytest's
+terminal summary. They are disclosure rather than assertion: the thresholds that can fail a
+build are still asserted in the tests, and the numbers are now printed once, in one place,
+at the end of the run.
+
 ### Added — `ND-055` V6: re-evaluate a past decision under any version
 
 The flagship. From any decision in the History ledger, replay it against the rules of any

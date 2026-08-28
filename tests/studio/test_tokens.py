@@ -157,21 +157,19 @@ def test_brand_and_background_tokens_are_untouched() -> None:
 WCAG_AA_NORMAL_TEXT = 4.5
 
 
-def test_state_text_clears_wcag_aa_on_its_own_chip(capsys) -> None:
-    """The ruling, enforced. The numbers are printed so the check can be audited."""
+def test_state_text_clears_wcag_aa_on_its_own_chip() -> None:
+    """The ruling, enforced.
+
+    The measurement is printed by `pytest_terminal_summary`, not here (R062 §4):
+    disclosure belongs in the reporting phase, and **a test that both measures and
+    announces hides which half failed.** This half is the one that can fail a build.
+    """
     palette = tokens.palette()
-    mockup = tokens.mockup_declarations()
-    rows, failures = [], []
+    failures = []
     for token in tokens.STATE_TOKENS:
-        fg, bg = palette[token], palette[f"{token}-bg"]
-        ratio = colour.contrast_ratio(fg, bg)
-        was = colour.contrast_ratio(mockup[token], bg)
-        rows.append(f"  {token:<9} {fg} on {bg}  {ratio:5.2f}:1   (mockup was {was:4.2f}:1)")
+        ratio = colour.contrast_ratio(palette[token], palette[f"{token}-bg"])
         if ratio < WCAG_AA_NORMAL_TEXT:
             failures.append(f"{token} is {ratio:.2f}:1, below {WCAG_AA_NORMAL_TEXT}:1")
-    with capsys.disabled():
-        print("\nstate text on its chip (WCAG AA needs 4.5:1 at this size):")
-        print("\n".join(rows))
     assert not failures, "; ".join(failures)
 
 
@@ -181,24 +179,18 @@ def test_the_contrast_check_can_actually_fail() -> None:
     assert colour.contrast_ratio("#ffffff", "#000000") > WCAG_AA_NORMAL_TEXT
 
 
-def test_all_chrome_text_clears_aa(capsys) -> None:
+def test_all_chrome_text_clears_aa() -> None:
     """R058 §4 granted the scope Q1 withheld, and the gap is closed.
 
     This test previously asserted `--faint` FAILING, in the deliberately unexpected
     direction, so that whoever fixed it would be forced to delete the exception rather
-    than leave a stale carve-out behind. That is what happened: the exception is gone and
-    `--faint` is asserted like every other token.
+    than leave a stale carve-out behind. That is what happened.
     """
     palette = tokens.palette()
     ground = palette["--ground"]
-    rows = []
     for token in ("--ink", "--dim", "--gold", "--faint"):
         ratio = colour.contrast_ratio(palette[token], ground)
-        rows.append(f"  {token:<9} on --ground  {ratio:5.2f}:1")
         assert ratio >= WCAG_AA_NORMAL_TEXT, f"{token} is {ratio:.2f}:1 on the page ground"
-    with capsys.disabled():
-        print("\nchrome text on the page ground:")
-        print("\n".join(rows))
 
 
 # --- Separation: what the contrast fix cost, measured and disclosed --------------------
@@ -209,69 +201,49 @@ def test_all_chrome_text_clears_aa(capsys) -> None:
 MINIMUM_DELTA_E_NORMAL = 24.0
 
 
-def test_no_two_signalling_colours_collapse_for_normal_vision(capsys) -> None:
+def test_no_two_signalling_colours_collapse_for_normal_vision() -> None:
     palette = tokens.palette()
     names = ["--gold", *tokens.STATE_TOKENS]
-    rows, worst = [], (99.0, "")
+    worst = (99.0, "")
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
-            d = colour.delta_e(palette[a], palette[b])
-            rows.append(f"  {a} / {b:<9} dE {d:5.1f}")
-            worst = min(worst, (d, f"{a}/{b}"))
-    with capsys.disabled():
-        print("\nseparation under normal vision:")
-        print("\n".join(rows))
+            worst = min(worst, (colour.delta_e(palette[a], palette[b]), f"{a}/{b}"))
     assert worst[0] >= MINIMUM_DELTA_E_NORMAL, f"{worst[1]} collapsed to dE {worst[0]:.1f}"
 
 
-def test_the_dichromat_numbers_are_printed_even_where_no_floor_binds(capsys) -> None:
+def test_the_dichromat_matrix_is_disclosed_rather_than_asserted() -> None:
     """**The disclosure R057 §6 requires, and the honest part of this stage.**
 
     The 15.0 floor this file carried in V1 does not survive the contrast fix, and no
     choice of hex would have saved it: `--refuse` failed AA *because* it was dark, and
     any red light enough to read converges with `--review` under tritanopia and with
     `--allow` under deuteranopia. Four searches were run — foreground-only, background
-    darkening, joint, and saturation-free — and the best any of them reached was 13.8,
-    still under the old floor and only by making the refusal chip nearly invisible
-    against the page.
-
-    Measured cost at the worst pairs:
+    darkening, joint, and saturation-free — and the best any reached was 13.8, only by
+    making the refusal chip nearly invisible against the page.
 
     | pair | mockup | corrected |
     |---|---|---|
     | `--review` / `--refuse` under tritanopia | 15.1 | **2.5** |
     | `--allow` / `--refuse` under deuteranopia | 18.0 | **6.5** |
 
-    Contrast was chosen over separation deliberately, and the reasoning is the point.
     Contrast decides whether a person can **read the word**; delta-E decides whether they
-    can tell two colours apart *when colour is the only signal*. **Colour is not the only
-    signal here** — every chip carries its verdict as text, which is what WCAG 1.4.1
-    actually requires, and `test_no_state_is_signalled_by_colour_alone` enforces that as
-    a property rather than leaving it to a number that cannot be met.
+    can tell two colours apart *when colour is the only signal* — and colour is not the
+    only signal here. `test_no_state_is_signalled_by_colour_alone` holds the property
+    that replaced the floor.
 
-    So there is no dichromat floor. There is a printed matrix, so a future token change
-    that shrinks these further shows up in a CI log rather than passing in silence.
+    So there is **no dichromat floor to assert**. What this test guards is that the
+    matrix is still produced and still carries the mockup's numbers beside the current
+    ones — R057 §6's binding condition, since *a shrunk baseline nobody sees cannot be
+    audited*. The printing itself is `pytest_terminal_summary`'s job (R062 §4).
     """
-    palette = tokens.palette()
-    mockup = tokens.mockup_declarations()
-    names = ["--gold", *tokens.STATE_TOKENS]
-    with capsys.disabled():
-        print("\nseparation under dichromatic vision — dE now [mockup]:")
-        print(f"  {'pair':<24}" + "".join(f"{k:>18}" for k in colour.SIMULATIONS))
-        for i, a in enumerate(names):
-            for b in names[i + 1 :]:
-                cells = []
-                for kind in colour.SIMULATIONS:
-                    now = colour.delta_e(
-                        colour.simulate(palette[a], kind), colour.simulate(palette[b], kind)
-                    )
-                    was = colour.delta_e(
-                        colour.simulate(mockup[a], kind), colour.simulate(mockup[b], kind)
-                    )
-                    cells.append(f"{now:6.1f} [{was:5.1f}]")
-                print(f"  {a + ' / ' + b:<24}" + "".join(f"{c:>18}" for c in cells))
-        print("  no floor binds here: colour is redundant coding, the chip carries its word")
-    assert palette["--gold"] == mockup["--gold"], "brand must not have moved"
+    from tests.studio.palette_report import _dichromat_separation
+
+    rows = _dichromat_separation()
+    assert any("[" in row for row in rows), "the mockup's own numbers are no longer shown"
+    assert len(rows) >= 8, "a pair vanished from the disclosed matrix"
+    assert tokens.palette()["--gold"] == tokens.mockup_declarations()["--gold"], (
+        "brand must not have moved"
+    )
 
 
 # --- The rule oneview §4 states, applied to the shell ----------------------------------

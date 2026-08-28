@@ -22,8 +22,8 @@
 | **V4** | S5 Live state | **built** |
 | **V5** | S3 Drafts · the ceremony · Q5 | **built** |
 | **V6** | Re-evaluate under version — the flagship | **built** |
-| **V7** | S2 Editor | next |
-| **V8** | S6 Verify + the law tests | held |
+| **V7** | S2 Editor · Q8's move | **built** |
+| **V8** | S6 Verify + the law tests | next |
 
 ---
 
@@ -237,6 +237,94 @@ parses one way, and the first quoting difference between them would be a screen 
 something the engine would not load. JSON is a subset of YAML, so what is shown is
 loadable as written — the property that matters more than the file extension. Named for
 what it is rather than labelled "YAML".
+
+## V7 — S2 the editor, and Q8's approved move
+
+`onedoor/studio/editor.py`, two routes, and the palette report relocated.
+
+### "Always in sync" without a second parser
+
+The obvious way to sync two panes is JavaScript: parse the raw pane in the browser and
+mirror it both ways. **That is a second implementation of the policy parser**, in another
+language, and the two would disagree on exactly the inputs this engine cares about most —
+decimal strings, unicode, key order, `null` against absent. R062 §1 named the law for the
+replay and it applies here unchanged.
+
+So the panes sync **through the server**, which owns the only parser. Editing either pane
+and submitting re-renders **both from one parsed model**. They cannot drift because there
+is nothing to drift between: what each pane shows is one object, rendered twice. The cost
+is a round trip; the benefit is that the raw pane always shows something the engine would
+load, and the form never shows a value the raw pane would parse differently.
+
+### Defect self-caught: the panes disagreed on the first try
+
+`test_both_panes_are_rendered_from_one_object` failed on `'500.00' != '500'`. The guided
+pane read model **attributes** (`Decimal("500.00")` → `"500.00"`) while the raw pane used
+`model_dump()` (E8 canonical → `"500"`). **The two panes disagreeing is the one thing this
+design claims is impossible**, and it was true within an hour of the claim.
+
+Fixed by rendering the form from the dumped values too: one object, **one
+canonicalisation**, rendered twice. The test that caught it is the test that exists for it.
+
+### Two more of my own checks read prose as code
+
+R058 §4's law arrived a second and third time in one sitting. The fence check scanned the
+module source for `policy_loader` and **failed on the docstring sentence saying
+`policy_loader.upsert` is never called** — condemning the module for documenting the very
+fence it keeps. It now walks the **parsed AST**: imports and call names, never text. The
+ticket-quote check failed because `TICKETS-ND-054.md` wraps the sentence across a line and
+bolds it; it now normalises whitespace and strips emphasis, neither of which changes what
+the ticket says.
+
+### The ND-054 note
+
+At all three decimal fields, and it describes **what the engine does today**:
+
+> Decimal strings are accepted here and are what the draft stores. Be aware of how the
+> engine treats them today: a cap reads a decimal string exactly, and a numeric bound over
+> the same parameter refuses it. Declaring a numeric bound on a parameter therefore changes
+> which wire types that action accepts.
+
+R062 §5's constraint is tested as a forbidden-word list — no `will be`, `soon`, `until`,
+`ND-054`, `planned`, `fixed`, `upcoming` — because *a note that describes tomorrow's
+behaviour is aspiration dressed as capability, one field at a time.* A second test checks
+the wording still matches what `TICKETS-ND-054.md` §3 measured on shipped code: a note that
+drifted from the measurement would be a note about nothing.
+
+**Not a character of the fix was implemented.** Decimals are parsed with `Decimal(text)`,
+never through `float`, which is E8 and also the ND-054 hazard met from the other side.
+
+### The form is a declared subset
+
+`NOT_IN_THE_FORM` names the three fields the guided pane does not offer, and the page
+prints them. Saving from the form uses `model_copy` over the existing rule rather than
+rebuilding from the form alone — **a partial editor that writes a whole object deletes what
+it never displayed.**
+
+### Fence post one, asserted twice
+
+Structurally: the module imports nothing that can write live rules and calls nothing named
+like it, checked over the AST. Behaviourally: a served test edits a draft's cap to `9999`
+and asserts the enforcer store's version pointer and `caps_json` are byte-identical
+afterwards. A parse failure answers **400**, says the draft is unchanged, and writes
+nothing.
+
+## Q8 — the move, made on the approved grounds
+
+The palette matrices moved from `capsys.disabled()` inside four tests to
+`pytest_terminal_summary` in `tests/conftest.py`, with `tests/studio/palette_report.py`
+holding the rendering. **Recorded as a design change, not a fix**, per R062 §4.
+
+The split is the improvement: the tests keep every assertion that can fail a build and
+lost every line that only announced. *A test that both measures and announces hides which
+half failed.*
+
+**The numbers are still in CI.** The workflow runs `pytest -q` directly, and the report
+prints in that output — verified. The gate runner's console shows only the last three
+lines of each gate, which is why the summary is absent there and present in CI.
+
+**The flake stays open**, with R062 §4's two closing paths and no third.
+
 
 ## V6 — the flagship: re-evaluate under version
 

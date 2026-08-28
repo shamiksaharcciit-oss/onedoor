@@ -386,6 +386,17 @@ h2 .num{font-size:1rem}
 .cell h5{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
   margin-bottom:.4rem;font-weight:600}
 .cell p{margin:.25rem 0}
+.field{margin:0 0 .8rem}
+.field label{display:block;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:.25rem}
+.field input[type=text],.field select{background:var(--well);color:var(--ink);
+  border:1px solid var(--line);border-radius:5px;font-family:var(--sans);font-size:.9rem;
+  padding:.4rem .7rem;width:100%;max-width:100%}
+.field input[type=checkbox]{width:auto}
+.field .note{margin:.25rem 0 0}
+textarea{background:var(--well);color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;font-family:var(--mono);font-size:.82rem;line-height:1.6;
+  padding:.8rem 1rem;width:100%;resize:vertical}
 footer{border-top:1px solid var(--line);margin-top:2.5rem;padding:1.1rem 2rem;
   font-size:.75rem;color:var(--faint);text-align:center}
 """
