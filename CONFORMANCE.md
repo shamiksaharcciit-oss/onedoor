@@ -647,6 +647,26 @@ exempted its own author would be the clearest counter-example to that.
 | Gap 4 — idempotency propagation | **Restated as a boundary, not dropped** — delivery's recommendation overruled. See the register law above. |
 | The version sentence | **Flips to `0.6.1` on submission day, after publication is verified — not before.** |
 
+### Resolved by Response 065 (2026-08-28) — the walkthrough, and the arc closed
+
+| Was | Ruling |
+|---|---|
+| The walkthrough | **Accepted as built**, and its method is the law — see below. |
+| The overclaim caught in delivery's own page | **This project's whole posture applied to its own instructions, which is the only place it counts:** *the discipline you sell is the discipline your own pages keep.* The partition enforced and sabotage-verified so an unchecked command fails the build by name. |
+| `walkthrough.py` | **Correct on both counts** — the label (an aid, not a feature) and the separation (a distinct command, so the Studio's own never-writes rule stays visible) are *each doing work*. |
+| Q8's count | Nine banked toward twenty, itemized by run. **Counted, not claimed. Continue exactly so.** |
+| **`ND-055`** | **Closed.** Eight stages, six universal laws, eight owed items, eleven self-caught defects, six core defects registered, two questions open and named, 1168 tests, and a walkthrough whose own tests read its own words. *Recorded as the finest sustained arc of the programme.* |
+| The channel | **Stands quiet** — dogfooding findings when Shamik runs the pass, or `0.7.0` assembly after Sept 12, whichever arrives first. |
+
+### Programme law — test the document itself, never a copy of it
+
+R065 §1. A test that runs *similar* commands guards a copy while the person follows the
+original, and **similar-commands drift is invisible drift**: the test is green, the
+document is wrong, and *the person following it is the detector.*
+
+So the checks read the artifact. X-11's reasoning — the artifact and the check share one
+source — arriving at a runbook.
+
 ### Resolved by Response 064 (2026-08-28) — `ND-055` COMPLETE
 
 | Was | Ruling |
@@ -1159,7 +1179,7 @@ command run before being written) ride with it.
 **`ND-054` is F-B, ruled: a conformance defect against AADP §5 and the draft's own worked
 example.** Held behind the freeze because it widens a verdict from `denied` to `permitted`.
 
-**Core → delivery:** none, as of Response 064 (2026-08-28). **`ND-055` is complete; the channel stands down to ready.** Nothing assembles before Sept 12. **`ND-052` is complete** and
+**Core → delivery:** none, as of Response 065 (2026-08-28). **`ND-055` is closed and the channel stands quiet.** Next: dogfooding findings when Shamik runs the pass, or `0.7.0` assembly after Sept 12 — whichever arrives first. **`ND-052` is complete** and
 `0.6.0` is staged; `ND-053` is decomposed with its build **held by the pre-launch freeze**. `ND-001` is built (C1–C5),
 chaining opt-in and off by default; next is `ND-010`, with `ND-009` able to run in
 parallel, then `ND-015`/`ND-017`; `ND-052`, the Policy Studio, is ticketed and sequenced

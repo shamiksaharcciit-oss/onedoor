@@ -16,7 +16,7 @@
 **Every stage, every law test, every owed item: discharged or named.** R063 §6 asks for
 this before `0.7.0` assembles after Sept 12.
 
-**Status: complete.** P0 shipped in `0.6.2`; V1–V8 are built and held for the `0.7.0`
+**Status: CLOSED by `Core_to_Delivery_Response_065_2026-08-28`** — recorded as the finest sustained arc of the programme. P0 shipped in `0.6.2`; V1–V8 are built and held for the `0.7.0`
 line. Nothing in V1–V8 has shipped, and nothing breaking landed during the freeze.
 
 ## The eight stages
@@ -101,9 +101,10 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   counted from the reporting move.** A recurrence before twenty reopens it as a real
   investigation with the full stash trace captured.
 
-  **Banked so far: nine.** Three local gate runs across V7/V8, two CI jobs on
+  **Banked so far: ten.** Three local gate runs across V7/V8, two CI jobs on
   `eb5df1a`, one direct `pytest -q`, two local gate runs in this stage, and one CI job
-  on `d785d4a`. Counted, not claimed — eleven to go.
+  on `d785d4a`, and one local gate run on the closing commit. Counted, not claimed —
+  ten to go.
 - **`ND-053`, `ND-054`** — frozen, unchanged, and `ND-054`'s divergence is noted at the
   editor's decimal fields in the words the engine's behaviour justifies today.
 
