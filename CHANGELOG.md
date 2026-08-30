@@ -7,6 +7,125 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 ## Unreleased
 
+> **DRAFT for `0.7.0`.** This section is the source the release notes are sliced from
+> (R011). The release carries the whole `ND-055` arc plus `ND-056`'s three authoring
+> tracks, ships **as `0.7.0` because the content defines the number** (R066 §2), and is
+> **gated on the operator dogfooding pass**, not on the calendar. This release
+> **removes nothing**.
+
+### Added — `ND-056` T1: upload, and the loader's whole boot path reachable before boot
+
+Ships in `0.7.0`. Additive; no engine change, no wire change, no enforcer schema change.
+
+Until now the Studio could reach only the **last** of the four things the loader does at
+boot, because the editor handed the validator `Policy` objects that had already survived
+the three before it. A file that would not parse, or would not validate against the
+schema, could not be shown a problem at all.
+
+**Upload changes the entry point.** A YAML file uploaded on the Drafts page enters at the
+top of the loader's own path — `_safe_load_decimal`, `_policy_from_entry`,
+`validate_policy`, then the effect policies — run in the loader's own order, reporting the
+stage that stopped and, where the parser can say, the line. **A file the loader would
+refuse still becomes a draft**, showing the reasons: being handed your file back with a
+message is the on-save refusal this track replaces. The uploaded bytes are frozen verbatim
+before anything parses them (E10), so what was actually sent survives independently of
+what this build could make of it.
+
+The stage order is asserted against `load_file`'s own AST, because it is a claim about the
+engine: a candidate bad in two ways must be reported against the stage the engine reaches
+first.
+
+**Two lists, never merged.** The Studio now separates *what the loader will refuse at
+boot* from *how a rule that loads fine will behave at decision time*, and every entry in
+the second names the reason code the engine will record. A euro cap with no `cost_param`
+**loads**, and denies later with `cost_unknown`; `strict_params` is a property of requests,
+not of rules. Presenting either as a boot refusal would have the Studio state a falsehood
+about the engine. The incompleteness notice still renders beside every refusal list,
+including an empty one.
+
+**Validation runs as you type**, through the server. The browser reads a textarea, posts
+it, and swaps in HTML the server rendered from the server's parse; **it parses nothing and
+decides nothing**, held by a structural test. With scripting off the page is exactly what
+`0.6.2`'s editor was.
+
+`python-multipart` joins the `[studio]` extra for the file field — a recorded reversal of
+the decision that kept it out for a text field, because hand-parsing multipart would be a
+second parser in a codebase whose doctrine is that there is one.
+
+### Added — `ND-056` T2: a policy REST API that cannot approve anything
+
+Ships in `0.7.0`. Additive; loopback-only like every other Studio route.
+
+Draft CRUD, per-rule add and update, both validation lists as data, and
+submit-for-ratification, under `/api/v1`. Every write route reaches the same parser the
+editor and the upload use, so an API caller and a person at a screen are told the same
+thing about the same bytes. Refusals are typed and honest as a whole — status, media type
+and body together: `404` for an absence, `409` for a well-formed request the world
+declined, `422` for a candidate the parser refused (carrying the staged reasons), `400`
+for a malformed request.
+
+**`submit` approves nothing.** It records that a human has been asked and returns the
+ceremony's URL; no version pointer moves and no receipt is written.
+
+> The v1 API adds no approval route — ratification belongs to the human ceremony. One
+> legacy route (POST /draft/{id}/ratify), predating actor identity, still serves; it
+> records its approver as declared, never authenticated, and is retired with the key_id
+> work.
+
+That legacy route shipped in `0.6.2`, undocumented and untested by path. It is now
+**documented, pinned by a witness test** so its retirement is a deliberate change rather
+than a silent one, and **carries a deprecation field in its own response** — beside the
+sealed receipt, never merged into it, because the receipt's digest is over the receipt's
+own fields.
+
+The OpenAPI schema is published at `/api/v1/openapi.json`. The Swagger and ReDoc pages
+stay off: they were the half of `0.6.2`'s finding that fetched from CDNs, on a server whose
+header promises nothing leaves the machine.
+
+The Studio's own store moves to schema 3 — a `state` column and a `derivation_record_digest`
+column, both nullable, with an explicit upgrade for existing stores. **No enforcer
+migration number was claimed**; the enforcer's numbered sequence is the enforcer's history.
+
+### Added — `ND-056` T3: drafts proposed by a model, ratified by you
+
+Ships in `0.7.0` **only if its published-misses benchmark clears**; otherwise it follows as
+`0.7.1`, alone. Additive; **off by default and absent rather than broken when off.**
+
+With no model endpoint configured there is no Propose tab, no route, and no mention of the
+feature anywhere in the Studio. Nothing is bundled: no credentials, no default provider,
+and no fallback to the deterministic stand-in.
+
+Configured, it takes a description in plain words and returns a **draft**, entering the
+same draft-and-ceremony path as anything typed or uploaded. Six walls hold it there:
+
+1. The generating model is a **declared instrument** — endpoint host, model name, and a
+   digest of the pinned prompt, recorded on the draft it produced. The key is never
+   recorded, because a digest of a credential is still a function of the credential.
+2. Generated YAML goes through the **same loader** as a hand-written draft. A generation
+   the loader refuses is **shown refused**, with the model's output verbatim beside the
+   reasons, and **nothing is repaired** — deciding what the model meant is authority this
+   code does not have.
+3. The approval surface renders **what the parser read**, never what the model claims.
+4. **Bring your own endpoint**, opt-in, off by default.
+5. The capability language is exact everywhere, held by a forbidden-phrase test.
+6. Every proposal ends with **what the description mentioned that got no rule**, quoting
+   the operator's own words — the constitution's fourth principle, which the directive had
+   omitted and which core confirmed was always binding.
+
+A proposal is **recorded, not receipted**: the same description through the same model
+twice may differ, so the record pins the conditions and states on its face that it does not
+attest re-derivability. **The candidate's authority comes from the checks it passes, never
+from the record.**
+
+### Added — an operator script for the dogfooding pass
+
+`docs/DOGFOODING_SCRIPT.md`: an ordered, timeboxed walk of every screen and all three
+authoring tracks, routed so that state built early is consumed late — one draft created in
+the editor, uploaded over, submitted through the API, ratified in the ceremony, replayed
+under two versions, and verified by a command that does not trust the Studio. Every
+sentence it tells an operator to expect is a constant in the code, asserted by a test that
+reads the document.
+
 ### Added — `ND-055` V1: the Studio shell ("the ledger room")
 
 Ships in `0.7.0`, after Sept 12. Additive; no engine, schema or wire change.
