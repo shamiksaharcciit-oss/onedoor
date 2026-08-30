@@ -15,6 +15,7 @@ the bytes a browser receives is a law about the wrong thing.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from uuid import uuid4
 
@@ -32,7 +33,7 @@ from onedoor.guardrail.models import (
     Tier,
 )
 from onedoor.store.clock import now_utc
-from onedoor.studio import server, shell, validate
+from onedoor.studio import api, server, shell, validate
 
 fastapi = pytest.importorskip("fastapi", reason="the Studio server needs onedoor[studio]")
 from fastapi.testclient import TestClient  # noqa: E402
@@ -161,10 +162,58 @@ def test_the_universe_of_this_file_is_the_app_itself(populated) -> None:
         "/": "redirects to /drafts",
         "/draft/{draft_id}": "redirects to /drafts/{draft_id}",
     }
-    missing = served - covered - set(EXCUSED)
+    #: ND-056/T2's JSON surface. Excused from the PAGE laws because it serves no pages —
+    #: there is no seal to check, no footnote to render, no digest span to format. It is
+    #: not excused from having laws: `test_every_api_route_is_held_by_the_api_laws` below
+    #: enumerates exactly this set off the same route table and applies the laws that do
+    #: apply to a JSON surface. An exemption that led nowhere would be the hole this
+    #: whole test exists to close.
+    json_surface = {r for r in served if r.startswith(api.API_ROOT)}
+    missing = served - covered - set(EXCUSED) - json_surface
     assert not missing, f"these GET routes serve pages no law test has ever seen: {sorted(missing)}"
     for tab in shell.TABS:
         assert any(tab.path == p.split("?")[0] for p in populated.paths), tab.label
+
+
+def test_every_api_route_is_held_by_the_api_laws(populated) -> None:
+    """The JSON surface's own universal pass — the other half of its page-law excusal.
+
+    Enumerated off the **running app**, exactly like the page pass, so a route added to
+    the API without a thought still meets these. Three laws apply to a JSON surface:
+
+    1. it answers JSON, and says so in the media type — R059 §2's whole-response honesty;
+    2. it reaches no external origin, the same promise the header makes for pages;
+    3. it never ratifies — the wall T2 exists inside.
+    """
+    served = {
+        route.path
+        for route in populated.app.routes
+        if "GET" in getattr(route, "methods", set()) and route.path.startswith(api.API_ROOT)
+    }
+    assert served, "precondition: the API is mounted, or this pass is vacuous"
+
+    draft = populated.post(api.API_ROOT + "/drafts", json={"title": "law"}).json()
+    checked = 0
+    for route in sorted(served):
+        path = route.replace("{draft_id}", draft["draft_id"]).replace(
+            "{action_type}", "payments.transfer"
+        )
+        response = populated.get(path)
+        assert response.status_code in (200, 404), f"{path} answered {response.status_code}"
+        assert response.headers["content-type"].startswith("application/json"), path
+        # Every host the answer names must be this machine. Stated as the requirement
+        # rather than as a ban on `//`, which matches a URL inside a sentence just as
+        # readily as an origin something fetches.
+        for host in re.findall(r"https?://([^/\s\"'`)]+)", response.text):
+            name = host.split(":")[0]
+            assert name == "localhost" or ipaddress.ip_address(name).is_loopback, (
+                f"{path} names {host!r}, which is not this machine"
+            )
+        for marker in ('"src"', "<script", "cdn.jsdelivr.net", "fonts.googleapis.com"):
+            assert marker not in response.text, f"{path} carries {marker}"
+        assert "ratify" not in route, f"{route} ratifies, and the v1 API may not"
+        checked += 1
+    assert checked == len(served), "every API GET route was visited"
 
 
 def test_the_studio_serves_no_page_it_did_not_write(populated) -> None:

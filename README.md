@@ -137,6 +137,49 @@ working state, and the enforcer's database contains no row the Studio can edit.
 The Studio binds loopback only and refuses anything else, so nothing it renders leaves the
 machine.
 
+#### Three ways to write a policy
+
+**In the editor.** A guided form and the raw rule, two panes over one parsed object, so
+they cannot disagree. Validation runs as you type: the text goes to the server, the
+engine's own loader looks at it, and the answer comes back rendered. Nothing is parsed in
+the browser, which is why the two panes and the validator can never drift.
+
+**From a file.** Upload YAML on the Drafts page. The file is checked by the loader's own
+four stages, in the loader's own order, and whatever it would refuse at boot is shown on
+the draft with the stage that refuses it and where. A file the loader would reject still
+becomes a draft — you get the reasons, not your file handed back.
+
+The Studio shows **two separate lists**, and the separation is deliberate:
+
+- *The loader would refuse this* — what fails at boot.
+- *Once in force, these rules will…* — how a rule that loads fine will behave at decision
+  time, each entry naming the reason code the engine will actually record (`cost_unknown`
+  for a euro cap with no `cost_param`, `bounds` for `strict_params`, `effect_floor` for an
+  effect no policy declares).
+
+They are never merged. A euro cap without a `cost_param` **loads**; it denies at decision
+time. Showing that as a boot refusal would tell you the engine refuses something it
+accepts.
+
+**Over the API.** Draft CRUD, per-rule updates, validation as data, and
+submit-for-ratification:
+
+```bash
+curl -s localhost:8787/api/v1/drafts -H 'Content-Type: application/json' \
+  -d '{"title":"raise the transfer cap","rules":[{"action_type":"payments.transfer","tier":3}]}'
+curl -s localhost:8787/api/v1/drafts/<id>/validation
+curl -s -X POST localhost:8787/api/v1/drafts/<id>/submit
+```
+
+The schema is at `/api/v1/openapi.json`. (The Swagger and ReDoc pages stay off: they
+fetch from CDNs, and this server promises nothing leaves your machine.)
+
+**The v1 API adds no approval route — ratification belongs to the human ceremony.** One
+legacy route (`POST /draft/{id}/ratify`), predating actor identity, still serves; it
+records its approver as declared, never authenticated, and is retired with the `key_id`
+work. `submit` marks a draft as awaiting a human and returns the ceremony's URL; it moves
+no version pointer and writes no receipt.
+
 ### Working in this repository instead
 
 ```bash

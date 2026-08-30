@@ -39,6 +39,7 @@ from onedoor.guardrail.executor import EngineConfig
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 from onedoor.studio import (
+    api,
     canvas,
     descriptions,
     drafts,
@@ -53,6 +54,7 @@ from onedoor.studio import (
     shell,
     staging,
     store,
+    validate,
     verify,
 )
 
@@ -375,14 +377,54 @@ def create_app(state: StudioState) -> Any:
     # Turning them off rather than vendoring the assets: the Studio is an operator GUI
     # on loopback, not an API surface for third parties, and the JSON endpoints it does
     # have are documented in the README where they do not cost a network call.
+    # `openapi_url` is ON for ND-056/T2 and `/docs`/`/redoc` stay OFF (Q12, R066 §5).
+    # V8's finding had two heads: a surface nobody chose to publish, and external
+    # origins pulled in to render it. T2 is a chosen surface, and the JSON schema fetches
+    # nothing -- so the first head is answered by the choice and the second never applies.
+    # The two HTML doc pages are the half that reached the network; they stay dark.
     app = FastAPI(
         title="onedoor policy studio",
         version=onedoor.__version__,
+        description=api.NO_APPROVAL_NOTE,
         docs_url=None,
         redoc_url=None,
-        openapi_url=None,
+        openapi_url=api.OPENAPI_PATH,
     )
     app.state.studio = state
+
+    def _refused(exc: api.ApiRefusal) -> Any:
+        """A typed refusal, honest as a whole: status, media type and body together."""
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=exc.status, content=exc.body())
+
+    def _draft_or_refuse(draft_id: str) -> Any:
+        draft = store.load(state.studio, draft_id)
+        if draft is None:
+            raise api.ApiRefusal(
+                api.NO_SUCH_DRAFT, f"there is no draft {draft_id} in this studio store"
+            )
+        return draft
+
+    async def _json_body(request: Request) -> dict[str, Any]:
+        """The request's JSON object, or a typed refusal. Never a guess."""
+        import json
+
+        raw = await request.body()
+        if not raw:
+            return {}
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise api.ApiRefusal(
+                api.MALFORMED_REQUEST, f"the request body is not JSON: {exc}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise api.ApiRefusal(
+                api.MALFORMED_REQUEST,
+                f"the request body must be a JSON object, got {type(payload).__name__}",
+            )
+        return payload
 
     @app.get("/")
     def index() -> Any:
@@ -928,6 +970,262 @@ def create_app(state: StudioState) -> Any:
         if not _tab.built:
             app.get(_tab.path, response_class=HTMLResponse)(_unbuilt(_tab))
 
+    # --- ND-056 / T2: the policy REST API ------------------------------------------
+    #
+    # Same store, same parser, same refusals. Loopback-only comes free: these ride the
+    # app `require_loopback` already governs, so there is no second surface to secure.
+
+    @app.get(f"{api.API_ROOT}/drafts")
+    def api_list_drafts() -> Any:
+        with state.lock:
+            active = policy_loader.current_version(state.enforcer)
+            return {
+                "drafts": [
+                    api.draft_object(d, active_version=active) for d in store.listing(state.studio)
+                ],
+                "active_version": active,
+            }
+
+    @app.post(f"{api.API_ROOT}/drafts", status_code=201)
+    async def api_create_draft(request: Request) -> Any:
+        """Create a draft, optionally with rules in the same call.
+
+        Rules go through `api.parse_rule`, so a candidate the loader would refuse is
+        refused HERE with the staged reasons — never stored half-parsed and discovered
+        at ratification.
+        """
+        try:
+            payload = await _json_body(request)
+            title = str(payload.get("title") or "untitled draft")
+            rules = payload.get("rules") or []
+            if not isinstance(rules, list):
+                raise api.ApiRefusal(
+                    api.MALFORMED_REQUEST, "`rules` must be a list of rule objects"
+                )
+            policies = [api.parse_rule(r) for r in rules]
+        except api.ApiRefusal as exc:
+            return _refused(exc)
+        with state.lock:
+            draft = new_draft(state, title=title)
+            if policies:
+                draft = save_draft(state, draft.draft_id, policies=policies)
+            active = policy_loader.current_version(state.enforcer)
+        return api.draft_object(draft, active_version=active)
+
+    @app.get(f"{api.API_ROOT}/drafts/{{draft_id}}")
+    def api_get_draft(draft_id: str) -> Any:
+        with state.lock:
+            try:
+                draft = _draft_or_refuse(draft_id)
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            active = policy_loader.current_version(state.enforcer)
+        return api.draft_object(draft, active_version=active)
+
+    @app.delete(f"{api.API_ROOT}/drafts/{{draft_id}}")
+    def api_delete_draft(draft_id: str) -> Any:
+        with state.lock:
+            try:
+                _draft_or_refuse(draft_id)
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            store.delete(state.studio, draft_id)
+        return {"draft_id": draft_id, "deleted": True}
+
+    @app.put(f"{api.API_ROOT}/drafts/{{draft_id}}/rules/{{action_type}}")
+    async def api_put_rule(request: Request, draft_id: str, action_type: str) -> Any:
+        """Add or update ONE rule inside a draft. Everything else is left alone.
+
+        R063 §4's law, at the API: *a partial editor that writes a whole object deletes
+        what it never displayed.* The other rules are carried over rather than rebuilt,
+        and a body whose `action_type` disagrees with the path is a malformed request
+        rather than a silent rename.
+        """
+        try:
+            payload = await _json_body(request)
+            named = payload.get("action_type")
+            if named is not None and named != action_type:
+                raise api.ApiRefusal(
+                    api.MALFORMED_REQUEST,
+                    f"the body names action_type {named!r} and the path names "
+                    f"{action_type!r}. A rename is a different act from an edit, so this "
+                    "is refused rather than guessed.",
+                )
+            rule = api.parse_rule({**payload, "action_type": action_type})
+        except api.ApiRefusal as exc:
+            return _refused(exc)
+        with state.lock:
+            try:
+                draft = _draft_or_refuse(draft_id)
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            kept = [p for p in draft.policies if p.action_type != action_type]
+            draft = save_draft(
+                state,
+                draft_id,
+                policies=[*kept, rule],
+                effects=list(draft.effects),
+            )
+            active = policy_loader.current_version(state.enforcer)
+        return api.draft_object(draft, active_version=active)
+
+    @app.delete(f"{api.API_ROOT}/drafts/{{draft_id}}/rules/{{action_type}}")
+    def api_delete_rule(draft_id: str, action_type: str) -> Any:
+        with state.lock:
+            try:
+                draft = _draft_or_refuse(draft_id)
+                if not any(p.action_type == action_type for p in draft.policies):
+                    raise api.ApiRefusal(
+                        api.NO_SUCH_RULE,
+                        f"draft {draft_id} has no rule for {action_type!r}",
+                    )
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            draft = save_draft(
+                state,
+                draft_id,
+                policies=[p for p in draft.policies if p.action_type != action_type],
+                effects=list(draft.effects),
+            )
+            active = policy_loader.current_version(state.enforcer)
+        return api.draft_object(draft, active_version=active)
+
+    @app.get(f"{api.API_ROOT}/drafts/{{draft_id}}/validation")
+    def api_validation(draft_id: str) -> Any:
+        """Both lists as data — the same two the editor renders, from the same functions."""
+        with state.lock:
+            try:
+                draft = _draft_or_refuse(draft_id)
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            result = staging.StagedResult(
+                stopped_at=staging.STAGE_RULES if validate.problems(draft.policies) else None,
+                refusals=tuple(
+                    staging.Refusal(
+                        stage=staging.STAGE_RULES,
+                        action_type=p.action_type,
+                        message=p.message,
+                        position=staging.Position(staging.ABSENT),
+                    )
+                    for p in validate.problems(draft.policies)
+                ),
+                policies=tuple(draft.policies),
+                effects=tuple(draft.effects),
+            )
+            items = forecast.build(
+                draft.policies, draft.effects, known_effects=known_effects(state)
+            )
+        return api.validation_object(result, items)
+
+    @app.post(f"{api.API_ROOT}/drafts/{{draft_id}}/submit")
+    def api_submit(draft_id: str) -> Any:
+        """Submit for ratification. **This approves nothing.**
+
+        It sets a flag meaning a human has been asked, and returns where they go to
+        answer. No version pointer moves, no receipt is written, and the enforcer's store
+        is not touched — `test_submit_is_not_approval` asserts all three against a
+        ceremony that is proven able to move them.
+        """
+        with state.lock:
+            try:
+                draft = _draft_or_refuse(draft_id)
+                if draft.state == store.SUBMITTED:
+                    raise api.ApiRefusal(
+                        api.ALREADY_SUBMITTED,
+                        f"draft {draft_id} is already submitted for ratification",
+                    )
+                active = policy_loader.current_version(state.enforcer)
+                if draft.base_version != active:
+                    raise api.ApiRefusal(
+                        api.BASE_MOVED,
+                        "this draft is pinned to a version that is no longer in force, "
+                        "so every number computed for it is about a dead base. Re-pin "
+                        "before submitting.",
+                        base_version=draft.base_version,
+                        active_version=active,
+                    )
+            except api.ApiRefusal as exc:
+                return _refused(exc)
+            draft = store.set_state(state.studio, draft_id, state=store.SUBMITTED)
+        return {
+            **api.draft_object(draft, active_version=active),
+            "means": api.SUBMIT_MEANS,
+            "ceremony_url": f"/drafts/{draft_id}/ratify",
+        }
+
+    @app.get(f"{api.API_ROOT}/policies")
+    def api_policies() -> Any:
+        """The rules in force, read from the SNAPSHOT the version names (R058 §1).
+
+        Not from live tables. The digest in the header names the snapshot, so the
+        snapshot is the only honest source for the answer under it — and the two agree
+        through the normal write path and can disagree through any other, at which point
+        they answer different questions.
+        """
+        with state.lock:
+            version, policies, retrievable = _snapshot_policies()
+        return {
+            "version": version,
+            "retrievable": retrievable,
+            "policies": [api.rule_object(p) for p in policies],
+            "absence_is_denial": library.ABSENCE_IS_DENIAL,
+        }
+
+    def _snapshot_policies() -> tuple[str | None, list[Any], bool]:
+        """The rules behind the version in force, from that version's SNAPSHOT.
+
+        `ratify._policies_at` rebuilds them from the archived snapshot, which is what
+        makes this answer agree with the digest it is returned beside. Reading the live
+        `policies` table instead would produce a set that can disagree with the version
+        naming it — and then the two answer different questions while looking like one.
+
+        The third outcome is carried: a version in force whose snapshot cannot be read is
+        `retrievable: false`, never an empty list. An empty list would say *nothing is
+        permitted* about a system that is permitting things.
+        """
+        version = policy_loader.current_version(state.enforcer)
+        if version is None:
+            return None, [], True
+        snapshot = policy_loader.snapshot_for(state.enforcer, version)
+        if snapshot is None:
+            return version, [], False
+        return version, ratify._policies_at(state.enforcer, version), True
+
+    @app.get(f"{api.API_ROOT}/policies/{{action_type}}")
+    def api_policy(action_type: str) -> Any:
+        with state.lock:
+            version, policies, retrievable = _snapshot_policies()
+            found = next((p for p in policies if p.action_type == action_type), None)
+        if found is None:
+            return _refused(
+                api.ApiRefusal(
+                    api.NO_SUCH_RULE,
+                    f"the version in force declares no rule for {action_type!r}. Under "
+                    "default-deny, that action is refused."
+                    if retrievable
+                    else f"the snapshot for the version in force cannot be read, so "
+                    f"whether {action_type!r} is declared is unknown — this is not a "
+                    "statement that it is undeclared.",
+                    retrievable=retrievable,
+                )
+            )
+        return {"version": version, "rule": api.rule_object(found)}
+
+    @app.get(f"{api.API_ROOT}/versions")
+    def api_versions() -> Any:
+        with state.lock:
+            rows = state.enforcer.execute(
+                "SELECT version_hash, created_at FROM policy_versions ORDER BY created_at DESC"
+            ).fetchall()
+            active = policy_loader.current_version(state.enforcer)
+        return {
+            "active_version": active,
+            "versions": [
+                {"version_hash": str(r["version_hash"]), "created_at": str(r["created_at"])}
+                for r in rows
+            ],
+        }
+
     @app.post("/draft/{draft_id}/repin")
     def repin_draft(draft_id: str) -> dict[str, Any]:
         with state.lock:
@@ -937,8 +1235,28 @@ def create_app(state: StudioState) -> Any:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
             return {"draft_id": draft.draft_id, "base_version": draft.base_version}
 
-    @app.post("/draft/{draft_id}/ratify")
+    @app.post("/draft/{draft_id}/ratify", deprecated=True)
     def ratify_endpoint(draft_id: str, session: str) -> dict[str, Any]:
+        """LEGACY, deprecated. Ratifies over HTTP with a DECLARED session string.
+
+        Shipped in `ND-052`/S3-T2, undocumented and untested by path until ND-056 found
+        it while checking Forward 006's "no approval-by-API" wall against the code. The
+        wall was written by the author of a tree that already served this route, and V8's
+        universal pass could not have caught it because no law said what a route may DO.
+        That law exists now; this route is what it was written for.
+
+        R066 §1 rules it stays through this release — launch week is the wrong week to
+        break a published surface — and adds two teeth, both here:
+
+        1. **A witness test** pins its exact current behaviour, so its retirement in the
+           actor-identity release is a deliberate, tested change and never a silent one.
+        2. **A deprecation field in its own response**, so a caller learns what this is
+           from the thing itself rather than from documentation they never had to read.
+
+        It records `ratified_by_session`: declared, never authenticated. The receipt is
+        honest about that, which is why it was safe to leave serving and not safe to
+        leave unlabelled.
+        """
         with state.lock:
             try:
                 outcome = ratify_draft(state, draft_id, session=session)
@@ -951,7 +1269,11 @@ def create_app(state: StudioState) -> Any:
                 status_code=409, detail={"reason": outcome.reason, "message": outcome.message}
             )
         assert outcome.receipt is not None
-        return outcome.receipt.sealed()
+        # The receipt, unchanged and under its own key, plus the deprecation notice
+        # BESIDE it. Beside, never merged into it: the sealed receipt is evidence with a
+        # digest over exactly these fields, and folding a notice into it would change
+        # what the digest covers. Corrections annotate evidence; they do not rewrite it.
+        return {**outcome.receipt.sealed(), "deprecation": api.LEGACY_DEPRECATION}
 
     return app
 

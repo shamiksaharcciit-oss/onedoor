@@ -51,18 +51,21 @@ from onedoor.store.clock import to_iso
 from onedoor.store.db import connect
 from onedoor.studio import descriptions
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 """The Studio store's own version. Not a number from the enforcer's migration sequence.
 
 Version 2 adds S6's `descriptions` and `derivation_records` (see
-`studio.descriptions`). Bumped rather than silently extended: a store written by
-version 1 and read by a build expecting version 2 must be recognisable as such, and
-`open_store` already refuses a store from the FUTURE for the same reason.
+`studio.descriptions`). Version 3 adds `ND-056`/T2's `state` column, so a draft can be
+SUBMITTED for ratification without being ratified. Bumped rather than silently extended:
+a store written by version 1 and read by a build expecting version 3 must be
+recognisable as such, and `open_store` already refuses a store from the FUTURE for the
+same reason.
 
-R047 §2: the main store's numbered migrations are the enforcer's history. A table in a
-different file that a different process owns does not belong in it, and spending `0019`
-on one would have written the boundary this split exists to draw straight back out of
-the record.
+**No enforcer migration number is claimed** (R047 §2, and `BACKLOG.md`'s register says
+`0019`+ is released for exactly this): the main store's numbered migrations are the
+enforcer's history, and a column in a different file that a different process owns does
+not belong in it. Spending `0019` on one would have written the boundary this split
+exists to draw straight back out of the record.
 """
 
 _S6_SCHEMA = descriptions.SCHEMA_SQL
@@ -83,15 +86,46 @@ CREATE TABLE IF NOT EXISTS policy_candidates (
     body_json    TEXT NOT NULL,
     base_version TEXT,
     created_at   TEXT NOT NULL,
-    updated_at   TEXT NOT NULL
+    updated_at   TEXT NOT NULL,
+    -- ND-056/T2, schema 3. `draft` or `submitted`. NULL on rows written before the
+    -- column existed, and read as `draft` -- the same absent-value rule the enforcer
+    -- uses for an unstamped `protocol`. `submitted` means a human has been ASKED; it
+    -- never means anything has been ratified, and no API route can move a draft past it.
+    state        TEXT
 );
 """
     + _S6_SCHEMA
 )
 
 
+DRAFT = "draft"
+SUBMITTED = "submitted"
+DRAFT_STATES = (DRAFT, SUBMITTED)
+"""What a draft's `state` may be, declared once.
+
+`submitted` means **a human has been asked**, and nothing more. It is not an approval,
+it does not move the version pointer, and no route in the v1 API can take a draft past
+it — ratification is the ceremony, and the ceremony is a page a person loads.
+"""
+
+_ADDED_COLUMNS = {"state": "TEXT"}
+"""Columns added after schema 1, applied to an existing store on upgrade.
+
+Declared as data rather than written as a sequence of ALTERs so the upgrade and the
+CREATE cannot disagree about what a v3 table has.
+"""
+
+
 class StudioStoreError(RuntimeError):
     """The Studio store could not be opened, or holds a schema this build cannot read."""
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    """Add any declared column the table does not already have. Idempotent."""
+    present = {str(row["name"]) for row in conn.execute("PRAGMA table_info(policy_candidates)")}
+    for name, kind in _ADDED_COLUMNS.items():
+        if name not in present:
+            conn.execute(f"ALTER TABLE policy_candidates ADD COLUMN {name} {kind}")
 
 
 def open_store(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
@@ -113,10 +147,16 @@ def open_store(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.C
         if row is None:
             conn.execute("INSERT INTO studio_schema (version) VALUES (?)", (SCHEMA_VERSION,))
         elif int(row["version"]) < SCHEMA_VERSION:
-            # Forward-only, and the tables are all `IF NOT EXISTS`, so applying the
-            # current schema to an older store is the upgrade. Stamped afterwards so a
-            # crash between the two leaves the version behind rather than ahead: a store
-            # that claims a schema it does not have is the failure direction that hurts.
+            # Forward-only. New TABLES arrive by `IF NOT EXISTS` above, but a new COLUMN
+            # does not -- `CREATE TABLE IF NOT EXISTS` is a no-op on a table that already
+            # exists, so a v2 store would have kept its old shape while claiming v3.
+            # Adding the column explicitly is the upgrade, and it is idempotent because
+            # it is guarded by what the table actually has rather than by what the
+            # version number says it should.
+            _add_missing_columns(conn)
+            # Stamped afterwards so a crash between the two leaves the version behind
+            # rather than ahead: a store that claims a schema it does not have is the
+            # failure direction that hurts.
             conn.execute("UPDATE studio_schema SET version=?", (SCHEMA_VERSION,))
         elif int(row["version"]) > SCHEMA_VERSION:
             raise StudioStoreError(
@@ -147,6 +187,13 @@ class Draft:
     base_version: str | None
     created_at: str
     updated_at: str
+    state: str = DRAFT
+    """`draft` or `submitted`. A row written before schema 3 has NULL and reads as
+    `draft` -- absent means the earliest state, never an unknown one."""
+
+    @property
+    def submitted(self) -> bool:
+        return self.state == SUBMITTED
 
 
 def _body(policies: list[Policy], effects: list[EffectPolicy]) -> str:
@@ -170,7 +217,14 @@ def _parse(row: sqlite3.Row) -> Draft:
         base_version=row["base_version"],
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+        # NULL predates the column, and the earliest state is `draft`. Reading it as
+        # anything else would invent a history the row does not have.
+        state=str(row["state"]) if _has(row, "state") and row["state"] else DRAFT,
     )
+
+
+def _has(row: sqlite3.Row, name: str) -> bool:
+    return name in row.keys()
 
 
 def create(
@@ -211,18 +265,47 @@ def save(
     existing = load(conn, draft_id)
     if existing is None:
         raise StudioStoreError(f"no draft {draft_id} in this studio store")
+    # Editing returns a submitted draft to `draft`, and this is not a convenience.
+    # `submitted` means a human was asked about a specific candidate; changing the
+    # candidate makes the thing they were asked about no longer the thing on the table.
+    # Leaving the flag up would let an edit ride into a ceremony under a submission that
+    # was made about different rules.
     conn.execute(
-        "UPDATE policy_candidates SET title=?, body_json=?, updated_at=? WHERE draft_id=?",
+        "UPDATE policy_candidates SET title=?, body_json=?, updated_at=?, state=? WHERE draft_id=?",
         (
             title if title is not None else existing.title,
             _body(policies, list(effects or [])),
             to_iso(now),
+            DRAFT,
             draft_id,
         ),
     )
     got = load(conn, draft_id)
     if got is None:  # pragma: no cover - the update above just wrote it
         raise StudioStoreError(f"draft {draft_id} vanished during save")
+    return got
+
+
+def set_state(conn: sqlite3.Connection, draft_id: str, *, state: str) -> Draft:
+    """Move a draft between `draft` and `submitted`. It can move no further.
+
+    There is deliberately no `ratified` state here. Ratification is not a property of a
+    draft — it is an event in the enforcer's store with a receipt, and a flag in the
+    Studio's database claiming it would be a second, unreceipted record of the one thing
+    this product exists to receipt.
+    """
+    if state not in DRAFT_STATES:
+        raise StudioStoreError(
+            f"a draft's state is one of {DRAFT_STATES}, not {state!r}. There is no "
+            "ratified state: ratification is a receipt in the enforcer's store, never a "
+            "flag in this one."
+        )
+    if load(conn, draft_id) is None:
+        raise StudioStoreError(f"no draft {draft_id} in this studio store")
+    conn.execute("UPDATE policy_candidates SET state=? WHERE draft_id=?", (state, draft_id))
+    got = load(conn, draft_id)
+    if got is None:  # pragma: no cover - the update above just wrote it
+        raise StudioStoreError(f"draft {draft_id} vanished during a state change")
     return got
 
 
