@@ -101,10 +101,43 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   counted from the reporting move.** A recurrence before twenty reopens it as a real
   investigation with the full stash trace captured.
 
-  **Banked so far: ten.** Three local gate runs across V7/V8, two CI jobs on
-  `eb5df1a`, one direct `pytest -q`, two local gate runs in this stage, and one CI job
-  on `d785d4a`, and one local gate run on the closing commit. Counted, not claimed —
-  ten to go.
+  **Banked: ten, then INTERRUPTED, then six.** The ten were three local gate runs across
+  V7/V8, two CI jobs on `eb5df1a`, one direct `pytest -q`, two local gate runs in that
+  stage, one CI job on `d785d4a`, and one on the closing commit.
+
+  **The streak broke on 2026-08-30**, on a fresh full-suite run during the `ND-056` build:
+  `2 failed, 1168 passed, 9 skipped`. **The `StashKey` failure did NOT recur** — one
+  failure was the digest register refusing an unarchived memo (the register working), the
+  other a latent environment defect in `tests/mcp/test_proxy_demo.py` fixed in `4725663`.
+  Delivery recorded the streak as interrupted before asking, which is the reading that
+  cost something; **Q13 ruled it interrupted at ten** (R066 §7).
+
+  R067 §3 rules **when** counting resumes — at the first green full-suite run *after* the
+  interrupting run, not when the ruling arrived, because a green run is a fact about the
+  tree and Q13 was declaratory rather than constitutive. That reasoning is adopted.
+
+  **R067 §3 states the bank reads six. Read off the runs, delivery counts five, and only
+  four of them consecutive.** Raised in
+  `escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md` rather than adopted: *a number
+  transcribed from a memo instead of read from the runs is R010 broken in miniature*, and
+  this channel has already corrected one of its own commit messages for exactly that
+  (`54ea440`).
+
+  | Run | Result |
+  |---|---|
+  | `ad8de62` gate | **green** — 1171 passed, 9 skipped |
+  | *(mid-T1)* | **RED** — four gates red, then two red suites while the register refused an unarchived memo |
+  | `733d852` gate | **green** — 1238 |
+  | `caa24c2` gate | **green** — 1275 |
+  | `1b8f7c4` gate | **green** — 1308 |
+  | `22b5dfd` gate | **green** — 1314 |
+
+  Five green; the red runs between the first and second break consecutiveness, so on
+  R064 §4's wording — *twenty **consecutive** green full-suite runs* — the streak stands
+  at **four**. Whether a deliberately-red mid-build run breaks a streak meant to measure
+  *flakiness* is a real question and core's to answer; it is not delivery's to settle in
+  the direction that flatters the ledger. **Recorded as four pending that answer**, which
+  is the costly reading again.
 - **`ND-053`, `ND-054`** — frozen, unchanged, and `ND-054`'s divergence is noted at the
   editor's decimal fields in the words the engine's behaviour justifies today.
 

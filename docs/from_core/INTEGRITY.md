@@ -133,6 +133,7 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_to_Delivery_Response_064_2026-08-28.md` | `ec942c80e59f27095e6360175e2104f2758080fddb92969269f46495098133ec` |
 | `Core_to_Delivery_Response_065_2026-08-28.md` | `c22e488dedcacef255d724f1905951953eead593ccc97f94db4ee6aaf4e11df5` |
 | `Core_to_Delivery_Response_066_2026-08-30.md` | `16781a0ca18581dc4ec0f0f56bb942d9f01316a03dfd1c233180acaaaa428e53` |
+| `Core_to_Delivery_Response_067_2026-08-30.md` | `cc04ab1e142164ac25560b82645a328e2d1ebb32742610da5eed1794cf38302f` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |

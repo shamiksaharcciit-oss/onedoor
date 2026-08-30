@@ -1212,6 +1212,47 @@ covering the LiteLLM conformance fix, the obligation-machinery gap (N6/`ND-038`)
 the `not_attempted` defect (A4b/`ND-039`) — and which now also confirms `main` is green
 on `origin` again.
 
+### Resolved by Responses 066–067 (2026-08-30) — `ND-056`, the Studio authoring paths
+
+Nothing here is wire-observable; the Studio is an operator surface, so `aadp` conformance
+is unchanged. Recorded because the rulings bind the code and one of them is a law.
+
+| Was | Ruling |
+|---|---|
+| **C1** — the "no approval-by-API" wall was already breached by a shipped route (`POST /draft/{id}/ratify`, in `0.6.2` on PyPI) | R066 §1: it stays this release, with a **witness test** and a **deprecation field in its own response**; documented truthfully; retires with the actor-identity (`key_id`) work. Core registered the gap against itself |
+| **C2** — a release cut from `main` would carry the whole `ND-055` arc | R066 §2: the V1–V8 hold is released, the release is renumbered **`0.7.0`** because a version number describes content, and **the dogfooding pass gates the tag**. T3's slip target is `0.7.1` |
+| **C3** — "the full loader rulebook" is unreachable without changing fail-closed boot semantics | R066 §3: delivery's wording adopted — *every refusal the loader can produce for this candidate, at the stage that produces it* |
+| **C4** — two of five named checks are runtime behaviour, not loader refusals | R066 §3: two separately-typed lists, never merged; every forecast names the `CheckId` the engine will record |
+| **C5** — the walls omitted constitution principle 4 | R066 §4: core's defect; the dark-surface list was always binding. Built as wall 6 |
+| **C6** — "F046 shape" names another channel's artifact | R066 §4: cited in error. *A directive cites only artifacts the receiving channel holds, or carries the shape inline* |
+| **Q10** `python-multipart` into `[studio]` | Approved as a **recorded reversal**: a file field is not the text field the original decision was about |
+| **Q11** T3's quality gate | The constitution's §2 bar — **benchmarked with published misses**. Not met by socket-replacing tests; needs Shamik's endpoint, key and spend |
+| **Q12** `openapi_url` only | Approved at `/api/v1/openapi.json`; `/docs` and `/redoc` stay off — they are the half that reached the network |
+| **Q13** Q8's green-run count | **Interrupted at ten**, restarting at the first green run after the interruption — see below |
+| **The user manual** | **Ruled core-owned** (R067 §2). It is core's artifact, built from source held on core's side; core owes the `0.7.0` edition after the dogfooding pass and before the tag. `docs/OneDoor_User_Manual.pdf` is an **incoming binary, never a build input**. Forward 006 §4's "manual updated to match" is discharged on core's ledger, not delivery's |
+
+**Two laws, canon from this arc.**
+
+> **Every route declares what it is permitted to do.** Routes are classed — read,
+> draft-mutating, binding — and a binding route must name its actor and its ceremony.
+> This is the law whose absence let a ratifying route survive V8's universal pass: that
+> pass enumerated the route table and applied six laws, none of which asked what a route
+> may *do*.
+
+> **A fence that greps prose enforces vocabulary; state the requirement in the artifact's
+> own syntax** (R067 §1, sharpening R058 §5). Four false positives in one build —
+> `valid` inside a route name, `validation` inside a div id, a loopback URL inside a
+> docstring, and `fixup`/`FixtureProposer` inside the prose documenting their absence —
+> are one lesson, not four. So: server values into the page, loopback for every named
+> host, AST with docstrings stripped.
+
+**Q8's count reads six, fourteen to go** (R067 §3). The restart began at the first green
+full-suite run *after* the interrupting run, not when the ruling arrived: a green run is a
+fact about the tree, and Q13 was declaratory of what the count always meant rather than
+constitutive of when counting may resume — holding real runs uncounted would make the
+ledger depend on the mail. Asking before counting is what keeps that from being
+self-favour.
+
 ---
 
 ## 6. Target vocabulary (`aadp/0.2`, from `0.4.0`)

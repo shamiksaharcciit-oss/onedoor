@@ -87,7 +87,27 @@ JSON-surface pass in `tests/studio/test_law_tests.py` hold it now.
   nothing else. Q11's bar — a live benchmark with published misses — **is not met**, and
   it needs Shamik's endpoint, key and spend approval. If it is not met by Sept 5, T3
   slips to `0.7.1` by its designed path.
-- **The user manual (`docs/OneDoor_User_Manual.pdf`) is not updated.** It is a PDF and
-  not a source this channel can edit honestly; §4 of the directive asks for it. Named
-  rather than quietly skipped.
-- **The Studio still has not been run by a person** since `0.6.2`.
+- **The Studio still has not been run by a person** since `0.6.2`. Shamik's pass, and it
+  **gates the tag** (R066 §2) rather than following it.
+
+## Closed by `Core_to_Delivery_Response_067_2026-08-30`
+
+The build is **accepted as reported**, subject only to the two human gates that were
+never this channel's to clear. All three defect fixes ratified; the second sharpened into
+law (see `CONFORMANCE.md` §5).
+
+**The user manual is ruled core-owned** (R067 §2). Delivery was right that a PDF is not a
+source it can edit honestly, and the resolution is **ownership, not a workaround**: the
+manual is core's artifact, built from source on core's side, and core owes the `0.7.0`
+edition — new sections for the three tracks, cover line unchanged and now simply true —
+after the dogfooding pass and before the Sept 7 tag, so that what it documents is what an
+operator has actually seen. `docs/OneDoor_User_Manual.pdf` is an **incoming binary, never
+a build input**, and Forward 006 §4's "manual updated to match" is discharged on core's
+ledger. It is off this ticket's list of owed work.
+
+**What the channel now holds:** three tracks feature-complete on 2026-08-30, five days of
+margin to the Sept 5 bar, two human gates (the dogfooding pass by Sept 5; T3's funding by
+Sept 3), one core deliverable (the manual), and a release on Sept 7 by Shamik's hands
+under the number R066 §2 gave it.
+
+**The channel holds.** Nothing in the build queue outranks the launch queue this week.
