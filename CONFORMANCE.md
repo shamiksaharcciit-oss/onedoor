@@ -1246,12 +1246,42 @@ is unchanged. Recorded because the rulings bind the code and one of them is a la
 > are one lesson, not four. So: server values into the page, loopback for every named
 > host, AST with docstrings stripped.
 
-**Q8's count reads six, fourteen to go** (R067 §3). The restart began at the first green
-full-suite run *after* the interrupting run, not when the ruling arrived: a green run is a
-fact about the tree, and Q13 was declaratory of what the count always meant rather than
-constitutive of when counting may resume — holding real runs uncounted would make the
-ledger depend on the mail. Asking before counting is what keeps that from being
-self-favour.
+**Q13** (R066 §7) settles *when* the count resumes: at the first green full-suite run
+*after* the interrupting run, not when the ruling arrived. A green run is a fact about the
+tree, and Q13 was declaratory of what the count always meant rather than constitutive of
+when counting may resume — holding real runs uncounted would make the ledger depend on the
+mail.
+
+**Q15** (R068 §1) settles *what the series is made of*, from R064 §4's own words —
+*"counted from the reporting move"*:
+
+> The reporting move is not just the series' starting point — it is the series' **unit**.
+> Membership belongs to full-suite runs at reporting moves: commit gates, stand-downs,
+> context rebuilds — the runs that assert *this is the state of the tree*, quotable from
+> the record that recorded them. Ad-hoc mid-build invocations are not members, red or
+> green.
+
+An explained red **at a reporting move** breaks the streak; a red *between* reporting
+moves was never in the series. The purpose test is decisive: a definition under which
+every mid-build red breaks the streak punishes running the suite often, and **no
+definition in this house may make the disciplined move the costly one.**
+
+**A third law, canon from R068 §0:**
+
+> **A count is testimony until re-derived from its receipts.** A ruling on a number cites
+> the receipts or marks the number as reported, not verified.
+
+Core registered this against itself: R067 §3's "the bank reads six" was adopted from
+delivery's own prior phrasing rather than re-derived — a ruling on a count whose receipts
+core had never seen. Delivery declined to adopt it precisely because it moved in
+delivery's favour and came from the authority that had just handed it over.
+
+**The count, recounted under Q15 and derived from receipts, stands at seven — thirteen to
+go.** The member enumeration is in `TICKETS-ND-055.md` beside Q15's ruling, one row per
+reporting move, each quotable from the commit that recorded it. The earlier reading of
+five-green-four-consecutive (`escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md`) was
+computed over all invocations, which was the only reading available while the unit was
+undefined; it is superseded, not amended.
 
 ---
 

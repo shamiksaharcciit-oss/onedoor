@@ -101,7 +101,7 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   counted from the reporting move.** A recurrence before twenty reopens it as a real
   investigation with the full stash trace captured.
 
-  **Banked: ten, then INTERRUPTED, then six.** The ten were three local gate runs across
+  **Banked: ten, then INTERRUPTED, then seven.** The ten were three local gate runs across
   V7/V8, two CI jobs on `eb5df1a`, one direct `pytest -q`, two local gate runs in that
   stage, one CI job on `d785d4a`, and one on the closing commit.
 
@@ -112,32 +112,65 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   Delivery recorded the streak as interrupted before asking, which is the reading that
   cost something; **Q13 ruled it interrupted at ten** (R066 §7).
 
-  R067 §3 rules **when** counting resumes — at the first green full-suite run *after* the
-  interrupting run, not when the ruling arrived, because a green run is a fact about the
-  tree and Q13 was declaratory rather than constitutive. That reasoning is adopted.
+  **Q13** (R066 §7) rules *when* counting resumes — at the first green full-suite run
+  after the interrupting run, not when the ruling arrived, because a green run is a fact
+  about the tree. **Q15** (R068 §1) rules *what the series is made of*, settling it from
+  R064 §4's own words — *"counted from the reporting move"*:
 
-  **R067 §3 states the bank reads six. Read off the runs, delivery counts five, and only
-  four of them consecutive.** Raised in
-  `escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md` rather than adopted: *a number
-  transcribed from a memo instead of read from the runs is R010 broken in miniature*, and
-  this channel has already corrected one of its own commit messages for exactly that
-  (`54ea440`).
+  > The reporting move is not just the series' starting point — it is the series' **unit**.
+  > Membership belongs to full-suite runs at reporting moves: commit gates, stand-downs,
+  > context rebuilds. Ad-hoc mid-build invocations are not members, red or green.
 
-  | Run | Result |
-  |---|---|
-  | `ad8de62` gate | **green** — 1171 passed, 9 skipped |
-  | *(mid-T1)* | **RED** — four gates red, then two red suites while the register refused an unarchived memo |
-  | `733d852` gate | **green** — 1238 |
-  | `caa24c2` gate | **green** — 1275 |
-  | `1b8f7c4` gate | **green** — 1308 |
-  | `22b5dfd` gate | **green** — 1314 |
+  An explained red **at a reporting move** still breaks the streak; a red *between*
+  reporting moves was never in the series. The interrupting run was itself at a reporting
+  move — the stood-down tree at a context rebuild — so it stands as the interruption.
 
-  Five green; the red runs between the first and second break consecutiveness, so on
-  R064 §4's wording — *twenty **consecutive** green full-suite runs* — the streak stands
-  at **four**. Whether a deliberately-red mid-build run breaks a streak meant to measure
-  *flakiness* is a real question and core's to answer; it is not delivery's to settle in
-  the direction that flatters the ledger. **Recorded as four pending that answer**, which
-  is the costly reading again.
+### The recount (R068 §2), derived from receipts
+
+  Enumerated from the commits that recorded them, each line quotable with
+  `git log --format='%b' <commit> | grep 'tests "'`:
+
+  | # | Reporting move | Full-suite result |
+  |---|---|---|
+  | — | context rebuild, stood-down tree | **RED** — `2 failed, 1168 passed, 9 skipped` ⇒ **the interruption** |
+  | 1 | commit gate → `4725663` + `ad8de62` | green — `1171 passed, 9 skipped` |
+  | 2 | commit gate → `733d852` (T1) | green — `1238 passed, 9 skipped` |
+  | 3 | commit gate → `caa24c2` (T2) | green — `1275 passed, 9 skipped` |
+  | 4 | commit gate → `1b8f7c4` (T3) | green — `1308 passed, 9 skipped` |
+  | 5 | commit gate → `22b5dfd` (the record) | green — `1314 passed, 9 skipped` |
+  | 6 | commit gate → `0e5909d` (R067 archived, stand-down) | green — `1315 passed, 9 skipped` |
+  | 7 | commit gate → the commit carrying this recount | green — quoted in that commit's own message |
+
+  Row 7 names its run without quoting its number, and that is not coyness: **a table can
+  never quote the run that validates the commit containing the table.** Writing the number
+  in would change the tree after the run that measured it, so the run would no longer
+  describe what was committed — the register-timing problem, one artifact over. The number
+  lives in the commit message, which is written after the gate and is the record R068 §2
+  asks members to be quotable from.
+
+  **Not members**, and named so the exclusion is visible rather than convenient: the
+  mid-`T1` gate invocation that went red on four gates, the two `pytest -q` runs that went
+  red while the register was correctly refusing an unarchived memo mid-absorption, and
+  every targeted single-file run. All were made *during* assembly and asserted nothing
+  about the tree at report.
+
+  **The one ambiguity, classified by what the run asserted** (R068 §2's instruction).
+  Member 1 ran over a working tree that then became **two** commits — `4725663` carries no
+  gate line of its own, and `ad8de62` quotes the run. It is **one run and therefore one
+  member**, not two: the run asserted the combined state, and counting it twice would
+  inflate the series by how the commits were split rather than by how often the tree was
+  measured.
+
+  **The streak stands at seven under Q15's definition; thirteen to go.** Derived here, not
+  adopted — and it is worth recording that the enumeration passed through six — the number R068 §0
+  withdrew as adopted testimony — and reached it by derivation rather than by adoption. The earlier reading of **five green, four consecutive**
+  (`escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md`, `f0a806e3…`) was computed over
+  *all* invocations, which was the only reading available while the unit was undefined;
+  Q15 defined the unit and the enumeration changed with it. That note is **superseded, not
+  amended** — it was sealed and sent, so the correction lives here rather than in it.
+
+  **The `StashKey` failure has still not recurred** under any of these arithmetics, which
+  is the fact the bar was built to watch.
 - **`ND-053`, `ND-054`** — frozen, unchanged, and `ND-054`'s divergence is noted at the
   editor's decimal fields in the words the engine's behaviour justifies today.
 
