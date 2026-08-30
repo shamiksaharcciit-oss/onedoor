@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,11 +11,22 @@ ROOT = Path(__file__).parent.parent.parent
 
 
 def test_mcp_demo_end_to_end() -> None:
+    # Both ends of the pipe state UTF-8 rather than inheriting a locale (R048: a green
+    # gate is a claim about an environment). `text=True` alone decodes with the PARENT's
+    # locale -- cp1252 on Windows -- while the child writes UTF-8 whenever
+    # PYTHONIOENCODING says so. The only non-ASCII assertion below then failed on the
+    # euro sign against a mojibake capture, and passed again once the variable was
+    # unset: a test whose verdict depends on the caller's shell. CI never saw it because
+    # CI runners are UTF-8, which is what "unbound" means -- the gate was making a claim
+    # about an environment nobody had stated.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     out = subprocess.run(
         [sys.executable, "-m", "scripts.demo_mcp"],
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        env=env,
         timeout=120,
     )
     assert out.returncode == 0, out.stderr
