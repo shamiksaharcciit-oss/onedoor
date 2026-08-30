@@ -10,10 +10,17 @@ would be invisible: the test would pass, the walkthrough would be wrong, and the
 following it would find out. Same reasoning as X-11 — the artifact and the check share one
 source.
 
-Two commands cannot run offline. They are named in `NOT_EXECUTED` with the reason, the
-document says so at the top, and what *is* checkable about them is checked: the extra
-exists and everything it names imports. **Absent, unverifiable and failed stay apart**,
-including here.
+Seven commands cannot run offline. They are named in `CHECKED_NOT_RUN` with the reason,
+the document says so at the top, and what *is* checkable about them is checked: the extra
+exists and everything it names imports, the routes exist in the app's own route table,
+the field names match the forms, and the environment variables are the ones the Studio
+reads. **Absent, unverifiable and failed stay apart**, including here.
+
+This paragraph has now been wrong twice — it said "two" when there were four, and named
+`NOT_EXECUTED`, a constant that had already been renamed. Both are the same defect the
+document itself is tested against: **a count in prose is a claim, and a claim needs a
+check.** `test_every_command_is_accounted_for_as_run_or_as_checked` is the check that
+matters; this sentence is now maintained beside it rather than instead of it.
 """
 
 from __future__ import annotations
@@ -39,13 +46,39 @@ CHECKED_NOT_RUN = {
     "curl -X POST 'http://127.0.0.1:8787/drafts' --data-urlencode 'title=first policy set'": (
         "CI need not have curl; the route and field it names are checked against the app"
     ),
+    # --- ND-056, the three authoring paths -------------------------------------------
+    "curl -X POST 'http://127.0.0.1:8787/drafts/upload' -F 'policy_file=@policies.yaml'": (
+        "CI need not have curl; the route and the file field it names are checked "
+        "against the app and against the upload form"
+    ),
+    (
+        "curl -X POST 'http://127.0.0.1:8787/api/v1/drafts' -H 'Content-Type: "
+        'application/json\' -d \'{"title":"from the api","rules":[{"action_type":'
+        '"reports.read","tier":3}]}\''
+    ): (
+        "CI need not have curl; the route and the body's keys are checked against the "
+        "route the app serves"
+    ),
+    (
+        "export ONEDOOR_PROPOSER_ENDPOINT='https://your-endpoint/v1/chat/completions' "
+        "ONEDOOR_PROPOSER_MODEL='the-model-you-chose'"
+    ): (
+        "it needs an endpoint and a key that are the operator's; CI has neither. The "
+        "variable NAMES are checked against what the Studio reads, and the absent case "
+        "is exercised in full"
+    ),
 }
 """Commands validated rather than executed, each with its reason.
 
-**Four, not two.** The first draft of this file said two and called the rest executed,
-which was wrong about the start command and the curl line — both are *checked*, not run.
-A walkthrough claiming more testing than it has is the overclaim this project spends its
-time removing from other people's pages; it does not get to keep one of its own.
+**Seven, and the number has been wrong before.** The first draft of this file said two
+and called the rest executed, which was wrong about the start command and the curl line —
+both are *checked*, not run. A walkthrough claiming more testing than it has is the
+overclaim this project spends its time removing from other people's pages; it does not
+get to keep one of its own.
+
+The partition test below is what actually enforces this, which is why the count in prose
+is allowed to exist at all: it is a reader's summary of a fact a test already holds, not
+the fact itself.
 
 Everything not listed here is run to completion, with its exit code asserted.
 """
@@ -305,3 +338,105 @@ def test_the_screens_the_walkthrough_names_are_the_tabs_that_exist() -> None:
     text = WALKTHROUGH.read_text(encoding="utf-8")
     for tab in shell.TABS:
         assert f"**{tab.label}**" in text, f"the walkthrough never mentions {tab.label}"
+
+
+# --- ND-056: the three authoring paths the walkthrough now names -----------------------
+
+
+def _app_paths(methods: set[str]) -> set[str]:
+    """Route templates the app actually serves for those methods.
+
+    Read off the running app, never from a list this test remembers (R064 §2). A
+    walkthrough line checked against a remembered route is checked against nothing.
+    """
+    import tempfile
+
+    from onedoor.studio import server
+
+    with tempfile.TemporaryDirectory() as tmp:
+        state = server.open_state(f"{tmp}/onedoor.db", f"{tmp}/studio.db")
+        try:
+            app = server.create_app(state)
+            return {
+                route.path
+                for route in app.routes
+                if methods & set(getattr(route, "methods", set()))
+            }
+        finally:
+            state.close()
+
+
+def test_step_9_the_upload_line_posts_where_the_app_routes_and_names_the_right_field() -> None:
+    """The upload command, checked as far as a command that needs `curl` can be."""
+    from onedoor.studio import screens
+
+    command = next(c for c in _commands() if "/drafts/upload" in c)
+    assert "/drafts/upload" in _app_paths({"POST"}), (
+        "the walkthrough tells a person to post to a route the app does not serve"
+    )
+    # The field name the line sends must be the one the form declares, or the upload
+    # arrives with nothing attached and the page says "no file arrived".
+    assert "policy_file=@" in command
+    assert 'name="policy_file"' in screens.upload_block()
+
+
+def test_step_9_the_api_line_posts_where_the_app_routes_and_sends_keys_it_reads() -> None:
+    import json as _json
+    import re as _re
+
+    from onedoor.studio import api
+
+    command = next(c for c in _commands() if "/api/v1/drafts" in c)
+    assert f"{api.API_ROOT}/drafts" in _app_paths({"POST"})
+
+    body = _json.loads(_re.search(r"-d '(\{.*\})'", command).group(1))
+    assert set(body) == {"title", "rules"}, (
+        "the walkthrough sends a key the create route does not read, or omits one it does"
+    )
+    # And the rule it sends is one the loader actually accepts, so a person following
+    # this line gets a draft rather than a 422.
+    from onedoor.studio import staging
+
+    assert staging.staged_rule(_json.dumps(body["rules"][0])).loads
+
+
+def test_step_10_the_exports_name_the_variables_the_studio_reads() -> None:
+    """The one command here that cannot be run at all, checked at both ends.
+
+    The names are asserted against what `from_env` reads, and the ABSENT case — which is
+    the state every reader of this walkthrough is in until they act — is exercised in
+    full rather than described.
+    """
+    from onedoor.studio import live_proposer
+
+    command = next(c for c in _commands() if c.startswith("export ONEDOOR_PROPOSER"))
+    assert live_proposer.ENV_ENDPOINT in command
+    assert live_proposer.ENV_MODEL in command
+
+    # Absent: no proposer, which the walkthrough says means no tab at all.
+    assert live_proposer.from_env({}) is None
+    # Present: the same two names, and a proposer comes back.
+    built = live_proposer.from_env(
+        {live_proposer.ENV_ENDPOINT: "https://e/v1", live_proposer.ENV_MODEL: "m"}
+    )
+    assert built is not None
+
+
+def test_the_walkthrough_does_not_promise_the_propose_tab_unconditionally() -> None:
+    """It is off by default, and the document must not send a reader looking for it."""
+    text = WALKTHROUGH.read_text(encoding="utf-8")
+    assert "only if you configured a model" in text
+    assert "there is no **Propose** tab at all" in text
+
+
+def test_the_walkthrough_states_the_two_lists_and_does_not_merge_them() -> None:
+    """The C4 separation, in the words a person following the document will read."""
+    text = WALKTHROUGH.read_text(encoding="utf-8")
+    assert "The loader would refuse this" in text
+    assert "Once in force, these rules will" in text
+    assert "It loads; it\ndenies at decision time with `cost_unknown`" in text
+
+
+def test_the_walkthrough_says_submit_approves_nothing() -> None:
+    text = WALKTHROUGH.read_text(encoding="utf-8")
+    assert "**Submit approves\nnothing**" in text or "**Submit approves nothing**" in text

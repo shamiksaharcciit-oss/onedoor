@@ -1,4 +1,4 @@
-# Dogfooding walkthrough — the Policy Studio, all eight screens
+# Dogfooding walkthrough — the Policy Studio, every screen and all three authoring paths
 
 **For a person, on a machine that has never run this.** Twenty minutes, ending with a
 receipt you verify yourself using a command that does not trust the Studio.
@@ -10,7 +10,7 @@ receipt you verify yourself using a command that does not trust the Studio.
 >
 > **`[run]`** — executed to completion exactly as written, exit code asserted.
 > **`[checked]`** — not executed, with the reason, and with whatever the command *claims*
-> checked instead. Four of the seven are `[checked]`; none is unexamined.
+> checked instead. Seven of the ten are `[checked]`; none is unexamined.
 >
 > The distinction is the point. Saying "every command is tested" when three of them are
 > validated rather than run would spend trust this walkthrough has not earned.
@@ -146,6 +146,82 @@ check; it is a check that never ran.**
 That command reads two files and opens no database. Copy them to another machine and it
 gives the same answer, which is the entire point: **the Studio showed you a verification
 and told you how to repeat it without trusting the Studio.**
+
+---
+
+## 9. The other two ways to write a policy
+
+Section 5 used the editor. There are two more, and both land in the same place: a draft,
+which changes nothing until you ratify it.
+
+### Upload a file
+
+On **Drafts**, use *From a file*. Or, from a terminal:
+
+```shell
+curl -X POST 'http://127.0.0.1:8787/drafts/upload' -F 'policy_file=@policies.yaml'
+```
+
+**`[checked]`** — CI need not have `curl`. Checked instead: the route this line posts to
+is in the app's POST table, and the field name it sends is the one the upload form
+declares.
+
+Try it with a file you know is wrong — a Tier 2 rule with no `compensating_command`, say.
+**You still get a draft**, and the draft shows what the loader would refuse, at which
+stage, and where in the file. That is the point of the whole track: *nothing the loader
+would refuse at boot is first discovered at boot.*
+
+Look at the two lists on that page and note that they are two:
+
+- **The loader would refuse this** — what fails at startup.
+- **Once in force, these rules will…** — how a rule that loads *fine* will behave when a
+  request arrives, each line naming the reason code the engine will record.
+
+A euro cap with no `cost_param` appears in the second list, never the first. It loads; it
+denies at decision time with `cost_unknown`. If you ever see it in the first list, that is
+a bug worth writing down.
+
+### Use the API
+
+```shell
+curl -X POST 'http://127.0.0.1:8787/api/v1/drafts' -H 'Content-Type: application/json' -d '{"title":"from the api","rules":[{"action_type":"reports.read","tier":3}]}'
+```
+
+**`[checked]`** — same reason as above. Checked instead: the route exists in the app's
+POST table, and the keys this body sends are the ones the route reads.
+
+Then `GET /api/v1/drafts/<id>/validation` for both lists as data, and
+`POST /api/v1/drafts/<id>/submit` to mark it as awaiting a human. **Submit approves
+nothing** — it moves no version pointer and writes no receipt. It returns the URL of the
+ceremony page, which is where a person ratifies.
+
+The schema is at `/api/v1/openapi.json`.
+
+## 10. Propose a draft from a description (only if you configured a model)
+
+This is off unless you turn it on, and when it is off there is no **Propose** tab at all.
+To turn it on, before starting the Studio:
+
+```shell
+export ONEDOOR_PROPOSER_ENDPOINT='https://your-endpoint/v1/chat/completions' ONEDOOR_PROPOSER_MODEL='the-model-you-chose'
+```
+
+**`[checked]`** — it needs an endpoint and a key that are yours, and CI has neither.
+Checked instead: these are exactly the variable names the Studio reads, and with them
+unset the feature is absent rather than broken.
+
+With them set, **Propose** appears. Describe what the agent may do in plain words. What
+comes back is a draft like any other, and the things to look at are:
+
+- **Where this draft came from** — the model, the endpoint host, and a digest of the
+  prompt. Not the key; that is never recorded.
+- **Mentioned, and not covered by any rule** — what your description named that got no
+  rule, quoting *your* words.
+- The rules themselves, which are what the parser read, not what the model said it did.
+
+Give it a description you expect it to get wrong, and see whether it says so. Then feed it
+something that produces invalid YAML if you can: you should get the refusal and the model's
+raw output side by side, with nothing repaired.
 
 ---
 
