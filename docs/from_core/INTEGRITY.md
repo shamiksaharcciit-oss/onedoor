@@ -65,6 +65,7 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_Forward_004_Gate_Execution_2026-08-21.md` | `7960e78acc1485c403684849bdf4e896d9b3e34c87cb9c68baab7a28ccb7cde2` |
 | `Core_Forward_004a_Exit_Codes_Travel_Badly_2026-08-21.md` | `7a375526ed54952a39f4252c6a0fa8d35ea5e264522b95df4689c53483f7aaf1` |
 | `Core_Forward_005_Seal_Test_Shape_2026-08-28.md` | `f3142274d08892e195217c53e082e8b5515a917667dd08b2b042bca194e02ba2` |
+| `Core_Forward_006_Studio_Authoring_Paths_2026-08-30.md` | `f20677b3955b4985e400dca917231316213ee8e63ff16b333bd3786f4f511cfa` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none |
@@ -130,6 +131,7 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_to_Delivery_Response_063_2026-08-28.md` | `774354fb3c10dffda6cb72b49a3a4e97cf7114aa765efb3dfef437e46a01e853` |
 | `Core_to_Delivery_Response_064_2026-08-28.md` | `ec942c80e59f27095e6360175e2104f2758080fddb92969269f46495098133ec` |
 | `Core_to_Delivery_Response_065_2026-08-28.md` | `c22e488dedcacef255d724f1905951953eead593ccc97f94db4ee6aaf4e11df5` |
+| `Core_to_Delivery_Response_066_2026-08-30.md` | `16781a0ca18581dc4ec0f0f56bb942d9f01316a03dfd1c233180acaaaa428e53` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |
