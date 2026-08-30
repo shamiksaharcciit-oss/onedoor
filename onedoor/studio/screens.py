@@ -16,11 +16,13 @@ from onedoor.studio import (
     canvas,
     drafts,
     editor,
+    forecast,
     history,
     library,
     live,
     reevaluate,
     shell,
+    staging,
     validate,
     verify,
 )
@@ -539,7 +541,7 @@ def drafts_body(
         '<p class="note">or, from a terminal:</p>'
         "<pre>curl -X POST 'http://127.0.0.1:8787/drafts' "
         "--data-urlencode 'title=what this draft changes'</pre></div>"
-    )
+    ) + upload_block()
     if not listing:
         return (
             head + create + '<div class="empty">No drafts yet. A draft is where rules are written; '
@@ -892,7 +894,7 @@ def _field_html(field: Any) -> str:
 def editor_body(
     draft: Any,
     policy: Any,
-    problems: list[Any],
+    validation: str,
     message: str = "",
     error: str = "",
 ) -> str:
@@ -931,21 +933,13 @@ def editor_body(
         f'<form method="post" action="/drafts/{escape(draft.draft_id)}/edit/'
         f'{escape(policy.action_type)}">'
         '<input type="hidden" name="pane" value="raw">'
-        f'<textarea name="raw" rows="20" spellcheck="false">{escape(editor.raw_for(policy))}</textarea>'
+        f'<textarea name="raw" id="raw-pane" rows="20" spellcheck="false" '
+        f'data-validate="/drafts/{escape(draft.draft_id)}/validate">'
+        f"{escape(editor.raw_for(policy))}</textarea>"
         '<button type="submit">Save from this pane</button></form>'
         '<p class="note">JSON, which is loadable YAML. Both panes are rendered from the '
         "same parsed rule, so they cannot disagree.</p></div>"
     )
-
-    if problems:
-        items = "".join(
-            f'<li><span class="mono">{escape(getattr(p, "action_type", "") or "")}</span> '
-            f"{escape(getattr(p, 'message', str(p)))}</li>"
-            for p in problems
-        )
-        validation = f'<ul class="problems">{items}</ul>'
-    else:
-        validation = '<div class="empty">The validator found no problems in this rule.</div>'
 
     return (
         f'<h2>{escape(policy.action_type)}</h2><div class="rulebar"></div>'
@@ -954,7 +948,67 @@ def editor_body(
         "not touched by anything on this page.</p>"
         + banner
         + f'<div class="cols">{guided}{raw}</div>'
-        + f'<div class="panel"><h3>Validation</h3>{validation}{_honesty_footnote()}</div>'
+        + f'<div id="validation">{validation}</div>'
+    )
+
+
+# --- ND-056 / T1: upload -------------------------------------------------------------
+
+
+UPLOAD_NOTE = (
+    "The file is checked by the engine's own loader, one stage at a time, and whatever "
+    "it refuses is shown on the draft. Nothing you upload reaches the rules in force: a "
+    "draft is not a policy set, and only the ratification ceremony changes what is "
+    "enforced."
+)
+
+
+def upload_block() -> str:
+    """The upload affordance, on the drafts page beside the two ways that already exist."""
+    return (
+        '<div class="panel upload-block"><h3>From a file</h3>'
+        '<form method="post" action="/drafts/upload" enctype="multipart/form-data">'
+        '<input type="file" name="policy_file" accept=".yaml,.yml,.json,text/yaml,'
+        'application/x-yaml,application/json" aria-label="Policy file">'
+        '<button type="submit">Upload as a draft</button></form>'
+        f'<p class="note">{escape(UPLOAD_NOTE)}</p></div>'
+    )
+
+
+def upload_missing_body() -> str:
+    """No file arrived. An absence, said as one."""
+    return (
+        '<h2>Upload a policy file</h2><div class="rulebar"></div>'
+        '<div class="empty">No file arrived with that request, so nothing was read and '
+        "no draft was created. This is an absence, not a rejected file.</div>"
+        '<p class="note"><a href="/drafts">Back to drafts</a></p>'
+    )
+
+
+def upload_undecodable_body(filename: str, detail: str) -> str:
+    """Unreadable is its own outcome — not a policy that failed validation.
+
+    Telling an operator their policy is invalid when what is wrong is the file's encoding
+    would be the deposition page's error committed at the other end of the product: a
+    verdict about content, delivered about a file nothing could read.
+    """
+    return (
+        '<h2>Upload a policy file</h2><div class="rulebar"></div>'
+        f'<div class="empty">{escape(filename)} is not UTF-8 text, so the loader was '
+        "never asked what it thinks of the rules inside it. <strong>Nothing here says "
+        "the policy is invalid</strong> — it says the file could not be read."
+        f'<p class="note">{escape(detail)}</p></div>'
+        '<p class="note"><a href="/drafts">Back to drafts</a></p>'
+    )
+
+
+def validation_unavailable(draft_id: str) -> str:
+    """The fragment's own absence, in the fragment's shape (it is swapped into a page)."""
+    return (
+        '<div class="panel"><h3>Validation</h3>'
+        f'<div class="empty">There is no draft {escape(draft_id)} in this store, so '
+        "nothing was validated. Nothing here is a statement about the rule you are "
+        "editing.</div></div>"
     )
 
 
@@ -1044,3 +1098,103 @@ def deposition_missing_body(digest: str) -> str:
         f"{shell.digest_html(digest)}. That is an absence, not a failed check — nothing "
         "was verified and nothing was refuted.</div>"
     )
+
+
+# --- ND-056 / T1: the two validation lists, rendered apart --------------------------
+
+
+def _refusal_row(refusal: staging.Refusal) -> str:
+    where = escape(refusal.position.describe())
+    named = refusal.action_type or ""
+    rule = f'<span class="mono">{escape(named)}</span> ' if named else ""
+    return (
+        f'<li>{rule}<span class="plain">{escape(refusal.message)}</span>'
+        f'<span class="note pos"> — {where}</span></li>'
+    )
+
+
+def _stopped_notice(result: staging.StagedResult) -> str:
+    """Which stages did not run, and that their silence is not a pass.
+
+    The easiest misreading on this page: a reader sees three empty stages and concludes
+    the file is three-quarters fine. They did not run.
+    """
+    if result.stopped_at is None:
+        return ""
+    remaining = result.stages_not_run
+    if not remaining:
+        return ""
+    names = ", ".join(staging.STAGE_LABELS[s] for s in remaining)
+    return (
+        f'<p class="note honesty">{escape(staging.STOPPED_NOTICE)} '
+        f'<span class="plain">Not run: {escape(names)}.</span></p>'
+    )
+
+
+def refusals_block(result: staging.StagedResult) -> str:
+    """What the loader would refuse at boot — and nothing else.
+
+    Kept structurally apart from `forecasts_block` because they answer different
+    questions, and a reader who cannot tell them apart learns a schema the engine does
+    not have (R066 §3).
+    """
+    stage = ""
+    if result.stopped_at is not None:
+        stage = (
+            f'<p class="note">Stopped at: {escape(staging.STAGE_LABELS[result.stopped_at])}.</p>'
+        )
+    if not result.refusals:
+        body = (
+            '<div class="empty">Nothing here would be refused at boot. That is the '
+            "engine's own loader answering, one stage at a time.</div>"
+        )
+    else:
+        body = f'<ul class="problems">{"".join(_refusal_row(r) for r in result.refusals)}</ul>'
+    return (
+        '<div class="panel"><h3>The loader would refuse this</h3>'
+        + stage
+        + body
+        + _stopped_notice(result)
+        + _honesty_footnote()
+        + "</div>"
+    )
+
+
+def forecasts_block(items: tuple[forecast.Forecast, ...], *, inert_checked: bool) -> str:
+    """How each rule will behave once in force. NOT refusals, and the heading says so."""
+    if not items:
+        body = '<div class="empty">No decision-time behaviour was predicted for these rules.</div>'
+    else:
+        rows = "".join(
+            f'<li><span class="mono">{escape(f.action_type)}</span> '
+            f'<span class="chip c-review">{escape(f.reason_code)}</span> '
+            f'<span class="plain">{escape(f.message)}</span></li>'
+            for f in items
+        )
+        body = f'<ul class="problems">{rows}</ul>'
+    unknown = (
+        "" if inert_checked else f'<p class="note honesty">{escape(forecast.INERT_UNKNOWN)}</p>'
+    )
+    return (
+        '<div class="panel"><h3>Once in force, these rules will</h3>'
+        f'<p class="note">{escape(forecast.FORECAST_NOTICE)}</p>'
+        + body
+        + unknown
+        + f'<p class="note honesty">{escape(forecast.FORECASTS_ARE_NOT_COMPLETE)}</p></div>'
+    )
+
+
+def validation_fragment(
+    result: staging.StagedResult,
+    items: tuple[forecast.Forecast, ...],
+    *,
+    inert_checked: bool,
+) -> str:
+    """Both lists, in the order a reader needs them: refusals first, behaviour second.
+
+    Served whole by the editor page and as a fragment by the live-validation route, so
+    what a keystroke updates and what a page load renders are the same bytes from the
+    same function. A fragment built by a second renderer would be the two-parser defect
+    wearing HTML.
+    """
+    return refusals_block(result) + forecasts_block(items, inert_checked=inert_checked)

@@ -16,7 +16,20 @@ import pytest
 
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.models import Bounds, Caps, NumericBound, Policy, Tier
-from onedoor.studio import editor, screens, server, store
+from onedoor.studio import editor, forecast, screens, server, staging, store
+
+
+def _validation(policy: Policy | None = None) -> str:
+    """The real two-list fragment, so these tests render what the route renders.
+
+    A stub would let `editor_body` drift from the only thing it is ever handed. The
+    fragment comes from the same function the server calls, over the same rule text the
+    raw pane shows.
+    """
+    rule = policy if policy is not None else _rule()
+    result = staging.staged_rule(editor.raw_for(rule))
+    items = forecast.build(result.policies, result.effects, known_effects=set())
+    return screens.validation_fragment(result, items, inert_checked=True)
 
 
 def _rule(**kw) -> Policy:
@@ -112,7 +125,7 @@ def test_saving_from_the_form_keeps_fields_the_form_never_showed() -> None:
 def test_the_page_names_the_fields_the_form_does_not_offer(draft) -> None:
     """A reader must be able to find out which subset without diffing two renderings."""
     state, d = draft
-    html = screens.editor_body(d, _rule(), [])
+    html = screens.editor_body(d, _rule(), _validation())
     for field in editor.NOT_IN_THE_FORM:
         assert field in html
 
@@ -169,7 +182,7 @@ def test_the_note_is_shown_to_the_reader(draft) -> None:
     from tests.viewer.assertions import assert_reader_sees
 
     state, d = draft
-    assert_reader_sees(screens.editor_body(d, _rule(), []), editor.DECIMAL_DIVERGENCE)
+    assert_reader_sees(screens.editor_body(d, _rule(), _validation()), editor.DECIMAL_DIVERGENCE)
 
 
 # --- Refusals ------------------------------------------------------------------------------
@@ -194,7 +207,7 @@ def test_a_numeric_bound_that_is_not_understood_says_how_to_write_one() -> None:
 
 def test_a_refusal_says_the_draft_is_unchanged(draft) -> None:
     state, d = draft
-    html = screens.editor_body(d, _rule(), [], error="the rule is not valid JSON")
+    html = screens.editor_body(d, _rule(), _validation(), error="the rule is not valid JSON")
     assert "not saved" in html
     assert "The draft is unchanged" in html
     assert "Nothing was written" in html
@@ -256,7 +269,7 @@ def test_editing_changes_the_draft_and_not_the_rules_in_force(state) -> None:
 
 def test_the_page_says_the_rules_in_force_are_untouched(draft) -> None:
     state, d = draft
-    html = screens.editor_body(d, _rule(), [])
+    html = screens.editor_body(d, _rule(), _validation())
     assert "rules in force are not touched" in html
 
 
@@ -266,18 +279,18 @@ def test_the_honesty_footnote_rides_the_editors_validation(draft) -> None:
     from tests.viewer.assertions import assert_reader_sees
 
     state, d = draft
-    assert_reader_sees(screens.editor_body(d, _rule(), []), validate.INCOMPLETE_NOTICE)
+    assert_reader_sees(screens.editor_body(d, _rule(), _validation()), validate.INCOMPLETE_NOTICE)
 
 
 def test_operator_text_cannot_smuggle_markup_into_either_pane(draft) -> None:
     state, d = draft
     hostile = _rule(action_type="pay<script>alert(1)</script>")
-    html = screens.editor_body(d, hostile, [])
+    html = screens.editor_body(d, hostile, _validation(hostile))
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
 
 
 def test_the_editor_page_reaches_nowhere(draft) -> None:
     state, d = draft
-    html = screens.editor_body(d, _rule(), [])
+    html = screens.editor_body(d, _rule(), _validation())
     assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html)

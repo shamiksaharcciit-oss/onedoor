@@ -40,8 +40,10 @@ from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 from onedoor.studio import (
     canvas,
+    descriptions,
     drafts,
     editor,
+    forecast,
     history,
     library,
     live,
@@ -49,8 +51,8 @@ from onedoor.studio import (
     reevaluate,
     screens,
     shell,
+    staging,
     store,
-    validate,
     verify,
 )
 
@@ -311,6 +313,31 @@ def save_draft(
     )
 
 
+def known_effects(state: StudioState) -> set[str]:
+    """Every effect name with an effect policy behind it, in force right now.
+
+    Supplied to `forecast.build` so the declared-inert check can run. Read from the
+    enforcer because that is where the floor either exists or does not; a candidate's own
+    effects are added by `forecast.build` itself. Without this set the check is ABSENT
+    rather than guessed — see `forecast.INERT_UNKNOWN`.
+    """
+    return {
+        str(row["effect"]) for row in state.enforcer.execute("SELECT effect FROM effect_policies")
+    }
+
+
+def validation_for_rule(state: StudioState, text: str) -> tuple[Any, Any]:
+    """Both lists for one rule's text: what the loader refuses, and what it will do.
+
+    One function so the editor page and the live-validation fragment cannot answer
+    differently — the same reason V7 syncs the panes through the server. Two callers
+    computing "the same" validation two ways is the two-parser defect with extra steps.
+    """
+    result = staging.staged_rule(text)
+    items = forecast.build(result.policies, result.effects, known_effects=known_effects(state))
+    return result, items
+
+
 # --- Serving -----------------------------------------------------------------------
 
 
@@ -437,6 +464,91 @@ def create_app(state: StudioState) -> Any:
             return RedirectResponse(url=f"/drafts/{draft.draft_id}", status_code=303)
         return {"draft_id": draft.draft_id}
 
+    @app.post("/drafts/upload", response_class=HTMLResponse)
+    async def upload_draft(request: Request) -> Any:
+        """Create a draft from an uploaded policy file (ND-056/T1).
+
+        The bytes enter at the TOP of the loader's path, which is the point of the
+        feature: until now the Studio could only ever reach `validate_policy`, because
+        the editor handed it `Policy` objects that had already survived the three stages
+        before it. A file that will not parse, or will not validate against the schema,
+        could not be shown a problem at all.
+
+        **A file the loader would refuse still creates a draft.** It is written to the
+        Studio's store with whatever parsed, and the draft's page shows the refusals. The
+        alternative -- refusing the upload -- hands the operator back their file and a
+        message, which is the on-save refusal this ticket exists to replace. Nothing
+        reaches the enforcer either way; a draft is not a policy set.
+
+        The uploaded bytes are frozen verbatim (E10) before anything parses them, so what
+        the operator actually sent survives independently of what this build could make
+        of it.
+        """
+        form = await request.form()
+        upload = form.get("policy_file")
+        raw = await upload.read() if hasattr(upload, "read") else None  # type: ignore[union-attr]
+        if not raw:
+            return HTMLResponse(
+                content=shell.render(
+                    body=screens.upload_missing_body(),
+                    banner=banner_for(state),
+                    active="drafts",
+                    title="onedoor policy studio — upload",
+                ),
+                status_code=400,
+            )
+        filename = getattr(upload, "filename", "") or "uploaded policy"
+        # Decoded for the parser, frozen as BYTES for the record. A file that is not
+        # UTF-8 is a refusal at the load stage, not a crash in the route.
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            return HTMLResponse(
+                content=shell.render(
+                    body=screens.upload_undecodable_body(str(filename), str(exc)),
+                    banner=banner_for(state),
+                    active="drafts",
+                    title="onedoor policy studio — upload",
+                ),
+                status_code=400,
+            )
+
+        result = staging.staged(text)
+        with state.lock:
+            descriptions.freeze(state.studio, text, now=now_utc())
+            draft = new_draft(state, title=f"uploaded: {filename}")
+            if result.policies:
+                save_draft(
+                    state,
+                    draft.draft_id,
+                    policies=list(result.policies),
+                    effects=list(result.effects),
+                )
+        return RedirectResponse(url=f"/drafts/{draft.draft_id}?uploaded=1", status_code=303)
+
+    @app.post("/drafts/{draft_id}/validate", response_class=HTMLResponse)
+    async def validate_fragment(request: Request, draft_id: str) -> Any:
+        """Live validation: the SERVER parses, and returns the rendered lists.
+
+        R063 §1 is what shapes this route. The panes sync through the server because the
+        server owns the only parser, and *they cannot drift because there is nothing to
+        drift between*. Live validation must not weaken that, so the browser sends text
+        and receives HTML — it never learns what a policy is.
+
+        The fragment is built by `screens.validation_fragment`, the same function the
+        editor page calls, so a keystroke and a page load render the same bytes. A second
+        renderer for the "live" case would be the two-parser defect wearing HTML.
+        """
+        fields = parse_qs((await request.body()).decode("utf-8"))
+        text = (fields.get("raw") or [""])[0]
+        with state.lock:
+            if store.load(state.studio, draft_id) is None:
+                return HTMLResponse(
+                    content=screens.validation_unavailable(draft_id), status_code=404
+                )
+            result, items = validation_for_rule(state, text)
+        return HTMLResponse(content=screens.validation_fragment(result, items, inert_checked=True))
+
     @app.get("/drafts/{draft_id}", response_class=HTMLResponse)
     def draft_detail(draft_id: str, backtest: bool = False) -> Any:
         with state.lock:
@@ -555,11 +667,12 @@ def create_app(state: StudioState) -> Any:
             policy = next((p for p in draft.policies if p.action_type == action_type), None)
             if policy is None:
                 return _rule_missing(draft, action_type)
+            result, items = validation_for_rule(state, editor.raw_for(policy))
             return shell.render(
                 body=screens.editor_body(
                     draft,
                     policy,
-                    validate.problems([policy], list(draft.effects)),
+                    validation=screens.validation_fragment(result, items, inert_checked=True),
                     message="Both panes below are rendered from what was stored." if saved else "",
                 ),
                 banner=banner_for(state),
@@ -590,12 +703,15 @@ def create_app(state: StudioState) -> Any:
                     else editor.policy_from_form(fields, base=base)
                 )
             except editor.EditError as exc:
+                result, items = validation_for_rule(state, editor.raw_for(base))
                 return HTMLResponse(
                     content=shell.render(
                         body=screens.editor_body(
                             draft,
                             base,
-                            validate.problems([base], list(draft.effects)),
+                            validation=screens.validation_fragment(
+                                result, items, inert_checked=True
+                            ),
                             error=str(exc),
                         ),
                         banner=banner_for(state),

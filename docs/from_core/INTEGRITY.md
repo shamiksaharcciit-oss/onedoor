@@ -66,6 +66,7 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_Forward_004a_Exit_Codes_Travel_Badly_2026-08-21.md` | `7a375526ed54952a39f4252c6a0fa8d35ea5e264522b95df4689c53483f7aaf1` |
 | `Core_Forward_005_Seal_Test_Shape_2026-08-28.md` | `f3142274d08892e195217c53e082e8b5515a917667dd08b2b042bca194e02ba2` |
 | `Core_Forward_006_Studio_Authoring_Paths_2026-08-30.md` | `f20677b3955b4985e400dca917231316213ee8e63ff16b333bd3786f4f511cfa` |
+| `Core_Note_Similarity_May_Propose_2026-08-30.md` | `b955de3bce21dfe47841200c77ba72c0dbb70e0c95512664d33fdab628fa947e` |
 | `Core_to_Delivery_Response_001_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_002_2026-08-20.md` | none |
 | `Core_to_Delivery_Response_003_2026-08-20.md` | none |

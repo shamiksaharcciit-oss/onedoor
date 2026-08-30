@@ -460,6 +460,60 @@ break that promise, so this one is short enough to read in full.
 """
 
 
+LIVE_VALIDATE_SCRIPT = (
+    "(function(){"
+    "var box=document.getElementById('raw-pane');"
+    "var out=document.getElementById('validation');"
+    "if(!box||!out||!window.fetch)return;"
+    "var url=box.dataset.validate;"
+    "if(!url)return;"
+    "var timer=null;"
+    "box.addEventListener('input',function(){"
+    "clearTimeout(timer);"
+    "timer=setTimeout(function(){"
+    "fetch(url,{method:'POST',"
+    "headers:{'Content-Type':'application/x-www-form-urlencoded'},"
+    "body:'raw='+encodeURIComponent(box.value)})"
+    ".then(function(r){return r.text()})"
+    ".then(function(html){out.innerHTML=html})"
+    ".catch(function(){})"
+    "},400)"
+    "})"
+    "})();"
+)
+"""Live validation, as progressive enhancement (ND-056/T1).
+
+**It parses nothing.** It reads a textarea, posts the text, and replaces a container with
+HTML the server rendered. Every judgement in that HTML was made by the engine's own
+loader on the server, which is the whole design: R063 §1 syncs the panes through the
+server *because the server owns the only parser*, and a browser-side mirror of that
+parser would be a second implementation in a second language, disagreeing first on
+exactly the inputs this engine is careful about — decimal strings, unicode, key order,
+`null` against absent.
+
+`tests/studio/test_no_parser_in_the_browser.py` holds that structurally: this script may
+not contain YAML vocabulary or policy field names.
+
+With scripting off, the page is exactly what V7 shipped — the round trip on save is the
+fallback, and it renders the same fragment from the same function. The failure branch is
+deliberately silent: a validation panel that could not refresh must keep showing the last
+answer the SERVER gave, never a client-side guess about why the fetch failed.
+"""
+
+
+DECLARED_SCRIPTS = (COPY_SCRIPT, LIVE_VALIDATE_SCRIPT)
+"""Every script the Studio serves, declared in one place.
+
+The allow-list tests read this rather than naming scripts one at a time — a vocabulary
+half-derived and half-typed drifts from both ends (R057 §6). Adding a script without
+adding it here fails the law tests, which is the point: the list is the declaration, and
+a script nobody declared is a script nobody read.
+"""
+
+PAGE_SCRIPT = "".join(DECLARED_SCRIPTS)
+"""What actually lands in the single `<script>` tag."""
+
+
 def css() -> str:
     """The full stylesheet: pinned tokens, then the shell's own rules."""
     return tokens.root_css() + _CSS
@@ -480,6 +534,6 @@ def render(
         f"{header_html(banner)}{nav_html(active)}"
         f"<main>{body}</main>"
         f"<footer>{escape(LOOPBACK_LINE)}</footer>"
-        f"<script>{COPY_SCRIPT}</script>"
+        f"<script>{PAGE_SCRIPT}</script>"
         "</body></html>"
     )

@@ -103,10 +103,42 @@ def test_the_only_script_on_the_page_is_the_one_this_module_declares() -> None:
 
     html = _page()
     scripts = _re.findall(r"<script[^>]*>(.*?)</script>", html, _re.S)
-    assert scripts == [shell.COPY_SCRIPT]
+    assert scripts == [shell.PAGE_SCRIPT]
     assert "src=" not in html.split("<script")[1].split(">")[0]
-    for reaching_out in ("fetch(", "XMLHttpRequest", "WebSocket", "import(", "localStorage"):
-        assert reaching_out not in shell.COPY_SCRIPT
+    # Nothing may store, socket, or dynamically import, in ANY declared script.
+    for script in shell.DECLARED_SCRIPTS:
+        for reaching_out in ("XMLHttpRequest", "WebSocket", "import(", "localStorage"):
+            assert reaching_out not in script
+    # `fetch(` is banned in the copy script, which needs no network at all.
+    assert "fetch(" not in shell.COPY_SCRIPT
+
+
+def test_the_declared_scripts_are_what_the_page_serves() -> None:
+    """The allow-list is derived from the declaration, not typed beside it."""
+    assert shell.PAGE_SCRIPT == "".join(shell.DECLARED_SCRIPTS)
+    assert shell.COPY_SCRIPT in shell.DECLARED_SCRIPTS
+    assert shell.LIVE_VALIDATE_SCRIPT in shell.DECLARED_SCRIPTS
+
+
+def test_the_live_validation_fetch_can_only_reach_this_machine() -> None:
+    """The requirement, kept when the proxy and it parted ways (R058 §5).
+
+    The old check banned `fetch(` outright, as a proxy for *nothing leaves this machine*.
+    Live validation needs one fetch, and a same-origin POST to the loopback server does
+    not leave the machine — so the proxy is replaced by the requirement itself, stated
+    precisely: the only URL this script can reach is one the SERVER put in a `data-`
+    attribute, and it is used verbatim with no scheme and no host anywhere in the script.
+    """
+    script = shell.LIVE_VALIDATE_SCRIPT
+    assert script.count("fetch(") == 1, "one fetch, and the test knows where"
+    # No absolute URL, no protocol-relative URL, no host construction of any kind.
+    assert "//" not in script
+    assert "http" not in script
+    assert "location" not in script and "origin" not in script
+    # The target comes from the server-rendered dataset, never from anything the script
+    # builds or the operator types.
+    assert "box.dataset.validate" in script
+    assert "fetch(url," in script
 
 
 # --- Redundant coding: what the contrast correction cost, made safe --------------------

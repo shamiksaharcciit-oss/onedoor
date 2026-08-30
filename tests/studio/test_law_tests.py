@@ -289,7 +289,7 @@ def test_the_only_script_any_page_runs_is_the_declared_one(populated) -> None:
     """A page promising nothing leaves the machine must not run code nobody read."""
     for path, html in _pages(populated).items():
         scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S)
-        assert scripts in ([], [shell.COPY_SCRIPT]), path
+        assert scripts in ([], [shell.PAGE_SCRIPT]), path
         assert not re.findall(r"\son[a-z]+\s*=\s*[\"']", html), f"{path} has an inline handler"
 
 
