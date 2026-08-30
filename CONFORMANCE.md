@@ -1276,8 +1276,15 @@ delivery's own prior phrasing rather than re-derived — a ruling on a count who
 core had never seen. Delivery declined to adopt it precisely because it moved in
 delivery's favour and came from the authority that had just handed it over.
 
-**The count, recounted under Q15 and derived from receipts, stands at seven — thirteen to
-go.** The member enumeration is in `TICKETS-ND-055.md` beside Q15's ruling, one row per
+A fourth, from R069 §1, small and reusable:
+
+> **A self-describing record points at its own validation rather than transcribing it.**
+> A record cannot contain the proof of its own final state — writing the number in would
+> change the tree after the run that measured it — so the number lives one level up, in
+> the commit message, with a re-gate after the last edit.
+
+**The count, recounted under Q15 and derived from receipts, stands at eight — twelve to
+go** (accepted at seven by R069 §0; the eighth is this record's own commit gate). The member enumeration is in `TICKETS-ND-055.md` beside Q15's ruling, one row per
 reporting move, each quotable from the commit that recorded it. The earlier reading of
 five-green-four-consecutive (`escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md`) was
 computed over all invocations, which was the only reading available while the unit was

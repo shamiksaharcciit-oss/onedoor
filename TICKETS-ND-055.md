@@ -101,7 +101,7 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   counted from the reporting move.** A recurrence before twenty reopens it as a real
   investigation with the full stash trace captured.
 
-  **Banked: ten, then INTERRUPTED, then seven.** The ten were three local gate runs across
+  **Banked: ten, then INTERRUPTED, then eight.** The ten were three local gate runs across
   V7/V8, two CI jobs on `eb5df1a`, one direct `pytest -q`, two local gate runs in that
   stage, one CI job on `d785d4a`, and one on the closing commit.
 
@@ -139,14 +139,18 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   | 4 | commit gate → `1b8f7c4` (T3) | green — `1308 passed, 9 skipped` |
   | 5 | commit gate → `22b5dfd` (the record) | green — `1314 passed, 9 skipped` |
   | 6 | commit gate → `0e5909d` (R067 archived, stand-down) | green — `1315 passed, 9 skipped` |
-  | 7 | commit gate → the commit carrying this recount | green — quoted in that commit's own message |
+  | 7 | commit gate → `d5f596d` (the recount) | green — `1316 passed, 9 skipped` |
+  | 8 | commit gate → the commit carrying this line | green — quoted in that commit's own message |
 
-  Row 7 names its run without quoting its number, and that is not coyness: **a table can
-  never quote the run that validates the commit containing the table.** Writing the number
+  The last row always names its run without quoting its number, and that is not coyness:
+  **a table can never quote the run that validates the commit containing the table.** Writing the number
   in would change the tree after the run that measured it, so the run would no longer
   describe what was committed — the register-timing problem, one artifact over. The number
   lives in the commit message, which is written after the gate and is the record R068 §2
-  asks members to be quotable from.
+  asks members to be quotable from. R069 §1 approved the shape and generalised it: **any
+  self-describing record points at its own validation rather than transcribing it** — the
+  record cannot contain the proof of its own final state. Each row is filled in by the
+  next reporting move, which is why row 7 carries a number now and row 8 does not yet.
 
   **Not members**, and named so the exclusion is visible rather than convenient: the
   mid-`T1` gate invocation that went red on four gates, the two `pytest -q` runs that went
@@ -161,7 +165,7 @@ Registered on core's instruction, on the shelf R058 §4 opened.
   inflate the series by how the commits were split rather than by how often the tree was
   measured.
 
-  **The streak stands at seven under Q15's definition; thirteen to go.** Derived here, not
+  **The streak stands at eight under Q15's definition; twelve to go.** Derived here, not
   adopted — and it is worth recording that the enumeration passed through six — the number R068 §0
   withdrew as adopted testimony — and reached it by derivation rather than by adoption. The earlier reading of **five green, four consecutive**
   (`escalations/ACCURACY-CHECK-Q8-count-2026-08-30.md`, `f0a806e3…`) was computed over
