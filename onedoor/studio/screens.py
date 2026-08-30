@@ -20,6 +20,8 @@ from onedoor.studio import (
     history,
     library,
     live,
+    live_proposer,
+    proposer,
     reevaluate,
     shell,
     staging,
@@ -660,8 +662,14 @@ def _backtest_block(view: drafts.DraftView) -> str:
     )
 
 
-def draft_body(view: drafts.DraftView) -> str:
-    """S3 detail: the pin, the diff, the problems, the backtest, and the way to ratify."""
+def draft_body(view: drafts.DraftView, derivation: dict[str, Any] | None = None) -> str:
+    """S3 detail: the pin, the diff, the problems, the backtest, and the way to ratify.
+
+    `derivation` is ND-056/T3's record, when a model drafted this. It is rendered as
+    provenance BESIDE the rules, never as an endorsement of them: what the reader
+    approves is the parsed rules, and the record says what produced them and what it
+    does not attest.
+    """
     pin = view.view.pin
     head = (
         f'<h2>{escape(view.draft.title)}</h2><div class="rulebar"></div>'
@@ -680,7 +688,13 @@ def draft_body(view: drafts.DraftView) -> str:
         f'<p><a class="sealbtn" href="/drafts/{escape(view.draft.draft_id)}/ratify">'
         "Review and ratify</a></p></div>"
     )
-    return head + _diff_block(view) + _problems_block(view) + _backtest_block(view) + ceremony
+    # Always rendered. `None` means "written by hand", which is a FACT about the draft
+    # and not a reason to omit the panel -- omitting it would let a reader supply
+    # whichever origin they expected.
+    origin = derivation_block(derivation)
+    return (
+        head + origin + _diff_block(view) + _problems_block(view) + _backtest_block(view) + ceremony
+    )
 
 
 def ceremony_body(view: drafts.DraftView) -> str:
@@ -1198,3 +1212,169 @@ def validation_fragment(
     wearing HTML.
     """
     return refusals_block(result) + forecasts_block(items, inert_checked=inert_checked)
+
+
+# --- ND-056 / T3: natural-language authoring -----------------------------------------
+
+
+def _instrument_block(instrument: dict[str, Any]) -> str:
+    """What produced this, pinned and named (wall 1).
+
+    Rendered from the instrument the proposer declared, never from anything inferred at
+    render time. The key is absent because it was never recorded: a credential in a
+    record is a credential in a record, and a digest of one is still a function of it.
+    """
+    rows = "".join(
+        f"<dt>{escape(str(k).replace('_', ' '))}</dt><dd>"
+        + (
+            shell.digest_html(str(v))
+            if str(k).endswith("_digest")
+            else f'<span class="mono">{escape(str(v))}</span>'
+        )
+        + "</dd>"
+        for k, v in sorted(instrument.items())
+    )
+    return (
+        '<div class="panel"><h3>The instrument</h3>'
+        f'<dl class="kv">{rows}</dl>'
+        f'<p class="note">{escape(proposer.NOT_REDERIVABLE)}</p>'
+        f'<p class="note">{escape(proposer.AUTHORITY_FROM_CHECKS)}</p></div>'
+    )
+
+
+def propose_body(instrument: dict[str, Any], *, error: str = "", unavailable: str = "") -> str:
+    """The description form, the instrument, and the capability sentence."""
+    banner = ""
+    if unavailable:
+        # Unavailable is its own outcome, and the page says so in those words: a socket
+        # that did not answer is not a judgement about what the operator wrote.
+        banner = (
+            f'<div class="panel"><p>{shell.chip("review", "no answer")} '
+            f'<span class="plain">{escape(unavailable)}</span></p>'
+            '<p class="note">Nothing was drafted. This says nothing about your '
+            "description.</p></div>"
+        )
+    elif error:
+        banner = (
+            f'<div class="panel"><p>{shell.chip("refuse", "nothing drafted")} '
+            f'<span class="plain">{escape(error)}</span></p></div>'
+        )
+
+    form = (
+        '<div class="panel"><h3>Describe what the agent may do</h3>'
+        '<form method="post" action="/propose">'
+        '<textarea name="description" rows="10" spellcheck="false" '
+        'placeholder="Refunds up to 200 euro without asking. Anything larger needs a '
+        'human. Never send payouts."></textarea>'
+        '<button type="submit">Propose a draft</button></form>'
+        f'<p class="note">{escape(PROPOSE_NOTE)}</p></div>'
+    )
+    return (
+        f'<h2>Propose</h2><div class="rulebar"></div>'
+        f'<p class="lede">{escape(live_proposer.CAPABILITY)}.</p>'
+        + banner
+        + form
+        + _instrument_block(instrument)
+    )
+
+
+PROPOSE_NOTE = (
+    "Your description is frozen exactly as written. What comes back is parsed by the "
+    "engine's own loader and becomes a draft — the same kind of draft you would get from "
+    "the editor or an upload, and it changes nothing until you ratify it on the ceremony "
+    "page."
+)
+
+
+def proposal_refused_body(
+    instrument: dict[str, Any], result: staging.StagedResult, text: str
+) -> str:
+    """The parser refused the generation. Shown with reasons, never repaired (wall 2).
+
+    The model's raw output is shown verbatim beside the refusals, because the operator
+    needs to see what was actually produced — and because quietly fixing it and showing
+    the fixed version would be this page deciding what the model meant.
+    """
+    return (
+        '<h2>Propose</h2><div class="rulebar"></div>'
+        f'<p class="lede">{escape(live_proposer.CAPABILITY)}.</p>'
+        f'<div class="panel"><p>{shell.chip("refuse", "not a draft")} '
+        '<span class="plain">The loader would refuse what came back, so no draft was '
+        "created.</span></p>"
+        '<p class="note">Nothing was repaired or rewritten. What the model produced is '
+        "shown below exactly as it arrived.</p></div>"
+        + refusals_block(result)
+        + '<div class="panel"><h3>What the model returned</h3>'
+        f"<pre>{escape(text)}</pre>"
+        '<p class="note">Shown verbatim. It is the model’s output, not a policy '
+        "and not a draft.</p></div>" + _instrument_block(instrument)
+    )
+
+
+def derivation_block(record: dict[str, Any] | None) -> str:
+    """ "Drafted via <instrument>" on the draft the model produced (wall 1).
+
+    A draft with no record says so rather than rendering blank: every draft either names
+    the instrument that drafted it or was written by a person, and those are different
+    facts.
+    """
+    if record is None:
+        return (
+            '<div class="panel"><h3>Where this draft came from</h3>'
+            '<div class="empty">Written by hand. No model was involved, and no '
+            "derivation record exists for it.</div></div>"
+        )
+    instrument = record.get("instrument") or {}
+    named = instrument.get("model") or instrument.get("name") or "an unnamed instrument"
+    mentions = record.get("mentions") or []
+    return (
+        '<div class="panel"><h3>Where this draft came from</h3>'
+        f'<p class="plain">Drafted via <span class="mono">{escape(str(named))}</span>, '
+        f"then parsed by the engine’s loader before anything below was shown.</p>"
+        f'<dl class="kv"><dt>record</dt><dd>{shell.digest_html(record.get("record_digest"))}</dd>'
+        f"<dt>description</dt><dd>{shell.digest_html(record.get('description_digest'))}</dd>"
+        f'<dt>provenance</dt><dd><span class="mono">'
+        f"{escape(str(record.get('proposer_provenance', '')))}</span></dd></dl>"
+        f'<p class="note">{escape(proposer.NOT_REDERIVABLE)}</p>'
+        f'<p class="note">{escape(proposer.AUTHORITY_FROM_CHECKS)}</p>'
+        "</div>" + dark_surface_block(mentions)
+    )
+
+
+DARK_SURFACE_HEADING = "Mentioned, and not covered by any rule"
+
+DARK_SURFACE_EMPTY = (
+    "Nothing in the description was recognised as naming an action that got no rule. "
+    "That is what this check found, not a guarantee that the description is fully "
+    "covered."
+)
+
+DARK_SURFACE_NOTE = (
+    "Each line quotes the description's own words. Nothing here is the model's summary "
+    "of what it did."
+)
+
+
+def dark_surface_block(mentions: list[dict[str, Any]]) -> str:
+    """Wall 6 / constitution principle 4: non-coverage is stated, never silent.
+
+    Rendered even when empty, and the empty wording is careful: *what this check found*,
+    never *the description is covered*. A policy set that does not declare its gaps is an
+    E11 violation in product form, and a gap list that overclaimed completeness would be
+    the same defect one layer up.
+    """
+    uncovered = [m for m in mentions if not m.get("covered_by")]
+    if not uncovered:
+        body = f'<div class="empty">{escape(DARK_SURFACE_EMPTY)}</div>'
+    else:
+        rows = "".join(
+            f'<li><span class="mono">{escape(str(m.get("subject", "")))}</span> '
+            f"<blockquote>{escape(str(m.get('quote', '')))}</blockquote></li>"
+            for m in uncovered
+        )
+        body = f'<ul class="problems">{rows}</ul>'
+    return (
+        f'<div class="panel"><h3>{escape(DARK_SURFACE_HEADING)}</h3>'
+        + body
+        + f'<p class="note">{escape(DARK_SURFACE_NOTE)}</p></div>'
+    )

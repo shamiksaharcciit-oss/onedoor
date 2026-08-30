@@ -91,7 +91,11 @@ CREATE TABLE IF NOT EXISTS policy_candidates (
     -- column existed, and read as `draft` -- the same absent-value rule the enforcer
     -- uses for an unstamped `protocol`. `submitted` means a human has been ASKED; it
     -- never means anything has been ratified, and no API route can move a draft past it.
-    state        TEXT
+    state        TEXT,
+    -- ND-056/T3. The derivation_records row that produced this draft, when a model did.
+    -- NULL means a person wrote it, which is the ordinary case and not a gap: absence
+    -- here is a fact, and the page says "written by hand" rather than leaving it blank.
+    derivation_record_digest TEXT
 );
 """
     + _S6_SCHEMA
@@ -108,7 +112,7 @@ it does not move the version pointer, and no route in the v1 API can take a draf
 it — ratification is the ceremony, and the ceremony is a page a person loads.
 """
 
-_ADDED_COLUMNS = {"state": "TEXT"}
+_ADDED_COLUMNS = {"state": "TEXT", "derivation_record_digest": "TEXT"}
 """Columns added after schema 1, applied to an existing store on upgrade.
 
 Declared as data rather than written as a sequence of ALTERs so the upgrade and the
@@ -191,6 +195,13 @@ class Draft:
     """`draft` or `submitted`. A row written before schema 3 has NULL and reads as
     `draft` -- absent means the earliest state, never an unknown one."""
 
+    derivation_record_digest: str | None = None
+    """The record of the model derivation that produced this draft, if one did.
+
+    `None` means no model was involved. That is a fact worth rendering, not a blank:
+    every draft either names the instrument that drafted it or was written by a person.
+    """
+
     @property
     def submitted(self) -> bool:
         return self.state == SUBMITTED
@@ -220,6 +231,11 @@ def _parse(row: sqlite3.Row) -> Draft:
         # NULL predates the column, and the earliest state is `draft`. Reading it as
         # anything else would invent a history the row does not have.
         state=str(row["state"]) if _has(row, "state") and row["state"] else DRAFT,
+        derivation_record_digest=(
+            str(row["derivation_record_digest"])
+            if _has(row, "derivation_record_digest") and row["derivation_record_digest"]
+            else None
+        ),
     )
 
 
@@ -306,6 +322,25 @@ def set_state(conn: sqlite3.Connection, draft_id: str, *, state: str) -> Draft:
     got = load(conn, draft_id)
     if got is None:  # pragma: no cover - the update above just wrote it
         raise StudioStoreError(f"draft {draft_id} vanished during a state change")
+    return got
+
+
+def set_derivation(conn: sqlite3.Connection, draft_id: str, *, record_digest: str) -> Draft:
+    """Record which model derivation produced this draft (ND-056/T3, wall 1).
+
+    Written once, at creation, beside the append-only `derivation_records` row it points
+    at. The draft stays mutable — it is working state — but the RECORD it names does not,
+    so "drafted via this instrument" survives every later edit of the draft's content.
+    """
+    if load(conn, draft_id) is None:
+        raise StudioStoreError(f"no draft {draft_id} in this studio store")
+    conn.execute(
+        "UPDATE policy_candidates SET derivation_record_digest=? WHERE draft_id=?",
+        (record_digest, draft_id),
+    )
+    got = load(conn, draft_id)
+    if got is None:  # pragma: no cover - the update above just wrote it
+        raise StudioStoreError(f"draft {draft_id} vanished during a derivation write")
     return got
 
 

@@ -180,6 +180,38 @@ records its approver as declared, never authenticated, and is retired with the `
 work. `submit` marks a draft as awaiting a human and returns the ceremony's URL; it moves
 no version pointer and writes no receipt.
 
+#### Drafts proposed by a model, ratified by you
+
+**Off by default, and absent rather than broken when it is off.** With no endpoint
+configured there is no tab, no route, and no mention of the feature anywhere in the
+Studio. Nothing is bundled: no credentials, no default provider.
+
+```bash
+export ONEDOOR_PROPOSER_ENDPOINT="https://your-endpoint/v1/chat/completions"
+export ONEDOOR_PROPOSER_MODEL="the-model-you-chose"
+export ONEDOOR_PROPOSER_KEY="..."          # optional, sent as a bearer token
+python -m onedoor.studio --db onedoor.db --studio-db studio.db
+```
+
+You describe what the agent may do; what comes back is a **draft**, entering the same
+draft-and-ceremony path as anything you type or upload. The walls are the feature:
+
+- The generating model is a **declared instrument** — endpoint host, model name and a
+  digest of the prompt are recorded on the draft it produced. The key is never recorded;
+  a digest of a credential is still a function of the credential.
+- Generated YAML goes through the **same loader** as a hand-written draft. A generation
+  the loader refuses is **shown refused**, with the model's output verbatim beside the
+  reasons. Nothing is repaired or rewritten — deciding what the model meant is authority
+  this code does not have.
+- The approval page renders **what the parser read**, not what the model claims. You
+  approve against the schema.
+- Every proposal ends with **what your description mentioned that got no rule**, quoting
+  your own words.
+- A proposal is recorded, not receipted: the same description through the same model
+  twice may differ, so the record pins the *conditions* and says on its face that it does
+  not attest re-derivability. **The candidate's authority comes from the checks it
+  passes, never from the record.**
+
 ### Working in this repository instead
 
 ```bash

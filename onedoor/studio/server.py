@@ -48,6 +48,7 @@ from onedoor.studio import (
     history,
     library,
     live,
+    live_proposer,
     ratify,
     reevaluate,
     screens,
@@ -57,6 +58,7 @@ from onedoor.studio import (
     validate,
     verify,
 )
+from onedoor.studio import proposer as studio_proposer
 
 if TYPE_CHECKING:  # pragma: no cover - resolved by the type checker, not at runtime
     from fastapi import Request
@@ -142,6 +144,14 @@ class StudioState:
     studio: sqlite3.Connection
     config: EngineConfig
     lock: threading.Lock = field(default_factory=threading.Lock)
+    proposer: Any | None = None
+    """ND-056/T3's model-backed proposer, or `None` when none is configured.
+
+    `None` is the default and it means the feature is ABSENT: no tab, no route, no
+    mention anywhere on any page. Not a disabled control — a control that renders and
+    cannot act is the right-typed lie as a button, and the Studio has refused that shape
+    since V4's kill switch.
+    """
 
     def close(self) -> None:
         self.enforcer.close()
@@ -159,7 +169,36 @@ def open_state(
         enforcer=database.connect(check_same_thread=False),
         studio=store.open_store(studio_path, check_same_thread=False),
         config=config or _default_config(),
+        # Off by default: `from_env` returns None unless an operator configured an
+        # endpoint AND a model. No bundled credentials, no default provider, and
+        # explicitly no fallback to the fixture -- a demo that looks like a model and is
+        # not is the failure `proposer_provenance` exists to prevent.
+        proposer=live_proposer.from_env(),
     )
+
+
+def tabs_for(state: StudioState) -> tuple[shell.Tab, ...]:
+    """The tab bar this deployment shows. One function, so no two pages disagree."""
+    return shell.tabs_with_propose(state.proposer is not None)
+
+
+def derivation_for(state: StudioState, draft_id: str) -> dict[str, Any] | None:
+    """The derivation record behind a draft, or `None` when a person wrote it.
+
+    `None` is rendered as "written by hand" rather than as a blank — every draft either
+    names the instrument that drafted it or was written by a person, and a blank would
+    let a reader supply whichever they expected.
+
+    A draft that NAMES a record this store cannot read returns `None` too, and that is a
+    known limit rather than a hidden one: the row is append-only, so the case means the
+    stores were separated after the fact. It is the one place here where absent and
+    unverifiable are not yet distinguished, and it is stated so it can be fixed rather
+    than discovered.
+    """
+    draft = store.load(state.studio, draft_id)
+    if draft is None or draft.derivation_record_digest is None:
+        return None
+    return descriptions.load_record(state.studio, draft.derivation_record_digest)
 
 
 def _default_config() -> EngineConfig:
@@ -485,6 +524,7 @@ def create_app(state: StudioState) -> Any:
                     active_policy_count(state),
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title="onedoor policy studio \u2014 drafts",
             )
@@ -534,6 +574,7 @@ def create_app(state: StudioState) -> Any:
                 content=shell.render(
                     body=screens.upload_missing_body(),
                     banner=banner_for(state),
+                    tabs=tabs_for(state),
                     active="drafts",
                     title="onedoor policy studio — upload",
                 ),
@@ -549,6 +590,7 @@ def create_app(state: StudioState) -> Any:
                 content=shell.render(
                     body=screens.upload_undecodable_body(str(filename), str(exc)),
                     banner=banner_for(state),
+                    tabs=tabs_for(state),
                     active="drafts",
                     title="onedoor policy studio — upload",
                 ),
@@ -605,8 +647,9 @@ def create_app(state: StudioState) -> Any:
             except store.StudioStoreError:
                 return _draft_missing(draft_id)
             return shell.render(
-                body=screens.draft_body(view),
+                body=screens.draft_body(view, derivation_for(state, draft_id)),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title=f"onedoor policy studio \u2014 {view.draft.title}",
             )
@@ -627,6 +670,7 @@ def create_app(state: StudioState) -> Any:
             return shell.render(
                 body=screens.ceremony_body(view),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title=f"onedoor policy studio \u2014 ratify {view.draft.title}",
             )
@@ -646,6 +690,7 @@ def create_app(state: StudioState) -> Any:
                         "receipt records about who ratified. Nothing was applied.</div>"
                     ),
                     banner=banner_for(state),
+                    tabs=tabs_for(state),
                     active="drafts",
                     title="onedoor policy studio \u2014 not ratified",
                 ),
@@ -693,6 +738,7 @@ def create_app(state: StudioState) -> Any:
                     "in this Studio store.</div>"
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title="onedoor policy studio \u2014 draft not found",
             ),
@@ -718,6 +764,7 @@ def create_app(state: StudioState) -> Any:
                     message="Both panes below are rendered from what was stored." if saved else "",
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title=f"onedoor policy studio \u2014 {action_type}",
             )
@@ -757,6 +804,7 @@ def create_app(state: StudioState) -> Any:
                             error=str(exc),
                         ),
                         banner=banner_for(state),
+                        tabs=tabs_for(state),
                         active="drafts",
                         title=f"onedoor policy studio \u2014 {action_type}",
                     ),
@@ -777,6 +825,7 @@ def create_app(state: StudioState) -> Any:
                     f"<code>{escape(action_type)}</code>.</div>"
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="drafts",
                 title="onedoor policy studio \u2014 rule not found",
             ),
@@ -790,6 +839,7 @@ def create_app(state: StudioState) -> Any:
             return shell.render(
                 body=screens.verify_index_body(verify.available(state.enforcer)),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="verify",
                 title="onedoor policy studio \u2014 verify",
             )
@@ -825,6 +875,7 @@ def create_app(state: StudioState) -> Any:
             return shell.render(
                 body=screens.library_body(model),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="policies",
                 title="onedoor policy studio — policies",
             )
@@ -858,6 +909,7 @@ def create_app(state: StudioState) -> Any:
                     content=shell.render(
                         body=screens.not_found_body(action_type),
                         banner=banner_for(state),
+                        tabs=tabs_for(state),
                         active="policies",
                         title=f"onedoor policy studio — {action_type}",
                     ),
@@ -870,6 +922,7 @@ def create_app(state: StudioState) -> Any:
                     library.frozen_words(state.enforcer, state.studio, action_type),
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="policies",
                 title=f"onedoor policy studio — {action_type}",
             )
@@ -900,6 +953,7 @@ def create_app(state: StudioState) -> Any:
                     history.page(state.enforcer, filters), history.choices(state.enforcer)
                 ),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="history",
                 title="onedoor policy studio — history",
             )
@@ -918,6 +972,7 @@ def create_app(state: StudioState) -> Any:
                             "this ledger.</div>"
                         ),
                         banner=banner_for(state),
+                        tabs=tabs_for(state),
                         active="history",
                         title=f"onedoor policy studio — entry {row_id}",
                     ),
@@ -934,6 +989,7 @@ def create_app(state: StudioState) -> Any:
             return shell.render(
                 body=screens.entry_body(row) + flagship,
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="history",
                 title=f"onedoor policy studio — entry {row_id}",
             )
@@ -945,6 +1001,7 @@ def create_app(state: StudioState) -> Any:
             return shell.render(
                 body=screens.live_body(live.build(state.enforcer, state.config)),
                 banner=banner_for(state),
+                tabs=tabs_for(state),
                 active="state",
                 title="onedoor policy studio — live state",
             )
@@ -959,6 +1016,7 @@ def create_app(state: StudioState) -> Any:
                 return shell.render(
                     body=shell.unbuilt_html(tab),
                     banner=banner_for(state),
+                    tabs=tabs_for(state),
                     active=tab.key,
                     title=f"onedoor policy studio — {tab.label.lower()}",
                 )
@@ -969,6 +1027,97 @@ def create_app(state: StudioState) -> Any:
     for _tab in shell.TABS:
         if not _tab.built:
             app.get(_tab.path, response_class=HTMLResponse)(_unbuilt(_tab))
+
+    # --- ND-056 / T3: natural-language authoring ------------------------------------
+    #
+    # Mounted ONLY when a proposer is configured. Wall 4: absent, not broken. There is no
+    # route to 404 and no tab to click, because a deployment without an endpoint does not
+    # have this feature rather than having a broken one.
+    configured: studio_proposer.Proposer | None = state.proposer
+    if configured is not None:
+        # Bound to a local before the closures capture it. `state.proposer` is a mutable
+        # attribute, so a narrowing on it would not survive into a route body -- and the
+        # type checker is right to say so: a proposer swapped out between requests would
+        # make the route's `is not None` a claim about the past.
+
+        @app.get("/propose", response_class=HTMLResponse)
+        def propose_page() -> str:
+            with state.lock:
+                return shell.render(
+                    body=screens.propose_body(configured.identity()),
+                    banner=banner_for(state),
+                    tabs=tabs_for(state),
+                    active="propose",
+                    title="onedoor policy studio — propose",
+                )
+
+        @app.post("/propose", response_class=HTMLResponse)
+        async def propose_submit(request: Request) -> Any:
+            """Description in, DRAFT out. Never a policy, and never a repair.
+
+            The model's text goes through `staging.staged` — the loader's own four
+            stages — and a generation the parser refuses is rendered refused, with the
+            stage that refused it and where. Nothing here rewrites the model's output to
+            make it parse: that would be this code deciding what the model meant.
+            """
+            fields = parse_qs((await request.body()).decode("utf-8"))
+            description = (fields.get("description") or [""])[0].strip()
+            if not description:
+                return HTMLResponse(
+                    content=shell.render(
+                        body=screens.propose_body(
+                            configured.identity(),
+                            error="No description arrived, so nothing was drafted.",
+                        ),
+                        banner=banner_for(state),
+                        tabs=tabs_for(state),
+                        active="propose",
+                        title="onedoor policy studio — propose",
+                    ),
+                    status_code=400,
+                )
+            try:
+                proposal, record = studio_proposer.derive(configured, description, now=now_utc())
+            except live_proposer.ProposalRefused as exc:
+                # The parser refused it. Shown with reasons, never auto-repaired.
+                return HTMLResponse(
+                    content=shell.render(
+                        body=screens.proposal_refused_body(
+                            configured.identity(), exc.result, exc.text
+                        ),
+                        banner=banner_for(state),
+                        tabs=tabs_for(state),
+                        active="propose",
+                        title="onedoor policy studio — propose",
+                    ),
+                    status_code=422,
+                )
+            except studio_proposer.ProposerUnavailable as exc:
+                # Unavailable is its OWN outcome. Telling an operator their description
+                # was rejected when what failed was a socket would be a verdict about
+                # content delivered about a call nothing completed.
+                return HTMLResponse(
+                    content=shell.render(
+                        body=screens.propose_body(configured.identity(), unavailable=str(exc)),
+                        banner=banner_for(state),
+                        tabs=tabs_for(state),
+                        active="propose",
+                        title="onedoor policy studio — propose",
+                    ),
+                    status_code=503,
+                )
+            with state.lock:
+                descriptions.freeze(state.studio, description, now=now_utc())
+                digest = descriptions.store_record(state.studio, record, now=now_utc())
+                draft = new_draft(state, title=f"proposed: {description[:48]}")
+                save_draft(
+                    state,
+                    draft.draft_id,
+                    policies=list(proposal.policies),
+                    effects=list(proposal.effects),
+                )
+                store.set_derivation(state.studio, draft.draft_id, record_digest=digest)
+            return RedirectResponse(url=f"/drafts/{draft.draft_id}?proposed=1", status_code=303)
 
     # --- ND-056 / T2: the policy REST API ------------------------------------------
     #

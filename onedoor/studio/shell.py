@@ -519,19 +519,35 @@ def css() -> str:
     return tokens.root_css() + _CSS
 
 
+PROPOSE_TAB = Tab("propose", "Propose", "/propose", True, "T3")
+"""ND-056/T3's tab, and it is NOT in `TABS`.
+
+Wall 4: with no model endpoint configured the feature is **absent from the UI, not
+broken in it**. So the tab is added to the bar only when a proposer exists, and every
+page computes its own bar from the state it was rendered with. A tab that rendered
+always and 404'd when clicked would be the right-typed lie as navigation.
+"""
+
+
+def tabs_with_propose(configured: bool) -> tuple[Tab, ...]:
+    """The tab bar for this deployment. One place, so no page can disagree with another."""
+    return (*TABS, PROPOSE_TAB) if configured else TABS
+
+
 def render(
     *,
     body: str,
     banner: Banner,
     active: str,
     title: str = "onedoor policy studio",
+    tabs: tuple[Tab, ...] | None = None,
 ) -> str:
     """A complete Studio page. `body` is already-escaped HTML from a screen module."""
     return (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{escape(title)}</title><style>{css()}</style></head><body>"
-        f"{header_html(banner)}{nav_html(active)}"
+        f"{header_html(banner)}{nav_html(active, tabs)}"
         f"<main>{body}</main>"
         f"<footer>{escape(LOOPBACK_LINE)}</footer>"
         f"<script>{PAGE_SCRIPT}</script>"
