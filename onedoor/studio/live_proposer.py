@@ -150,13 +150,14 @@ class Instrument:
         }
 
 
-class ProposalRefused(RuntimeError):
-    """The model's output did not survive the parser. Carries the staged result."""
+ProposalRefused = proposer.ProposalRefused
+"""Re-exported from `proposer`, where it now lives (R071 section 5).
 
-    def __init__(self, message: str, result: staging.StagedResult, text: str) -> None:
-        super().__init__(message)
-        self.result = result
-        self.text = text
+It moved so `benchmark` can catch a refused generation without importing this module: the
+benchmark scores ANY instrument, and a dependency from it to the model-backed proposer
+would tie it to a track that may slip to a later release. The name stays here because
+callers of this module reasonably look for it here.
+"""
 
 
 class HttpProposer:

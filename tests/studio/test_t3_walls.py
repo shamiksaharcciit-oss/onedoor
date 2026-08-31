@@ -570,3 +570,68 @@ def test_staged_output_is_what_the_proposal_carries(configured) -> None:
     proposal = configured.proposer.propose("refunds")
     parsed = staging.staged(GOOD_YAML)
     assert [p.action_type for p in proposal.policies] == [p.action_type for p in parsed.policies]
+
+
+# --- R071 §5: malformed model output, the shape from the forensic channel ----------------
+
+
+MALFORMED = 'policies:\n  - action_type: "payments.refund\n'
+"""A generation that abandons the format mid-structure.
+
+The shape the forensic channel closed: a model given a described-but-unenforced schema
+opened a structure, filled it, and stopped without closing the string. Nothing was
+truncated by a limit; the format was simply abandoned. **A schema that is described but
+not enforced is a hope with a type signature** — which is why T3 never relies on the model
+to emit a well-formed policy.
+"""
+
+
+def test_a_structurally_broken_generation_refuses_at_the_load_stage(state) -> None:
+    """Consequence 2: malformed output is its own outcome, distinct from policy-invalid.
+
+    The stage is what keeps them apart. A model that abandons the format is refused at
+    `load`; a model that writes clean YAML declaring an unsafe rule is refused at `rules`.
+    Collapsing the two would tell an operator their policy was wrong when their model had
+    stopped mid-sentence.
+    """
+    state.proposer = _StubEndpoint(MALFORMED)
+    client = TestClient(server.create_app(state))
+    response = client.post("/propose", data={"description": "refunds"}, follow_redirects=False)
+
+    assert response.status_code == 422
+    assert "The loader would refuse what came back" in response.text
+    assert "Nothing was repaired or rewritten" in response.text
+
+    refused = staging.staged(MALFORMED)
+    assert refused.stopped_at == staging.STAGE_LOAD
+
+    semantic = staging.staged(REFUSED_YAML)
+    assert semantic.stopped_at == staging.STAGE_RULES
+    assert refused.stopped_at != semantic.stopped_at, (
+        "malformed and policy-invalid must not collapse into one outcome"
+    )
+
+
+def test_a_broken_generation_writes_no_draft_and_no_record(state) -> None:
+    """It is surfaced, and nothing is persisted from it — stated rather than assumed."""
+    state.proposer = _StubEndpoint(MALFORMED)
+    client = TestClient(server.create_app(state))
+    client.post("/propose", data={"description": "refunds"}, follow_redirects=False)
+
+    assert store.listing(state.studio) == []
+    rows = state.studio.execute("SELECT COUNT(*) AS n FROM derivation_records").fetchone()
+    assert rows["n"] == 0
+
+
+def test_the_artifact_is_built_by_the_parser_and_never_by_the_model(state) -> None:
+    """Consequence 1: the model's output is INPUT to construction, never the artifact.
+
+    Every `Policy` a proposal carries was constructed by the engine's own
+    `_policy_from_entry` inside `staging`, so a well-formed-looking generation cannot
+    become a candidate without passing through the loader's constructor.
+    """
+    proposal = _StubEndpoint(GOOD_YAML).propose("refunds")
+    parsed = staging.staged(GOOD_YAML)
+    assert [p.model_dump() for p in proposal.policies] == [p.model_dump() for p in parsed.policies]
+    code = _executable_source(live_proposer)
+    assert "Policy(" not in code, "a policy constructed outside the loader's own path"

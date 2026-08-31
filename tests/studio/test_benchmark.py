@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from onedoor.studio import benchmark, proposer
+from onedoor.studio import benchmark, live_proposer, proposer, staging
 from scripts import benchmark_proposer
 
 DOC = Path(__file__).resolve().parents[2] / "docs" / "proposer-benchmark.md"
@@ -154,3 +154,114 @@ def test_no_case_produces_an_undeclared_effect_label() -> None:
         assert not (named - declared), (
             f"{case.name} emitted a silent permit: {sorted(named - declared)}"
         )
+
+
+# --- R071 §5: a malformed generation is a published miss, never an aborted run -----------
+
+
+class _AlwaysMalformed:
+    """An instrument that answers, plausibly, with something that is not a policy document."""
+
+    provenance = proposer.LIVE
+
+    def identity(self) -> dict:
+        return {"kind": "stub", "name": "always-malformed", "version": "1"}
+
+    def propose(self, description: str) -> proposer.Proposal:
+        text = 'policies:\n  - action_type: "payments.refund\n'
+        raise proposer.ProposalRefused(
+            "the loader would refuse the generated policy set",
+            staging.staged(text),
+            text,
+        )
+
+
+class _MalformedOnce:
+    """Malformed on the first case, then the shipped fixture for the rest."""
+
+    provenance = proposer.LIVE
+
+    def __init__(self) -> None:
+        self._fixture = proposer.FixtureProposer()
+        self.calls = 0
+
+    def identity(self) -> dict:
+        return {"kind": "stub", "name": "malformed-once", "version": "1"}
+
+    def propose(self, description: str) -> proposer.Proposal:
+        self.calls += 1
+        if self.calls == 1:
+            text = "policies:\n  - [unclosed\n"
+            raise proposer.ProposalRefused("refused", staging.staged(text), text)
+        return self._fixture.propose(description)
+
+
+def test_a_malformed_generation_is_recorded_as_a_miss_not_raised() -> None:
+    """**A benchmark whose purpose is published misses may not treat its most basic
+    failure as an exception.**
+
+    Before this, `run` let `ProposalRefused` escape: one malformed response ended the run,
+    and the published report would have been the exception's absence rather than the
+    miss's presence. On a live instrument — the only kind Q11's bar accepts — that is the
+    likeliest failure of all.
+    """
+    results = benchmark.run(_AlwaysMalformed())
+
+    assert len(results) == len(benchmark.CORPUS), "every case must still be scored"
+    assert all(not r.passed for r in results)
+    assert all(benchmark.MALFORMED_MISS in " ".join(r.reasons) for r in results)
+    assert all("refused at: load" in " ".join(r.reasons) for r in results)
+
+
+def test_one_malformed_case_does_not_end_the_run() -> None:
+    """The corpus continues, so the report describes the whole corpus."""
+    instrument = _MalformedOnce()
+    results = benchmark.run(instrument)
+
+    assert len(results) == len(benchmark.CORPUS)
+    assert not results[0].passed
+    assert benchmark.MALFORMED_MISS in " ".join(results[0].reasons)
+    assert any(r.passed for r in results[1:]), "later cases were scored normally"
+
+
+def test_the_malformed_miss_reaches_the_published_report() -> None:
+    """A miss that did not reach the report would be a disclosure that discloses less."""
+    instrument = _AlwaysMalformed()
+    published = benchmark.report(benchmark.run(instrument), instrument)
+
+    assert published["passed"] == 0
+    assert len(published["misses"]) == len(benchmark.CORPUS)
+    assert benchmark.MALFORMED_MISS in " ".join(published["misses"][0]["reasons"])
+    assert sum(published["misses_by_kind"].values()) == len(benchmark.CORPUS)
+
+
+def test_an_endpoint_that_never_answered_still_stops_the_run() -> None:
+    """**The two failures are kept apart.** A socket that did not answer is not a miss.
+
+    Scoring it as one would blame the instrument for the network, and would publish an
+    incomplete corpus as a complete one.
+    """
+
+    class _Dead:
+        provenance = proposer.LIVE
+
+        def identity(self) -> dict:
+            return {"kind": "stub", "name": "dead", "version": "1"}
+
+        def propose(self, description: str) -> proposer.Proposal:
+            raise proposer.ProposerUnavailable("the endpoint refused the connection")
+
+    with pytest.raises(proposer.ProposerUnavailable):
+        benchmark.run(_Dead())
+
+
+def test_the_refusal_exception_lives_with_the_protocol_not_with_one_implementation() -> None:
+    """So the benchmark can catch it without importing a track that may slip.
+
+    `benchmark` scores ANY instrument. A dependency from it to the model-backed proposer
+    would tie the benchmark to T3's release, and T3 is severable by design.
+    """
+    import inspect
+
+    assert proposer.ProposalRefused is live_proposer.ProposalRefused
+    assert "live_proposer" not in inspect.getsource(benchmark)

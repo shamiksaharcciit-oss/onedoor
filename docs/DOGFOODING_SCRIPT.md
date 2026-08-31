@@ -1,7 +1,26 @@
 # Dogfooding script — the pass that gates the `0.7.0` tag
 
-**For Shamik, 45 minutes, on a machine that has never run this.** This is the operator
-pass R066 §2 made a condition of the tag: no pass, no tag.
+**Before you start, check which world you are in.** Which variant of this pass you run is
+decided by the T3 funding call on **Sept 3**. If T3 is funded and its benchmark clears,
+section I is part of the pass and the block below is **66–81 minutes**. If it is not,
+section I is skipped and there is no Propose tab to look for. Ask before you begin rather
+than discovering it at section I.
+
+**Block 60–75 minutes.** That is the honest envelope, and it is made of two parts:
+
+- **45 minutes of walking** — every stop in sections A–H with nothing going wrong. That
+  number is arithmetic, per-section, and asserted by a test.
+- **15–30 minutes of findings** — expected, not feared. **Two or three findings is what
+  success looks like for a pass like this**, and the time to write them down is part of
+  the work rather than an overrun of it.
+
+A budget that counted only the walking would be describing a pass that found nothing.
+
+**If you run short of time: cut [SEE] stops, never [GATE] stops.** That rule is enforced
+by a test on this document, and it is stated here so you know it before you need it.
+
+**For Shamik, on a machine that has never run this.** This is the operator pass R066 §2
+made a condition of the tag: no pass, no tag.
 
 **How to use it.** Every stop has three lines — **Do**, **Expect**, **Ask**. Work down the
 page. When what you see does not match **Expect**, that is a **finding**: write down what
@@ -18,8 +37,8 @@ you saw in your own words and keep going. Do not stop to diagnose.
 > asserts this document still quotes it correctly. If a quoted sentence is *missing* from
 > the screen, that is a finding — the words are load-bearing, not decoration.
 
-**Budget: 45 minutes**, sections A–H. **Section I (Propose) is not in the 45** — see
-*What a second pass covers* at the end.
+**The walking budget is 45 minutes**, sections A–H. **Section I (Propose) is not in the
+45** — see *What a second pass covers* at the end.
 
 **Every stop is marked:** **[GATE]** stops must be walked for the tag; **[SEE]** stops are
 worth your eyes but do not block.
@@ -346,11 +365,15 @@ words.
 | **Total** | **45** | |
 | I · Propose | +6 | only if T3 ships |
 
-**Where this budget is honest and where it is a guess.** The 45 minutes is a *walking*
-estimate: it assumes nothing goes wrong and no finding is investigated. **Every finding
-costs time this budget does not contain** — writing one down is a minute, and the first
-one usually prompts a second look at the screen before it. Two or three findings will
-overrun 45 minutes, and that is the pass working, not the estimate failing.
+**The 45 is the walking half, and it is a floor rather than a budget.** It assumes
+nothing goes wrong and no finding is investigated. **Every finding costs time the walking
+number does not contain** — writing one down is a minute, and the first usually prompts a
+second look at the screen before it.
+
+So the envelope at the top of this page is **60–75 minutes** (66–81 if section I is in),
+and the 15–30 minutes of findings in it is an **expectation, not a risk**: this pass
+exists to produce findings, and a schedule that leaves no room for the thing the activity
+is for has budgeted for failure and called it success.
 
 **If time runs short, the order to cut in:** H2, B2, E4, C1d, C2c — the **[SEE]** stops.
 Every **[GATE]** stop should be walked before the tag; they are the ones covering a seam,
@@ -378,4 +401,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = c6b86a9150e6e6f0a1b9211068129ebbb6fab447b44c38aed68b80245412b267
+Integrity: sha256(body) = 296856726de4e7bcfb9dec1b8c2c109245f4f5ed8a851c162d25db6e88c98939

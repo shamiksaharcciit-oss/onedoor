@@ -36,6 +36,30 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _body_of(path: Path) -> str:
+    """The document with its OWN seal removed — by POSITION, never by pattern (R071 §3.1).
+
+    The distinction being enforced: **a digest a document computes about itself is its
+    address; a digest a document repeats about another artifact is a transcription, and
+    transcriptions go stale in silence.** Only the second is forbidden.
+
+    The first version of this exemption dropped *every* line beginning `Integrity: `,
+    anywhere in the file. That is pattern-based, and core was right that it had not been
+    fixed but switched off: a draft quoting another memo's footer on its own line would
+    have been exempted by the very fence meant to catch it.
+
+    So the exemption is anchored to one position — the last non-empty line, and only when
+    it is this document's own seal. Everything above it is body, and a 64-hex string in
+    the body is a transcription no matter how it is introduced.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if lines and re.fullmatch(r"Integrity: sha256\(body\) = [0-9a-f]{64}", lines[-1]):
+        lines.pop()
+    return "\n".join(lines)
+
+
 def _folded(path: Path) -> str:
     """Whitespace-folded, so a phrase wrapped across two lines is still caught.
 
@@ -249,20 +273,10 @@ def test_the_drafts_do_not_quote_a_test_count_or_a_digest_they_cannot_hold() -> 
     changed, and the release's real digests are recorded at build time, before upload.
     """
     for name, path in DOCUMENTS.items():
-        # The document's OWN integrity footer is excluded, and the distinction is the
-        # whole of X-11: a digest COMPUTED INTO a document by tooling is the document's
-        # address, and a digest TYPED INTO prose about some other artifact is a
-        # transcription that goes stale silently. This check forbids the second.
-        #
-        # It caught the drafts on its first full run, immediately after they were sealed —
-        # correctly firing, and wrong about which kind of digest it had found.
-        body = "\n".join(
-            line for line in _text(path).splitlines() if not line.startswith("Integrity: ")
-        )
-        assert not re.search(r"\b\d{3,4} (?:tests? )?pass(?:ed|ing)\b", body), (
+        assert not re.search(r"\b\d{3,4} (?:tests? )?pass(?:ed|ing)\b", _body_of(path)), (
             f"{name} transcribes a test count"
         )
-        assert not re.search(r"\b[0-9a-f]{64}\b", body), f"{name} transcribes a digest"
+        assert not re.search(r"\b[0-9a-f]{64}\b", _body_of(path)), f"{name} transcribes a digest"
 
 
 def test_each_sealed_draft_carries_exactly_one_integrity_footer() -> None:
@@ -271,3 +285,38 @@ def test_each_sealed_draft_carries_exactly_one_integrity_footer() -> None:
         footers = [line for line in _text(path).splitlines() if line.startswith("Integrity: ")]
         assert len(footers) == 1, f"{path.name} has {len(footers)} integrity footers"
         assert re.fullmatch(r"Integrity: sha256\(body\) = [0-9a-f]{64}", footers[0])
+
+
+def test_the_digest_exemption_is_anchored_to_position_and_not_to_pattern() -> None:
+    """R071 §3.1's mechanism, proven in both directions on synthetic documents.
+
+    A fence loosened until it stops complaining has been switched off. This proves the
+    narrowing: the document's own final seal is exempt, and a digest anywhere else — even
+    on a line that *looks* like a seal — is not.
+    """
+    digest = "a" * 64
+    sealed = f"# notes\n\nsome prose\n\nIntegrity: sha256(body) = {digest}\n"
+    quoting = f"# notes\n\nsee memo Integrity: sha256(body) = {digest}\n\nmore prose\n"
+    in_prose = f"# notes\n\nthe wheel hashes to {digest}.\n\nIntegrity: sha256(body) = {digest}\n"
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+
+        def _write(name: str, text: str) -> Path:
+            p = Path(tmp) / name
+            p.write_text(text, encoding="utf-8")
+            return p
+
+        # 1. The document's own seal is exempt: the body is clean.
+        assert not re.search(r"\b[0-9a-f]{64}\b", _body_of(_write("sealed.md", sealed)))
+
+        # 2. A quoted digest mid-document is NOT exempt, even introduced by the marker.
+        #    This is the case the pattern-based version walked past.
+        assert re.search(r"\b[0-9a-f]{64}\b", _body_of(_write("quoting.md", quoting))), (
+            "a digest quoted mid-document survived the exemption; the fence is pattern-based again"
+        )
+
+        # 3. A digest in ordinary prose is caught even when the document is properly
+        #    sealed — the seal exempts itself and nothing else.
+        assert re.search(r"\b[0-9a-f]{64}\b", _body_of(_write("prose.md", in_prose)))

@@ -231,11 +231,45 @@ def check(case: Case, proposal: proposer.Proposal) -> Result:
     return Result(case=case, passed=not reasons, reasons=reasons, actions=actions)
 
 
+MALFORMED_MISS = "the model's output was not a policy document the loader could read"
+"""The reason recorded when a generation never became a candidate at all.
+
+Not a crash, and not a pass. A model that abandons the format mid-structure — opening an
+object, filling it, and stopping without closing a string — has missed the case as surely
+as one that proposed the wrong rule, and **a benchmark whose whole purpose is published
+misses may not treat its most basic failure as an exception.**
+"""
+
+
 def run(instrument: proposer.Proposer) -> list[Result]:
-    """Run the whole corpus. Deterministic for the fixture; a live run costs money."""
+    """Run the whole corpus. Deterministic for the fixture; a live run costs money.
+
+    **A generation the parser refuses is a recorded MISS, never an aborted run** (R071 §5).
+    The first version of this let `ProposalRefused` escape: a single malformed response
+    ended the run, and the published report would have been the exception's absence rather
+    than the miss's presence. On a live instrument — the only kind Q11's bar accepts — that
+    is the likeliest failure of all, and it would have taken the benchmark down with it.
+
+    `ProposerUnavailable` is deliberately NOT caught. A socket that did not answer is not a
+    statement about the model's output, and scoring it as a miss would blame the instrument
+    for the network. That one still stops the run, loudly, which is correct: an incomplete
+    corpus must not be published as a complete one.
+    """
     results = []
     for case in CORPUS:
-        proposal = instrument.propose(case.description)
+        try:
+            proposal = instrument.propose(case.description)
+        except proposer.ProposalRefused as refused:
+            stage = refused.result.stopped_at or "unknown"
+            results.append(
+                Result(
+                    case=case,
+                    passed=False,
+                    reasons=[f"{MALFORMED_MISS} (refused at: {stage})"],
+                    actions=frozenset(),
+                )
+            )
+            continue
         results.append(check(case, proposal))
     return results
 

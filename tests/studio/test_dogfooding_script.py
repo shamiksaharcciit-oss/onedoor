@@ -243,7 +243,42 @@ def test_the_script_says_propose_is_outside_the_budget() -> None:
 
 def test_the_script_states_where_its_estimate_is_a_guess() -> None:
     """An estimate presented as a measurement is the overclaim, one artifact over."""
+    folded = _normalised(_text())
+    assert "Every finding costs time the walking number does not contain" in folded
+    assert "walking" in folded
+
+
+def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
+    """R071 §1.1: **a time budget that excludes the cost of what the activity produces is
+    not a budget.**
+
+    The pass exists to produce findings, so the time to record them is budgeted rather
+    than hoped away. Checked in the FIRST screenful, where an operator decides whether to
+    start — a correct envelope buried below the fold is a number nobody read.
+    """
     text = _text()
-    folded = _normalised(text)
-    assert "Every finding costs time this budget does not contain" in folded
-    assert "walking" in folded and "estimate" in folded
+    head = _normalised(text[: text.index("## A · Arrival")]).replace("–", "-")
+
+    assert "Block 60-75 minutes." in head
+    assert "45 minutes of walking" in head
+    assert "15-30 minutes of findings" in head
+    assert "expected, not feared" in head
+    assert "two or three findings is what success looks like" in head.lower()
+
+
+def test_the_script_tells_the_operator_which_variant_to_run_before_they_start() -> None:
+    """R071 §1.1: the T3 world is known at the top, not discovered at section I."""
+    text = _text()
+    head = text[: text.index("## A · Arrival")]
+    assert "Before you start, check which world you are in" in head
+    assert "Sept 3" in head
+    assert "66-81" in head.replace("–", "-"), "the T3-included envelope must be stated"
+    assert head.index("which world you are in") < head.index("Block 60"), (
+        "the variant question comes before the envelope it changes"
+    )
+
+
+def test_the_cut_rule_is_in_the_prose_and_not_only_in_a_test() -> None:
+    """An operator must know the rule before they need it."""
+    head = _normalised(_text()[: _text().index("## A · Arrival")])
+    assert "cut [SEE] stops, never [GATE] stops" in head

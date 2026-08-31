@@ -70,6 +70,32 @@ class ProposerUnavailable(RuntimeError):
     """A proposer was asked for and cannot be supplied. The message names the remedy."""
 
 
+class ProposalRefused(RuntimeError):
+    """A generation did not survive the parser. Carries the staged result and the raw text.
+
+    Lives here, beside the `Proposer` protocol, rather than with any one implementation:
+    **any** proposer can produce output the loader refuses, and a caller that wants to
+    handle that — the benchmark, most importantly — must be able to catch it without
+    importing a particular implementation.
+
+    That is not tidiness. `benchmark` scores *any* instrument, and a dependency from it to
+    the model-backed proposer would tie the benchmark to a track that may slip to a later
+    release. The exception belongs to the protocol because the condition does.
+
+    **The two failures are kept apart.** This one says the model answered and the answer
+    was not a policy document; `ProposerUnavailable` says nothing answered. Scoring the
+    second as a miss would blame the instrument for the network.
+    """
+
+    def __init__(self, message: str, result: Any, text: str) -> None:
+        super().__init__(message)
+        self.result = result
+        """The `staging.StagedResult` — which stage refused, and why."""
+
+        self.text = text
+        """What the model actually returned, verbatim and unrepaired."""
+
+
 @dataclass(frozen=True)
 class Mention:
     """Something the description referred to, as **a model's reading of a sentence**.
