@@ -1283,6 +1283,21 @@ A fourth, from R069 §1, small and reusable:
 > change the tree after the run that measured it — so the number lives one level up, in
 > the commit message, with a re-gate after the last edit.
 
+### Closing an observation (R074 §3)
+
+> **A symptom that stops is not a diagnosis. Non-recurrence closes an observation; it
+> never confirms an explanation.** The same animal as *agreement is not evidence* and
+> *probably is not a pin*, met from a third direction.
+
+**Closures carry three outcomes, like everything else here.** *Closed by explanation* and
+*closed by non-recurrence* are different states of a finding, and a register that spells
+them the same way misleads its next reader — who may be the person who wrote it, months
+later. A non-recurrence closure records **cause undetermined**, and records that a return
+of the symptom is a **fresh finding** regardless of the closure.
+
+The configuration to watch for is a plausible story beside a vanished symptom: that is
+exactly when a story gets promoted to a cause and nobody notices.
+
 ### The naming law (R073 §2) — *scope approval* is not *ratification*
 
 > **A word that names two quantities names neither.** The sibling of the citation law

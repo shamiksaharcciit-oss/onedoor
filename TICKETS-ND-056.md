@@ -90,6 +90,26 @@ JSON-surface pass in `tests/studio/test_law_tests.py` hold it now.
 - **The Studio still has not been run by a person** since `0.6.2`. Shamik's pass, and it
   **gates the tag** (R066 §2) rather than following it.
 
+## Observations
+
+### Suite runtime, 2026-08-31 — **closed by non-recurrence; cause undetermined**
+
+A full-suite run at a reporting move took **547s** (`0:09:07`) against **159s** on the
+previous recorded run, at essentially the same test count. The first gate invocation that
+night had been killed at the harness's ten-minute wall, and contention with its leftover
+work was the plausible explanation.
+
+**It did not recur.** The next reporting-move run, with nothing competing, took **161s** —
+one run, which is what the record supports and all it supports.
+
+**The contention explanation is NOT established** (R074 §3). A symptom that stops is not a
+diagnosis; non-recurrence closes an observation and never confirms an explanation. The
+plausible story beside the vanished symptom is precisely the configuration in which a
+story gets promoted to a cause and nobody notices.
+
+**If the symptom returns it is a fresh finding**, regardless of this closure, and it earns
+an investigation rather than a second appeal to this entry.
+
 ## Scope approved by Shamik, 2026-09-01
 
 Recorded rather than assumed: R066 §7 said plainly that nothing in this ticket bound

@@ -121,6 +121,18 @@ def test_both_variants_exist_and_say_which_they_are() -> None:
         assert "not published" in text and "delivery does not publish it" in text, (
             f"{path.name} must say on its face that it is a draft"
         )
+        # R073 §2's naming law, pinned where it was broken. The header called the
+        # management act "ratification", colliding with the ceremony the rest of the
+        # document describes — in the first line, which R072 §1 ruled is where stating
+        # happens. A vocabulary fix left unpinned is a vocabulary fix that comes back.
+        head = text[: text.index("---")]
+        assert "Shamik's scope approval" in head, (
+            f"{path.name}'s header must name the management act as SCOPE APPROVAL"
+        )
+        assert "Shamik's ratification" not in head, (
+            f"{path.name}'s header uses 'ratification' for the management act; that word "
+            "is reserved for the ceremony in the product"
+        )
 
 
 def test_variant_a_marks_every_t3_dependent_sentence() -> None:

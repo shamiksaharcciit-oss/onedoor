@@ -1,6 +1,6 @@
 # onedoor 0.7.0 — **DRAFT A: T3 SHIPS**
 
-> **This is a draft for core's review and Shamik's ratification. It is not published, and
+> **This is a draft for core's review and Shamik's scope approval. It is not published, and
 > delivery does not publish it.**
 >
 > **Variant A of two.** This variant is correct **only if T3's published-misses benchmark
@@ -188,4 +188,4 @@ untouched — this release adds no enforcer migration.
   matters rather than answering identity questions with provenance facts. Actor identity
   is specced and follows.
 
-Integrity: sha256(body) = 05c40731b0b16f9eb662b07e04ad37f95b94dfc3edfa66fbe729b1d4ef3837ff
+Integrity: sha256(body) = cbf56a02275ba0fe430a8ca9d35596d33256665cba153cb4f04bba09c7a20039
