@@ -516,7 +516,7 @@ def test_a_response_shape_this_build_cannot_read_is_unavailable_not_empty(state)
                     {
                         "message": {
                             "tool_calls": [
-                                {"function": {"name": "propose_policies", "arguments": 42}}
+                                {"function": {"name": live_proposer.TOOL_NAME, "arguments": 42}}
                             ]
                         }
                     }
@@ -921,3 +921,106 @@ def test_the_enforcement_fix_added_no_repair_path() -> None:
     )
     for smell in ("strip", "retry", "attempt", "fixup", "repair", "sanit"):
         assert smell not in path, f"{smell!r} appeared on the model-text-to-candidate path"
+
+
+# --- R081 §2: the flatten, and strict argument validation --------------------------------
+
+
+def test_the_tool_name_does_not_repeat_its_parameter() -> None:
+    """R081 §2. **A parameter whose name collides with its tool's action verb is ambiguous
+    by construction** — a reviewer would flag it without ever seeing a benchmark.
+
+    The parameter could not move: the arguments ARE the policy document, and `staging`
+    reads its rules from `raw["policies"]`. So the collision comes off the tool-name side.
+    """
+    schema = live_proposer.output_schema()
+    assert "policies" in schema["properties"], "the loader's key must survive"
+    assert live_proposer.TOOL_NAME != "policies"
+    assert "policies" not in live_proposer.TOOL_NAME, (
+        f"the tool {live_proposer.TOOL_NAME!r} repeats its own parameter's name, which is "
+        "the ambiguity the model resolved the wrong way"
+    )
+
+
+def test_the_prompt_names_the_tool_that_actually_exists() -> None:
+    """**Self-caught, before a single call.**
+
+    Renaming the tool left the prompt instructing the model to call the OLD name — a
+    prompt telling a model to invoke a function the request does not offer. `prompt_digest`
+    not moving on a rename was the tell: an instrument field that fails to change when the
+    instrument does is a field that has stopped describing it.
+
+    The name is now interpolated, so the two cannot drift again: rename the tool and the
+    prompt follows, and the digest moves because the instrument genuinely did.
+    """
+    assert live_proposer.TOOL_NAME in live_proposer.PROMPT_TEMPLATE
+    assert "propose_policies" not in live_proposer.PROMPT_TEMPLATE
+    assert "{description}" in live_proposer.PROMPT_TEMPLATE, "the caller's field survives"
+
+    original = live_proposer.TOOL_NAME
+    rendered = live_proposer._PROMPT_SOURCE.replace("{tool}", "some_other_name")
+    assert "some_other_name" in rendered and original not in rendered, (
+        "the prompt does not track the tool name; a rename would strand it again"
+    )
+
+
+def test_the_schema_forbids_a_stray_top_level_key() -> None:
+    """Closed to extras, so an envelope-in-a-field is invalid rather than merely wrong."""
+    schema = live_proposer.output_schema()
+    assert schema["additionalProperties"] is False
+    described = schema["properties"]["policies"]["description"]
+    assert "ARRAY" in described and "Never a string" in described
+
+
+def test_strict_argument_validation_is_requested_and_recorded(configured) -> None:
+    """`tool_choice` enforces EMISSION; this requests enforcement of the ARGUMENTS.
+
+    Recorded as *requested*, which is the only thing this field can honestly state —
+    whether the compatibility layer honours it is a probe result, not a configuration
+    value, and conflating the two would let a request read as a guarantee.
+    """
+    import json as _json
+    from unittest.mock import patch
+
+    captured: dict = {}
+
+    class _Resp:
+        def read(self):
+            return _json.dumps(_tool_response('{"policies": []}')).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _fake_urlopen(request, timeout=None):
+        captured["body"] = _json.loads(request.data.decode("utf-8"))
+        return _Resp()
+
+    client = live_proposer.HttpProposer(
+        live_proposer.Instrument(endpoint="https://m.example/v1", model="m-1")
+    )
+    with patch("urllib.request.urlopen", _fake_urlopen):
+        client.propose("we do a thing")
+
+    assert captured["body"]["tools"][0]["function"]["strict"] is True
+    assert client.identity()["strict_arguments_requested"] is True
+
+
+def test_the_double_encoding_the_probe_found_is_refused_not_repaired() -> None:
+    """The exact payload probe 3 returned, held as a regression.
+
+    The model serialised the whole envelope into `policies` as a JSON string. The loader
+    refuses it at the SCHEMA stage — not `load`, because it is valid JSON — and nothing
+    unwraps it. If a later change ever "helpfully" unwrapped a stringified document, this
+    fails, which is wall 2 guarding the shape of a fix rather than its intent.
+    """
+    doubled = '{"policies": "{\\"policies\\": [{\\"action_type\\": \\"a.b\\", \\"tier\\": 3}]}"}'
+    returned = live_proposer._content_of(_tool_response(doubled))
+    assert returned == doubled, "the reader unwrapped the model's output"
+
+    result = staging.staged(returned)
+    assert result.loads is False
+    assert result.stopped_at == staging.STAGE_SCHEMA
+    assert any("list of rules" in r.message for r in result.refusals)

@@ -96,9 +96,22 @@ ENV_MODEL = "ONEDOOR_PROPOSER_MODEL"
 ENV_KEY = "ONEDOOR_PROPOSER_KEY"
 ENV_TIMEOUT = "ONEDOOR_PROPOSER_TIMEOUT"
 
-PROMPT_TEMPLATE = """You are given a description of what an operator wants an AI agent to be allowed to do.
+TOOL_NAME = "submit_policy_set"
+"""The tool's name, and it deliberately does not repeat its parameter's (R081 §2).
 
-Call the `propose_policies` tool exactly once with the policy set you would propose.
+It was `propose_policies`, whose top-level parameter is also `policies`. **A parameter
+whose name collides with its tool's action verb is ambiguous by construction** — a
+reviewer would flag it without ever seeing a benchmark — and the model resolved the
+ambiguity the wrong way, serialising the whole envelope into the field as a JSON string.
+
+The parameter could not move: the arguments ARE the policy document, and
+`staging.staged` reads its rules from `raw["policies"]`. So the collision comes off the
+tool-name side, and the name now states an ACTION over a payload the array obviously is.
+"""
+
+_PROMPT_SOURCE = """You are given a description of what an operator wants an AI agent to be allowed to do.
+
+Call the `{tool}` tool exactly once with the policy set you would propose.
 
 Judgement to apply:
 - Every policy needs `action_type` and `tier` (1 auto, 2 auto-capped, 3 confirm, 4 deny).
@@ -111,6 +124,8 @@ Judgement to apply:
 Description:
 {description}
 """
+
+PROMPT_TEMPLATE = _PROMPT_SOURCE.replace("{tool}", TOOL_NAME)
 """The prompt, pinned and digested into the instrument.
 
 Changing a word here changes `prompt_digest`, so it changes the instrument — which is
@@ -145,7 +160,18 @@ with one.
 """
 
 
-TOOL_NAME = "propose_policies"
+STRICT_ARGUMENTS = True
+"""Ask the endpoint to validate arguments against the schema, not merely to route through it.
+
+`tool_choice` enforces EMISSION — the model must answer through the tool, which is what
+killed the markdown fence. It does not enforce ARGUMENTS: the endpoint passed through a
+payload the schema forbade. This requests the missing half.
+
+**Whether the compatibility layer honours it is a fact to be probed, not assumed**, and
+the system is correctly enforced either way (R081 §4): emission is directed, the schema is
+unambiguous, argument validation is requested, and the loader catches whatever survives as
+a recorded miss. Layered, with a backstop that never launders malformed output into shape.
+"""
 
 OUTPUT_ENFORCEMENT = "tool_call"
 """How the output's shape is enforced, recorded in the instrument.
@@ -172,10 +198,14 @@ def output_schema() -> dict[str, Any]:
     caps = defs.get("Caps", {"type": "object"})
     return {
         "type": "object",
+        "additionalProperties": False,
         "properties": {
             "policies": {
                 "type": "array",
-                "description": "One entry per action type the description implies. May be empty.",
+                "description": (
+                    "An ARRAY of rule objects, one per action type the description "
+                    "implies. May be empty. Never a string, and never a nested document."
+                ),
                 "items": policy,
             },
             "effects": {
@@ -217,6 +247,13 @@ class Instrument:
     model: str
     timeout_seconds: float = 30.0
     max_completion_tokens: int = MAX_COMPLETION_TOKENS
+    strict_arguments: bool = STRICT_ARGUMENTS
+    """Whether argument-level schema validation was REQUESTED of the endpoint.
+
+    Recorded because it is part of what produced the candidate, and because "we asked"
+    and "the layer honoured it" are different facts: this field states the first, and only
+    the first. What the layer actually did is a probe result, not a configuration value.
+    """
     """Pinned, sent on every request, and recorded in `identity()` (R076 §2).
 
     It is a field rather than a constant read at the call site so that a deployment which
@@ -254,6 +291,7 @@ class Instrument:
             # How the shape was enforced, and the shape itself. Both are part of what
             # produced the candidate, so both are part of the instrument (R079 section 3).
             "output_enforcement": OUTPUT_ENFORCEMENT,
+            "strict_arguments_requested": self.strict_arguments,
             "schema_digest": schema_digest(),
         }
 
@@ -333,6 +371,10 @@ class HttpProposer:
                             "name": TOOL_NAME,
                             "description": "Submit the proposed policy set.",
                             "parameters": output_schema(),
+                            # The argument-level half of the enforcement (R081 §2).
+                            # Requested rather than assumed; if the layer ignores it the
+                            # loader is still the backstop and nothing is laundered.
+                            "strict": self.instrument.strict_arguments,
                         },
                     }
                 ],
