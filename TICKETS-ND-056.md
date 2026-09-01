@@ -90,6 +90,28 @@ JSON-surface pass in `tests/studio/test_law_tests.py` hold it now.
 - **The Studio still has not been run by a person** since `0.6.2`. Shamik's pass, and it
   **gates the tag** (R066 §2) rather than following it.
 
+## Scope approved by Shamik, 2026-09-01
+
+Recorded rather than assumed: R066 §7 said plainly that nothing in this ticket bound
+anything until he said so. **He said "Ratified."** — and R073 §2 then ruled that the
+management act is called **scope approval**, so that is the term used here from now on.
+
+**What the approval covers:** the three tracks as built and as ruled in R066; the version
+number `0.7.0` with its consequential renumbering (T3's slip target `0.7.1`, the legacy
+ratify route retiring in the actor-identity release, `ND-053`/`ND-054` on the post-launch
+line); and the dogfooding gate **binding on himself**.
+
+**What it does not cover, so no one may read it wider than it was given:** T3's funding,
+which is a separate decision due Sept 3; any spend, endpoint or credential; and the
+dogfooding gate, which it does not release, shorten or make waivable. The gate is now
+something he has explicitly accepted rather than something core imposed, **which makes it
+stronger rather than softer.**
+
+Nothing in the code changes. The build was finished before the approval; the approval is
+what makes the record honest about *why* `0.7.0` contains what it contains. A release
+whose scope was ruled by core and built by an agent with no human assent would have been a
+fait accompli wearing a governance process.
+
 ## Closed by `Core_to_Delivery_Response_067_2026-08-30`
 
 The build is **accepted as reported**, subject only to the two human gates that were

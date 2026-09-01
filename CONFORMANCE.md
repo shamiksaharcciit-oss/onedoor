@@ -1283,6 +1283,27 @@ A fourth, from R069 §1, small and reusable:
 > change the tree after the run that measured it — so the number lives one level up, in
 > the commit message, with a re-gate after the last edit.
 
+### The naming law (R073 §2) — *scope approval* is not *ratification*
+
+> **A word that names two quantities names neither.** The sibling of the citation law
+> above, and one-quantity-one-definition applied to vocabulary rather than to columns.
+
+"Ratify" had been doing two jobs at once:
+
+| Quantity | The word for it | Where it lives |
+|---|---|---|
+| The **management act** — the person accountable for the product approving a release's scope | **scope approval** | memos, run sheets, tickets, anything human-facing |
+| The **ceremony in the product** — a human ratifying a policy draft, with the receipt recording who did it | **ratification** | code, receipts, screens, the API, the dogfooding script |
+
+**No product string changes.** This is a fix to how core and this channel *write*, not a
+rename inside `0.7.0`; the freeze is untouched and every existing use in the code is
+correct as it stands.
+
+It was found the way naming defects usually are — by costing someone a minute. Shamik
+asked whether he needed to run the Studio to ratify `ND-056`. He did not, and the question
+was a defect report about our language rather than a misunderstanding of the product.
+**The only cost that counts is the one paid by the person the register serves.**
+
 **The count, recounted under Q15 and derived from receipts, stands at eight — twelve to
 go** (accepted at seven by R069 §0; the eighth is this record's own commit gate). The member enumeration is in `TICKETS-ND-055.md` beside Q15's ruling, one row per
 reporting move, each quotable from the commit that recorded it. The earlier reading of

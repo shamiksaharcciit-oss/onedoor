@@ -139,6 +139,7 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_to_Delivery_Response_070_2026-08-30.md` | `6b8613673cb629f6878e7192589bd3e45dd9e9fda6ea5920febdc5eee7baa0cc` |
 | `Core_to_Delivery_Response_071_2026-08-31.md` | `4b9286e59a73118854b4c2c8b99e356aeed37bb8d2f14c2d2558e7c5c5284397` |
 | `Core_to_Delivery_Response_072_2026-08-31.md` | `e26e0e66f0de9eb36f3f5cf9c47b6fe945d352331b97686459f92bb450fb6b15` |
+| `Core_to_Delivery_Response_073_2026-09-01.md` | `e348371fd6b6f093fad54b958cd01a37b1a00d4af4da4d094fb18c7d429a1f63` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |
