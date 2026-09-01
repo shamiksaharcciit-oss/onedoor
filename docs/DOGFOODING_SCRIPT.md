@@ -1,10 +1,17 @@
 # Dogfooding script — the pass that gates the `0.7.0` tag
 
-**Before you start, check which world you are in.** Which variant of this pass you run is
-decided by the T3 funding call on **Sept 3**. If T3 is funded and its benchmark clears,
-section I is part of the pass and the block below is **66–81 minutes**. If it is not,
-section I is skipped and there is no Propose tab to look for. Ask before you begin rather
-than discovering it at section I.
+**Which world you are in — currently answered, and it may change once before your pass.**
+
+**As it stands: section I is NOT part of this pass.** The model-proposer track measured
+0 of 11 against its own acceptance corpus on 2026-09-01 and does not ship in this release
+on that result. There is no Propose tab to look for, and its absence is correct rather
+than a fault. **Your block is the 60–75 minutes below.**
+
+That answer can flip once, and only once. A fix is being attempted under three gates; if
+all three are met before you start, you will be handed the **66–81 minute** version of this
+script with section I included, and this paragraph will say so instead. **If nobody hands
+you a different script, this one is the one to walk** — the fallback is the current state,
+not a pending decision, so an unanswered question never leaves you guessing at the door.
 
 **Block 60–75 minutes.** That is the honest envelope, and it is made of two parts:
 
@@ -401,4 +408,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = 296856726de4e7bcfb9dec1b8c2c109245f4f5ed8a851c162d25db6e88c98939
+Integrity: sha256(body) = 698a838994483756bea4ac28c434ec06a2ab0dd346e841cc0c7dbc8aeefb0536

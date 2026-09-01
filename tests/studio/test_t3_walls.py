@@ -507,8 +507,22 @@ def test_a_response_shape_this_build_cannot_read_is_unavailable_not_empty(state)
     """An unreadable answer must not render as "the model suggested no rules"."""
     with pytest.raises(proposer.ProposerUnavailable, match="cannot read"):
         live_proposer._content_of({"unexpected": "shape"})
+    # Since R079 the readable content is the TOOL CALL's arguments, so the
+    # not-a-string case moved there with it.
     with pytest.raises(proposer.ProposerUnavailable, match="not text"):
-        live_proposer._content_of({"choices": [{"message": {"content": 42}}]})
+        live_proposer._content_of(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "tool_calls": [
+                                {"function": {"name": "propose_policies", "arguments": 42}}
+                            ]
+                        }
+                    }
+                ]
+            }
+        )
 
 
 def test_an_empty_description_drafts_nothing(configured) -> None:
@@ -658,7 +672,26 @@ def test_the_request_body_pins_a_completion_ceiling(configured) -> None:
 
     class _Resp:
         def read(self):
-            return _json.dumps({"choices": [{"message": {"content": GOOD_YAML}}]}).encode()
+            # The enforced shape since R079: the answer arrives as a tool call's
+            # arguments, not as free text.
+            return _json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "tool_calls": [
+                                    {
+                                        "function": {
+                                            "name": live_proposer.TOOL_NAME,
+                                            "arguments": '{"policies": []}',
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ).encode()
 
         def __enter__(self):
             return self
@@ -731,3 +764,160 @@ def test_the_ceiling_leaves_room_for_every_correct_answer() -> None:
         f"the largest correct answer is {largest} chars, which is no longer comfortably "
         f"inside a {live_proposer.MAX_COMPLETION_TOKENS}-token ceiling"
     )
+
+
+# --- R079: the schema is ENFORCED at emission, not requested in prose --------------------
+
+
+def _tool_response(arguments: str) -> dict:
+    """A response shaped exactly as the endpoint sends one when it honours tool_choice."""
+    return {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {"function": {"name": live_proposer.TOOL_NAME, "arguments": arguments}}
+                    ]
+                }
+            }
+        ]
+    }
+
+
+def test_the_request_enforces_the_schema_rather_than_asking_for_it() -> None:
+    """**The fix, stated as the law it discharges** (R079 §1).
+
+    A schema described but not enforced is a defect regardless of any benchmark. The
+    request pins `tool_choice` to the function, because a tool the model may decline is a
+    request again.
+    """
+    import json as _json
+    from unittest.mock import patch
+
+    captured: dict = {}
+
+    class _Resp:
+        def read(self):
+            return _json.dumps(
+                _tool_response('{"policies": [{"action_type": "a.b", "tier": 3}]}')
+            ).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _fake_urlopen(request, timeout=None):
+        captured["body"] = _json.loads(request.data.decode("utf-8"))
+        return _Resp()
+
+    client = live_proposer.HttpProposer(
+        live_proposer.Instrument(endpoint="https://m.example/v1", model="m-1")
+    )
+    with patch("urllib.request.urlopen", _fake_urlopen):
+        client.propose("we do a thing")
+
+    body = captured["body"]
+    assert body["tools"][0]["function"]["name"] == live_proposer.TOOL_NAME
+    assert body["tool_choice"] == {
+        "type": "function",
+        "function": {"name": live_proposer.TOOL_NAME},
+    }, "the model must not be free to answer in text; that is the defect being fixed"
+    assert body["tools"][0]["function"]["parameters"] == live_proposer.output_schema()
+    # And the prompt no longer asks for a format, because the format is not requested.
+    prompt = body["messages"][0]["content"]
+    assert "YAML" not in prompt and "Return ONLY" not in prompt
+
+
+def test_the_schema_is_generated_from_the_engines_own_model() -> None:
+    """It cannot drift from what the loader accepts, because it is derived from it.
+
+    A hand-written schema would be the transcription defect wearing JSON: a field added to
+    `Policy` would be absent here until somebody remembered.
+    """
+    from onedoor.guardrail.models import Policy as EnginePolicy
+
+    schema = live_proposer.output_schema()
+    engine = EnginePolicy.model_json_schema()
+    item = schema["properties"]["policies"]["items"]
+
+    assert item["properties"].keys() == engine["properties"].keys()
+    assert set(schema["$defs"]) == set(engine["$defs"]), "$defs must be hoisted intact"
+    assert schema["required"] == ["policies"]
+
+
+def test_the_enforcement_and_the_schema_are_recorded_in_the_instrument(configured) -> None:
+    """A new instrument, recorded as one (R079 §3)."""
+    identity = configured.proposer.identity()
+    assert identity["output_enforcement"] == "tool_call"
+    assert identity["schema_digest"] == live_proposer.schema_digest()
+
+
+def test_a_changed_schema_is_a_changed_instrument() -> None:
+    """The schema is part of what produced the candidate, so it moves the record."""
+    before = live_proposer.schema_digest()
+    original = live_proposer.output_schema
+    try:
+        live_proposer.output_schema = lambda: {"type": "object", "properties": {}}
+        assert live_proposer.schema_digest() != before
+    finally:
+        live_proposer.output_schema = original
+    assert live_proposer.schema_digest() == before
+
+
+def test_the_tool_arguments_reach_the_one_parser_verbatim() -> None:
+    """**Enforcement at emission does not replace validation.**
+
+    The loader still decides, exactly as it does for a hand-written draft. JSON is loadable
+    YAML, so the arguments go to `staging.staged` with no transformation at all.
+    """
+    args = '{"policies": [{"action_type": "payments.refund", "tier": 3}]}'
+    returned = live_proposer._content_of(_tool_response(args))
+    assert returned == args, "the reader transformed the model's output"
+
+    result = staging.staged(returned)
+    assert result.loads is True
+    assert [p.action_type for p in result.policies] == ["payments.refund"]
+
+
+def test_no_tool_call_is_an_endpoint_fact_and_not_a_refused_proposal() -> None:
+    """The middle outcome, and the reason the reader changed shape.
+
+    An endpoint that ignores `tool_choice` did not enforce the schema. That must surface
+    as a provisioning problem, never as eleven bad answers — scoring an unsupported
+    capability as a model's judgement would blame the instrument for the plumbing.
+    """
+    fenced = {"choices": [{"message": {"content": "```yaml\npolicies: []\n```"}}]}
+    with pytest.raises(proposer.ProposerUnavailable, match="no tool call"):
+        live_proposer._content_of(fenced)
+
+    with pytest.raises(proposer.ProposerUnavailable, match="cannot read"):
+        live_proposer._content_of({"choices": [{"message": {"tool_calls": [{"bad": 1}]}}]})
+
+
+def test_arguments_that_are_not_json_are_still_the_parsers_verdict() -> None:
+    """Malformed arguments are passed through and REFUSED, not diagnosed here.
+
+    This module does not get a second opinion about whether output is well-formed; that
+    judgement has exactly one owner, and a miss recorded at `load` is the honest outcome.
+    """
+    returned = live_proposer._content_of(_tool_response("not json {"))
+    result = staging.staged(returned)
+    assert result.loads is False
+    assert result.stopped_at == staging.STAGE_LOAD
+
+
+def test_the_enforcement_fix_added_no_repair_path() -> None:
+    """Wall 2 still holds after the change — asserted, not assumed."""
+    path = "".join(
+        _executable_source(fn)
+        for fn in (
+            live_proposer.HttpProposer.propose,
+            live_proposer.HttpProposer.parse,
+            live_proposer.HttpProposer._ask,
+            live_proposer._content_of,
+        )
+    )
+    for smell in ("strip", "retry", "attempt", "fixup", "repair", "sanit"):
+        assert smell not in path, f"{smell!r} appeared on the model-text-to-candidate path"

@@ -59,6 +59,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
+from onedoor.guardrail.models import Policy
 from onedoor.studio import proposer, staging
 
 CAPABILITY = "drafts proposed by a model, ratified by you"
@@ -96,14 +97,16 @@ ENV_KEY = "ONEDOOR_PROPOSER_KEY"
 ENV_TIMEOUT = "ONEDOOR_PROPOSER_TIMEOUT"
 
 PROMPT_TEMPLATE = """You are given a description of what an operator wants an AI agent to be allowed to do.
-Return ONLY a YAML document with a top-level `policies:` list, and optionally `effects:`.
 
-Rules you must follow:
+Call the `propose_policies` tool exactly once with the policy set you would propose.
+
+Judgement to apply:
 - Every policy needs `action_type` and `tier` (1 auto, 2 auto-capped, 3 confirm, 4 deny).
 - Tier 1 and tier 2 REQUIRE `compensating_command` naming a reversal action.
 - If you declare `cost_param`, list that same parameter under `bounds.required`.
 - Prefer the most restrictive tier that satisfies the description.
-- Do not invent action types the description does not imply.
+- Do not invent action types the description does not imply. If the description implies
+  none, propose none.
 
 Description:
 {description}
@@ -113,6 +116,12 @@ Description:
 Changing a word here changes `prompt_digest`, so it changes the instrument — which is
 the point. A prompt is part of what produced the candidate, and an instrument that did
 not include it would attest less than it appears to.
+
+**It no longer asks for a format, because the format is no longer requested — it is
+enforced** (R079 §1). The previous version said "Return ONLY a YAML document"; the model
+returned a markdown-fenced block on 11 of 11 calls and the loader refused every one at
+the first backtick. The prompt now carries only the JUDGEMENT to apply; the shape is the
+tool schema's job, and a schema described in prose was never a schema.
 """
 
 
@@ -134,6 +143,66 @@ answer several times its room while converting the runaway case from *unbounded*
 is a recorded miss with its refusing stage, which is exactly what the harness now does
 with one.
 """
+
+
+TOOL_NAME = "propose_policies"
+
+OUTPUT_ENFORCEMENT = "tool_call"
+"""How the output's shape is enforced, recorded in the instrument.
+
+The value names a mechanism, not an intention. `prose` — asking for a format in the
+prompt — is what the previous instrument did, and it is not enforcement at all.
+"""
+
+
+def output_schema() -> dict[str, Any]:
+    """The schema the model must emit against — **generated from the engine's own models.**
+
+    Not hand-written. `Policy.model_json_schema()` is the same class the loader constructs
+    with, so the shape the model is held to and the shape the loader accepts cannot drift:
+    a field added to `Policy` appears here without anyone remembering to add it, and a
+    hand-copied schema would be the transcription defect wearing JSON.
+
+    `$defs` is hoisted to the root so the `$ref`s Pydantic emits resolve inside the
+    wrapper. Effects are described as the loader reads them — a mapping of effect name to
+    its settings — rather than as a list, because that is the document's actual shape.
+    """
+    policy = Policy.model_json_schema()
+    defs = policy.pop("$defs", {})
+    caps = defs.get("Caps", {"type": "object"})
+    return {
+        "type": "object",
+        "properties": {
+            "policies": {
+                "type": "array",
+                "description": "One entry per action type the description implies. May be empty.",
+                "items": policy,
+            },
+            "effects": {
+                "type": "object",
+                "description": "Effect name to its settings. Every effect a rule names "
+                "should have an entry here, or the label is inert.",
+                "additionalProperties": {
+                    "type": "object",
+                    "properties": {"min_tier": {"type": "integer"}, "caps": caps},
+                },
+            },
+        },
+        "required": ["policies"],
+        "$defs": defs,
+    }
+
+
+def schema_digest() -> str:
+    """The schema's address, recorded in the instrument beside the prompt's.
+
+    A changed schema is a changed instrument for exactly the reason a changed prompt is:
+    it is part of what produced the candidate. Canonicalised by sorting keys so the digest
+    tracks the schema's content rather than Python's dict ordering.
+    """
+    return hashlib.sha256(
+        json.dumps(output_schema(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def prompt_digest() -> str:
@@ -182,6 +251,10 @@ class Instrument:
             "model": self.model,
             "prompt_digest": prompt_digest(),
             "max_completion_tokens": self.max_completion_tokens,
+            # How the shape was enforced, and the shape itself. Both are part of what
+            # produced the candidate, so both are part of the instrument (R079 section 3).
+            "output_enforcement": OUTPUT_ENFORCEMENT,
+            "schema_digest": schema_digest(),
         }
 
 
@@ -250,6 +323,20 @@ class HttpProposer:
                 # instrument rather than the module constant so the value that shaped
                 # the output is the same value the record carries.
                 "max_tokens": self.instrument.max_completion_tokens,
+                # The schema is ENFORCED at emission, not requested in prose (R079 §1).
+                # `tool_choice` names the function rather than leaving the model free to
+                # answer in text: a tool the model may decline is a request again.
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": TOOL_NAME,
+                            "description": "Submit the proposed policy set.",
+                            "parameters": output_schema(),
+                        },
+                    }
+                ],
+                "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
             }
         ).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -273,25 +360,53 @@ class HttpProposer:
 
 
 def _content_of(body: Any) -> str:
-    """The assistant's text out of an OpenAI-shaped response, refused if absent.
+    """The tool call's arguments out of an OpenAI-shaped response, refused if absent.
 
-    A response this cannot read is `unavailable`, never an empty proposal. An empty
-    proposal would render as "the model suggested no rules", which is a claim about the
-    model rather than about a body nothing could interpret.
+    **Three outcomes, and the middle one is the whole reason this changed.**
+
+    - A tool call with an `arguments` string — returned **verbatim**, straight to the one
+      parser. It is JSON, and JSON is loadable YAML, so `staging.staged` reads it with no
+      transformation whatsoever. Enforcement at emission does **not** replace validation:
+      the loader still decides, exactly as it does for a hand-written draft.
+    - **No tool call at all** — the endpoint did not honour `tool_choice`, so the schema
+      was not enforced. That is `unavailable`: a fact about the endpoint's capability, not
+      a verdict on the model's judgement, and emphatically not a refused proposal. An
+      endpoint that ignores the enforcement surface must be discovered as a provisioning
+      problem rather than scored as eleven bad answers.
+    - Arguments present but not valid JSON — returned as-is anyway, so **`staging` refuses
+      it and it is recorded as the malformed miss it is.** This module does not get a
+      second opinion about whether the model's output is well-formed; that judgement has
+      exactly one owner.
     """
     try:
-        content = body["choices"][0]["message"]["content"]
+        message = body["choices"][0]["message"]
     except (KeyError, IndexError, TypeError) as exc:
         raise proposer.ProposerUnavailable(
             "the endpoint answered in a shape this build cannot read (expected an "
-            "OpenAI-style `choices[0].message.content`). Nothing was drafted; this is "
-            "not a statement that the model produced nothing."
+            "OpenAI-style `choices[0].message`). Nothing was drafted; this is not a "
+            "statement that the model produced nothing."
         ) from exc
-    if not isinstance(content, str):
+
+    calls = message.get("tool_calls") if isinstance(message, dict) else None
+    if not calls:
         raise proposer.ProposerUnavailable(
-            f"the endpoint's message content is {type(content).__name__}, not text"
+            f"the endpoint returned no tool call, so the {TOOL_NAME!r} schema was not "
+            "enforced on this answer. The request pinned `tool_choice` to that function, "
+            "so this is a statement about what the endpoint supports, not about what the "
+            "model proposed. Nothing was drafted."
         )
-    return content
+    try:
+        arguments = calls[0]["function"]["arguments"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise proposer.ProposerUnavailable(
+            "the endpoint returned a tool call this build cannot read (expected "
+            "`tool_calls[0].function.arguments`). Nothing was drafted."
+        ) from exc
+    if not isinstance(arguments, str):
+        raise proposer.ProposerUnavailable(
+            f"the tool call's arguments are {type(arguments).__name__}, not text"
+        )
+    return arguments
 
 
 def _mentions_for(policies: Any, description: str) -> list[proposer.Mention]:

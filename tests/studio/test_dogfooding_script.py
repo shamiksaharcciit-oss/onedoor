@@ -267,15 +267,34 @@ def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
 
 
 def test_the_script_tells_the_operator_which_variant_to_run_before_they_start() -> None:
-    """R071 §1.1: the T3 world is known at the top, not discovered at section I."""
+    """R071 §1.1: the T3 world is known at the top, not discovered at section I.
+
+    The question is now **answered** rather than asked (R079 §6): T3 measured 0/11 and
+    does not ship on that result, so the current script is the no-Propose one and the
+    operator is told so. The answer can flip once if three gates are met; the front
+    matter says which world is current and what a flip would look like.
+    """
     text = _text()
     head = text[: text.index("## A · Arrival")]
-    assert "Before you start, check which world you are in" in head
-    assert "Sept 3" in head
-    assert "66-81" in head.replace("–", "-"), "the T3-included envelope must be stated"
-    assert head.index("which world you are in") < head.index("Block 60"), (
-        "the variant question comes before the envelope it changes"
+    assert "Which world you are in" in head
+    assert "section I is NOT part of this pass" in head
+    assert "66-81" in head.replace("–", "-"), "the alternate envelope must still be named"
+    assert head.index("Which world you are in") < head.index("Block 60"), (
+        "the variant answer comes before the envelope it changes"
     )
+
+
+def test_the_script_defaults_to_the_shipping_world_rather_than_a_pending_question() -> None:
+    """**The fallback is the current state, not a decision the operator must chase.**
+
+    An operator who is handed nothing must still know what to walk. A front matter that
+    said "ask someone" would leave the pass blocked at the door on a question its reader
+    cannot answer — and the whole point of stating it at the top (R072 §1) is that the
+    reader is standing there.
+    """
+    head = _normalised(_text()[: _text().index("## A · Arrival")])
+    assert "If nobody hands you a different script, this one is the one to walk" in head
+    assert "0 of 11" in head, "the reason the section is absent is stated, not merely the fact"
 
 
 def test_the_cut_rule_is_in_the_prose_and_not_only_in_a_test() -> None:
