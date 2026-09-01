@@ -116,6 +116,26 @@ not include it would attest less than it appears to.
 """
 
 
+MAX_COMPLETION_TOKENS = 2048
+"""The completion ceiling, pinned and sent on every request (R076 §2).
+
+**Before this, the request body carried no `max_tokens` at all**, so completion length was
+set entirely by whatever the provider's default happened to be — a constant nobody here
+chose, that differs between providers and can change server-side without notice. That is
+an **unpinned instrument parameter**, and the declared-instrument doctrine puts generation
+parameters inside the instrument's declaration. It was found by writing the cost sheet:
+the token envelope had to say "not a ceiling on a runaway completion" because there was no
+ceiling to state.
+
+**Why 2048.** The fixture's largest correct answer for this corpus is 1,406 characters —
+roughly 350–560 tokens across the two ratios the cost sheet used. 2048 gives every correct
+answer several times its room while converting the runaway case from *unbounded* to
+*bounded and recorded*. A completion that hits the ceiling and arrives structurally broken
+is a recorded miss with its refusing stage, which is exactly what the harness now does
+with one.
+"""
+
+
 def prompt_digest() -> str:
     return hashlib.sha256(PROMPT_TEMPLATE.encode("utf-8")).hexdigest()
 
@@ -127,6 +147,15 @@ class Instrument:
     endpoint: str
     model: str
     timeout_seconds: float = 30.0
+    max_completion_tokens: int = MAX_COMPLETION_TOKENS
+    """Pinned, sent on every request, and recorded in `identity()` (R076 §2).
+
+    It is a field rather than a constant read at the call site so that a deployment which
+    changes it **cannot change it quietly**: the value rides in the instrument block, the
+    instrument block rides inside the derivation record's digest, and a different ceiling
+    is therefore a different instrument. That is the declared-instrument doctrine applied
+    to a generation parameter.
+    """
 
     @property
     def host(self) -> str:
@@ -141,12 +170,18 @@ class Instrument:
         credential is still a function of the credential — R059 §3's ruling on
         `actor_hash`, which binds here with full force. What is recorded is what was
         used, never what authorised it.
+
+        `max_completion_tokens` is here for the opposite reason: it is a parameter that
+        shaped the output, so it belongs in the record of what produced it. A generation
+        parameter left out of the instrument would make two runs under different ceilings
+        indistinguishable in the record.
         """
         return {
             "kind": "http",
             "endpoint_host": self.host,
             "model": self.model,
             "prompt_digest": prompt_digest(),
+            "max_completion_tokens": self.max_completion_tokens,
         }
 
 
@@ -211,6 +246,10 @@ class HttpProposer:
             {
                 "model": self.instrument.model,
                 "messages": [{"role": "user", "content": prompt}],
+                # Pinned, never the provider's default (R076 §2). Read from the
+                # instrument rather than the module constant so the value that shaped
+                # the output is the same value the record carries.
+                "max_tokens": self.instrument.max_completion_tokens,
             }
         ).encode("utf-8")
         headers = {"Content-Type": "application/json"}

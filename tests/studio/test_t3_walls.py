@@ -635,3 +635,99 @@ def test_the_artifact_is_built_by_the_parser_and_never_by_the_model(state) -> No
     assert [p.model_dump() for p in proposal.policies] == [p.model_dump() for p in parsed.policies]
     code = _executable_source(live_proposer)
     assert "Policy(" not in code, "a policy constructed outside the loader's own path"
+
+
+# --- R076 §2: the completion ceiling, pinned and recorded --------------------------------
+
+
+def test_the_request_body_pins_a_completion_ceiling(configured) -> None:
+    """**No request goes out on the provider's default.**
+
+    The body is captured from the real `_ask` payload construction rather than described,
+    because the defect being fixed was precisely a field that was not there.
+    """
+    import json as _json
+    from unittest.mock import patch
+
+    captured: dict = {}
+
+    # The REAL client, with only the socket replaced — `_ask` builds the payload, so a
+    # stub that built its own would be testing the stub's idea of the request.
+    instrument = live_proposer.Instrument(endpoint="https://m.example/v1", model="m-1")
+    client = live_proposer.HttpProposer(instrument, api_key="k")
+
+    class _Resp:
+        def read(self):
+            return _json.dumps({"choices": [{"message": {"content": GOOD_YAML}}]}).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _fake_urlopen(request, timeout=None):
+        captured["body"] = _json.loads(request.data.decode("utf-8"))
+        captured["timeout"] = timeout
+        return _Resp()
+
+    with patch("urllib.request.urlopen", _fake_urlopen):
+        client.propose("refunds")
+
+    assert "max_tokens" in captured["body"], (
+        "the request carries no completion ceiling; the provider's default decides how "
+        "long a generation may be, which is a parameter nobody here chose"
+    )
+    assert captured["body"]["max_tokens"] == live_proposer.MAX_COMPLETION_TOKENS == 2048
+    assert captured["timeout"] == instrument.timeout_seconds
+
+
+def test_the_ceiling_is_recorded_in_the_instrument(configured) -> None:
+    """A parameter that shaped the output belongs in the record of what produced it."""
+    identity = configured.proposer.identity()
+    assert identity["max_completion_tokens"] == 2048
+
+
+def test_a_different_ceiling_is_a_different_instrument(configured) -> None:
+    """**It cannot be changed quietly.**
+
+    The value rides in the instrument block, the instrument block rides inside the
+    derivation record's digest, so two runs under different ceilings are distinguishable
+    in the record rather than identical in it.
+    """
+    import datetime
+
+    def _record(ceiling: int) -> str:
+        stub = _StubEndpoint(GOOD_YAML)
+        stub.instrument = live_proposer.Instrument(
+            endpoint="https://models.example/v1/chat", model="m-1", max_completion_tokens=ceiling
+        )
+        _, record = proposer.derive(stub, "refunds", now=datetime.datetime(2026, 9, 1))
+        return record.digest()
+
+    assert _record(2048) != _record(1024), (
+        "two runs under different completion ceilings produced the same record digest; "
+        "the ceiling is not inside the instrument"
+    )
+    assert _record(2048) == _record(2048), "and the digest is otherwise stable"
+
+
+def test_the_ceiling_leaves_room_for_every_correct_answer() -> None:
+    """2048's basis, checked rather than asserted (R076 §2).
+
+    The number was justified by the fixture's largest correct answer being ~1,406
+    characters. If the pack grows a rule that makes a correct answer approach the ceiling,
+    this fails — and the ceiling, not the answer, is what would need revisiting.
+    """
+    from onedoor.studio import benchmark, library
+
+    fixture = proposer.FixtureProposer()
+    largest = max(
+        len("\n".join(library.yaml_text(p) for p in fixture.propose(c.description).policies))
+        for c in benchmark.CORPUS
+    )
+    # The tighter of the cost sheet's two ratios: 2.5 chars per token.
+    assert largest / 2.5 < live_proposer.MAX_COMPLETION_TOKENS / 2, (
+        f"the largest correct answer is {largest} chars, which is no longer comfortably "
+        f"inside a {live_proposer.MAX_COMPLETION_TOKENS}-token ceiling"
+    )
