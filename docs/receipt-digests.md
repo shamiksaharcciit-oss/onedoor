@@ -147,6 +147,8 @@ case is the one that computes to true.**
 2026), which pins it with two public reject vectors. Recorded so the credit is not
 re-derived later as our own.
 
+The rejection of degenerate empty inclusion paths (an empty path is accepted only for a tree of size 1 at index 0; any other claimed tree size is refused) follows an observation in draft-schrock-ep-authorization-receipts-12, Section 7.3, and is credited to Iman Schrock.
+
 **Measured before adoption, and stated so the record is accurate:** against the
 construction vendored here both sabotage vectors already failed, for two independent
 reasons — `verify_inclusion` rejects an `index` outside `[0, tree_size)`, and its
