@@ -83,10 +83,13 @@ JSON-surface pass in `tests/studio/test_law_tests.py` hold it now.
 
 - **Nothing has shipped.** The last release is `0.6.2`.
 - **No breaking change landed.** Every track is additive; `ND-053`/`ND-054` untouched.
-- **T3 has never run against a real endpoint.** Every T3 test replaces the socket and
-  nothing else. Q11's bar — a live benchmark with published misses — **is not met**, and
-  it needs Shamik's endpoint, key and spend approval. If it is not met by Sept 5, T3
-  slips to `0.7.1` by its designed path.
+- **T3 ran against a real endpoint on 2026-09-01, and Q11's bar was not met.**
+  *(Superseded: this bullet previously read "T3 has never run against a real endpoint",
+  written before the funding decision. Corrected rather than deleted — the section is a
+  list of what is not done, and what is not done here changed.)* Shamik funded it; 25 of
+  25 calls spent across two runs and four probes; **1/11 published, 0/11 corrected**. T3
+  slips to `0.7.1` by its designed path, exactly as this bullet anticipated. See the
+  design queue at the end of this ticket.
 - **The Studio still has not been run by a person** since `0.6.2`. Shamik's pass, and it
   **gates the tag** (R066 §2) rather than following it.
 
@@ -153,3 +156,34 @@ Sept 3), one core deliverable (the manual), and a release on Sept 7 by Shamik's 
 under the number R066 §2 gave it.
 
 **The channel holds.** Nothing in the build queue outranks the launch queue this week.
+
+---
+
+## T3 slipped to `0.7.1` — the design queue, enumerated
+
+**Gate 2 came back short: 1/11 published, 0/11 corrected** (R083 §2's annotation).
+`docs/proposer-benchmark-live.md` stands unedited as what the deployed scorer said;
+forward citations use the corrected number. T3 does not ship in `0.7.0`; variant B and the
+60–75 minute script are the armed and only state. **The R081 §3 line holds: the instrument
+is closed, and no sixth instrument change is proposed or invited.**
+
+Four items for the T3-for-`0.7.1` design, none of them build work now, fully enumerated by
+R085 §5:
+
+| | Item | Origin |
+|---|---|---|
+| 1 | **Proposal-time rejection of undeclared effects** — a model-proposed policy naming an effect absent from the declared set is refused *at proposal time*, so the proposer path enforces Q3's law the way the scorer already scores it | **R085 §3** |
+| 2 | **The scorer's false pass** — `check()` needs a general "the proposed `action_type` must be a real one" test, independent of any case's `expect_actions`/`forbid_actions`, cross-checked against the canonical vocabulary | R083 §2 |
+| 3 | **The `check()` docstring overclaim** — *"every rule checked here is one the engine also enforces"* is true of the engine's intended contract and false of the shipped one, until `ND-053` lands | this channel, R085 §4 |
+| 4 | **The enforcement question the instrument could not answer** — argument-level validation was requested and observed `not_honoured`; whether a different surface enforces it is a design question, not a patch | R082 §5 |
+
+**Why item 1 is the sharpest.** The single live output that survived far enough to be
+judged on content was a model **complying** with an adversarial request to name
+`money.egress` while promising to declare it later. So the model demonstrably produces
+`ND-053`'s exact defect class — and item 1 says the proposer must refuse it itself rather
+than relying on a loader refusal that does not exist yet (`ND-053`, frozen) or on the
+forecast list catching what a machine introduced. **A control that depends on a human
+noticing what a machine wrote is not a control.**
+
+n=1, and recorded as exactly that: one data point, not a claim about the model's general
+adversarial posture.

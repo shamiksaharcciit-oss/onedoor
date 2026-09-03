@@ -40,6 +40,41 @@ same policy, effect policy now declared -> proposed,  effective_tier 3
 The same request auto-executes or goes to a human depending on a row the policy author may
 believe they wrote.
 
+### 2a. A second, independent derivation — `escalations/NOTE-20260902-effect-declaration-trace.md`
+
+Sealed `15b4aaae96ce5a5a7bb3d9e5df0186edfb19eb1a6e6cbce3c99611d6cf274abb`. Ordered by
+R083 §4, closed by R085 §0, and **linked here at R085 §1's instruction so no future reader
+derives this a third time.**
+
+The measurement above came from the **loader** side. The note comes from the **decision**
+side — it traces the whole path a ratified policy travels and cites, at every link, what
+does not refuse it:
+
+| Link | Lines | Refuses? |
+|---|---|---|
+| `policy_loader.validate_policy` | 31–102; raises at 35, 44, 54, 67, 75, 85, 90, 98 | no — none reads `policy.effects` |
+| `validate.problems` | 65–86 | no — **discards the effects it is handed, at line 79: `_ = effects`** |
+| `ratify.ratify` | 325–376 | no — its only refusal, at 351, is the version compare-and-swap |
+| `decision.py` | 219 | no — the silent drop above |
+
+`validate.problems` line 79 is the one worth keeping: it is **the single place in the
+Studio that receives rules and effects together**, and it discards the effects for a reason
+that is sound about what that function is and leaves the relation between them unowned.
+
+It also re-measures the defect at **Tier 2** rather than §2's Tier 1, through the real
+ceremony, confirming the failure direction is permissive in both:
+
+```
+effect declared=False -> PermittedIntent  effective_tier=2                       (executes)
+effect declared=True  -> ActionResult     proposed  tier=3  effect_floor  requires_approval
+```
+
+**When this ticket is built, it inherits both derivations and a live proof of what the fix
+must change.** R085 §1 also records the framing correction that produced it: core raised
+this as potentially new when the register already held it, and the lesson kept is *before a
+finding is filed as new, the register is searched for it under its own description, not
+only its address.*
+
 ## 3. The law it enforces
 
 **A protection that depends on a second, optional declaration is not a protection — it is a
