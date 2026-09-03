@@ -155,9 +155,44 @@ def test_the_shell_commands_the_script_gives_are_the_real_ones() -> None:
         for line in block.splitlines()
         if line.strip()
     ]
-    assert "python -m onedoor.studio --db onedoor.db --studio-db studio.db" in commands
-    assert "python -m onedoor.studio.walkthrough --db onedoor.db" in commands
+    assert "python -m onedoor.studio --db pass.db --studio-db pass-studio.db" in commands
+    assert "python -m onedoor.studio.walkthrough --db pass.db" in commands
     assert "python -m onedoor.studio.verify receipt.json snapshot.json" in commands
+
+
+def test_the_script_uses_a_purpose_made_store_not_ambient_state() -> None:
+    """R086 §4.1: a re-walk is deterministic only if it never touches what a previous
+    pass, or the README quickstart, already left in `onedoor.db` / `studio.db`."""
+    text = _text()
+    assert "--db onedoor.db" not in text, "the script must not point at the ambient store"
+    assert "--db pass.db" in text
+    assert "--studio-db pass-studio.db" in text
+
+
+def test_the_seed_step_loads_the_shipped_payments_pack_and_records_a_version(
+    tmp_path,
+) -> None:
+    """R086 §4.2: the seed commands actually work, against the real pack and the real
+    loader — not just described in prose. `record_snapshot` has to run too, or
+    `current_version` stays `None` and A2's banner would show `no version in force`."""
+    from onedoor.guardrail import policy_loader
+    from onedoor.store.db import Database
+
+    pack = ROOT / "onedoor" / "templates" / "payments" / "policies.yaml"
+    assert pack.is_file(), "the script tells the operator to copy a pack that must exist"
+
+    database = Database(str(tmp_path / "pass.db"))
+    database.init()
+    conn = database.connect()
+    n = policy_loader.load_file(conn, pack)
+    version = policy_loader.record_snapshot(conn)
+    assert n == 6, "A0's Expect says '6 policies loaded'; the pack must match"
+    assert len(version) == 64 and all(c in "0123456789abcdef" for c in version)
+
+    text = _text()
+    assert "6 policies loaded" in text
+    assert "version digest:" in text
+    assert "6 policies · 2 effects" in text, "A2's Expect must name the resulting banner"
 
 
 def test_the_bad_yaml_the_script_supplies_really_is_refused_at_the_stage_it_says() -> None:
@@ -199,16 +234,22 @@ def test_the_euro_cap_stop_lands_in_the_forecast_list_and_not_the_refusal_list()
 # --- the budget, and the claims the script makes about itself ---------------------------
 
 
-def test_the_time_budget_adds_up_to_the_forty_five_minutes_it_claims() -> None:
-    """A budget that does not sum is a promise about someone's afternoon, broken quietly."""
+def test_the_time_budget_adds_up_to_the_forty_nine_minutes_it_claims() -> None:
+    """A budget that does not sum is a promise about someone's afternoon, broken quietly.
+
+    R086 §4: the budget is RE-DERIVED, not retyped, because section A grew a seeding
+    stop and section C grew a second beat in C1c and a rule switch in C1d. This test
+    holds the arithmetic, not the number — it would catch a section growing in prose
+    without the total following.
+    """
     text = _text()
     rows = re.findall(r"^\| [A-H] · [^|]+\|\s*(\d+)\s*\|", text, re.M)
     assert len(rows) == 8, f"expected eight budgeted sections, found {len(rows)}"
-    assert sum(int(r) for r in rows) == 45, (
-        f"the per-section budgets sum to {sum(int(r) for r in rows)}, not the 45 minutes "
-        "the pass is allotted"
+    total = sum(int(r) for r in rows)
+    assert total == 49, (
+        f"the per-section budgets sum to {total}, not the 49 minutes the pass is allotted"
     )
-    assert "| **Total** | **45** |" in text
+    assert f"| **Total** | **{total}** |" in text
 
 
 def test_the_script_marks_every_stop_as_gate_or_see() -> None:
@@ -237,7 +278,7 @@ def test_the_cut_list_names_only_stops_that_exist_and_none_that_gate() -> None:
 def test_the_script_says_propose_is_outside_the_budget() -> None:
     """T3's gate is unresolved, so its screens may not ship; the budget must not assume."""
     text = _text()
-    assert "not in the 45" in text
+    assert "not in the 49" in text
     assert "| I · Propose | +6 |" in text
 
 
@@ -259,8 +300,8 @@ def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
     text = _text()
     head = _normalised(text[: text.index("## A · Arrival")]).replace("–", "-")
 
-    assert "Block 60-75 minutes." in head
-    assert "45 minutes of walking" in head
+    assert "Block 64-79 minutes." in head
+    assert "49 minutes of walking" in head
     assert "15-30 minutes of findings" in head
     assert "expected, not feared" in head
     assert "two or three findings is what success looks like" in head.lower()
@@ -278,8 +319,8 @@ def test_the_script_tells_the_operator_which_variant_to_run_before_they_start() 
     head = text[: text.index("## A · Arrival")]
     assert "Which world you are in" in head
     assert "section I is NOT part of this pass" in head
-    assert "66-81" in head.replace("–", "-"), "the alternate envelope must still be named"
-    assert head.index("Which world you are in") < head.index("Block 60"), (
+    assert "70-85" in head.replace("–", "-"), "the alternate envelope must still be named"
+    assert head.index("Which world you are in") < head.index("Block 64"), (
         "the variant answer comes before the envelope it changes"
     )
 
@@ -301,3 +342,82 @@ def test_the_cut_rule_is_in_the_prose_and_not_only_in_a_test() -> None:
     """An operator must know the rule before they need it."""
     head = _normalised(_text()[: _text().index("## A · Arrival")])
     assert "cut [SEE] stops, never [GATE] stops" in head
+
+
+# --- R086 §4.10: every [GATE] stop states what to do when it is blocked -----------------
+
+
+def test_every_gate_stop_states_what_to_do_when_blocked() -> None:
+    """ "Today that question came upward three times" (R086 §0). Every [GATE] marker in
+    the 49-minute walking budget (sections A-H) now carries its own answer, so the
+    question does not have to travel to whoever is running the pass — it is answered at
+    the point it would be asked. Section I is out of the walking budget entirely (its own
+    gate, T3's benchmark, is unresolved) and keeps its pre-existing `[GATE, if T3 ships]`
+    marker, which is a different question — whether the stop exists at all this release.
+    """
+    text = _text()
+    walking = text[: text.index("## I · Propose")]
+    stops = re.findall(r"^\*\*([A-I]\d[a-z]?) \[GATE([^\]]*)\]", walking, re.M)
+    assert stops, "no GATE stops found"
+    ACTIONABLE = ("note the finding and continue", "skip", "stop the pass")
+    for stop_id, clause in stops:
+        assert any(word in clause for word in ACTIONABLE), (
+            f"{stop_id}'s [GATE] marker does not say what to do when it is blocked: {clause!r}"
+        )
+
+
+def test_the_state_building_gates_are_the_ones_marked_to_skip_ahead() -> None:
+    """A0 seeds the store everything else reads; C1a makes the draft C1b-E use; E3
+    produces the receipt G verifies. Losing any of the three makes something later
+    unreachable, which is a different situation from a stop that merely reads wrong —
+    and the marker on each says so, by name, rather than leaving it to be inferred."""
+    text = _text()
+    assert re.search(r"\*\*A0 \[GATE — if blocked, stop the pass", text)
+    assert re.search(r"\*\*C1a \[GATE — if blocked, skip C1b", text)
+    assert re.search(r"\*\*E3 \[GATE — if blocked, skip G", text)
+
+
+# --- R086 §4.4-4.7: the authoring stops name a specific rule, not "a rule" --------------
+
+
+def test_the_authoring_stops_name_the_specific_rule_each_one_needs() -> None:
+    text = _text()
+    assert "**Do:** click **`payments.transfer`**." in text, "B2 must name its rule"
+    assert "**Do:** open **`payouts.schedule`**" in text, "C1b must name its rule"
+    assert "the pack's only tier-3 rule" in text, "C1b must say why that rule"
+    assert "**Do:** open **`payments.transfer`** — the pack's only rule with decimal" in text, (
+        "C1d must switch to the rule that actually has decimals to check"
+    )
+
+
+def test_c1c_demonstrates_the_referent_is_never_checked_and_cites_nd057() -> None:
+    """R086 §4.6: type a nonexistent action, watch the refusal clear; then type a real
+    one, watch it clear identically; then say why, citing the ND item filed for it."""
+    text = _text()
+    assert '"payments.refund"' in text and "names no action type in this pack" in text
+    assert '"payments.reverse"' in text and "a real action type in this pack" in text
+    assert "ND-057" in text
+
+
+# --- R086 §4.8: files the operator creates are written by exact command, never copied ---
+
+
+def test_files_the_operator_must_create_are_written_by_exact_command() -> None:
+    """Finding 1's actual cause: 'save this as bad.yaml' over a fenced block let a fence
+    tag become the file's first line. Both files this script asks for are now written by
+    a command that produces the exact bytes, for both shells named in R086 §4.2."""
+    text = _text()
+    assert "save this as" not in text, "the old copy-this-block phrasing must be gone"
+    for filename in ("bad.yaml", "broken.yaml"):
+        assert f"Set-Content -NoNewline {filename}" in text, f"no PowerShell writer for {filename}"
+        assert f"cat > {filename} <<'EOF'" in text, f"no POSIX writer for {filename}"
+
+
+# --- R086 §4.9: curl.exe on Windows ------------------------------------------------------
+
+
+def test_the_api_stops_offer_a_windows_curl_exe_variant() -> None:
+    """`curl` is aliased to `Invoke-WebRequest` in PowerShell 5.1 and `-s` throws there."""
+    text = _text()
+    assert text.count("curl.exe -s") >= 4, "every C3 stop needs a curl.exe variant"
+    assert "alias for" in text and "Invoke-WebRequest" in text

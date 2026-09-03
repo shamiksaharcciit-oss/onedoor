@@ -1,21 +1,28 @@
 # Dogfooding script — the pass that gates the `0.7.0` tag
 
+**Regenerated after R086.** The first pass on this script reached section C in about
+forty minutes and could not continue: it never seeded the store, so C1b had no rule to
+open, and a fenced YAML block copied by hand picked up its own language tag as the
+file's first line. Both are script defects, fixed here — not patched, rewritten. Four
+product defects the same pass found are fixed separately, in the Studio itself; this
+script now describes the product as it actually behaves.
+
 **Which world you are in — currently answered, and it may change once before your pass.**
 
 **As it stands: section I is NOT part of this pass.** The model-proposer track measured
 0 of 11 against its own acceptance corpus on 2026-09-01 and does not ship in this release
 on that result. There is no Propose tab to look for, and its absence is correct rather
-than a fault. **Your block is the 60–75 minutes below.**
+than a fault. **Your block is the 64–79 minutes below.**
 
 That answer can flip once, and only once. A fix is being attempted under three gates; if
-all three are met before you start, you will be handed the **66–81 minute** version of this
+all three are met before you start, you will be handed the **70–85 minute** version of this
 script with section I included, and this paragraph will say so instead. **If nobody hands
 you a different script, this one is the one to walk** — the fallback is the current state,
 not a pending decision, so an unanswered question never leaves you guessing at the door.
 
-**Block 60–75 minutes.** That is the honest envelope, and it is made of two parts:
+**Block 64–79 minutes.** That is the honest envelope, and it is made of two parts:
 
-- **45 minutes of walking** — every stop in sections A–H with nothing going wrong. That
+- **49 minutes of walking** — every stop in sections A–H with nothing going wrong. That
   number is arithmetic, per-section, and asserted by a test.
 - **15–30 minutes of findings** — expected, not feared. **Two or three findings is what
   success looks like for a pass like this**, and the time to write them down is part of
@@ -26,12 +33,24 @@ A budget that counted only the walking would be describing a pass that found not
 **If you run short of time: cut [SEE] stops, never [GATE] stops.** That rule is enforced
 by a test on this document, and it is stated here so you know it before you need it.
 
+**If a [GATE] stop does not match Expect, that is a finding: write down what you saw and
+continue** — a mismatched Expect is not the same thing as being unable to proceed. Every
+[GATE] stop's own marker says which of the two applies to it: **most say "note the
+finding and continue"**, because the pass exists to collect findings and one stop reading
+wrong does not stop the walk. **A few say what to skip**, because a small number of stops
+build state the rest of the pass depends on — those are named, not guessed at, so the
+question never has to come back up to whoever is running the pass. It came up three times
+on the first attempt at this script; it should not need to again.
+
 **For Shamik, on a machine that has never run this.** This is the operator pass R066 §2
-made a condition of the tag: no pass, no tag.
+made a condition of the tag: no pass, no tag. It runs against a store this script creates
+— `pass.db` / `pass-studio.db` — never against whatever a previous pass or the README
+quickstart left behind. A re-walk from section A is deterministic because of that.
 
 **How to use it.** Every stop has three lines — **Do**, **Expect**, **Ask**. Work down the
 page. When what you see does not match **Expect**, that is a **finding**: write down what
-you saw in your own words and keep going. Do not stop to diagnose.
+you saw in your own words and keep going unless the stop's own marker tells you to skip
+ahead. Do not stop to diagnose.
 
 > **Why the route is shaped like this.** It is not a tour of the screens. It builds state
 > early and consumes it late — one draft is created in the editor, uploaded over, submitted
@@ -44,38 +63,72 @@ you saw in your own words and keep going. Do not stop to diagnose.
 > asserts this document still quotes it correctly. If a quoted sentence is *missing* from
 > the screen, that is a finding — the words are load-bearing, not decoration.
 
-**The walking budget is 45 minutes**, sections A–H. **Section I (Propose) is not in the
-45** — see *What a second pass covers* at the end.
+**The walking budget is 49 minutes**, sections A–H. **Section I (Propose) is not in the
+49** — see *What a second pass covers* at the end.
 
 **Every stop is marked:** **[GATE]** stops must be walked for the tag; **[SEE]** stops are
-worth your eyes but do not block.
+worth your eyes but do not block. Each **[GATE]** marker also says what to do if you
+cannot complete it at all — see the paragraph above.
+
+**Files this pass creates**, all at the repo root, all disposable: `pass.db`,
+`pass-studio.db`, `pass-policies.yaml`, `bad.yaml`, `broken.yaml`. None of them is
+committed; none of them is read by anything outside this pass.
 
 ---
 
-## A · Arrival — 4 minutes
+## A · Arrival — 6 minutes
 
-Two terminals. In the first:
+**Two terminals, both open before A0.**
+
+- **Terminal 1** runs the seed commands once, then starts the Studio server and stays on
+  it for the whole pass.
+- **Terminal 2** is idle until section C3 and section F — it runs the API's `curl`
+  commands and the walkthrough command. Open it now so you are not hunting for a second
+  terminal mid-pass.
+
+**A0 [GATE — if blocked, stop the pass here; nothing below can be walked without a
+seeded store] — seed a purpose-made store.**
+**Do:** in the first terminal, from the repo root:
+
+Windows (PowerShell):
 
 ```
-python -m onedoor.studio --db onedoor.db --studio-db studio.db
+Copy-Item onedoor\templates\payments\policies.yaml pass-policies.yaml
+python -c "from onedoor.store.db import Database; from onedoor.guardrail import policy_loader as pl; db = Database('pass.db'); db.init(); conn = db.connect(); n = pl.load_file(conn, 'pass-policies.yaml'); v = pl.record_snapshot(conn); print(f'{n} policies loaded'); print(f'version digest: {v}')"
+python -m onedoor.studio --db pass.db --studio-db pass-studio.db
 ```
 
-Open `http://127.0.0.1:8787`.
+macOS/Linux (POSIX shell):
 
-**A1 [GATE] — the promise in the footer.**
+```
+cp onedoor/templates/payments/policies.yaml pass-policies.yaml
+python -c "from onedoor.store.db import Database; from onedoor.guardrail import policy_loader as pl; db = Database('pass.db'); db.init(); conn = db.connect(); n = pl.load_file(conn, 'pass-policies.yaml'); v = pl.record_snapshot(conn); print(f'{n} policies loaded'); print(f'version digest: {v}')"
+python -m onedoor.studio --db pass.db --studio-db pass-studio.db
+```
+
+**Expect:** the first two commands print `6 policies loaded` and a `version digest: `
+line carrying a 64-character hex value. The third starts the server and does not
+return — leave it running in this terminal and open `http://127.0.0.1:8787`.
+**Ask:** policies enter a store only through this loader or the decision service's own
+startup, never through the Studio — the Studio reads and ratifies and never loads. That
+is why this step exists and why it runs before the server does anything.
+
+**A1 [GATE — if blocked, note the finding and continue] — the promise in the footer.**
 **Do:** look at the bottom of the page.
 **Expect:** "loopback only — nothing leaves this machine".
 **Ask:** does anything on this page look like it came from the internet — a font, an icon,
 a spinner? It should not. That sentence is a claim the code enforces at bind time.
 
-**A2 [GATE] — the version banner.**
+**A2 [GATE — if blocked, note the finding and continue] — the version banner.**
 **Do:** look at the top strip.
-**Expect:** either a version digest, or "no version in force", or a version with "not
-ratified through this Studio". One of the three, never a blank.
-**Ask:** does it say something, rather than showing an empty space? A blank here is the
-single most likely thing to read as "still loading" when it is not.
+**Expect:** `in force <digest> · never ratified · 6 policies · 2 effects · loopback only`
+— A0 recorded a version and nothing has ratified it through the Studio yet, so this is
+not "one of three possible states" the way it would be on an unknown store; it is the
+one state A0 produced, and it should read exactly that.
+**Ask:** does the policy count here match the `6 policies loaded` line from A0? If it
+does not, the two stores disagree about what was loaded.
 
-**A3 [SEE] — the tabs.**
+**A3 [SEE — if blocked, note the finding and continue] — the tabs.**
 **Do:** read the tab bar.
 **Expect:** Policies · Drafts · History · Live state · Verify. **No Propose tab**, unless
 you configured a model endpoint before starting.
@@ -85,7 +138,7 @@ you configured a model endpoint before starting.
 
 ## B · Policies — 4 minutes
 
-**B1 [GATE] — what the page claims to be.**
+**B1 [GATE — if blocked, note the finding and continue] — what the page claims to be.**
 **Do:** open **Policies** and read the line under the heading.
 **Expect:** "An action with no policy here is denied. This page lists what is permitted
 and under what limits; it is not a list of what is blocked, because nothing needs to be
@@ -93,15 +146,16 @@ listed to be blocked."
 **Ask:** could a reader mistake this page for a list of things that are blocked? That
 misreading is the one it is written to prevent.
 
-**B2 [SEE] — a rule's two voices.**
-**Do:** click any action type.
+**B2 [SEE — if blocked, note the finding and continue] — a rule's two voices.**
+**Do:** click **`payments.transfer`**.
 **Expect:** the left pane says what the rule *does*, in sentences; the right pane is the
 rule itself. If the rule came from a description someone wrote, a third block quotes them,
 marked as their words.
 **Ask:** do the plain-English sentences and the rule agree? If they disagree, the sentences
 are wrong — they are derived from the rule, not from anyone's memory.
 
-**B3 [GATE] — the header digest names the source.**
+**B3 [GATE — if blocked, note the finding and continue] — the header digest names the
+source.**
 **Do:** note the version digest in the banner.
 **Ask:** everything on this page should be the rules *behind that digest*, not whatever is
 in the database right now. You cannot check that by looking — but if you later see this
@@ -109,68 +163,124 @@ page disagree with a version digest beside it, that is a serious finding.
 
 ---
 
-## C · Author a policy three ways — 14 minutes
+## C · Author a policy three ways — 16 minutes
 
 **This is the section that gates the tag.** The draft you make here is used by every
 section after it.
 
-### C1 · The editor — 5 minutes
+### C1 · The editor — 7 minutes
 
-**C1a [GATE] — make the draft.**
+**C1a [GATE — if blocked, skip C1b–C1d, D and E, note them not reached, and continue at
+C2] — make the draft.**
 **Do:** **Drafts** → type `the pass draft` → *Open a draft*.
 **Expect:** a draft page, pinned to the version in force.
 **Ask:** does it say what it is pinned to?
 
-**C1b [GATE] — edit a rule, and watch it check as you type.**
-**Do:** open a rule in the draft. In the right-hand pane, change `"tier": 3` to
-`"tier": 2` and pause — **do not save**.
+**C1b [GATE — if blocked, note the finding and continue] — edit a rule, and watch it
+check as you type.**
+**Do:** open **`payouts.schedule`** — the pack's only tier-3 rule, which is why it is the
+one to open: this stop needs to start from a rule that is not already auto-executing. In
+the right-hand pane, change `"tier": 3` to `"tier": 2` and pause — **do not save**.
 **Expect:** within about a second, the validation below updates on its own, and the
 refusal list gains a line about `compensating_command`.
 **Ask:** did it update *without you saving*? That is the whole point of the track: nothing
 the loader would refuse at boot should first be discovered at boot.
 
-**C1c [GATE] — fix it and watch it clear.**
-**Do:** add `"compensating_command": "payments.refund"` to the same pane. Pause.
-**Expect:** the refusal disappears.
-**Ask:** does the refusal list ever tell you something *is* wrong when it is not? A list
-that cries wolf is worse than one that misses.
+**C1c [GATE — if blocked, note the finding and continue] — fix it, twice, and watch it
+clear identically both times.**
+**Do:** still in `payouts.schedule`, add `"compensating_command": "payments.refund"` to
+the pane and pause. `payments.refund` names no action type in this pack — it does not
+exist.
+**Expect:** the refusal disappears anyway.
+**Do:** now change the value to `"payments.reverse"` — a real action type in this pack —
+and pause again.
+**Expect:** the refusal disappears identically. Nothing about the second attempt reads as
+more correct than the first, because the check that cleared both is
+`not policy.compensating_command` in `onedoor/guardrail/policy_loader.py` — truthiness
+only. Neither string is resolved against the policy set, at load time or at decision
+time; that gap is tracked as `ND-057` in `BACKLOG.md` and is not fixed in this release.
+**Ask:** would you have guessed that from the page alone? This stop exists because the
+answer is no — and because the list never tells you something *is* wrong when it is not,
+which is a different, narrower promise than "this reversal exists."
 
-**C1d [SEE] — the two panes.**
-**Do:** save from the raw pane and look at the guided form beside it.
-**Expect:** the same values, in both, including decimals spelled the same way.
+**C1d [SEE — if blocked, note the finding and continue] — the two panes, on a rule that
+actually has decimals.**
+**Do:** open **`payments.transfer`** — the pack's only rule with decimal caps and bounds
+(`500.00`, `5000.00`, `0.01`, `2000.00`); `payouts.schedule` has none, so checking this on
+it could not fail. Save from the raw pane and look at the guided form beside it.
+**Expect:** the same values in both, decimals spelled the same way.
 **Ask:** can you make the two panes disagree? If you can, that is a significant finding.
 
 ### C2 · Upload — 5 minutes
 
-**C2a [GATE] — a file the loader refuses.**
-**Do:** save this as `bad.yaml` and upload it on **Drafts** → *From a file*:
+**C2a [GATE — if blocked, note the finding and continue] — a file the loader refuses.**
+**Do:** write the file with an exact command — do not copy the block below by hand. A
+fence's language tag becoming the file's first line is what sent the first attempt at
+this script forty minutes sideways.
+
+Windows (PowerShell):
 
 ```
+@'
 policies:
   - action_type: payments.transfer
     tier: 2
+'@ | Set-Content -NoNewline bad.yaml
 ```
 
+macOS/Linux (POSIX shell):
+
+```
+cat > bad.yaml <<'EOF'
+policies:
+  - action_type: payments.transfer
+    tier: 2
+EOF
+```
+
+Upload `bad.yaml` on **Drafts** → *From a file*.
 **Expect:** you get a **draft anyway**, and its page shows the refusal about
 `compensating_command`, the stage "applying the per-rule rules", and a line number.
 **Ask:** were you given the reasons, or handed your file back? Being handed your file back
 is the behaviour this track replaced.
 
-**C2b [GATE] — a file that will not parse at all.**
-**Do:** upload a file containing `policies:` then a line reading `  - [unclosed`.
+**C2b [GATE — if blocked, note the finding and continue] — a file that will not parse at
+all.**
+**Do:** write this one the same way:
+
+Windows (PowerShell):
+
+```
+@'
+policies:
+  - [unclosed
+'@ | Set-Content -NoNewline broken.yaml
+```
+
+macOS/Linux (POSIX shell):
+
+```
+cat > broken.yaml <<'EOF'
+policies:
+  - [unclosed
+EOF
+```
+
+Upload `broken.yaml`.
 **Expect:** a refusal at the stage "reading the file", plus: "Checking stopped at this
 stage. The stages after it did not run, so they found nothing because they were not asked
 — not because there is nothing to find."
 **Ask:** is it clear that the later checks *did not run*, rather than passing? Silence from
 a check that never ran is the easiest thing on that page to misread.
 
-**C2c [SEE] — a file that is not text at all.**
+**C2c [SEE — if blocked, note the finding and continue] — a file that is not text at
+all.**
 **Do:** upload any small image, renamed to `.yaml`.
 **Expect:** a page saying the file could not be read, and explicitly **not** saying the
 policy is invalid.
 **Ask:** does it accuse your policy of anything? It should accuse only your file.
 
-**C2d [GATE] — the honesty line.**
+**C2d [GATE — if blocked, note the finding and continue] — the honesty line.**
 **Do:** look under any refusal list.
 **Expect:** "These are the problems found, not all problems: the engine's validator stops
 at the first failure in each rule, and defects that only appear when rules are read
@@ -179,30 +289,87 @@ together are invisible to a per-rule check."
 
 ### C3 · The API — 4 minutes
 
-In the second terminal.
+In the second terminal — open since section A0.
 
-**C3a [GATE] — read the draft you made in the browser.**
-**Do:** `curl -s localhost:8787/api/v1/drafts` and find `the pass draft`; note its
-`draft_id`.
+**C3a [GATE — if blocked, note the finding and continue] — read the draft you made in
+the browser.**
+**Do:**
+
+Windows (PowerShell):
+
+```
+curl.exe -s localhost:8787/api/v1/drafts
+```
+
+macOS/Linux (POSIX shell):
+
+```
+curl -s localhost:8787/api/v1/drafts
+```
+
+Find `the pass draft`; note its `draft_id`. (`curl` in PowerShell 5.1 is an alias for
+`Invoke-WebRequest` and `-s` throws — `curl.exe` reaches the real binary.)
 **Expect:** the same draft, with `"state": "draft"` and the rules you edited.
 **Ask:** is this the same object you were just looking at? The UI and the API are one
 store — if they disagree, that is a serious finding.
 
-**C3b [GATE] — ask the API what the loader thinks.**
-**Do:** `curl -s localhost:8787/api/v1/drafts/<id>/validation`
+**C3b [GATE — if blocked, note the finding and continue] — ask the API what the loader
+thinks.**
+**Do:**
+
+Windows (PowerShell):
+
+```
+curl.exe -s localhost:8787/api/v1/drafts/<id>/validation
+```
+
+macOS/Linux (POSIX shell):
+
+```
+curl -s localhost:8787/api/v1/drafts/<id>/validation
+```
+
 **Expect:** two separate keys — `refusals` and `forecasts` — never one merged list.
 **Ask:** could a program reading this mistake a forecast for a refusal?
 
-**C3c [GATE] — submit it, and check that nothing was approved.**
-**Do:** `curl -s -X POST localhost:8787/api/v1/drafts/<id>/submit`
+**C3c [GATE — if blocked, note the finding and continue] — submit it, and check that
+nothing was approved.**
+**Do:**
+
+Windows (PowerShell):
+
+```
+curl.exe -s -X POST localhost:8787/api/v1/drafts/<id>/submit
+```
+
+macOS/Linux (POSIX shell):
+
+```
+curl -s -X POST localhost:8787/api/v1/drafts/<id>/submit
+```
+
 **Expect:** `"state": "submitted"`, a `ceremony_url`, and: "A human has been asked to
 ratify this draft. Nothing has been approved, no version pointer moved, and no receipt was
 written. Ratification happens on the ceremony page."
 **Ask:** reload **Policies**. Did anything change? It must not have. *Submitting is asking,
 not approving.*
 
-**C3d [SEE] — the API says what it is not.**
-**Do:** `curl -s localhost:8787/api/v1/openapi.json` and find the description.
+**C3d [SEE — if blocked, note the finding and continue] — the API says what it is not.**
+**Do:**
+
+Windows (PowerShell):
+
+```
+curl.exe -s localhost:8787/api/v1/openapi.json
+```
+
+macOS/Linux (POSIX shell):
+
+```
+curl -s localhost:8787/api/v1/openapi.json
+```
+
+Find the description.
 **Expect:** "The v1 API adds no approval route — ratification belongs to the human
 ceremony. One legacy route (POST /draft/{id}/ratify), predating actor identity, still
 serves; it records its approver as declared, never authenticated, and is retired with the
@@ -216,7 +383,8 @@ reassuring.
 
 **This stop exists because it is the easiest thing in the product to get wrong.**
 
-**D1 [GATE] — a rule that loads and still misbehaves.**
+**D1 [GATE — if blocked, note the finding and continue] — a rule that loads and still
+misbehaves.**
 **Do:** in your draft, give a rule a euro cap and **no** `cost_param` — add
 `"caps": {"eur_day": "100"}` and make sure there is no `cost_param`.
 **Expect:** it appears under **"Once in force, these rules will"** with the code
@@ -225,14 +393,16 @@ reassuring.
 serious one:** the engine loads that rule happily and denies later, so calling it a boot
 refusal would be the Studio lying about the engine.
 
-**D2 [GATE] — the second list says what it is.**
+**D2 [GATE — if blocked, note the finding and continue] — the second list says what it
+is.**
 **Do:** read the note above that list.
 **Expect:** "These are not refusals: the loader accepts every rule below. They describe how
 each rule will behave once it is in force, and each one names the reason code the engine
 will record."
 **Ask:** does every line there name a reason code? A forecast without one is unfalsifiable.
 
-**D3 [SEE] — and it does not overclaim either.**
+**D3 [SEE — if blocked, note the finding and continue] — and it does not overclaim
+either.**
 **Expect:** "Only the behaviours this check knows how to predict are listed. A rule with no
 row here has not been shown to be free of surprises."
 **Ask:** does the page ever imply the rule is *safe*? It should say only what it checked.
@@ -241,14 +411,14 @@ row here has not been shown to be free of surprises."
 
 ## E · The ceremony — 6 minutes
 
-**E1 [GATE] — reading is not ratifying.**
+**E1 [GATE — if blocked, note the finding and continue] — reading is not ratifying.**
 **Do:** open the draft's *Review and ratify* page. Read it. Do **not** confirm yet. Then
 open **Policies** in another tab.
 **Expect:** nothing has changed.
 **Ask:** did loading the page change anything? It must not — that is the entire reason
 this is a page and not a button.
 
-**E2 [GATE] — what it promises.**
+**E2 [GATE — if blocked, note the finding and continue] — what it promises.**
 **Expect:** "Ratifying applies these rules to the enforcer store and seals a receipt. There
 is no un-ratify: to go back you ratify again, which is a new version and a new receipt.
 Nothing that already happened under the old rules is changed by either."
@@ -256,37 +426,42 @@ Nothing that already happened under the old rules is changed by either."
 "irreversible"? **Those words would be a finding.** They are false, and false in the
 direction that looks like caution.
 
-**E3 [GATE] — ratify.**
+**E3 [GATE — if blocked, skip G, note it not reached, and continue at F or H] — ratify.**
 **Do:** confirm, with a session note.
 **Expect:** a receipt with a digest, and **Policies** now shows your rules.
 **Ask:** does the receipt name who ratified? It names what you *typed* — it is declared,
 not authenticated, and the product says so rather than pretending.
 
-**E4 [SEE] — the diff you were shown.**
+**E4 [SEE — if blocked, note the finding and continue] — the diff you were shown.**
 **Ask:** did the "would become" side match what is now in force?
 
 ---
 
 ## F · History and re-evaluation — 6 minutes
 
-**F1 [GATE] — make a decision happen.**
+**F1 [GATE — if blocked, note the finding and continue] — make a decision happen.**
 **Do:** in the second terminal:
 
 ```
-python -m onedoor.studio.walkthrough --db onedoor.db
+python -m onedoor.studio.walkthrough --db pass.db
 ```
 
-**Expect:** it prints what it did.
+**Expect:** `payments.transfer: denied (bounds)`. That is not a bug: the walkthrough
+sends one parameter (`amount_eur`), and this pack's `payments.transfer` requires
+`amount_eur` **and** `destination_account`. The walkthrough exists to put one decision in
+front of you for History to show, not to satisfy every pack's bounds.
 **Ask:** nothing yet.
 
-**F2 [GATE] — find it.**
+**F2 [GATE — if blocked, note the finding and continue] — find it.**
 **Do:** open **History**.
-**Expect:** your decision, with a chain number.
+**Expect:** your decision, denied, with a chain number.
 **Ask:** if you filter the list, does the form *show* you the filter you applied? An
 invisible filter turns "no rows" into a false statement about the world.
 
-**F3 [GATE] — replay it under a different version.**
-**Do:** open the entry, choose another version, and re-evaluate.
+**F3 [GATE — if blocked, note the finding and continue] — replay it under a different
+version.**
+**Do:** open the entry, choose the version from before you ratified in section E, and
+re-evaluate.
 **Expect:** both versions named together, and a sentence saying this is what *would have*
 happened — not what will.
 **Ask:** is it obvious that nothing was re-executed? And if a version's rules cannot be
@@ -298,13 +473,15 @@ row is the feature's conscience.
 
 ## G · Verify — 4 minutes
 
-**G1 [GATE] — the page built for a stranger.**
-**Do:** **Verify** → open your receipt.
+**G1 [GATE — if blocked, note the finding and continue] — the page built for a
+stranger.**
+**Do:** **Verify** → open your receipt from section E.
 **Expect:** the method first, the answer last, and the two files offered for download.
 **Ask:** could someone who distrusts you, and distrusts this software, check this claim
 with what the page gives them?
 
-**G2 [GATE] — check it without trusting the Studio.**
+**G2 [GATE — if blocked, note the finding and continue] — check it without trusting the
+Studio.**
 **Do:** save the two files and run:
 
 ```
@@ -320,20 +497,21 @@ your download would be the worst error this page could make.**
 
 ## H · Live state — 2 minutes
 
-**H1 [GATE] — the kill switch you cannot throw here.**
+**H1 [GATE — if blocked, note the finding and continue] — the kill switch you cannot
+throw here.**
 **Do:** open **Live state**.
 **Expect:** the switch's state shown, **no button**, and a stated reason why this process
 does not offer one.
 **Ask:** does anything look clickable that is not? A control that renders as operable and
 is not would be a finding.
 
-**H2 [SEE] — the budget bars.**
+**H2 [SEE — if blocked, note the finding and continue] — the budget bars.**
 **Ask:** does a cap with no declared limit draw an empty bar, or no bar at all? It should
 draw nothing and say why — a bar needs a denominator.
 
 ---
 
-## I · Propose — **not in the 45 minutes**
+## I · Propose — **not in the 49 minutes**
 
 **Only if a model endpoint was configured before the Studio started.** If it was not, there
 is no **Propose** tab, and that absence is itself correct — check it and move on.
@@ -361,23 +539,23 @@ words.
 
 | Section | Minutes | Gates the tag |
 |---|---|---|
-| A · Arrival | 4 | yes |
+| A · Arrival | 6 | yes |
 | B · Policies | 4 | yes |
-| C · Author three ways | 14 | yes |
+| C · Author three ways | 16 | yes |
 | D · The two lists | 5 | yes |
 | E · The ceremony | 6 | yes |
 | F · History and re-evaluation | 6 | yes |
 | G · Verify | 4 | yes |
 | H · Live state | 2 | yes |
-| **Total** | **45** | |
+| **Total** | **49** | |
 | I · Propose | +6 | only if T3 ships |
 
-**The 45 is the walking half, and it is a floor rather than a budget.** It assumes
+**The 49 is the walking half, and it is a floor rather than a budget.** It assumes
 nothing goes wrong and no finding is investigated. **Every finding costs time the walking
 number does not contain** — writing one down is a minute, and the first usually prompts a
 second look at the screen before it.
 
-So the envelope at the top of this page is **60–75 minutes** (66–81 if section I is in),
+So the envelope at the top of this page is **64–79 minutes** (70–85 if section I is in),
 and the 15–30 minutes of findings in it is an **expectation, not a risk**: this pass
 exists to produce findings, and a schedule that leaves no room for the thing the activity
 is for has budgeted for failure and called it success.
@@ -388,7 +566,7 @@ a promise the product makes in words, or a failure mode this build was written t
 
 ## What a second pass covers
 
-- **Section I** in full, once the T3 decision is made. It is out of the 45 because T3's
+- **Section I** in full, once the T3 decision is made. It is out of the 49 because T3's
   own gate (a benchmark with published misses) is unresolved, so its screens may not ship.
 - **Anything a finding opened.** A finding is a reason to look harder at that area, and
   looking harder is a second pass, not an overrun of this one.
@@ -408,4 +586,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = 698a838994483756bea4ac28c434ec06a2ab0dd346e841cc0c7dbc8aeefb0536
+Integrity: sha256(body) = 13c9bd17f864742f5b9931730d19a24227b407f1839a7288d53799c9f4123750
