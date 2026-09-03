@@ -152,6 +152,15 @@ class StudioState:
     cannot act is the right-typed lie as a button, and the Studio has refused that shape
     since V4's kill switch.
     """
+    db_defaulted: bool = True
+    """Whether `--db` was left at its default rather than named on the command line.
+
+    Threaded from argparse (R086 §2D) — `has_default_value` on the namespace is the only
+    place this fact exists, since a path equal to the default string was still typed by
+    an operator who should not be doubted. Defaults to `True` so a caller built directly
+    (a test, a library use) gets the warning wording with the extra hypothesis rather
+    than one that silently claims a naming that never happened.
+    """
 
     def close(self) -> None:
         self.enforcer.close()
@@ -159,7 +168,11 @@ class StudioState:
 
 
 def open_state(
-    db_path: str, studio_path: str = DEFAULT_STUDIO_DB, *, config: EngineConfig | None = None
+    db_path: str,
+    studio_path: str = DEFAULT_STUDIO_DB,
+    *,
+    config: EngineConfig | None = None,
+    db_defaulted: bool = True,
 ) -> StudioState:
     database = Database(db_path)
     database.init()
@@ -174,6 +187,7 @@ def open_state(
         # explicitly no fallback to the fixture -- a demo that looks like a model and is
         # not is the failure `proposer_provenance` exists to prevent.
         proposer=live_proposer.from_env(),
+        db_defaulted=db_defaulted,
     )
 
 
@@ -522,6 +536,7 @@ def create_app(state: StudioState) -> Any:
                     drafts.listing(state.studio),
                     policy_loader.current_version(state.enforcer),
                     active_policy_count(state),
+                    db_defaulted=state.db_defaulted,
                 ),
                 banner=banner_for(state),
                 tabs=tabs_for(state),
@@ -599,16 +614,27 @@ def create_app(state: StudioState) -> Any:
 
         result = staging.staged(text)
         with state.lock:
-            descriptions.freeze(state.studio, text, now=now_utc())
+            # The frozen bytes are the link. `freeze` returns the digest, the redirect
+            # carries it, and the draft page re-stages that exact text to render the
+            # refusals -- one source of truth, no schema change, and the parameter in
+            # the URL bar is one a handler actually reads.
+            digest = descriptions.freeze(state.studio, text, now=now_utc())
             draft = new_draft(state, title=f"uploaded: {filename}")
-            if result.policies:
-                save_draft(
-                    state,
-                    draft.draft_id,
-                    policies=list(result.policies),
-                    effects=list(result.effects),
-                )
-        return RedirectResponse(url=f"/drafts/{draft.draft_id}?uploaded=1", status_code=303)
+            # UNCONDITIONAL. The guard used to be `if result.policies:`, which skipped
+            # the save for stage-1 and stage-2 refusals -- and `new_draft` seeds from
+            # the version IN FORCE, so a refused upload silently produced a draft
+            # titled `uploaded: <file>` holding the rules already in force. An operator
+            # was then shown "The validator found no problems in these rules."
+            #
+            # A draft named after a file must contain that file or nothing. Saving
+            # whatever parsed -- including nothing -- is what makes the title true.
+            save_draft(
+                state,
+                draft.draft_id,
+                policies=list(result.policies),
+                effects=list(result.effects),
+            )
+        return RedirectResponse(url=f"/drafts/{draft.draft_id}?uploaded={digest}", status_code=303)
 
     @app.post("/drafts/{draft_id}/validate", response_class=HTMLResponse)
     async def validate_fragment(request: Request, draft_id: str) -> Any:
@@ -634,7 +660,20 @@ def create_app(state: StudioState) -> Any:
         return HTMLResponse(content=screens.validation_fragment(result, items, inert_checked=True))
 
     @app.get("/drafts/{draft_id}", response_class=HTMLResponse)
-    def draft_detail(draft_id: str, backtest: bool = False) -> Any:
+    def draft_detail(draft_id: str, backtest: bool = False, uploaded: str = "") -> Any:
+        """S3 detail. `uploaded` is a frozen description's digest, and it is READ.
+
+        It used to be `?uploaded=1`, and nothing read it — every staged refusal was
+        computed at upload time and thrown away, so a file the loader rejected produced
+        a page that said nothing about why. **A query parameter no handler reads is a
+        promise in the URL bar.**
+
+        Now it addresses the frozen bytes. The page re-stages that exact text through
+        the same validator the upload used, so the refusals a reader sees are derived
+        from what they actually sent rather than remembered from a previous request.
+        An unknown or unreadable digest renders no refusal panel — an absent one, not
+        an empty one claiming the file was clean.
+        """
         with state.lock:
             try:
                 view = drafts.build(
@@ -646,8 +685,15 @@ def create_app(state: StudioState) -> Any:
                 )
             except store.StudioStoreError:
                 return _draft_missing(draft_id)
+            upload_result = None
+            if uploaded:
+                frozen = descriptions.load(state.studio, uploaded)
+                if frozen is not None:
+                    upload_result = staging.staged(frozen)
             return shell.render(
-                body=screens.draft_body(view, derivation_for(state, draft_id)),
+                body=screens.draft_body(
+                    view, derivation_for(state, draft_id), upload=upload_result
+                ),
                 banner=banner_for(state),
                 tabs=tabs_for(state),
                 active="drafts",
@@ -1433,6 +1479,7 @@ def serve(
     *,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
+    db_defaulted: bool = True,
 ) -> None:  # pragma: no cover - exercised by `require_loopback` and the app tests
     """Run the Studio. Refuses a non-loopback host **before** a socket exists."""
     require_loopback(host)
@@ -1440,7 +1487,7 @@ def serve(
         import uvicorn
     except ImportError as exc:
         raise RuntimeError("the Studio server needs uvicorn: install `onedoor[studio]`") from exc
-    state = open_state(db_path, studio_path)
+    state = open_state(db_path, studio_path, db_defaulted=db_defaulted)
     try:
         uvicorn.run(create_app(state), host=host, port=port, log_level="warning")
     finally:

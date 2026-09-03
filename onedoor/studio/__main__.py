@@ -16,13 +16,27 @@ from onedoor.studio.server import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_STUDIO_DB,
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m onedoor.studio", description=__doc__)
-    parser.add_argument("--db", default="onedoor.db", help="the enforcer's store (read + ratify)")
+    default_db = "onedoor.db"
+    # `default=None` rather than `default=default_db`: R086 §2D needs to know whether
+    # `--db` was TYPED, not whether its value happens to equal the default string. An
+    # operator who typed `--db onedoor.db` named it and should not be doubted; comparing
+    # the parsed value against `default_db` would have called that "defaulted" too.
+    # `args.db is None` is the only reliable signal argparse gives for "absent from argv".
+    parser.add_argument("--db", default=None, help="the enforcer's store (read + ratify)")
     parser.add_argument("--studio-db", default=DEFAULT_STUDIO_DB, help="the drafts store")
     parser.add_argument("--host", default=DEFAULT_HOST, help="loopback only; anything else refused")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args(argv)
+    db_defaulted = args.db is None
+    db_path = args.db if args.db is not None else default_db
     try:
-        serve(args.db, args.studio_db, host=args.host, port=args.port)
+        serve(
+            db_path,
+            args.studio_db,
+            host=args.host,
+            port=args.port,
+            db_defaulted=db_defaulted,
+        )
     except BindRefused as exc:
         print(f"onedoor studio: {exc}", file=sys.stderr)
         return 2

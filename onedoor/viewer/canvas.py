@@ -169,21 +169,53 @@ def _divergence_block(panels: canvas_module.Panels) -> str:
     )
 
 
-STORE_WARNING = (
-    "This store has never seen the engine: it holds no policies at all. Did you point "
-    "--db at the service's database? The decision service defaults to "
-    "`onedoor-service.db` and this Studio's --db defaults to `onedoor.db`, so the two "
-    "disagree unless you name one explicitly. A draft ratified here would apply to a "
-    "store nothing enforces."
+STORE_EMPTY = "This store has never seen the engine: it holds no policies at all. "
+"""The observation, and the only part of the warning that is measured rather than
+inferred. Both messages below open with it, so the sentence a reader must believe is
+the same sentence in either case."""
+
+STORE_WARNING_DEFAULTED = (
+    STORE_EMPTY + "Did you point --db at the service's database? The decision service "
+    "defaults to `onedoor-service.db` and this Studio's --db defaults to `onedoor.db`, "
+    "so the two disagree unless you name one explicitly. A draft ratified here would "
+    "apply to a store nothing enforces."
 )
-"""F-H. The Studio cannot know which file you meant; it can know the one it opened has
-never held a policy, and that observation is what makes the mistake findable.
+"""When `--db` was **defaulted**. Only then can the defaults mismatch be the cause, and
+only then is asking about it worth the operator's attention."""
 
-*A wrong default that cannot be noticed is a defect twice.* Configuration advice, not a
-verdict — so it is styled with `--seal` and never with the semantic pair."""
+STORE_WARNING_NAMED = (
+    STORE_EMPTY + "You named this store on the command line, so it is the file you "
+    "meant — it is simply empty. Policies enter a store through the engine's loader, "
+    "never through this Studio: run the decision service against it, or load a policy "
+    "file with `policy_loader.load_file`. Until something loads rules, a draft ratified "
+    "here would apply to a store nothing enforces."
+)
+"""When `--db` was **named**. Finding 3, R086 §2D: the old single message asked *"Did
+you point --db at the service's database?"* of an operator who had just answered that
+question in their own argv, and offered a defaults mismatch that their command line had
+already excluded. **One condition, at least two causes, and the message named the one
+that was ruled out.** The Studio cannot know which file you meant; it *can* know whether
+you told it, and a message that ignores what the process already knows spends the
+operator's attention on the wrong search."""
+
+STORE_WARNING = STORE_WARNING_DEFAULTED
+"""The defaulted wording, kept under its old name for callers that do not know which it
+was. Retained rather than removed because a caller that cannot tell should get the
+message with the extra hypothesis in it, not silence."""
 
 
-def _store_warning(active_policies: int | None) -> str:
+def store_warning(*, db_defaulted: bool) -> str:
+    """Which of the two warnings this deployment has standing to print.
+
+    `db_defaulted` is knowledge the CLI has and no one else does, so it is threaded from
+    argparse rather than guessed from the path: a path that happens to equal the default
+    string was still *named*, and the operator who typed it deserves the message that
+    does not doubt them.
+    """
+    return STORE_WARNING_DEFAULTED if db_defaulted else STORE_WARNING_NAMED
+
+
+def _store_warning(active_policies: int | None, *, db_defaulted: bool = True) -> str:
     """Rendered only when the enforcer store is provably empty.
 
     `None` means the count was not taken, which is not the same as zero and must not
@@ -191,7 +223,8 @@ def _store_warning(active_policies: int | None) -> str:
     """
     if active_policies is None or active_policies > 0:
         return ""
-    return f"<section class='{DIFF_ZONE} store-warning'><p>{_e(STORE_WARNING)}</p></section>"
+    text = store_warning(db_defaulted=db_defaulted)
+    return f"<section class='{DIFF_ZONE} store-warning'><p>{_e(text)}</p></section>"
 
 
 def _create_form() -> str:

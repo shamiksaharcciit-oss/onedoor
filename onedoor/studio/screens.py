@@ -518,7 +518,11 @@ def _honesty_footnote() -> str:
 
 
 def drafts_body(
-    listing: list[Any], active_version: str | None, active_policies: int | None = None
+    listing: list[Any],
+    active_version: str | None,
+    active_policies: int | None = None,
+    *,
+    db_defaulted: bool = True,
 ) -> str:
     """S3 index: the drafts, and the form that makes one.
 
@@ -526,10 +530,15 @@ def drafts_body(
     When V5 moved Drafts to `/drafts` the warning stayed behind on a page nothing linked
     to — **a shipped fix quietly stranded by a redesign.** Caught by V8's universal pass;
     it lives here now, on the page the operator actually reaches.
+
+    `db_defaulted` picks which warning has standing (R086 §2D). It defaults to `True`
+    because that wording carries the extra hypothesis, and a caller that did not say
+    should be offered the possibility rather than have it silently withdrawn.
     """
     head = '<h2>Drafts</h2><div class="rulebar"></div>'
     if active_policies == 0:
-        head += f'<div class="empty store-warning">{escape(canvas_skin.STORE_WARNING)}</div>'
+        warning = canvas_skin.store_warning(db_defaulted=db_defaulted)
+        head += f'<div class="empty store-warning">{escape(warning)}</div>'
     create = (
         '<div class="panel create-block"><h3>New draft</h3>'
         '<form method="post" action="/drafts">'
@@ -662,7 +671,12 @@ def _backtest_block(view: drafts.DraftView) -> str:
     )
 
 
-def draft_body(view: drafts.DraftView, derivation: dict[str, Any] | None = None) -> str:
+def draft_body(
+    view: drafts.DraftView,
+    derivation: dict[str, Any] | None = None,
+    *,
+    upload: staging.StagedResult | None = None,
+) -> str:
     """S3 detail: the pin, the diff, the problems, the backtest, and the way to ratify.
 
     `derivation` is ND-056/T3's record, when a model drafted this. It is rendered as
@@ -693,7 +707,97 @@ def draft_body(view: drafts.DraftView, derivation: dict[str, Any] | None = None)
     # whichever origin they expected.
     origin = derivation_block(derivation)
     return (
-        head + origin + _diff_block(view) + _problems_block(view) + _backtest_block(view) + ceremony
+        head
+        + _upload_block(upload)
+        + origin
+        + _rules_block(view)
+        + _diff_block(view)
+        + _problems_block(view)
+        + _backtest_block(view)
+        + ceremony
+    )
+
+
+UPLOAD_REFUSED_LEDE = (
+    "This draft was created from an uploaded file, and the engine's loader would refuse "
+    "it. Nothing was repaired and nothing was guessed: the draft holds whatever parsed, "
+    "which is why it may be empty."
+)
+
+UPLOAD_CLEAN_LEDE = (
+    "This draft was created from an uploaded file, and the loader accepted every stage it ran."
+)
+
+
+def _upload_block(result: staging.StagedResult | None) -> str:
+    """What the loader made of an uploaded file, shown on the draft it produced.
+
+    Rendered only when the page was reached from an upload, because a draft that was
+    typed has no file to report on and an empty panel would invite the reader to
+    conclude something about one.
+
+    The refusals are re-staged from the frozen bytes at render time rather than carried
+    across the redirect, so what is shown is derived from what the operator actually
+    sent. Before this, every staged refusal was computed at upload time and discarded,
+    and a file refused at stage 1 or 2 produced a page that said the rules were fine.
+    """
+    if result is None:
+        return ""
+    lede = UPLOAD_CLEAN_LEDE if result.loads else UPLOAD_REFUSED_LEDE
+    return (
+        f'<div class="panel"><h3>From the uploaded file</h3>'
+        f'<p class="plain">{escape(lede)}</p></div>' + refusals_block(result)
+    )
+
+
+RULES_NONE = (
+    "This draft holds no rules. Nothing is being proposed, so ratifying it would "
+    "remove every rule currently in force."
+)
+"""What an empty draft says, because **absent is a state to render, never a blank.**
+
+The sentence states the consequence rather than the count, because an operator reading
+"0 rules" has been told a number and not what it means. An empty draft is a real and
+occasionally correct thing to have; it is also the shape an upload takes when the
+loader refused the file, and either way the reader should know what ratifying it does.
+"""
+
+
+def _rules_block(view: drafts.DraftView) -> str:
+    """The draft's rules, each a link into the editor (R086 §2A, finding 6).
+
+    **The editor had no door.** `GET /drafts/{id}/edit/{action_type}` was complete —
+    both panes, live validation wired — and the only two `/edit/` references in the
+    Studio were the form actions on the editor page itself. Nothing linked in, so the
+    authoring surface was reachable only by typing a URL a stranger would have to read
+    the source to construct. An operator walking the pass could not reach it, and no
+    test noticed because every editor test addressed the route directly.
+
+    Sorted by action type so the same draft renders the same list twice — a list that
+    reshuffles between loads is a list nobody can cite a position in.
+    """
+    rules = sorted(view.draft.policies, key=lambda p: p.action_type)
+    if not rules:
+        return (
+            '<div class="panel"><h3>Rules in this draft</h3>'
+            f'<div class="empty">{escape(RULES_NONE)}</div></div>'
+        )
+    rows = "".join(
+        "<tr>"
+        f'<td><a href="/drafts/{escape(view.draft.draft_id)}/edit/'
+        f'{escape(p.action_type)}">{escape(p.action_type)}</a></td>'
+        f'<td class="tier">{escape(p.tier.name)}</td>'
+        f"<td>{escape(', '.join(p.effects)) or '—'}</td>"
+        "</tr>"
+        for p in rules
+    )
+    return (
+        '<div class="panel"><h3>Rules in this draft</h3>'
+        f'<p class="note">{len(rules)} '
+        f"{'rule' if len(rules) == 1 else 'rules'}. Open one to edit it; the rules in "
+        "force are not touched by anything here.</p>"
+        "<table><thead><tr><th>Action</th><th>Tier</th><th>Effects</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
     )
 
 

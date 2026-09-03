@@ -198,12 +198,38 @@ def _count(n: int, singular: str, plural: str) -> str:
     return f"{n} {singular if n == 1 else plural}"
 
 
+def ratified_phrase(ratified: str | None) -> str:
+    """The banner's ratification clause, **label and value composed together**.
+
+    The label used to be emitted unconditionally in front of whichever constant the
+    branch chose, which reads correctly for a date and absurdly for the other two:
+    *"ratified never ratified"*, and *"ratified not ratified through this Studio"* —
+    an affirmative verb bolted to the front of a sentence written to deny it. An
+    operator saw the second one.
+
+    The three constants are correct and untouched; only the composition was wrong.
+    **A label that is true of one branch is not a prefix for all of them** — the value
+    decides whether a label applies, so the value carries it.
+
+    Two of the three values are already complete sentences and take no label. Only a
+    date needs one, and it is the only branch that gets one. Testing truthiness was
+    what produced the defect: `RATIFIED_ELSEWHERE` is a non-empty string, so a
+    truthiness test cannot tell it from a date. **The branch is chosen by which value
+    it is, not by whether there is one.**
+    """
+    if ratified is None:
+        return NEVER_RATIFIED
+    if ratified == RATIFIED_ELSEWHERE:
+        return escape(RATIFIED_ELSEWHERE)
+    return f"ratified {escape(ratified)}"
+
+
 def banner_html(banner: Banner) -> str:
     """`in force <digest> · ratified <date> · N policies · M effects · loopback only`."""
-    ratified = escape(banner.ratified) if banner.ratified else NEVER_RATIFIED
+    ratified = ratified_phrase(banner.ratified)
     return (
         '<div class="vbanner">'
-        f"in force {digest_html(banner.in_force)} · ratified {ratified} · "
+        f"in force {digest_html(banner.in_force)} · {ratified} · "
         f"{_count(banner.policies, 'policy', 'policies')} · "
         f"{_count(banner.effects, 'effect', 'effects')} · {escape(LOOPBACK_LINE)}"
         "</div>"

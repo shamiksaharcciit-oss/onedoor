@@ -1,5 +1,21 @@
 # Policy reference
 
+**Superseded in place** (R086 §2E, Finding 8): the prior text said
+`compensating_command` "must name another registered action type." Nothing in
+the loader or the engine checks that — the field is stored and never resolved
+against the policy set. The corrected field note is below; the whole-file
+digest of the version this replaces is recorded so the correction is
+checkable rather than narrated, the same discipline `studio-constitution.md`
+uses for its origin pin:
+
+```
+sha256(policy-reference.md, prior) = fa0dca42416792c9e45814d80114797add62a9b4a57a01a3fc36620ca6aa0da0
+```
+
+The missing check itself is filed as a backlog item (see `BACKLOG.md`) and is
+**not built here** — this correction only brings the doc into line with what
+the code already does.
+
 Policies are data, not code: a YAML file loaded at startup (and re-loadable).
 Numeric limits, tiers, undo windows — all live here. Unknown action types are
 not configurable: they default-deny to Tier 3 by design.
@@ -43,12 +59,16 @@ policies:
   the approved resumption bypasses the rehearsal, because a human said yes to
   this specific action. Rehearsing a Tier-3 action type means watching what gets
   proposed, not watching nothing happen.
-- **compensating_command** — the reversibility rule. Must name another
-  registered action type; the undo is submitted through the same pipeline,
-  linked to its parent in the audit log. **Every auto-executing tier needs one**
+- **compensating_command** — the reversibility rule. A non-empty value is
+  required for tiers 1 and 2; **the named action type is not checked to exist,
+  at load time or at decision time** — the loader stores the string and
+  neither the loader nor the engine resolves it against the policy set. The
+  undo is submitted through the same pipeline when a real reversal runs,
+  linked to its parent in the audit log, but nothing here guarantees the name
+  resolves to anything. **Every auto-executing tier needs a non-empty value**
   — tier 1 and tier 2 alike, since a budget does not make an irreversible action
-  safe to automate. Entries without one fail at load; an auto action that loses
-  its reversal demotes to Tier 3 at runtime.
+  safe to automate. An empty or absent value fails at load; an auto action that
+  loses its reversal demotes to Tier 3 at runtime.
 - **bounds** — validated for *every* tier before proposals are created, so
   approvers only ever see sane requests. `strict_params: true` rejects any
   parameter not mentioned in `numeric`/`enum`/`required`.
