@@ -81,6 +81,66 @@ def test_both_panes_are_rendered_from_one_object() -> None:
     assert fields["caps.eur_day"] == raw["caps"]["eur_day"]
 
 
+# --- R089 F-E1: a rule with both bounds must show both, not one -----------------------
+
+
+def _both_bounds_rule() -> Policy:
+    """`payments.transfer`'s own `amount_eur`: min AND max, exactly R089's reproduction."""
+    return _rule(
+        bounds=Bounds(
+            numeric={"amount_eur": NumericBound(min=Decimal("0.01"), max=Decimal("2000"))},
+            required=["amount_eur"],
+            strict_params=True,
+        )
+    )
+
+
+def test_the_guided_pane_shows_both_bounds_when_both_are_set() -> None:
+    """The ternary this replaced printed max OR min, never both — on a rule with both,
+    the guided pane read "amount_eur max 2000" with the min silently gone, beneath a
+    caption claiming the two panes cannot disagree. They disagreed, in saved state."""
+    policy = _both_bounds_rule()
+    numeric = next(f.value for f in editor.fields_for(policy) if f.name == "bounds.numeric")
+    assert "amount_eur max 2000" in numeric
+    assert "amount_eur min 0.01" in numeric
+
+
+def test_the_guided_and_raw_panes_agree_on_both_bounds() -> None:
+    """The caption's actual claim (`screens.py`'s "cannot disagree"), held as a test for
+    the both-bounds case specifically — the one the ternary silently failed."""
+    policy = _both_bounds_rule()
+    numeric = next(f.value for f in editor.fields_for(policy) if f.name == "bounds.numeric")
+    raw = json.loads(editor.raw_for(policy))
+    raw_span = raw["bounds"]["numeric"]["amount_eur"]
+    assert raw_span["min"] == "0.01" and raw_span["max"] == "2000"
+    assert "min" in numeric and "max" in numeric  # the guided pane says what raw says
+
+
+def test_a_both_bounds_form_round_trip_is_stable() -> None:
+    """R062 §1's sync law, on the shape F-E1 broke it for: saving from the guided pane
+    over a both-bounds rule must not silently drop the min a moment ago."""
+    policy = _both_bounds_rule()
+    fields = {f.name: [f.value] for f in editor.fields_for(policy)}
+    rebuilt = editor.policy_from_form(fields, base=policy)
+    assert rebuilt.bounds is not None
+    span = rebuilt.bounds.numeric["amount_eur"]
+    assert span.min == Decimal("0.01") and span.max == Decimal("2000")
+
+
+def test_the_editor_page_renders_both_bounds_for_a_saved_rule(state) -> None:
+    """The reproduction on screen, not only in the model: upload/save a both-bounds
+    rule, open its editor page, and the guided pane's own text must carry both."""
+    from fastapi.testclient import TestClient
+
+    policy_loader.upsert(state.enforcer, _both_bounds_rule())
+    draft = server.new_draft(state, title="edit")
+    server.save_draft(state, draft.draft_id, policies=[_both_bounds_rule()])
+    client = TestClient(server.create_app(state))
+    body = client.get(f"/drafts/{draft.draft_id}/edit/payments.transfer").text
+    assert "amount_eur max 2000" in body
+    assert "amount_eur min 0.01" in body
+
+
 def test_the_editor_holds_no_second_parser() -> None:
     """Asserted structurally, the same fence the replay carries: the module must not
     grow a JavaScript mirror or a YAML writer of its own."""

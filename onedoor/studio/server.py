@@ -306,6 +306,13 @@ def repin(state: StudioState, draft_id: str) -> store.Draft:
     )
 
 
+REFUSED_CANDIDATE_INVALID = "candidate_invalid_at_load"
+"""Alongside `ratify.REFUSED_LOST_RACE` etc — this one is caught here, not raised inside
+`ratify.ratify`, because the message is `_apply`'s own `ValueError` text and this route
+is where it is first safe to stop it climbing further (R088 §2's boundary, one page
+later)."""
+
+
 @dataclass(frozen=True)
 class RatifyOutcome:
     """Ratified, or refused **in the ceremony's own words** (T5).
@@ -352,6 +359,17 @@ def ratify_draft(
         )
     except ratify.RatificationRefused as exc:
         return RatifyOutcome(ratified=False, reason=exc.reason, message=str(exc))
+    except ValueError as exc:
+        # `ratify.ratify` calls the same shared `_apply` `ratify.preview` does, and
+        # neither is taught to be permissive (R088 §2) -- a candidate the loader
+        # refuses is refused identically by both, `_apply` untouched either way. This
+        # route is a second reach to that same refusal, alongside F-U1/F-U2's
+        # draft-detail and ceremony pages: `ceremony_body` no longer offers a Ratify
+        # button on a refused draft, but nothing stops a stale link, a replayed form,
+        # or a direct POST from reaching this route anyway, and it must answer rather
+        # than 500 -- self-found while completing the same boundary fix, not part of
+        # R088's enumerated findings, and reported as such.
+        return RatifyOutcome(ratified=False, reason=REFUSED_CANDIDATE_INVALID, message=str(exc))
     return RatifyOutcome(ratified=True, receipt=receipt)
 
 
@@ -405,7 +423,7 @@ def create_app(state: StudioState) -> Any:
     """
     try:
         from fastapi import FastAPI, HTTPException
-        from fastapi.responses import HTMLResponse, RedirectResponse
+        from fastapi.responses import HTMLResponse, RedirectResponse, Response
     except ImportError as exc:  # pragma: no cover - exercised by the extra being absent
         raise RuntimeError(
             "the Studio server needs FastAPI: install `onedoor[studio]`. The canvas has "
@@ -911,6 +929,44 @@ def create_app(state: StudioState) -> Any:
             banner=banner,
             active="verify",
             title="onedoor policy studio \u2014 verify",
+        )
+
+    def _deposition_download(ratification_digest: str, *, filename: str, text: str) -> Any:
+        """One route body shared by both download endpoints below.
+
+        R089 F-V1: the page's own instruction \u2014 *"Copy them anywhere, run it there"* \u2014
+        was unfollowable. The only path to the bytes was select-and-paste out of a
+        `<pre>` block, which risks losing or gaining a byte and turning a sound receipt
+        into a **false `failed`** \u2014 the worst error this page could make, one command
+        away from the thing it exists to prevent. `Content-Disposition: attachment`
+        hands over the exact stored bytes; nothing here re-renders or reformats them.
+        """
+        return Response(
+            content=text,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.get("/verify/{ratification_digest}/receipt.json")
+    def verify_receipt_download(ratification_digest: str) -> Any:
+        """The exact bytes `verify.COMMAND` reads as its first argument."""
+        with state.lock:
+            dep = verify.deposition(state.enforcer, ratification_digest)
+        if dep is None:
+            raise HTTPException(status_code=404, detail=f"no receipt {ratification_digest}")
+        return _deposition_download(
+            ratification_digest, filename="receipt.json", text=dep.receipt_json
+        )
+
+    @app.get("/verify/{ratification_digest}/snapshot.json")
+    def verify_snapshot_download(ratification_digest: str) -> Any:
+        """The exact bytes `verify.COMMAND` reads as its second argument."""
+        with state.lock:
+            dep = verify.deposition(state.enforcer, ratification_digest)
+        if dep is None:
+            raise HTTPException(status_code=404, detail=f"no receipt {ratification_digest}")
+        return _deposition_download(
+            ratification_digest, filename="snapshot.json", text=dep.snapshot_text
         )
 
     @app.get("/policies", response_class=HTMLResponse)

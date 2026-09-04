@@ -234,7 +234,7 @@ def test_the_euro_cap_stop_lands_in_the_forecast_list_and_not_the_refusal_list()
 # --- the budget, and the claims the script makes about itself ---------------------------
 
 
-def test_the_time_budget_adds_up_to_the_forty_nine_minutes_it_claims() -> None:
+def test_the_time_budget_adds_up_to_the_fifty_minutes_it_claims() -> None:
     """A budget that does not sum is a promise about someone's afternoon, broken quietly.
 
     R086 §4: the budget is RE-DERIVED, not retyped, because section A grew a seeding
@@ -246,8 +246,8 @@ def test_the_time_budget_adds_up_to_the_forty_nine_minutes_it_claims() -> None:
     rows = re.findall(r"^\| [A-H] · [^|]+\|\s*(\d+)\s*\|", text, re.M)
     assert len(rows) == 8, f"expected eight budgeted sections, found {len(rows)}"
     total = sum(int(r) for r in rows)
-    assert total == 49, (
-        f"the per-section budgets sum to {total}, not the 49 minutes the pass is allotted"
+    assert total == 50, (
+        f"the per-section budgets sum to {total}, not the 50 minutes the pass is allotted"
     )
     assert f"| **Total** | **{total}** |" in text
 
@@ -278,7 +278,7 @@ def test_the_cut_list_names_only_stops_that_exist_and_none_that_gate() -> None:
 def test_the_script_says_propose_is_outside_the_budget() -> None:
     """T3's gate is unresolved, so its screens may not ship; the budget must not assume."""
     text = _text()
-    assert "not in the 49" in text
+    assert "not in the 50" in text
     assert "| I · Propose | +6 |" in text
 
 
@@ -300,8 +300,8 @@ def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
     text = _text()
     head = _normalised(text[: text.index("## A · Arrival")]).replace("–", "-")
 
-    assert "Block 64-79 minutes." in head
-    assert "49 minutes of walking" in head
+    assert "Block 65-80 minutes." in head
+    assert "50 minutes of walking" in head
     assert "15-30 minutes of findings" in head
     assert "expected, not feared" in head
     assert "two or three findings is what success looks like" in head.lower()
@@ -319,8 +319,8 @@ def test_the_script_tells_the_operator_which_variant_to_run_before_they_start() 
     head = text[: text.index("## A · Arrival")]
     assert "Which world you are in" in head
     assert "section I is NOT part of this pass" in head
-    assert "70-85" in head.replace("–", "-"), "the alternate envelope must still be named"
-    assert head.index("Which world you are in") < head.index("Block 64"), (
+    assert "71-86" in head.replace("–", "-"), "the alternate envelope must still be named"
+    assert head.index("Which world you are in") < head.index("Block 65"), (
         "the variant answer comes before the envelope it changes"
     )
 
@@ -344,12 +344,104 @@ def test_the_cut_rule_is_in_the_prose_and_not_only_in_a_test() -> None:
     assert "cut [SEE] stops, never [GATE] stops" in head
 
 
+# --- R088 §3/§5.3: F-S1 -- A0 refuses/removes a leftover store, never reuses one -------
+
+
+def test_a0_removes_leftover_pass_files_before_it_seeds_them() -> None:
+    """The re-walk's own finding: a `pass.db` the agent's dry-run had already left on
+    disk sixteen hours earlier was silently reused — "purpose-made store" failed
+    without a word, and operator suspicion was the only detector. Both shells now
+    remove every file this pass owns as A0's first act, printed either way, before
+    anything is written."""
+    text = _text()
+    a0 = text[text.index("**A0 [") : text.index("**A1 [")]
+    for target in ("pass.db", "pass-studio.db", "pass-policies.yaml"):
+        assert target in a0.split("Windows (PowerShell):")[0], (
+            f"{target} must be named in A0's own doctrine, not only in the commands"
+        )
+    assert "Remove-Item" in a0 and "-Force" in a0, "no PowerShell removal command"
+    assert "rm -f" in a0, "no POSIX removal command"
+    assert 'Write-Host "removed' in a0
+    assert 'echo "removed' in a0
+    # Removed BEFORE the seed, never after -- ordering is the whole fix.
+    assert a0.index("Remove-Item") < a0.index("Copy-Item")
+    assert a0.index("rm -f") < a0.index("cp ")
+
+
+def test_a0s_windows_removal_announces_and_stops_on_a_locked_file() -> None:
+    """R090 §5: on Windows, a file a running Studio server still has open cannot be
+    removed. A0 used to swallow that with `-ErrorAction SilentlyContinue` and seed on
+    top of whatever it failed to clear -- silent contamination, the exact defect F-S1
+    exists to kill, one layer down. The PowerShell block must detect a removal failure
+    and stop on its own, never fall through to the seed."""
+    text = _text()
+    a0 = text[text.index("**A0 [") : text.index("**A1 [")]
+    ps_block = a0.split("Windows (PowerShell):")[1].split("macOS/Linux")[0]
+    assert "-ErrorAction Stop" in ps_block, "removal must be able to fail loudly, not silently"
+    assert "catch" in ps_block and "$locked" in ps_block
+    assert "locked by a running process" in ps_block
+    assert "stop the Studio and re-run" in ps_block
+    # The seed commands must be gated behind the lock check -- not merely present
+    # somewhere after it, but structurally unreachable when the removal failed.
+    assert re.search(r"\}\s*else\s*\{", ps_block), (
+        "the seed commands are not gated behind the lock check"
+    )
+    assert ps_block.index("if ($locked)") < ps_block.index("Copy-Item")
+
+
+def test_the_lock_stop_is_explained_as_windows_only() -> None:
+    """POSIX `rm` can unlink an open file (the inode outlives the last close), so the
+    same failure mode does not exist there -- the script must say so rather than leave
+    an operator wondering why one shell gates and the other does not."""
+    text = _text()
+    a0 = text[text.index("**A0 [") : text.index("**A1 [")]
+    assert "this stop does not apply" in a0
+    assert "unlink" in a0
+
+
+# --- R089/R090 §3/§4: F-S2 (chain-number-or-unchained), F-S3 (C saves a real change) -----
+
+
+def test_f2_expects_a_chain_number_or_unchained() -> None:
+    """Core's own error, corrected: the newest row is legitimately `unchained` --
+    chaining is opt-in/periodic -- and F2 previously overstated a guaranteed number."""
+    text = _text()
+    f2 = text[text.index("**F2 [") : text.index("**F3 [")]
+    assert "chain number" in f2 and "`unchained`" in f2
+    assert "or" in _normalised(f2).lower().split("chain number")[1].split("unchained")[0]
+
+
+def test_g_points_at_the_download_links_not_hand_copying() -> None:
+    """R089 F-V1: the page used to make its own instruction unfollowable -- the only
+    path to the bytes was select-and-paste, which risks a byte and a false `failed`.
+    G2 now names the Download links and runs the corruption sub-test on the file that
+    came from clicking one, never on hand-typed or pasted content."""
+    text = _text()
+    g = text[text.index("## G ·") : text.index("## H ·")]
+    assert "Download" in g
+    assert "downloaded" in g
+    assert "select-and-paste" in g or "hand-typed or pasted" in g
+
+
+def test_c1c_saves_the_one_real_change_e_ratifies_and_f3_replays() -> None:
+    """R089/R090 F-S3: C1's edits were unsaved by design, so E3-as-scripted ratified a
+    no-op and F3 had nothing to replay against -- reachable only because an earlier
+    operator deviated from the script. C1c now saves one real, valid change, and says
+    why: without it, E is a no-op and F3 is unreachable on a faithful walk."""
+    text = _text()
+    c1c = text[text.index("**C1c [") : text.index("**C1d [")]
+    assert "save from the raw pane" in c1c
+    assert "F-S3" in c1c
+    assert "no-op" in c1c
+    assert "ratifies" in c1c.lower() or "replays" in c1c.lower()
+
+
 # --- R086 §4.10: every [GATE] stop states what to do when it is blocked -----------------
 
 
 def test_every_gate_stop_states_what_to_do_when_blocked() -> None:
     """ "Today that question came upward three times" (R086 §0). Every [GATE] marker in
-    the 49-minute walking budget (sections A-H) now carries its own answer, so the
+    the 50-minute walking budget (sections A-H) now carries its own answer, so the
     question does not have to travel to whoever is running the pass — it is answered at
     the point it would be asked. Section I is out of the walking budget entirely (its own
     gate, T3's benchmark, is unresolved) and keeps its pre-existing `[GATE, if T3 ships]`

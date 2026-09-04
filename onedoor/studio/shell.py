@@ -77,6 +77,15 @@ will remember* — and the operator who meets an empty banner will read it as a 
 failure, which is the wrong worry.
 """
 
+NOT_RECORDED = "not recorded"
+"""What a digest slot says when it is null for a legitimate reason that is NOT the
+absence of a policy version — R089 F-H1. The history detail page's receipt/chain digests
+are null because ND-017 (content-addressed receipts, anchoring) is unimplemented, and
+`NOTHING_IN_FORCE` would tell the reader something false and beside the point: a version
+IS in force, shown elsewhere on the same page, and these are digest slots, not version
+slots. Pass this as `digest_html`'s `absent_label` for any digest that is not a policy
+version."""
+
 NEVER_RATIFIED = "never ratified"
 
 RATIFIED_ELSEWHERE = "not ratified through this Studio"
@@ -149,15 +158,28 @@ def short_digest(digest: str | None) -> str:
     return digest if len(digest) <= 13 else f"{digest[:8]}…{digest[-4:]}"
 
 
-def digest_html(digest: str | None, *, css_class: str = "digest") -> str:
+def digest_html(
+    digest: str | None, *, css_class: str = "digest", absent_label: str = NOTHING_IN_FORCE
+) -> str:
     """A digest, truncated for reading and complete for checking.
 
     The full value is in `title` (hover) and in `data-digest`, which is both the copy
     handler's handle and the test's. The `copyable` class is **not** emitted here — see
     the module docstring: the script that can copy is the thing that grants the cursor.
+
+    `absent_label` defaults to `NOTHING_IN_FORCE`, which is correct for the policy-
+    version digests this function was written for — every caller that renders one keeps
+    that wording unchanged. It is a parameter and not a constant because **a label
+    composed for one state leaks into another the moment a second caller reuses the
+    function for a digest that is not a policy version** (R089 F-H1, fix C's banner
+    finding again): the history detail page's Digests/Chain panels called this on
+    receipt and chain-anchor digests — genuinely null because ND-017 is unimplemented —
+    and every null slot read *"no version in force"*, a sentence about a version, over
+    eight fields that are not about one. A version demonstrably WAS in force, shown two
+    lines above on the same page. Those callers pass their own words.
     """
     if not digest:
-        return f'<span class="{css_class} absent">{escape(NOTHING_IN_FORCE)}</span>'
+        return f'<span class="{css_class} absent">{escape(absent_label)}</span>'
     return (
         f'<span class="{css_class}" title="{escape(digest)}" data-digest="{escape(digest)}">'
         f"{escape(short_digest(digest))}</span>"

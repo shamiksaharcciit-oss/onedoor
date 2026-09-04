@@ -115,6 +115,27 @@ def _int_or_none(raw: str, field: str) -> int | None:
         raise EditError(f"{field}: {text!r} is not a whole number") from None
 
 
+def _numeric_clauses(name: str, span: dict[str, object]) -> list[str]:
+    """One clause per bound present, both when both are — R089 F-E1.
+
+    The ternary this replaced printed `max` OR `min`, never both: on a rule with both
+    bounds (`payments.transfer`'s `amount_eur`, min 0.01 max 2000), the guided pane read
+    **"amount_eur max 2000"** with the min silently gone, beside a raw pane that kept
+    both, beneath a caption claiming *"both panes are rendered from the same parsed rule,
+    so they cannot disagree."* They disagreed, in saved state, reproducibly.
+
+    Two clauses for one name round-trip through `_numeric_from` correctly — its parser
+    already merges same-named clauses (`existing.min`/`existing.max` carried across),
+    which is why the fix is which strings this function emits, not a parser change.
+    """
+    clauses = []
+    if span.get("max") is not None:
+        clauses.append(f"{name} max {span['max']}")
+    if span.get("min") is not None:
+        clauses.append(f"{name} min {span['min']}")
+    return clauses
+
+
 def fields_for(policy: Policy) -> tuple[Field, ...]:
     """The guided pane, rendered from the same *dumped* values the raw pane shows.
 
@@ -131,8 +152,9 @@ def fields_for(policy: Policy) -> tuple[Field, ...]:
     bounds_dump = dumped.get("bounds") or {}
     bounds = policy.bounds
     numeric = ", ".join(
-        f"{name} max {span['max']}" if span.get("max") is not None else f"{name} min {span['min']}"
+        clause
         for name, span in (bounds_dump.get("numeric") or {}).items()
+        for clause in _numeric_clauses(name, span)
     )
     return (
         Field("action_type", "Action type", policy.action_type),

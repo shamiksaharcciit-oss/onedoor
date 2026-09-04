@@ -244,6 +244,35 @@ def test_the_digest_labels_say_what_each_digest_actually_covers() -> None:
     }
 
 
+# --- R089 F-H1: null digests are not a version statement -------------------------------
+
+
+def test_null_digests_say_not_recorded_never_no_version_in_force(ledger) -> None:
+    """The eight null slots (Digests: Evidence/Instrument/Trust/Verdict; Chain: Previous
+    row/This row/Anchor) are content-address fields that are null because ND-017 is
+    unimplemented — a legitimate null, but `shell.NOTHING_IN_FORCE` is a sentence about
+    a POLICY VERSION, and a version demonstrably is in force on this exact page
+    (`policy_version="v1"`, shown under "Policy version"). Fix C's banner bug, reached
+    from a second caller of the same function.
+    """
+    _decide(ledger, "reports.read", "denied", version="v1")
+    row = history.entry(ledger, history.page(ledger).entries[0].row_id)
+    html = screens.entry_body(row)
+    assert shell.NOTHING_IN_FORCE not in html
+    assert html.count(shell.NOT_RECORDED) == 7  # 4 digest fields + 3 non-seq chain fields
+    assert "v1" in html  # the real version, elsewhere on the same page, unaffected
+
+
+def test_a_null_sequence_says_unchained_not_not_recorded(ledger) -> None:
+    """Sequence is a chain field too, but its null state is a real, named, opt-in state
+    (F-S2) — not the ND-017 gap the other three chain fields are null for. It gets the
+    word the page's own heading already uses for this row, not the generic label."""
+    _decide(ledger, "reports.read", "denied")  # seq is NULL by _decide's own default
+    row = history.entry(ledger, history.page(ledger).entries[0].row_id)
+    html = screens.entry_body(row)
+    assert "<dt>Sequence</dt><dd>unchained</dd>" in html
+
+
 def test_an_unreported_outcome_is_not_shown_as_nothing_having_happened(ledger) -> None:
     """ND-039/A4b: the PEP's report is a separate vocabulary from the PDP's verdict, and
     absent means *not yet reported* — not *nothing happened*."""

@@ -1,28 +1,34 @@
 # Dogfooding script — the pass that gates the `0.7.0` tag
 
-**Regenerated after R086.** The first pass on this script reached section C in about
-forty minutes and could not continue: it never seeded the store, so C1b had no rule to
-open, and a fenced YAML block copied by hand picked up its own language tag as the
-file's first line. Both are script defects, fixed here — not patched, rewritten. Four
-product defects the same pass found are fixed separately, in the Studio itself; this
-script now describes the product as it actually behaves.
+**Regenerated after R086; A0 patched after R088.** The first pass on this script reached
+section C in about forty minutes and could not continue: it never seeded the store, so
+C1b had no rule to open, and a fenced YAML block copied by hand picked up its own
+language tag as the file's first line. Both are script defects, fixed then — not
+patched, rewritten. Four product defects the same pass found are fixed separately, in
+the Studio itself; this script now describes the product as it actually behaves.
+
+The **second** pass, on the regenerated script, reached A0 and reused a `pass.db` a
+dry-run had already left on disk sixteen hours earlier — "purpose-made store" failed
+**silently**, and operator suspicion was the only detector (R088 §3, F-S1). A0 now
+removes any `pass*.db*` and `pass-policies.yaml` already on disk before it seeds, and
+says so, rather than reusing them without a word.
 
 **Which world you are in — currently answered, and it may change once before your pass.**
 
 **As it stands: section I is NOT part of this pass.** The model-proposer track measured
 0 of 11 against its own acceptance corpus on 2026-09-01 and does not ship in this release
 on that result. There is no Propose tab to look for, and its absence is correct rather
-than a fault. **Your block is the 64–79 minutes below.**
+than a fault. **Your block is the 65–80 minutes below.**
 
 That answer can flip once, and only once. A fix is being attempted under three gates; if
-all three are met before you start, you will be handed the **70–85 minute** version of this
+all three are met before you start, you will be handed the **71–86 minute** version of this
 script with section I included, and this paragraph will say so instead. **If nobody hands
 you a different script, this one is the one to walk** — the fallback is the current state,
 not a pending decision, so an unanswered question never leaves you guessing at the door.
 
-**Block 64–79 minutes.** That is the honest envelope, and it is made of two parts:
+**Block 65–80 minutes.** That is the honest envelope, and it is made of two parts:
 
-- **49 minutes of walking** — every stop in sections A–H with nothing going wrong. That
+- **50 minutes of walking** — every stop in sections A–H with nothing going wrong. That
   number is arithmetic, per-section, and asserted by a test.
 - **15–30 minutes of findings** — expected, not feared. **Two or three findings is what
   success looks like for a pass like this**, and the time to write them down is part of
@@ -63,8 +69,8 @@ ahead. Do not stop to diagnose.
 > asserts this document still quotes it correctly. If a quoted sentence is *missing* from
 > the screen, that is a finding — the words are load-bearing, not decoration.
 
-**The walking budget is 49 minutes**, sections A–H. **Section I (Propose) is not in the
-49** — see *What a second pass covers* at the end.
+**The walking budget is 50 minutes**, sections A–H. **Section I (Propose) is not in the
+50** — see *What a second pass covers* at the end.
 
 **Every stop is marked:** **[GATE]** stops must be walked for the tag; **[SEE]** stops are
 worth your eyes but do not block. Each **[GATE]** marker also says what to do if you
@@ -72,7 +78,9 @@ cannot complete it at all — see the paragraph above.
 
 **Files this pass creates**, all at the repo root, all disposable: `pass.db`,
 `pass-studio.db`, `pass-policies.yaml`, `bad.yaml`, `broken.yaml`. None of them is
-committed; none of them is read by anything outside this pass.
+committed; none of them is read by anything outside this pass. **A0 removes the first
+three before it seeds them fresh** — a leftover from a previous run is never reused
+silently (F-S1); it is deleted, out loud, before this run writes its own.
 
 ---
 
@@ -87,31 +95,66 @@ committed; none of them is read by anything outside this pass.
   terminal mid-pass.
 
 **A0 [GATE — if blocked, stop the pass here; nothing below can be walked without a
-seeded store] — seed a purpose-made store.**
-**Do:** in the first terminal, from the repo root:
+seeded store] — remove any leftover pass files, then seed a purpose-made store.**
+**Do:** in the first terminal, from the repo root. **"Purpose-made" means made by THIS
+run** — a `pass.db`, `pass-studio.db` or `pass-policies.yaml` a previous dry-run, a
+previous pass, or a previous session left behind is exactly as ambient as `onedoor.db`,
+and reusing one silently is F-S1 (R088 §3): the block below removes all three before
+anything is written, so the removal is never silent and the seed that follows is never
+a reuse. **On Windows, a file a running Studio server still has open cannot be
+removed** (R090 §5) — the block below detects that and stops on its own rather than
+seeding on top of files it failed to clear, which would resurrect the exact silent
+contamination F-S1 exists to kill.
 
 Windows (PowerShell):
 
 ```
-Copy-Item onedoor\templates\payments\policies.yaml pass-policies.yaml
-python -c "from onedoor.store.db import Database; from onedoor.guardrail import policy_loader as pl; db = Database('pass.db'); db.init(); conn = db.connect(); n = pl.load_file(conn, 'pass-policies.yaml'); v = pl.record_snapshot(conn); print(f'{n} policies loaded'); print(f'version digest: {v}')"
-python -m onedoor.studio --db pass.db --studio-db pass-studio.db
+$locked = @()
+foreach ($f in 'pass.db','pass.db-wal','pass.db-shm','pass-studio.db','pass-studio.db-wal','pass-studio.db-shm','pass-policies.yaml') {
+  if (Test-Path $f) {
+    try { Remove-Item -Force $f -ErrorAction Stop } catch { $locked += $f }
+  }
+}
+if ($locked) {
+  Write-Host "pass files are locked by a running process; stop the Studio and re-run: $($locked -join ', ')"
+} else {
+  Write-Host "removed any leftover pass.db / pass-studio.db / pass-policies.yaml"
+  Copy-Item onedoor\templates\payments\policies.yaml pass-policies.yaml
+  python -c "from onedoor.store.db import Database; from onedoor.guardrail import policy_loader as pl; db = Database('pass.db'); db.init(); conn = db.connect(); n = pl.load_file(conn, 'pass-policies.yaml'); v = pl.record_snapshot(conn); print(f'{n} policies loaded'); print(f'version digest: {v}')"
+  python -m onedoor.studio --db pass.db --studio-db pass-studio.db
+}
 ```
 
 macOS/Linux (POSIX shell):
 
 ```
+rm -f pass.db pass.db-wal pass.db-shm pass-studio.db pass-studio.db-wal pass-studio.db-shm pass-policies.yaml
+echo "removed any leftover pass.db / pass-studio.db / pass-policies.yaml"
 cp onedoor/templates/payments/policies.yaml pass-policies.yaml
 python -c "from onedoor.store.db import Database; from onedoor.guardrail import policy_loader as pl; db = Database('pass.db'); db.init(); conn = db.connect(); n = pl.load_file(conn, 'pass-policies.yaml'); v = pl.record_snapshot(conn); print(f'{n} policies loaded'); print(f'version digest: {v}')"
 python -m onedoor.studio --db pass.db --studio-db pass-studio.db
 ```
 
-**Expect:** the first two commands print `6 policies loaded` and a `version digest: `
-line carrying a 64-character hex value. The third starts the server and does not
-return — leave it running in this terminal and open `http://127.0.0.1:8787`.
+**On POSIX, this stop does not apply**: `rm` can unlink a file another process still has
+open (the inode persists until the last handle closes), so the same lock does not block
+removal there — the block above stays unconditional on purpose.
+
+**Expect:** if a prior Studio is still running against these files, the PowerShell block
+prints "pass files are locked by a running process; stop the Studio and re-run" and
+**does nothing else** — close that terminal (or press Ctrl-C in it) and run this block
+again. Otherwise it prints "removed any leftover pass.db / pass-studio.db /
+pass-policies.yaml" **every time**, whether or not anything was actually there to
+remove — that line is not a report of what it found, it is a statement of what the
+pass now guarantees: whatever seeds next did not inherit anything. The next two lines
+print `6 policies loaded` and a `version digest: ` line carrying a 64-character hex
+value, computed from what THIS run just loaded. The last command starts the server and
+does not return — leave it running in this terminal and open `http://127.0.0.1:8787`.
 **Ask:** policies enter a store only through this loader or the decision service's own
 startup, never through the Studio — the Studio reads and ratifies and never loads. That
-is why this step exists and why it runs before the server does anything.
+is why the seed step exists and why it runs before the server does anything. And: is
+this genuinely the first thing that has touched `pass.db` today? If a prior attempt at
+this pass is still running in another terminal, this removal will fight it for the
+file — close that terminal first.
 
 **A1 [GATE — if blocked, note the finding and continue] — the promise in the footer.**
 **Do:** look at the bottom of the page.
@@ -199,9 +242,17 @@ more correct than the first, because the check that cleared both is
 `not policy.compensating_command` in `onedoor/guardrail/policy_loader.py` — truthiness
 only. Neither string is resolved against the policy set, at load time or at decision
 time; that gap is tracked as `ND-057` in `BACKLOG.md` and is not fixed in this release.
-**Ask:** would you have guessed that from the page alone? This stop exists because the
-answer is no — and because the list never tells you something *is* wrong when it is not,
-which is a different, narrower promise than "this reversal exists."
+**Do:** save from the raw pane. This is the one real, saved change this section makes —
+everything in C1b and up to here was live-checked and never written.
+**Expect:** the draft's own page now shows `payouts.schedule` at tier 2 with this
+reversal, and the Changes panel names it. **Section E ratifies this change; section F3
+replays it against the version it produces.** If you skip this save, C leaves the draft
+identical to what is already in force — E3 becomes a no-op with nothing to ratify, and
+F3 has no second version to replay against (F-S3). This save is why F3 is reachable.
+**Ask:** would you have guessed the earlier live-checking never wrote anything, from the
+page alone? This stop exists because the answer is no — and because the list never
+tells you something *is* wrong when it is not, which is a different, narrower promise
+than "this reversal exists."
 
 **C1d [SEE — if blocked, note the finding and continue] — the two panes, on a rule that
 actually has decimals.**
@@ -454,7 +505,10 @@ front of you for History to show, not to satisfy every pack's bounds.
 
 **F2 [GATE — if blocked, note the finding and continue] — find it.**
 **Do:** open **History**.
-**Expect:** your decision, denied, with a chain number.
+**Expect:** your decision, denied, with a chain number **or** `unchained` — chaining is
+opt-in and periodic, so the newest row legitimately carries neither yet. `unchained` is
+correct here, not a finding; the product is being honest about a state it has not
+reached, the same honesty the `absent` anchor state carries (R089 §2, F-S2).
 **Ask:** if you filter the list, does the form *show* you the filter you applied? An
 invisible filter turns "no rows" into a false statement about the world.
 
@@ -476,22 +530,29 @@ row is the feature's conscience.
 **G1 [GATE — if blocked, note the finding and continue] — the page built for a
 stranger.**
 **Do:** **Verify** → open your receipt from section E.
-**Expect:** the method first, the answer last, and the two files offered for download.
+**Expect:** the method first, the answer last, and a **Download** link on both the
+`receipt.json` and `snapshot.json` panels.
 **Ask:** could someone who distrusts you, and distrusts this software, check this claim
-with what the page gives them?
+with what the page gives them? Before this release the only path to the bytes was
+select-and-paste out of the panel, which risks a byte and a false `failed` on a sound
+receipt — R089 F-V1. The links are why that question now has a real answer.
 
 **G2 [GATE — if blocked, note the finding and continue] — check it without trusting the
 Studio.**
-**Do:** save the two files and run:
+**Do:** click **Download** on both panels — not select-and-paste, the download gives
+you the exact stored bytes — then, from the folder they landed in, run:
 
 ```
 python -m onedoor.studio.verify receipt.json snapshot.json
 ```
 
 **Expect:** `verified`, exit `0`.
-**Ask:** now corrupt one file — delete a character — and run it again. Does it say
-`unreadable` rather than `failed`? **Telling you your receipt is bad when what is bad is
-your download would be the worst error this page could make.**
+**Ask:** now corrupt the **downloaded** `snapshot.json` — open it and delete one
+character — and run the command again over the corrupted pair. Does it say `unreadable`
+rather than `failed`? **Telling you your receipt is bad when what is bad is your
+download would be the worst error this page could make.** Run this on the file you
+downloaded, not on hand-typed or pasted content — a corruption test over bytes you
+transcribed yourself tests your transcription, not the verifier.
 
 ---
 
@@ -511,7 +572,7 @@ draw nothing and say why — a bar needs a denominator.
 
 ---
 
-## I · Propose — **not in the 49 minutes**
+## I · Propose — **not in the 50 minutes**
 
 **Only if a model endpoint was configured before the Studio started.** If it was not, there
 is no **Propose** tab, and that absence is itself correct — check it and move on.
@@ -541,21 +602,21 @@ words.
 |---|---|---|
 | A · Arrival | 6 | yes |
 | B · Policies | 4 | yes |
-| C · Author three ways | 16 | yes |
+| C · Author three ways | 17 | yes |
 | D · The two lists | 5 | yes |
 | E · The ceremony | 6 | yes |
 | F · History and re-evaluation | 6 | yes |
 | G · Verify | 4 | yes |
 | H · Live state | 2 | yes |
-| **Total** | **49** | |
+| **Total** | **50** | |
 | I · Propose | +6 | only if T3 ships |
 
-**The 49 is the walking half, and it is a floor rather than a budget.** It assumes
+**The 50 is the walking half, and it is a floor rather than a budget.** It assumes
 nothing goes wrong and no finding is investigated. **Every finding costs time the walking
 number does not contain** — writing one down is a minute, and the first usually prompts a
 second look at the screen before it.
 
-So the envelope at the top of this page is **64–79 minutes** (70–85 if section I is in),
+So the envelope at the top of this page is **65–80 minutes** (71–86 if section I is in),
 and the 15–30 minutes of findings in it is an **expectation, not a risk**: this pass
 exists to produce findings, and a schedule that leaves no room for the thing the activity
 is for has budgeted for failure and called it success.
@@ -566,7 +627,7 @@ a promise the product makes in words, or a failure mode this build was written t
 
 ## What a second pass covers
 
-- **Section I** in full, once the T3 decision is made. It is out of the 49 because T3's
+- **Section I** in full, once the T3 decision is made. It is out of the 50 because T3's
   own gate (a benchmark with published misses) is unresolved, so its screens may not ship.
 - **Anything a finding opened.** A finding is a reason to look harder at that area, and
   looking harder is a second pass, not an overrun of this one.
@@ -586,4 +647,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = 13c9bd17f864742f5b9931730d19a24227b407f1839a7288d53799c9f4123750
+Integrity: sha256(body) = b4ff82b0e856674b4caf1447e24f4d3d0785da08a68fdaab6cc3c172847ab3b5

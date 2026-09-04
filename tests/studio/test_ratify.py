@@ -150,6 +150,77 @@ def test_sabotage_a_scratch_store_seeded_with_only_the_changed_rules(conn: Conne
     assert receipt.to_version != sabotaged.to_version
 
 
+# --- R088 §1/§2 (F-U1): a candidate the loader would refuse does not crash the preview -
+
+
+def test_a_candidate_the_loader_would_refuse_returns_a_refusal_not_a_raise(
+    conn: Connection,
+) -> None:
+    """The traceback in R088 §1, reproduced directly against `ratify.preview`.
+
+    Tier 2 with no `compensating_command` is exactly what
+    `policy_loader.validate_policy` raises `ValueError` over — previously that raise
+    climbed straight out of `preview`, uncaught, into whatever called it. Now it is
+    caught at the boundary `preview` owns, and the answer is a value, not an exception.
+    `_apply` is not mocked, stubbed, or bypassed here: the same function still runs and
+    still refuses; only who catches the refusal changed.
+    """
+    expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
+    candidate = [Policy(action_type="payments.transfer", tier=Tier.AUTO_CAPPED, dry_run=False)]
+
+    shown = ratify.preview(conn, candidate)
+    assert shown.to_version is None
+    assert shown.refusal is not None
+    assert "compensating_command" in shown.refusal
+    assert "payments.transfer" in shown.refusal
+    # The active store is untouched — a caught refusal is not a silent write.
+    assert policy_loader.current_version(conn) == expected
+
+
+def test_a_refused_previews_changes_and_digest_still_compute(conn: Connection) -> None:
+    """Only `to_version` needs `_apply` to succeed — `changes`, `effect_changes` and
+    `candidate_digest` are pure comparisons against the candidate as given, so a refused
+    draft still shows what it would have changed, even though it cannot say what it
+    would have become (R088 §2's own reasoning, held as a test rather than a comment)."""
+    _in_force(conn, _restore())
+    candidate = [Policy(action_type="payments.transfer", tier=Tier.AUTO_CAPPED, dry_run=False)]
+
+    shown = ratify.preview(conn, candidate)
+    assert shown.refusal is not None
+    assert shown.changes.added == ["payments.transfer"]
+    assert shown.candidate_digest == backtest.policy_digest(candidate)
+
+
+def test_a_clean_candidate_carries_no_refusal(conn: Connection) -> None:
+    """The success path is unchanged in shape — `refusal` is `None`, `to_version` is a
+    real hash — so this is the boundary the two tests above test the OTHER side of."""
+    _in_force(conn, _policy("demo.spend", cap="500"), _restore())
+    shown = ratify.preview(conn, [_policy("demo.spend", cap="250")])
+    assert shown.refusal is None
+    assert shown.to_version is not None
+
+
+def test_the_real_ratification_still_refuses_the_identical_candidate(
+    conn: Connection,
+) -> None:
+    """R088 §2's constraint, held as a test: preview and ratification must not diverge.
+    `_apply` is untouched and shared — `ratify.ratify` still raises on this candidate
+    exactly as it always did; only `preview` learned to catch it. Confirms the fix did
+    not make the ceremony permissive by accident."""
+    expected = _in_force(conn, _restore())
+    candidate = [Policy(action_type="payments.transfer", tier=Tier.AUTO_CAPPED, dry_run=False)]
+    assert ratify.preview(conn, candidate).refusal is not None
+
+    with pytest.raises(ValueError, match="compensating_command"):
+        ratify.ratify(
+            conn,
+            candidate,
+            expected_version=expected,
+            ratified_by_session=SESSION,
+            now=FROZEN_NOW,
+        )
+
+
 def test_the_preview_writes_nothing_to_the_real_store(conn: Connection) -> None:
     """A preview is a question, not a change. Asked before it is answered."""
     expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())

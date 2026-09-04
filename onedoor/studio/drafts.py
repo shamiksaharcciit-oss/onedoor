@@ -129,6 +129,23 @@ class DraftView:
     def problems(self) -> list[validate.Problem]:
         return list(self.view.problems)
 
+    @property
+    def preview_refusal(self) -> str | None:
+        """The loader's own refusal of this draft's candidate, or `None` when the
+        preview computed cleanly (R088 §1/§2, F-U1).
+
+        Drawn from `ratify.preview`'s own words — never a second validator's paraphrase
+        of them — so the "Changes" panel can defer to the Validation panel that already
+        renders this same refusal, rather than the page crashing before either panel is
+        reached. `None` on a stale draft too: `self.view.panels` is absent there for an
+        unrelated reason (the pin moved), and a caller must not read "no refusal" as "the
+        preview succeeded" in that case — it means the preview was never computed.
+        """
+        panels = self.view.panels
+        if panels is None:
+            return None
+        return panels.preview.refusal
+
 
 def _by_action(policies: list[Policy]) -> dict[str, Policy]:
     return {p.action_type: p for p in policies}

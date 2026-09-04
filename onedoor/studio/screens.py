@@ -313,16 +313,28 @@ def entry_body(row: Any) -> str:
     )
     kv = "".join(f"<dt>{escape(k)}</dt><dd>{v}</dd>" for k, v in facts)
 
+    # R089 F-H1: these are receipt/chain digests, never policy versions — a null one
+    # here is legitimate (ND-017 is unimplemented) and must not read `NOTHING_IN_FORCE`,
+    # which is a sentence about a version, on a page whose header already shows one IS
+    # in force. `shell.NOT_RECORDED` is the honest word for this null.
     digests = "".join(
-        f'<dt title="{escape(why)}">{escape(label)}</dt><dd>{shell.digest_html(row[column])}</dd>'
+        f'<dt title="{escape(why)}">{escape(label)}</dt>'
+        f"<dd>{shell.digest_html(row[column], absent_label=shell.NOT_RECORDED)}</dd>"
         for column, label, why in history.DIGEST_LABELS
     )
     chain = "".join(
         f"<dt>{escape(label)}</dt><dd>"
         + (
+            # A present `seq` renders bare (unprefixed, matching this cell's own prior
+            # behaviour); a null one is "unchained" -- the same word the heading above
+            # already uses for this row, never `shell.NOT_RECORDED`: chaining is
+            # opt-in/periodic (F-S2), a real state with a name, not a gap in what
+            # ND-017 has built yet. The other three chain fields genuinely are that gap.
             escape(str(row[column]))
             if column == "seq" and row[column] is not None
-            else shell.digest_html(row[column])
+            else escape(number)
+            if column == "seq"
+            else shell.digest_html(row[column], absent_label=shell.NOT_RECORDED)
         )
         + "</dd>"
         for column, label in history.CHAIN_LABELS
@@ -581,7 +593,25 @@ def drafts_body(
     return head + create + table
 
 
+PREVIEW_UNAVAILABLE = (
+    "This draft cannot be previewed: it would be refused at load. See the refusals below."
+)
+"""R088 §1/§2 (F-U1). `ratify.preview` shares `_apply` with real ratification by design
+— *"the two cannot diverge in what they apply or in the order they apply it"* — so a
+candidate the loader refuses is refused identically by both, and the fix is not making
+preview permissive. The Changes panel used to have no way to say that and crashed the
+whole page reaching for a hash `_apply` never produced; now it defers to the Validation
+panel, which already renders this exact refusal (`validate.problems` runs the same
+`validate_policy` check, one rule at a time, and collects rather than raises)."""
+
+
 def _diff_block(view: drafts.DraftView) -> str:
+    refusal = view.preview_refusal
+    if refusal is not None:
+        return (
+            f'<div class="panel"><h3>Changes</h3><div class="empty">'
+            f"{escape(PREVIEW_UNAVAILABLE)}</div></div>"
+        )
     if not view.diffs:
         return (
             '<div class="panel"><h3>Changes</h3><div class="empty">This draft matches '
@@ -816,7 +846,21 @@ def ceremony_body(view: drafts.DraftView) -> str:
             f'<div class="empty">{escape(drafts.STALE_BASE)}</div>'
         )
     preview = panels.preview
+    if preview.refusal is not None:
+        # Same fact `_diff_block` renders, on the one page where showing a Ratify
+        # button would be worse than a crash: submitting it would still hit
+        # `ratify.ratify`'s own `_apply` call, refused for the identical reason
+        # (R088 §2 — preview and ratification cannot diverge). No confirm form here,
+        # never a button that reads as live and 500s when pressed.
+        return (
+            f'<h2>Ratify {escape(view.draft.title)}</h2><div class="rulebar"></div>'
+            f'<div class="empty">{escape(PREVIEW_UNAVAILABLE)}</div>' + _problems_block(view)
+        )
     changed = len(view.diffs)
+    # `to_version` is `None` exactly when `refusal` is not (ratify.Preview's own
+    # invariant) — the branch above already returned on that case, so this one always
+    # has a hash. Asserted rather than left for mypy to infer across two fields.
+    assert preview.to_version is not None
     return (
         f'<h2>Ratify {escape(view.draft.title)}</h2><div class="rulebar"></div>'
         '<div class="panel"><h3>What will be in force</h3>'
@@ -1166,6 +1210,16 @@ def verify_index_body(receipts: tuple[Any, ...]) -> str:
     )
 
 
+DOWNLOAD_NOTE = "Download for the exact bytes rather than copying the text below."
+"""R089 F-V1. The pane below is still shown in full — a reader should not have to
+download a file to see what is in it — but selecting text out of a `<pre>` block risks
+losing or gaining a byte, and a single wrong byte here produces a **false `failed`** on
+a receipt that was sound. The route this points at (`server.py`'s
+`verify_receipt_download`/`verify_snapshot_download`) serves the identical string this
+page renders, with `Content-Disposition: attachment` — the same bytes, not a
+re-rendering of them."""
+
+
 def deposition_body(dep: Any) -> str:
     """One receipt, for a reader who trusts nobody here.
 
@@ -1188,14 +1242,19 @@ def deposition_body(dep: Any) -> str:
         "check never ran. This is not a failed verification</dd>"
         "</dl></div>"
         '<div class="cols">'
-        f'<div class="panel"><h3>receipt.json</h3>'
+        f'<div class="panel"><h3>receipt.json '
+        f'<a class="sealbtn download" href="/verify/{escape(dep.ratification_digest)}'
+        f'/receipt.json" download="receipt.json">Download</a></h3>'
         f'<p class="note">{escape(str(dep.receipt_bytes))} bytes. Its SHA-256 over the '
-        "body, excluding <code>ratification_digest</code>, is that digest.</p>"
+        "body, excluding <code>ratification_digest</code>, is that digest. "
+        f"{escape(DOWNLOAD_NOTE)}</p>"
         f"<pre>{escape(dep.receipt_json)}</pre></div>"
-        f'<div class="panel"><h3>snapshot.json</h3>'
+        f'<div class="panel"><h3>snapshot.json '
+        f'<a class="sealbtn download" href="/verify/{escape(dep.ratification_digest)}'
+        f'/snapshot.json" download="snapshot.json">Download</a></h3>'
         f'<p class="note">{escape(str(dep.snapshot_bytes))} bytes, byte-for-byte as '
         "stored. Its SHA-256 <em>is</em> the version this receipt ratified, so "
-        "reformatting it breaks the check it exists for.</p>"
+        f"reformatting it breaks the check it exists for. {escape(DOWNLOAD_NOTE)}</p>"
         f"<pre>{escape(dep.snapshot_text)}</pre></div>"
         "</div>"
         '<div class="panel"><h3>What this software got</h3>'

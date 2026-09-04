@@ -154,6 +154,9 @@ The gate itself was green on all four; only the transcription was wrong.
 | `Core_to_Delivery_Response_085_2026-09-03.md` | `6e5b9935f6418b51b921c0f20aa36134f2a21b5c1aba4e88ed90c0f24b62c2b4` |
 | `Core_to_Delivery_Response_086_2026-09-03.md` | `d1188ba279b6880411bb6c702749c31c14edce897e84c0e2b989ef9f2f563f81` |
 | `Core_to_Delivery_Response_087_2026-09-03.md` | `36c13066dac0c159a14172e8944e969c731ed60e24aff6ac25ed97be9a3139af` |
+| `Core_to_Delivery_Response_088_2026-09-04.md` | `9e60692efb887d3239760e05763632659fc7bea6dcfd3ce90bdbb1805f918cac` |
+| `Core_to_Delivery_Response_089_2026-09-04.md` | `435ffb7bf42ac667311bac4b837ea5d0f83d1842b67cb4ae44529befff937346` |
+| `Core_to_Delivery_Response_090_2026-09-04.md` | `c2c5c518257138a4a168353fb4a828156696c29713a33aee30958d4f753bfc03` |
 | `Core_to_Forensics_Response_009_2026-08-21.md` | `e2790fdd3fe7bfd30b28bb53f75ed131ae7d852564c9bd9d4183d49541120c0e` |
 | `Core_to_Forensics_Response_010_2026-08-21.md` | `a8ec3640479a00d3f778936315298f26d290cabd2487314551302cab05f6faf4` |
 | `Core_to_Forensics_Response_012_2026-08-21.md` | `a354be63d598c884ca842d972a2eb32c6c62bb0ce079f2b0f4c25f7ac3f01846` |

@@ -125,6 +125,105 @@ def test_a_refused_file_still_becomes_a_draft_that_shows_the_refusals(client, st
     assert "compensating_command" in result.refusals[0].message
 
 
+# --- R088 §1/§2/§5.2 (F-U1/F-U2/F-U3): the draft-detail page for an unloadable draft --
+#
+# The re-walk's own finding: the 8-shape sweep behind the paragraph above asserted the
+# STORE, never the PAGE — `store.load(...)`, not `client.get(...)`. A human clicking
+# through hit an Internal Server Error the first time this exact file was uploaded on a
+# live server, and no test here would have caught it, because none of them rendered the
+# draft-detail page for a draft holding a rule the loader would refuse. These do.
+
+
+def test_a_refused_upload_renders_the_draft_detail_page_without_crashing(client) -> None:
+    """The exact reproduction from R088 §1's traceback: `payments.transfer` at Tier 2
+    with no `compensating_command`, uploaded, then the resulting draft page opened.
+
+    Before the fix this raised `ValueError` out of `ratify.preview` -> `canvas.build` ->
+    `drafts.build` -> `draft_detail`, uncaught, and the client saw a 500. The Changes
+    panel now defers to the Validation panel, which already carries the identical
+    refusal — `validate.problems` runs the same `validate_policy` check as `_apply` did,
+    one rule at a time, and always collected rather than raised.
+    """
+    response = _upload(client, REFUSED_FILE.encode("utf-8"))
+    draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
+
+    page = client.get(f"/drafts/{draft_id}")
+    assert page.status_code == 200
+    assert "cannot be previewed" in page.text
+    assert "would be refused at load" in page.text
+    assert "compensating_command" in page.text  # the Validation panel's own refusal
+
+
+def test_the_ceremony_page_defers_too_and_offers_no_ratify_button(client) -> None:
+    """The one page where showing a button would be worse than the crash it replaces:
+    submitting it would still hit `ratify.ratify`'s own `_apply` call, refused for the
+    identical reason (`_apply` is shared and untouched — R088 §2)."""
+    response = _upload(client, REFUSED_FILE.encode("utf-8"))
+    draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
+
+    page = client.get(f"/drafts/{draft_id}/ratify")
+    assert page.status_code == 200
+    assert "cannot be previewed" in page.text
+    assert 'action="/drafts/' not in page.text.split("Confirm")[-1]
+
+
+def test_submitting_ratification_for_a_refused_draft_answers_rather_than_500s(
+    client,
+) -> None:
+    """Self-found while completing the same boundary fix, not one of R088's four
+    enumerated findings: nothing stops a stale link, a replayed form, or a direct POST
+    from reaching the ratify route even with no button pointing at it, and it must
+    answer rather than crash — the same class of defect, one page further."""
+    response = _upload(client, REFUSED_FILE.encode("utf-8"))
+    draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
+
+    submitted = client.post(f"/drafts/{draft_id}/ratify", data={"session": "x"})
+    assert submitted.status_code != 500
+    assert "compensating_command" in submitted.text
+    assert "Nothing was applied" in submitted.text
+
+
+def test_an_unparseable_uploads_draft_page_also_renders_without_crashing(client) -> None:
+    """C2b, named in R088 §5.2. Checked empirically rather than assumed: an unparseable
+    file stops at the loading stage and the resulting draft holds ZERO policies, so
+    `_apply` has nothing to validate and this shape was never independently reproducing
+    F-U1's crash — the empty-candidate path was already safe. Covered anyway, because
+    R088 asks for the whole draft-detail path exercised for every unloadable shape, and
+    a page that renders correctly for the wrong reason is still worth locking in."""
+    response = _upload(client, b"policies:\n  - [unclosed\n", "broken.yaml")
+    draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
+
+    page = client.get(f"/drafts/{draft_id}")
+    assert page.status_code == 200
+    assert "cannot be previewed" not in page.text  # nothing to refuse — empty candidate
+    assert "matches the version in force" in page.text
+
+
+def test_a_two_lists_shape_draft_also_renders_without_crashing(client, state) -> None:
+    """Section D, named in R088 §5.2. Also checked empirically: a cap with no
+    `cost_param` loads clean — `validate_policy`'s cost_param check only fires when
+    `cost_param` IS set and unlisted, never on its absence — so this shape was never
+    independently reproducing F-U1's crash either; it is the load-clean, decide-time-only
+    case section D exists to demonstrate. Covered anyway, for the same reason as C2b."""
+    draft = server.new_draft(state, title="d shape")
+    server.save_draft(
+        state,
+        draft.draft_id,
+        policies=[
+            Policy(
+                action_type="a.b",
+                tier=Tier.CONFIRM,
+                caps=Caps(eur_day="100"),
+                bounds=Bounds(strict_params=False),
+            )
+        ],
+    )
+    page = client.get(f"/drafts/{draft.draft_id}")
+    assert page.status_code == 200
+    assert "cannot be previewed" not in page.text
+    assert "would become" in page.text  # the normal diff table, not deferred
+
+
 def test_an_empty_upload_is_an_absence_and_says_so(client) -> None:
     response = client.post(
         "/drafts/upload", files={"policy_file": ("empty.yaml", b"", "application/x-yaml")}

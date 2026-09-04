@@ -161,6 +161,12 @@ def test_the_universe_of_this_file_is_the_app_itself(populated) -> None:
     EXCUSED = {
         "/": "redirects to /drafts",
         "/draft/{draft_id}": "redirects to /drafts/{draft_id}",
+        # R089 F-V1: file downloads, not pages -- no seal to check, no footnote to
+        # render, the same reasoning that excuses the JSON surface below. Covered
+        # instead by tests/studio/test_verify.py, which checks the bytes and headers a
+        # page law has no vocabulary for.
+        "/verify/{ratification_digest}/receipt.json": "serves receipt.json as a file",
+        "/verify/{ratification_digest}/snapshot.json": "serves snapshot.json as a file",
     }
     #: ND-056/T2's JSON surface. Excused from the PAGE laws because it serves no pages —
     #: there is no seal to check, no footnote to render, no digest span to format. It is

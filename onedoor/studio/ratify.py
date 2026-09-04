@@ -195,17 +195,32 @@ def _apply(
 
 @dataclass(frozen=True)
 class Preview:
-    """What the operator reads before deciding: from, to, and what moved."""
+    """What the operator reads before deciding: from, to, and what moved.
+
+    `to_version` is `None` exactly when `refusal` is not — a candidate the loader would
+    refuse has no hash to become, because `_apply` never ran to completion (R088 §1/§2).
+    `changes`, `effect_changes` and `candidate_digest` are computed either way: none of
+    the three needs `_apply` to succeed, only `from_version`'s active snapshot and the
+    candidate as given, so a refused draft still shows what it WOULD have changed even
+    though it cannot say what it would have become.
+    """
 
     from_version: str | None
-    to_version: str
+    to_version: str | None
     changes: Changes
     effect_changes: Changes
     candidate_digest: str
+    refusal: str | None = None
+    """The loader's own words, when the candidate would be refused at load — never a
+    second validator's paraphrase. `None` means the preview computed cleanly."""
 
     @property
     def is_a_change(self) -> bool:
-        """False when the candidate is already in force — `to_version` equals `from`."""
+        """False when the candidate is already in force — `to_version` equals `from`.
+
+        Meaningless when `refusal` is set: `to_version` is `None` then, and the property
+        is not read on that branch — the caller defers to the refusal instead (R088 §2).
+        """
         return self.from_version != self.to_version
 
 
@@ -221,10 +236,24 @@ def preview(
     `seed_active=False` exists **only** for the sabotage in R045 §2 — it seeds the
     scratch store with the changed rules alone, which is the mistake the trap describes,
     and the equality test then fails as it must. No caller should pass it.
+
+    **A candidate the loader would refuse is not an error in this function; it is an
+    answer** (R088 §1/§2, F-U1). Fix B made an upload's save unconditional, so a draft
+    may now honestly hold a rule `validate_policy` refuses — and `_apply` is shared with
+    real ratification by design, so THIS function must not be taught to let one through;
+    the fix is not "make preview permissive." What was wrong was letting `_apply`'s
+    `ValueError` climb out of this function uncaught: the preview is one panel among
+    several on a page that has to render regardless, and the caller (the draft-detail
+    page) already has a refusals panel that exists to say exactly this. So the refusal is
+    caught here, at the boundary this function owns, and carried on the return value
+    instead of raised — `_apply` itself is untouched, and preview and ratification still
+    refuse the identical candidate for the identical reason; only who catches it differs.
     """
     store = policy.PolicyStore()
     active = store.all(conn)
     active_effects = _active_effects(conn)
+    to_version: str | None
+    refusal: str | None = None
     with tempfile.TemporaryDirectory(prefix="onedoor-preview-") as scratch_dir:
         database = Database(str(Path(scratch_dir) / "preview.db"))
         database.init()
@@ -233,7 +262,11 @@ def preview(
             with tx(scratch):
                 if seed_active:
                     _seed_from(conn, scratch)
-            to_version = _apply(scratch, candidate, effects)
+            try:
+                to_version = _apply(scratch, candidate, effects)
+            except ValueError as exc:
+                to_version = None
+                refusal = str(exc)
         finally:
             scratch.close()
     return Preview(
@@ -242,6 +275,7 @@ def preview(
         changes=diff(active, candidate),
         effect_changes=diff_effects(active_effects, list(effects or [])),
         candidate_digest=backtest.policy_digest(candidate),
+        refusal=refusal,
     )
 
 
