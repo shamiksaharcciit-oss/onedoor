@@ -198,7 +198,11 @@ def validation_object(
         "loads": result.loads,
         **result.to_object(),
         "forecasts": [f.to_object() for f in forecasts],
-        "forecast_notice": forecast.FORECAST_NOTICE,
+        # R092 F-D1: the notice must be true of THIS candidate. "The loader accepts
+        # every rule below" is false the moment `result.refusals` is not empty --
+        # witnessed on this exact object, `payments.transfer` sitting in `forecasts`
+        # while `refusals` two keys up refused it.
+        "forecast_notice": forecast.notice(refused=bool(result.refusals)),
         "forecasts_are_not_complete": forecast.FORECASTS_ARE_NOT_COMPLETE,
     }
 

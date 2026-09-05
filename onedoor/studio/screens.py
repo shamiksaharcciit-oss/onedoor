@@ -1337,8 +1337,18 @@ def refusals_block(result: staging.StagedResult) -> str:
     )
 
 
-def forecasts_block(items: tuple[forecast.Forecast, ...], *, inert_checked: bool) -> str:
-    """How each rule will behave once in force. NOT refusals, and the heading says so."""
+def forecasts_block(
+    items: tuple[forecast.Forecast, ...], *, inert_checked: bool, refused: bool = False
+) -> str:
+    """How each rule will behave once in force. NOT refusals, and the heading says so.
+
+    `refused` is R092 F-D1: whether the refusals list above this one is non-empty. The
+    notice's own claim — "the loader accepts every rule below" — is a statement about
+    the SAME candidate the refusals list just refused, and it must stop being false the
+    moment that list is not empty. It is a caller-supplied fact, not recomputed here,
+    because the refusals list is rendered by a different function over a different
+    input (`result`, not `items`) and the two must never independently decide it.
+    """
     if not items:
         body = '<div class="empty">No decision-time behaviour was predicted for these rules.</div>'
     else:
@@ -1354,7 +1364,7 @@ def forecasts_block(items: tuple[forecast.Forecast, ...], *, inert_checked: bool
     )
     return (
         '<div class="panel"><h3>Once in force, these rules will</h3>'
-        f'<p class="note">{escape(forecast.FORECAST_NOTICE)}</p>'
+        f'<p class="note">{escape(forecast.notice(refused=refused))}</p>'
         + body
         + unknown
         + f'<p class="note honesty">{escape(forecast.FORECASTS_ARE_NOT_COMPLETE)}</p></div>'
@@ -1374,7 +1384,9 @@ def validation_fragment(
     same function. A fragment built by a second renderer would be the two-parser defect
     wearing HTML.
     """
-    return refusals_block(result) + forecasts_block(items, inert_checked=inert_checked)
+    return refusals_block(result) + forecasts_block(
+        items, inert_checked=inert_checked, refused=bool(result.refusals)
+    )
 
 
 # --- ND-056 / T3: natural-language authoring -----------------------------------------

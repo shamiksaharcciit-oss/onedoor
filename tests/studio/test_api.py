@@ -349,6 +349,30 @@ def test_the_validation_route_returns_both_lists_separately(client) -> None:
     assert body["forecast_notice"]
 
 
+def test_the_validation_route_notice_is_true_beside_a_refusal(client, state) -> None:
+    """R092 F-D1, witnessed exactly where core witnessed it: a refused rule still
+    forecast, and the notice must stop claiming universal acceptance the moment the
+    refusals list is not empty.
+
+    `POST /drafts` refuses an invalid candidate outright (422, no draft made) — the
+    guard T2's own test above already covers — so a draft that HOLDS a refused rule is
+    built directly, the shape fix B's upload path produces, and the shape core actually
+    witnessed this on."""
+    draft = server.new_draft(state, title="refused")
+    server.save_draft(
+        state,
+        draft.draft_id,
+        policies=[Policy(action_type="payments.transfer", tier=Tier(2), dry_run=False)],
+    )
+    body = client.get(f"{api.API_ROOT}/drafts/{draft.draft_id}/validation").json()
+
+    assert body["loads"] is False
+    assert body["refusals"], "precondition: this candidate is refused"
+    assert body["forecasts"], "precondition: the refused rule is still forecast"
+    assert "accepts every rule below" not in body["forecast_notice"]
+    assert "refused above" in body["forecast_notice"]
+
+
 def test_the_validation_route_names_the_reason_codes(client) -> None:
     created = client.post(
         api.API_ROOT + "/drafts",

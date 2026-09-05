@@ -547,12 +547,21 @@ python -m onedoor.studio.verify receipt.json snapshot.json
 ```
 
 **Expect:** `verified`, exit `0`.
-**Ask:** now corrupt the **downloaded** `snapshot.json` — open it and delete one
-character — and run the command again over the corrupted pair. Does it say `unreadable`
-rather than `failed`? **Telling you your receipt is bad when what is bad is your
-download would be the worst error this page could make.** Run this on the file you
-downloaded, not on hand-typed or pasted content — a corruption test over bytes you
-transcribed yourself tests your transcription, not the verifier.
+**Ask:** two separate corruptions, on the files you downloaded — not on hand-typed or
+pasted content, which would test your transcription rather than the verifier:
+
+- **Truncate `receipt.json`** — delete its last few characters, so it is no longer
+  parseable — and run the command again. **Expect `unreadable`, exit `2`.** A receipt
+  the verifier cannot even read is a check that never ran.
+- **Restore `receipt.json`, then change one digit inside `snapshot.json`** (it is
+  still valid JSON — the change just makes it say something different) and run the
+  command again. **Expect `failed`, exit `1`, naming the hash it actually got.** The
+  verifier never parses the snapshot; it hashes the bytes and compares. A readable
+  file whose bytes hash elsewhere is exactly what tampering looks like, and that is
+  `failed`, not `unreadable` — the two corruptions land on opposite outcomes because
+  they land on different halves of what the check does, and a script that expected
+  `unreadable` from the snapshot corruption (an earlier version of this stop did)
+  would have been asking you to watch the wrong number.
 
 ---
 
@@ -647,4 +656,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = b4ff82b0e856674b4caf1447e24f4d3d0785da08a68fdaab6cc3c172847ab3b5
+Integrity: sha256(body) = 0a158be9f9bf3075dcb70969e35ab80455270888380b6850f6cba76fc09a1dd9

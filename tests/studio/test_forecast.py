@@ -76,6 +76,39 @@ def test_strict_params_is_forecast_and_never_refused() -> None:
     assert "property of requests" in bounds[0].message
 
 
+# --- R092 F-D2: the empty-declared-params sentence must not fill a list slot -----------
+
+
+def test_a_rule_with_no_declared_params_gets_its_own_sentence() -> None:
+    """`Bounds.strict_params` defaults `True`, and the fixture above declares no
+    params — this is F-D2's exact reproduction, which the old assertions above never
+    pinned down: `", ".join(named) if named else "no parameters at all"` substituted
+    the words for absence into a slot written for a list, producing "any parameter
+    other than no parameters at all is refused"."""
+    text = "policies:\n  - action_type: a.b\n    tier: 3\n"
+    result = staging.staged(text)
+    forecasts = forecast.build(result.policies, result.effects)
+    message = next(f for f in forecasts if f.reason_code == CheckId.BOUNDS.value).message
+
+    assert "no parameters at all is" not in message, "the old substitution bug is back"
+    assert "declares no parameters" in message
+    assert "any request carrying a parameter is refused" in message
+
+
+def test_a_rule_with_declared_params_still_lists_them() -> None:
+    """The non-empty branch is unchanged: named params still render as a list."""
+    policy = Policy(
+        action_type="a.b",
+        tier=Tier.CONFIRM,
+        bounds=Bounds(strict_params=True, required=["amount_eur", "payee"]),
+    )
+    message = next(
+        f.message for f in forecast.build([policy], []) if f.reason_code == CheckId.BOUNDS.value
+    )
+    assert "other than amount_eur, payee is refused" in message
+    assert "no parameters at all" not in message
+
+
 # --- every forecast names the code that will speak (R066 §3) -------------------------
 
 
@@ -228,6 +261,26 @@ def test_the_inert_forecast_describes_today_and_never_nd_053() -> None:
 def test_the_forecast_notice_says_these_are_not_refusals() -> None:
     assert "not refusals" in forecast.FORECAST_NOTICE
     assert "reason code" in forecast.FORECAST_NOTICE
+
+
+# --- R092 F-D1: the notice must be true beside a non-empty refusals list ---------------
+
+
+def test_the_clean_notice_claims_universal_acceptance() -> None:
+    """The wording this whole finding is about: it says the loader accepts every rule
+    below, which is only ever true when nothing above it refused."""
+    assert "accepts every rule below" in forecast.FORECAST_NOTICE
+
+
+def test_the_refused_notice_does_not_claim_universal_acceptance() -> None:
+    assert "accepts every rule below" not in forecast.FORECAST_NOTICE_REFUSED
+    assert "reason code" in forecast.FORECAST_NOTICE_REFUSED
+    assert "refused above" in forecast.FORECAST_NOTICE_REFUSED
+
+
+def test_notice_dispatches_on_whether_anything_refused() -> None:
+    assert forecast.notice(refused=False) == forecast.FORECAST_NOTICE
+    assert forecast.notice(refused=True) == forecast.FORECAST_NOTICE_REFUSED
 
 
 def test_the_forecast_list_does_not_claim_completeness() -> None:

@@ -423,6 +423,40 @@ def test_g_points_at_the_download_links_not_hand_copying() -> None:
     assert "select-and-paste" in g or "hand-typed or pasted" in g
 
 
+def test_g2_corrupts_the_right_file_for_the_right_outcome() -> None:
+    """R092 §3: the verifier hashes the snapshot, never parses it, so truncating it
+    produces `failed` (readable, wrong hash) and only the RECEIPT'S own unreadability
+    reaches `unreadable`. R091's own prior prescription (delete the final `}` of
+    snapshot.json -> expect unreadable) was core's error, owned in R092 and corrected
+    here: this test pins the corrected pairing so it cannot drift back."""
+    text = _text()
+    g2 = text[text.index("**G2 [") : text.index("## H ·")]
+    receipt_clause = g2[g2.index("Truncate") : g2.index("Restore")]
+    snapshot_clause = g2[g2.index("Restore") :]
+
+    assert "receipt.json" in receipt_clause and "unreadable" in receipt_clause
+    assert "exit `2`" in receipt_clause
+    assert "snapshot.json" not in receipt_clause.replace("receipt.json", "")
+
+    assert "snapshot.json" in snapshot_clause and "failed" in snapshot_clause
+    assert "exit `1`" in snapshot_clause
+    assert "never parses the snapshot" in g2 or "hashes the bytes" in g2
+
+
+def test_g2_no_longer_expects_unreadable_from_a_snapshot_corruption() -> None:
+    """The specific old mistake -- both this script's original wording and R091's
+    later "delete the final `}`" prescription -- expected `unreadable` from a
+    corrupted snapshot. It never can be: the verifier hashes bytes it never parses."""
+    text = _text()
+    g2 = text[text.index("**G2 [") : text.index("## H ·")]
+    assert "delete the final" not in g2
+    # The word "unreadable" appears in this section, but never in the same sentence as
+    # the snapshot corruption -- checked by construction above, restated here as the
+    # single boolean this finding is actually about.
+    around_snapshot = g2[g2.index("Restore") : g2.index("Restore") + 400]
+    assert "unreadable" not in around_snapshot
+
+
 def test_c1c_saves_the_one_real_change_e_ratifies_and_f3_replays() -> None:
     """R089/R090 F-S3: C1's edits were unsaved by design, so E3-as-scripted ratified a
     no-op and F3 had nothing to replay against -- reachable only because an earlier

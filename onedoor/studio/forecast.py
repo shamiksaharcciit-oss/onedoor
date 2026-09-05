@@ -56,12 +56,39 @@ FORECAST_NOTICE = (
     "each rule will behave once it is in force, and each one names the reason code the "
     "engine will record."
 )
-"""Rendered wherever the forecast list is shown, including when it is empty.
+"""Rendered above the forecast list when nothing above it refuses the candidate.
 
 The sibling of `validate.INCOMPLETE_NOTICE`, and it carries the heavier load: the risk
 on this list is not incompleteness but misreading, because a warning that sits near a
 refusal list gets read as a refusal.
 """
+
+FORECAST_NOTICE_REFUSED = (
+    "These are not refusals either, but the loader does not accept every rule below: "
+    "at least one is refused above. What follows describes how each rule will behave "
+    "once it is in force and any refusals above are fixed, and each one names the "
+    "reason code the engine will record."
+)
+"""R092 F-D1. `FORECAST_NOTICE` rendered unconditionally, including beside a non-empty
+refusals list: "the loader accepts every rule below" is false the moment one is not —
+`payments.transfer` sitting in the forecast list while the refusal list two panels up
+refuses it. **Requirement, not wording**: the notice must be true on both branches. The
+forecast rows for a refused rule stay — "once the refusal is fixed, this is how it will
+behave" is still useful — only the claim about what the loader currently accepts
+changes with it.
+"""
+
+
+def notice(*, refused: bool) -> str:
+    """Which forecast-list disclaimer is true, given whether anything above it refused.
+
+    One call, both render sites (`screens.forecasts_block`, `api.validation_object`) —
+    R069's law applied to a sentence: two callers computing the same choice would be
+    two chances for it to be computed differently, which is exactly how F-D1 stood
+    unnoticed on one surface while the other rendered the identical wrong sentence.
+    """
+    return FORECAST_NOTICE_REFUSED if refused else FORECAST_NOTICE
+
 
 FORECASTS_ARE_NOT_COMPLETE = (
     "Only the behaviours this check knows how to predict are listed. A rule with no row "
@@ -162,17 +189,31 @@ def build(
         # 2. strict_params: a runtime bounds rejection, stated as one.
         if policy.bounds.strict_params:
             named = _declared_params(policy)
-            accepted = ", ".join(named) if named else "no parameters at all"
+            if named:
+                message = (
+                    f"strict_params is on, so a request carrying any parameter "
+                    f"other than {', '.join(named)} is refused at decision time. This "
+                    "is a property of requests, not of this rule — the loader accepts "
+                    "the rule either way."
+                )
+            else:
+                # R092 F-D2: `", ".join(named) if named else "no parameters at all"`
+                # substituted a description of absence into a slot written for a
+                # list, producing "any parameter other than no parameters at all" --
+                # a list slot cannot hold the word for its own emptiness. The empty
+                # case is a different sentence, not the same sentence with a filler
+                # noun standing in for a list of zero items.
+                message = (
+                    "strict_params is on and this rule declares no parameters, so "
+                    "any request carrying a parameter is refused at decision time. "
+                    "This is a property of requests, not of this rule — the loader "
+                    "accepts the rule either way."
+                )
             out.append(
                 Forecast(
                     action_type=policy.action_type,
                     reason_code=CheckId.BOUNDS.value,
-                    message=(
-                        f"strict_params is on, so a request carrying any parameter "
-                        f"other than {accepted} is refused at decision time. This is a "
-                        "property of requests, not of this rule — the loader accepts "
-                        "the rule either way."
-                    ),
+                    message=message,
                 )
             )
 

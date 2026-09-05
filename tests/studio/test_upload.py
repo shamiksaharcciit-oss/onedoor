@@ -286,6 +286,22 @@ def test_the_fragment_separates_refusals_from_forecasts(client, state) -> None:
     assert "Nothing here would be refused at boot" in body
 
 
+def test_the_forecast_notice_is_true_when_the_rule_it_forecasts_is_refused(client, state) -> None:
+    """R092 F-D1, the exact reproduction: `payments.transfer` at Tier 2 with no
+    reversal is refused above and still forecast below (its default `strict_params`
+    gives it a BOUNDS forecast) — the notice above the forecast list must stop
+    claiming "the loader accepts every rule below" the moment that is false."""
+    draft = server.new_draft(state, title="live")
+    rule = '{"action_type": "payments.transfer", "tier": 2}'
+    response = client.post(f"/drafts/{draft.draft_id}/validate", data={"raw": rule})
+    body = response.text
+
+    assert "compensating_command" in body  # the refusal
+    assert "payments.transfer" in body  # still forecast
+    assert "accepts every rule below" not in body
+    assert "refused above" in body
+
+
 def test_the_fragment_for_an_unknown_draft_is_an_absence_not_a_verdict(client) -> None:
     response = client.post("/drafts/nope/validate", data={"raw": "{}"})
     assert response.status_code == 404
