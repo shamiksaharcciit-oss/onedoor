@@ -1,3 +1,26 @@
+> **STATE OF THIS DOCUMENT — 2026-09-05.** The table below was last verified against the
+> source at `3dfe3cd` (onedoor **0.4.0**) and against **`draft-saha-aadp-01`**. Since then
+> **0.5.0, 0.6.x and 0.7.0** have shipped, and **`draft-saha-aadp-02` was posted on
+> 2026-09-01** and is the current text. **This table has not been re-verified since**, and
+> it is known to be wrong in both directions: some ❌ rows are now implemented (`ND-017`
+> shipped content-addressed receipts and Merkle anchoring, rows P1 and P3), and −02 items it
+> describes as entering a working copy are now posted text.
+>
+> **Verified open against −02 as posted, at 0.7.0 — the only two claims this banner makes:**
+>
+> 1. **−02 §5, decimal strings in `params` — a MUST, not met.** A PDP evaluating numeric
+>    bounds over a monetary parameter MUST accept the decimal-string form; 0.7.0 refuses
+>    it. Tracked as `ND-054`, specced, first post-freeze change.
+> 2. **A3, downstream idempotency-key propagation — not implemented.** Blocked on `ND-038`.
+>    −02 Appendix B states that no adapter exercises the propagation; that statement is
+>    accurate for this implementation.
+>
+> Every other row: read as of 0.4.0 until the **0.7.1 re-baseline**, which re-verifies the
+> whole table against −02 as posted and 0.7.0's code, requirement by requirement, and ships
+> in the same release as `ND-054` so the document and the defect close together. Nothing
+> below is marked ✅ that was not implemented *and* covered by a passing test **at 0.4.0**;
+> the same rule governs the re-baseline.
+
 # CONFORMANCE.md — onedoor ↔ AADP
 
 **Implementation:** onedoor `0.4.0` — **published** 2026-08-22 (tag `v0.4.0` @ `5c50466`,
