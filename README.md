@@ -74,6 +74,11 @@ model, an integration guide per surface — [library](docs/integration-library.m
 [LangGraph](docs/integration-langgraph.md) — and the full
 [policy reference](docs/policy-reference.md).
 
+The **user manual** for the current release is
+[`docs/OneDoor_User_Manual.pdf`](docs/OneDoor_User_Manual.pdf) — ten pages, written for the
+operator rather than the integrator: install, the first policy, the Studio, approvals, the
+kill switch, receipts and how to verify one.
+
 ## Quickstart — four commands, from PyPI
 
 Requires Python ≥ 3.12. Nothing below needs this repository.
