@@ -5,13 +5,16 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## Unreleased
+## 0.7.0 — 2026-09-05
 
-> **DRAFT for `0.7.0`.** This section is the source the release notes are sliced from
-> (R011). The release carries the whole `ND-055` arc plus `ND-056`'s three authoring
-> tracks, ships **as `0.7.0` because the content defines the number** (R066 §2), and is
-> **gated on the operator dogfooding pass**, not on the calendar. This release
-> **removes nothing**.
+The whole `ND-055` arc (the Ledger Room — eight screens over the policy set, the ledger,
+live state and receipts) plus `ND-056`'s authoring tracks: the editor and upload ship, the
+policy REST API ships, the model-backed proposer does not (below). **This release removes
+nothing** — no endpoint retired, no field dropped, no behaviour changed for anything that
+was already working — because a version number describes content, and every entry below
+is additive over `0.6.2`. Gated on an operator dogfooding pass rather than the calendar;
+the pass found the defects fixed under "Fixed" below, each witnessed on a rendered screen
+before this section closed.
 
 ### Added — `ND-056` T1: upload, and the loader's whole boot path reachable before boot
 
@@ -86,10 +89,18 @@ The Studio's own store moves to schema 3 — a `state` column and a `derivation_
 column, both nullable, with an explicit upgrade for existing stores. **No enforcer
 migration number was claimed**; the enforcer's numbered sequence is the enforcer's history.
 
-### Added — `ND-056` T3: drafts proposed by a model, ratified by you
+### Not shipped in `0.7.0` — `ND-056` T3: drafts proposed by a model, ratified by you
 
-Ships in `0.7.0` **only if its published-misses benchmark clears**; otherwise it follows as
-`0.7.1`, alone. Additive; **off by default and absent rather than broken when off.**
+Built, held to the same walls the design demanded, and **did not clear its own gate**: the
+published-misses benchmark measured 0 of 11 against its acceptance corpus, and the ruling
+made before the number was known — ship only if the benchmark clears, otherwise `0.7.1`
+alone — was honoured against the result it actually got. With no model endpoint
+configured there is no Propose tab, no route, and no mention of the feature anywhere in
+this release's Studio; that absence is the correct state for `0.7.0`, not a placeholder
+for one. The design stands as specced, follows as `0.7.1` alone if and when it clears, and
+is described here rather than in this release's own notes for that reason.
+
+**Additive; off by default and absent rather than broken when off**, once it does ship.
 
 With no model endpoint configured there is no Propose tab, no route, and no mention of the
 feature anywhere in the Studio. Nothing is bundled: no credentials, no default provider,
@@ -377,6 +388,119 @@ violation it protects.
 `banner_for` looked for `ratifications` in the Studio's draft store; it is an enforcer
 table. Every shell route raised `no such table: ratifications` on a fresh install. Caught
 through the server on the first request, by none of the library-level tests.
+
+### Fixed — the version banner read "ratified never ratified"
+
+`shell.banner_html` composed a `ratified` label unconditionally in front of whichever
+constant applied, which reads correctly for a date and wrong for the other two states:
+`NEVER_RATIFIED` produced *"ratified never ratified"*, and `RATIFIED_ELSEWHERE` produced
+*"ratified not ratified through this Studio"* — seen live on an operator's screen.
+`ratified_phrase` now composes label and value together, branching on which value it is
+rather than on truthiness: `RATIFIED_ELSEWHERE` is a non-empty string, so a truthiness
+test cannot tell it from a date. The three constants themselves were already correct;
+only the composition was wrong.
+
+### Added — the rule editor has a door
+
+`draft_body` composed the draft page with no link to the per-rule editor at all — the
+only two references anywhere in the Studio to the `/edit/` route were the editor page's
+own form actions. A rules panel now lists every action type in the draft, sorted, each
+linking to its editor, with the count stated; a draft with no rules renders a sentence
+rather than a blank.
+
+### Fixed — an upload the loader would refuse silently produced a draft holding the rules already in force
+
+`upload_draft` skipped saving whenever the staged result carried no policies — true for a
+file that failed to parse or failed schema validation — and a new draft seeds from the
+version currently in force. A file the loader would refuse at either of those two stages
+therefore produced a draft named after the uploaded file but holding whichever rules
+were already live, shown to the operator as "The validator found no problems in these
+rules." The save is now unconditional: a draft named after a file contains that file's
+own rules, or none, never a silent substitution. (The crash this exposed downstream —
+below — is its own entry.)
+
+### Fixed — the empty-store warning asked whether `--db` was misconfigured even when the operator had just named it
+
+The warning always suggested the Studio's and the decision service's `--db` defaults
+might disagree, even when `--db` was typed explicitly on the command line and could not
+be a default-mismatch. The Studio now knows whether `--db` was named or defaulted
+(threaded from `argparse`, using a `None` sentinel so a value equal to the default string
+still counts as named) and, when it was named, states plainly that the store is empty and
+names how policies enter one.
+
+### Fixed — a documentation claim about `compensating_command` that no code enforces
+
+`docs/policy-reference.md` said `compensating_command` "must name another registered
+action type." Nothing checks that, at load time or at decision time — the loader tests
+only that the field is non-empty. Corrected in place, carrying the prior whole-file
+digest; the missing check is tracked as `ND-057`, filed and not built in this release.
+
+### Fixed — the draft-detail and ceremony pages returned 500 for a draft holding a rule the loader would refuse
+
+`ratify.preview` shares its `_apply` step with real ratification by design, so the two
+can never diverge in what they refuse — and neither was taught that a draft, after the
+upload fix above, can now honestly hold a rule `validate_policy` refuses. The
+`ValueError` that step raises climbed out of `preview` uncaught, into every page that
+computes a draft's panels. The Changes panel and the ratification ceremony now defer to
+the Validation panel, which already renders the identical refusal safely; the ceremony
+draws no Ratify button on a refused draft, and the ratify route itself answers a direct
+POST with `candidate_invalid_at_load` rather than crashing. `_apply` and
+`validate_policy` are unchanged; only the boundary around the one shared call learned to
+carry a refusal instead of raising it.
+
+### Fixed — the guided editor pane rendered only one of a rule's two numeric bounds
+
+A rule declaring both a minimum and a maximum on the same field — `payments.transfer`'s
+`amount_eur`, for one — showed only the maximum in the guided pane's saved state, the
+minimum silently gone, beneath a caption stating the two panes cannot disagree. The
+summary now emits one clause per bound present, both when both are; the parser that
+reads the field back already merged same-named clauses correctly, so only the renderer
+changed.
+
+### Fixed — the history detail page labelled unrecorded receipt digests "no version in force"
+
+The Digests and Chain panels rendered every null field — legitimately null, because the
+content-addressed-receipt work has not shipped — through the same helper the version
+banner uses, which prints "no version in force" for an absent value. Eight fields on one
+page stated that no version was in force while the page's own header showed one
+demonstrably was. A null digest that is not a policy version now renders "not recorded";
+a chain row outside the (opt-in, periodic) hash chain renders "unchained," the word the
+page's own heading already used for it.
+
+### Added — download routes for the Verify page's receipt and snapshot
+
+The page told a stranger to "copy them anywhere, run it there" with no way to do so
+except selecting text out of a rendered block — one lost or gained byte turns a sound
+receipt into a false `failed`. `GET /verify/{digest}/receipt.json` and
+`.../snapshot.json` now serve the identical stored bytes with
+`Content-Disposition: attachment`, and the deposition page links to both.
+
+### Fixed — the forecast list's own notice claimed the loader accepts every rule below, including beside a refused one
+
+The notice above the "once in force" list said "the loader accepts every rule below"
+unconditionally — false the moment the refusal list above it is not empty, witnessed on
+an uploaded file where the refused rule still appeared, correctly, in its own forecast.
+The forecast rows for a refused rule are unchanged; the notice above them now says so
+honestly on both branches.
+
+### Fixed — a rule declaring no parameters produced "any parameter other than no parameters at all is refused"
+
+`strict_params` defaults to `true`, so a rule that declares none of its own parameters is
+not a rare shape. The forecast sentence built its list of accepted parameters by joining
+a set that was sometimes empty, and substituted the words "no parameters at all" into the
+same slot a real list would have filled. The empty case now has its own sentence.
+
+### Added — the dogfooding pass script, and two rounds of its own defects fixed under an actual walk
+
+`docs/DOGFOODING_SCRIPT.md`, an ordered, timeboxed operator script whose every command
+and quoted sentence is checked by a test before anyone can be asked to type or read it,
+gated this release. It never seeded a store, so an early stop had no rule to open, and a
+fenced file it asked an operator to save by hand picked up its own language tag as the
+file's first line — both fixed in a rewrite. A later re-walk found its verification stop
+expecting the wrong outcome for one of its two corruption tests: the verifier hashes a
+snapshot's bytes and never parses them, so a corrupted snapshot answers `failed`, not
+`unreadable` — only an unreadable *receipt* reaches `unreadable`. The script now
+corrupts each file for the outcome it actually produces.
 
 ## 0.6.2 — 2026-08-28
 

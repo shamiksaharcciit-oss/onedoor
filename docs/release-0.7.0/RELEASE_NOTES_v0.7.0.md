@@ -1,30 +1,22 @@
-# onedoor 0.7.0 — **DRAFT A: T3 SHIPS**
+# onedoor 0.7.0 — 2026-09-05
 
-> **This is a draft for core's review and Shamik's scope approval. It is not published, and
-> delivery does not publish it.**
->
-> **Variant A of two.** This variant is correct **only if T3's published-misses benchmark
-> clears by Sept 5**. If it does not, use **Draft B**, in which T3 is absent entirely
-> rather than described as coming.
->
-> Every sentence whose truth depends on that decision is marked **[T3]**. There are no
-> unmarked T3 claims in this document.
->
-> Notes drawn from [CHANGELOG.md](../../CHANGELOG.md)'s `0.7.0` section (R011: release
-> notes are a slice of the changelog, never a rewrite of it).
+**Tag `v0.7.0`.** Notes drawn from [CHANGELOG.md](../../CHANGELOG.md)'s `0.7.0` section
+(R011: release notes are a slice of the changelog, never a rewrite of it). This edition
+supersedes draft B, seal `c405e827fa4cf6ef1dbe1ca03df1980961403e4d146b8021f9bc81a9aafb1bda`,
+after the operator dogfooding pass that gated the release.
 
 ---
 
 ## What this release is
 
-**The Policy Studio, finished.** `0.6.2` shipped two fixes to a Studio that was one screen
-and a canvas. `0.7.0` is the whole room: eight screens that read the policy set, the
-ledger, the live state and the receipts — and three ways to write a policy.
+**The Policy Studio, the whole room.** `0.6.2` shipped two fixes to a Studio that was one
+screen and a canvas. `0.7.0` is eight screens that read the policy set, the ledger, the
+live state and the receipts — and three ways to write a policy, two of them new.
 
 ### Why the number is `0.7.0` and not `0.6.3`
 
 Because a version number describes content. This release carries the entire Ledger Room
-arc — eight screens built over `ND-055` — plus three new authoring paths. Calling that a
+arc — eight screens built over `ND-055` — plus two new authoring paths. Calling that a
 patch would understate it to the only audience version numbers exist for. The number
 follows what is in the release; it was not chosen to fit a date.
 
@@ -34,7 +26,7 @@ engine, the wire protocol and the enforcer's schema are untouched.
 
 ---
 
-## Writing a policy, three ways
+## Writing a policy, three ways — two of them new
 
 Every one of them produces a **draft**. A draft changes nothing. The only path from a
 draft to the rules an agent is actually governed by is the ratification ceremony, which is
@@ -52,10 +44,14 @@ scripting off leaves you exactly the editor `0.6.2` had.
 
 Upload YAML on the Drafts page. The file is checked by the loader's own four stages, in
 the loader's own order, and the draft shows what would be refused at boot, at which stage,
-and where in the file.
+and where in the file. The uploaded bytes are frozen verbatim before anything parses them.
 
 **A file the loader would refuse still becomes a draft.** You get the reasons, not your
-file handed back.
+file handed back. **And a draft the loader would refuse cannot be ratified**: its preview
+says so, the ceremony page draws no button, and a direct call to the ratify route is
+refused with reason `candidate_invalid_at_load` — the preview and the real ratification
+share one application path, so they refuse the identical candidate for the identical
+reason.
 
 Before this release, the Studio could only ever reach the *last* of those four checks,
 because the editor handed it rules that had already survived the first three. The point of
@@ -73,35 +69,13 @@ what the loader thinks, and submit for ratification. The schema is at
 > records its approver as declared, never authenticated, and is retired with the key_id
 > work.
 
-It now says so in its own response.
+It now says so in its own response, and the legacy route is marked deprecated in the
+schema itself.
 
 `submit` records that a human has been asked. It moves no version pointer and writes no
-receipt.
-
-### **[T3]** In plain words, if you bring a model
-
-**Drafts proposed by a model, ratified by you.**
-
-Describe what an agent may do in ordinary language and get back a draft — the same kind of
-draft the editor or an upload produces, entering the same ceremony. **[T3]** It is off
-unless you configure it: no endpoint means no tab, no route, and no mention of the feature
-anywhere. Nothing is bundled — no credentials, no default provider.
-
-**[T3]** What the model produces is a candidate document and nothing else:
-
-- The model is a **declared instrument**. The draft records the endpoint host, the model
-  name, and a digest of the prompt. It never records your key.
-- Generated YAML goes through the **same loader** as anything you type. A generation the
-  loader refuses is shown refused, with the model's raw output beside the reasons, and
-  **nothing is repaired to make it parse.**
-- The approval page shows **what the parser read**, not what the model says it did.
-- Every proposal ends with **what your description mentioned that got no rule**, quoting
-  your own words.
-
-**[T3]** A proposal is recorded, not receipted. The same description through the same
-model twice may differ, so the record pins the conditions and says on its face that it does
-not attest re-derivability. **The candidate's authority comes from the checks it passes,
-never from the record.**
+receipt. A draft pinned to a version no longer in force cannot be submitted at all —
+`base_moved`, naming both versions — until it is re-pinned and its numbers recomputed
+against the version now in force.
 
 ---
 
@@ -121,7 +95,8 @@ that stops believing the list that was right.
 
 Neither list claims completeness. The refusal list carries the notice that the engine's
 validator stops at the first failure in each rule; the behaviour list says only what it
-knows how to predict.
+knows how to predict — and when something above it is refused, its own preamble says so
+rather than claiming the loader accepts what the list above just refused.
 
 ---
 
@@ -132,7 +107,9 @@ what each rule does in plain English beside the rule itself. A version whose sna
 cannot be read says so, rather than rendering as an empty policy set.
 
 **History** — the execution ledger, chain-numbered, with every filter that shaped the view
-visible in the view.
+visible in the view. A field the ledger does not yet record reads *not recorded*; a row
+outside the chain reads *unchained* — never a sentence about a version that is, in fact,
+in force.
 
 **Live state** — the kill switch and the budgets. The switch's state is shown and no
 button is drawn, with the reason stated: this process may not write to the enforcer's
@@ -143,15 +120,29 @@ a different policy version. The engine decides; nothing is re-executed; both ver
 named in the same breath; and a version whose rules cannot be retrieved renders as *not
 retrievable* rather than replaying as an empty policy set.
 
-**Verify** — a page built for a stranger. It gives you two files and a command that reads
-them, opens no database, and tells you `verified`, `failed`, or `unreadable` — three
-outcomes, because telling you your receipt is bad when what is bad is your download would
-be the worst error the page could make.
+**Verify** — a page built for a stranger. It gives you two files — as downloads of the
+exact stored bytes, so nothing is lost to copy-and-paste — and a command that reads them,
+opens no database, and tells you `verified`, `failed`, or `unreadable`. Three outcomes,
+because telling you your receipt is bad when what is bad is your download would be the
+worst error the page could make. The receipt is parsed; the snapshot is only hashed — so a
+receipt that will not read is `unreadable`, and a snapshot whose bytes hash elsewhere is
+`failed`, whatever the corruption.
 
 **The ceremony** — ratification is a page before it is an action. Reading it ratifies
 nothing. It states what will be in force, what changes, and what this does not undo — and
 it does not call the change irreversible, because that would be false: there is no
 un-ratify, and the way back is forward.
+
+---
+
+## Tested by a person before it was tagged
+
+Every screen in this release was walked by an operator on a machine that had never run
+it, following `docs/DOGFOODING_SCRIPT.md` — an ordered, timeboxed script whose every
+command is checked by a test before anyone types it. The pass found defects; they are
+recorded, with their fixes, in `docs/from_core/` in the repository, and the release was
+held until each fix was witnessed on the operator's screen. The user manual that ships
+with this release (`docs/OneDoor_User_Manual.pdf`) teaches what that walk learned.
 
 ---
 
@@ -188,4 +179,4 @@ untouched — this release adds no enforcer migration.
   matters rather than answering identity questions with provenance facts. Actor identity
   is specced and follows.
 
-Integrity: sha256(body) = cbf56a02275ba0fe430a8ca9d35596d33256665cba153cb4f04bba09c7a20039
+Integrity: sha256(body) = 318d24cdf1a80d0a8db062011a44269398db4cfb6e0dbbdd0807980fad87dedb

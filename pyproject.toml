@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.6.2"
+version = "0.7.0"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"

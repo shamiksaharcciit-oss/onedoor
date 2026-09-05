@@ -5,13 +5,15 @@ more people than any screen, are quoted onward, and outlive the release — so a
 would fail on a page must fail here too. *The discipline you sell is the discipline your
 own pages keep*, and a release note is a page.
 
-Three things are checked:
+Two things are checked, against the one document that ships (R094 §2): this file used to
+hold two drafts apart while the T3 decision was still open — variant A assuming T3 shipped,
+variant B assuming it slipped — and the fence that mattered most was keeping them honestly
+partitioned. That decision is now made and recorded (T3 measured 0 of 11 and does not ship
+in `0.7.0`), the drafts are retired, and `RELEASE_NOTES_v0.7.0.md` is the one sealed
+document the fences below apply to, alongside the changelog section it was sliced from:
 
 1. **Capability language.** Nothing may make the model the author or remove the person.
-2. **Aspiration as capability.** Nothing may describe as shipped what has not shipped, and
-   variant B may not promise T3 rather than omitting it.
-3. **The two variants are honestly partitioned.** Every T3-dependent sentence in variant A
-   is marked, and variant B contains none of them.
+2. **Aspiration as capability.** Nothing may describe as shipped what has not shipped.
 """
 
 from __future__ import annotations
@@ -25,11 +27,12 @@ from onedoor.studio import api, live_proposer
 
 ROOT = Path(__file__).resolve().parents[1]
 DRAFTS = ROOT / "docs" / "release-0.7.0"
-VARIANT_A = DRAFTS / "RELEASE_NOTES_v0.7.0-DRAFT-A-T3-ships.md"
-VARIANT_B = DRAFTS / "RELEASE_NOTES_v0.7.0-DRAFT-B-T3-slips.md"
+NOTES = DRAFTS / "RELEASE_NOTES_v0.7.0.md"
+DRAFT_A = DRAFTS / "RELEASE_NOTES_v0.7.0-DRAFT-A-T3-ships.md"
+DRAFT_B = DRAFTS / "RELEASE_NOTES_v0.7.0-DRAFT-B-T3-slips.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 
-DOCUMENTS = {"variant A": VARIANT_A, "variant B": VARIANT_B, "changelog": CHANGELOG}
+DOCUMENTS = {"release notes": NOTES, "changelog": CHANGELOG}
 
 
 def _text(path: Path) -> str:
@@ -109,100 +112,48 @@ def test_no_release_document_claims_the_studio_edits_live_rules(name: str) -> No
         assert claim not in folded, f"{name} suggests the Studio edits live rules"
 
 
-# --- the two variants, honestly partitioned ---------------------------------------------
+def test_the_published_notes_omit_t3_rather_than_promising_it() -> None:
+    """The capability rule's sharpest edge, carried over from variant B: **absent, not
+    announced.** T3 measured 0 of 11 (R094 §1) and does not ship, so the one document a
+    reader takes as the record of what `0.7.0` IS does not mention the model track at
+    all — a release note that promised a feature coming has made a claim it cannot keep,
+    in the document people quote onward."""
+    folded = _folded(NOTES)
+    for word in ("propose", "instrument", "prompt digest", live_proposer.CAPABILITY):
+        assert str(word).lower() not in folded, f"the notes mention {word!r}; T3 must be absent"
 
 
-def test_both_variants_exist_and_say_which_they_are() -> None:
-    assert VARIANT_A.is_file() and VARIANT_B.is_file()
-    assert "DRAFT A: T3 SHIPS" in _text(VARIANT_A)
-    assert "DRAFT B: T3 SLIPS" in _text(VARIANT_B)
-    for path in (VARIANT_A, VARIANT_B):
-        text = _text(path)
-        assert "not published" in text and "delivery does not publish it" in text, (
-            f"{path.name} must say on its face that it is a draft"
-        )
-        # R073 §2's naming law, pinned where it was broken. The header called the
-        # management act "ratification", colliding with the ceremony the rest of the
-        # document describes — in the first line, which R072 §1 ruled is where stating
-        # happens. A vocabulary fix left unpinned is a vocabulary fix that comes back.
-        head = text[: text.index("---")]
-        assert "Shamik's scope approval" in head, (
-            f"{path.name}'s header must name the management act as SCOPE APPROVAL"
-        )
-        assert "Shamik's ratification" not in head, (
-            f"{path.name}'s header uses 'ratification' for the management act; that word "
-            "is reserved for the ceremony in the product"
-        )
+# --- the release, not-shipped, and cutover facts -----------------------------------------
 
 
-def test_variant_a_marks_every_t3_dependent_sentence() -> None:
-    """R070 §2: *mark every sentence that depends on the T3 decision.*
-
-    Checked by deleting the marked material and asserting nothing about the model is left
-    — a marking that missed a sentence would leave a T3 claim in a document whose header
-    says there are none.
-    """
-    text = _text(VARIANT_A)
-    assert "[T3]" in text, "variant A must mark its T3-dependent claims"
-
-    # Everything from the T3 section heading to the next top-level rule is T3 material.
-    start = text.index("### **[T3]** In plain words, if you bring a model")
-    end = text.index("---\n\n## Two lists, and why they are two")
-    remainder = (text[:start] + text[end:]).lower()
-
-    for word in ("model", "propose", "instrument", "prompt"):
-        assert word not in remainder, (
-            f"{word!r} appears in variant A outside the marked T3 section, so a sentence "
-            "whose truth depends on the T3 decision is unmarked"
-        )
+def test_the_published_notes_exist_and_the_two_drafts_are_gone() -> None:
+    """R094 §2.3: the notes are core-written, sealed, and committed as delivered; the
+    two forks that existed while the T3 decision was open are retired in the same
+    commit — a draft left beside the published notes would be indistinguishable from
+    them to a reader who does not already know which is which."""
+    assert NOTES.is_file()
+    assert not DRAFT_A.exists(), "DRAFT-A must be deleted alongside the cutover"
+    assert not DRAFT_B.exists(), "DRAFT-B must be deleted alongside the cutover"
 
 
-def test_variant_b_omits_t3_rather_than_promising_it() -> None:
-    """The capability rule's sharpest edge: **absent, not announced.**
-
-    A release note that says a feature is coming has made a claim it cannot keep, in the
-    document people quote. So variant B does not mention the model track at all.
-    """
-    folded = _folded(VARIANT_B)
-    assert "[t3]" not in folded
-    for word in ("model", "propose", "instrument", "prompt digest", live_proposer.CAPABILITY):
-        assert str(word).lower() not in folded, (
-            f"variant B mentions {word!r}; it must omit T3 entirely rather than promise it"
-        )
-    # And it says WHY it omits, so a reviewer can tell omission from oversight.
-    assert "aspiration presented as capability" in _text(VARIANT_B)
+def test_the_notes_say_which_draft_they_supersede() -> None:
+    assert "supersedes draft B" in _text(NOTES)
+    assert re.search(r"[0-9a-f]{64}", _text(NOTES).split("supersedes draft B")[1][:120]), (
+        "the superseded draft's digest must be carried, not merely named"
+    )
 
 
-def test_the_variants_differ_only_where_t3_does() -> None:
-    """Both must tell the same story about everything else.
-
-    Otherwise the choice between them silently changes claims that have nothing to do with
-    T3 — and whichever is published, the other's corrections are lost.
-    """
-    for anchor in (
-        "Two lists, and why they are two",
-        "Why the number is `0.7.0` and not `0.6.3`",
-        "This release removes nothing",
-        "The v1 API adds no approval route",
-        "The rest of the room",
-        "What has not changed, and what this does not claim",
-    ):
-        assert anchor in _text(VARIANT_A), f"variant A lost {anchor!r}"
-        assert anchor in _text(VARIANT_B), f"variant B lost {anchor!r}"
-
-
-def test_variant_b_counts_the_authoring_paths_it_actually_describes() -> None:
-    """A count in prose is a claim. Two paths ship in B, and B must say two."""
-    text = _text(VARIANT_B)
-    assert "## Writing a policy, two ways" in text
-    assert "three ways to write a policy" not in text
-    assert "plus two new authoring paths" in text
-
-
-def test_variant_a_counts_three() -> None:
-    text = _text(VARIANT_A)
-    assert "## Writing a policy, three ways" in text
-    assert "plus three new authoring paths" in text
+def test_the_changelog_t3_entry_says_it_did_not_ship() -> None:
+    """T3's entry must read as what happened — a benchmark run and its result — never
+    as a shipped feature with a conditional footnote. The condition is resolved now."""
+    text = _text(CHANGELOG)
+    t3 = text[text.index("### Not shipped in `0.7.0` — `ND-056` T3") :]
+    t3 = t3[: t3.index("### Added — an operator script")]
+    assert "0 of 11" in t3
+    assert "0.7.1" in t3
+    assert "### Added — `ND-056` T3" not in text, (
+        "T3 must not also carry an `Added` heading — it did not ship"
+    )
 
 
 # --- the sentences that must appear verbatim, because a ruling fixed their wording -------
@@ -245,58 +196,30 @@ def test_every_document_tells_the_version_number_story() -> None:
         )
 
 
-def test_the_drafts_are_marked_as_drafts_and_live_outside_the_published_path() -> None:
-    """They must not be mistaken for the published notes on release day."""
-    assert DRAFTS.is_dir()
-    assert not (ROOT / "RELEASE_NOTES_v0.7.0.md").exists(), (
-        "a file at the published path would be indistinguishable from ratified notes"
-    )
-    for path in (VARIANT_A, VARIANT_B):
-        assert "DRAFT" in path.name
-
-
-def test_the_changelog_draft_section_is_marked_as_one() -> None:
-    text = _text(CHANGELOG)
-    unreleased = text[text.index("## Unreleased") : text.index("## 0.6.2")]
-    assert "DRAFT for `0.7.0`" in unreleased
-    assert "gated on the operator dogfooding pass" in unreleased
-    for track in ("`ND-056` T1", "`ND-056` T2", "`ND-056` T3"):
-        assert track in unreleased, f"the changelog draft does not cover {track}"
-
-
-def test_the_changelog_marks_t3_as_conditional() -> None:
-    """T3's entry must not read as shipped while its gate is open."""
-    text = _text(CHANGELOG)
-    t3 = text[text.index("### Added — `ND-056` T3") :]
-    t3 = t3[: t3.index("### Added — an operator script")]
-    assert "only if its published-misses benchmark clears" in t3
-    assert "otherwise it follows as" in t3
-
-
 def test_no_document_carries_crlf() -> None:
     for name, path in DOCUMENTS.items():
         assert b"\r" not in path.read_bytes(), f"{name} carries CRLF"
 
 
-def test_the_drafts_do_not_quote_a_test_count_or_a_digest_they_cannot_hold() -> None:
+def test_the_notes_do_not_quote_a_test_count_they_cannot_hold() -> None:
     """Release prose must not transcribe numbers that a run owns (R010, X-11).
 
-    A test count or an artifact digest in a draft would be stale the moment anything
-    changed, and the release's real digests are recorded at build time, before upload.
+    A test count in either document would be stale the moment anything changed, and the
+    release's real build-artifact digests are recorded at build time, before upload — a
+    different discipline from the supersede citation checked below, which is a citation
+    of a sealed, frozen prior document, not a number this run owns.
     """
     for name, path in DOCUMENTS.items():
         assert not re.search(r"\b\d{3,4} (?:tests? )?pass(?:ed|ing)\b", _body_of(path)), (
             f"{name} transcribes a test count"
         )
-        assert not re.search(r"\b[0-9a-f]{64}\b", _body_of(path)), f"{name} transcribes a digest"
 
 
-def test_each_sealed_draft_carries_exactly_one_integrity_footer() -> None:
+def test_the_notes_carry_exactly_one_integrity_footer() -> None:
     """The seal is generated, and there is exactly one — the protocol's producer rule."""
-    for path in (VARIANT_A, VARIANT_B):
-        footers = [line for line in _text(path).splitlines() if line.startswith("Integrity: ")]
-        assert len(footers) == 1, f"{path.name} has {len(footers)} integrity footers"
-        assert re.fullmatch(r"Integrity: sha256\(body\) = [0-9a-f]{64}", footers[0])
+    footers = [line for line in _text(NOTES).splitlines() if line.startswith("Integrity: ")]
+    assert len(footers) == 1, f"the notes have {len(footers)} integrity footers"
+    assert re.fullmatch(r"Integrity: sha256\(body\) = [0-9a-f]{64}", footers[0])
 
 
 def test_the_digest_exemption_is_anchored_to_position_and_not_to_pattern() -> None:
