@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-from decimal import Decimal
 
 from onedoor.guardrail.models import Bounds, JsonValue
+from onedoor.guardrail.numeric import numeric_refusal, numeric_value
 
 
 @dataclass(frozen=True)
@@ -33,19 +32,14 @@ def validate(bounds: Bounds, params: dict[str, JsonValue]) -> BoundsResult:
     for key, bound in bounds.numeric.items():
         if key not in params:
             continue
-        value = params[key]
-        # Decimal is numeric here, and must be: E10 parses JSON numbers with
-        # parse_float=Decimal, so every numeric parameter arriving over the wire is a
-        # Decimal. Omitting it from this check while landing that ingress change
-        # would deny EVERY numeric action -- the half-landed fix that is worse than
-        # the defect. tests/guardrail/test_decimal_ingress.py asserts the whole path.
-        if not isinstance(value, int | float | Decimal) or isinstance(value, bool):
-            return BoundsResult(False, f"param '{key}' must be numeric")
-        # Affirmative range check. The negative form (`value < min` / `value > max`)
-        # is False for NaN, so NaN slips through it into the allowed path. Every
-        # bound that is set must be provably satisfied, and the value must be finite.
-        if not (value.is_finite() if isinstance(value, Decimal) else math.isfinite(value)):
-            return BoundsResult(False, f"param '{key}'={value} is not a finite number")
+        raw = params[key]
+        # ND-054: one numeric_value(), shared with caps.resolve_cost, so declaring a
+        # bound can never change which wire types an action accepts. Accepts int,
+        # finite Decimal/float, and the decimal-string form ("40.00", AADP §5) --
+        # never through float for strings, so the comparison below is exact.
+        value = numeric_value(raw)
+        if value is None:
+            return BoundsResult(False, numeric_refusal(key, raw))
         if bound.min is not None and not value >= bound.min:
             return BoundsResult(False, f"param '{key}'={value} below min {bound.min}")
         if bound.max is not None and not value <= bound.max:
@@ -57,8 +51,8 @@ def validate(bounds: Bounds, params: dict[str, JsonValue]) -> BoundsResult:
         # author forgot to repeat the key under `required`.
         if key not in params:
             return BoundsResult(False, f"param '{key}' is constrained but absent")
-        value = params[key]
-        if value not in allowed_values:
-            return BoundsResult(False, f"param '{key}'={value!r} not in whitelist")
+        enum_value = params[key]
+        if enum_value not in allowed_values:
+            return BoundsResult(False, f"param '{key}'={enum_value!r} not in whitelist")
 
     return BoundsResult(True)

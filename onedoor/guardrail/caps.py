@@ -10,11 +10,12 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from onedoor._vendor.canonical import canon_datetime, canon_decimal
 from onedoor.guardrail.models import ActionRequest, Budget, Caps, CheckId, Policy
+from onedoor.guardrail.numeric import numeric_value
 
 
 @dataclass(frozen=True)
@@ -131,18 +132,12 @@ def resolve_cost(policy: Policy, request: ActionRequest) -> Decimal | None:
     """
     if policy.cost_param is not None:
         raw = request.params.get(policy.cost_param)
-        # Decimal belongs here for the same reason it belongs in bounds.py: E10 parses
-        # JSON numbers with parse_float=Decimal, so the amount arrives as a Decimal.
-        # Omitting it does not fail open -- resolve_cost returning None denies with
-        # cost_unknown -- but it denies EVERY euro-capped action, which is the
-        # half-landed fix wearing its other face. Found by the end-to-end guard test.
-        if isinstance(raw, bool) or not isinstance(raw, int | float | str | Decimal):
-            return None
-        try:
-            value = raw if isinstance(raw, Decimal) else Decimal(str(raw))
-        except (InvalidOperation, ValueError):
-            return None
-        if not value.is_finite() or value < 0:
+        # ND-054: shared with bounds.validate via numeric_value(), so a bound and a
+        # cap can never disagree about what counts as a number -- including the
+        # decimal-string form ("40.00", AADP §5) that the draft's own worked example
+        # carries in `params`.
+        value = numeric_value(raw)
+        if value is None or value < 0:
             return None
         return value
     # No declared parameter: fall back to what the caller computed. A caller
