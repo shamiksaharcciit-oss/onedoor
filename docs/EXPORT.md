@@ -82,6 +82,32 @@ The authoritative column list and types live in the migrations
 schema — if the two disagree, the migrations are right and this file is
 stale.
 
+## Join field
+
+`request_id` is the key an external reader — including the onetrace extension
+(decision record D-2026-09-26) — joins on. It is the same value end to end:
+
+- On the wire, `DecideBody.request_id` (`onedoor/service/app.py:95`), optional —
+  the caller supplies it or the service mints one with `uuid4()`
+  (`onedoor/service/app.py:254`).
+- Stored verbatim as `str(request.request_id)` in every `actions_audit` row the
+  decision produces (`onedoor/guardrail/audit.py:437`).
+- Returned on the same response as `DecideReply.request_id`
+  (`onedoor/service/app.py:109`).
+- Exported unchanged, like every other column (`onedoor/export.py`'s
+  `export_rows` is generic over columns; it does not special-case this one).
+
+A row's `id` (this file's own primary key, and the export's ordering key — see
+above) is **not** stable across a request's own lifecycle: a decide, its
+report, and any reservation-disposition row each get their own `id`, linked by
+`parent_id`/`undo_of` rather than by `request_id` alone (a report shares its
+originating decide's `request_id` but is a different row). `request_id` is the
+field that identifies *the request*, across every row it produced.
+
+`tests/service/test_service.py::test_request_id_survives_decide_to_audit_row_to_export_unchanged`
+sends a request with a known `request_id`, decides it, and asserts the same
+value appears on the wire response, in the audit row, and in the export.
+
 ## Round-tripping
 
 Every value in an exported line came from `SELECT * FROM actions_audit`

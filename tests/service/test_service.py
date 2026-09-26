@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from onedoor.export import export_rows
 from onedoor.guardrail import approvals
 from onedoor.guardrail.models import ActionRequest, Source
 from onedoor.service.app import create_app
@@ -252,3 +253,79 @@ def test_no_effect_on_a_failure_never_releases_the_rate_budget_over_http(
     )
     assert third.json()["decision"] == "denied"
     assert third.json()["reason"] == "cap_rate", "the no_effect report must not have freed the slot"
+
+
+# --- WO-D2 1(c): a malformed approval_ref -----------------------------------------
+
+
+def test_a_malformed_approval_ref_is_refused_in_the_http_layers_own_words(
+    client: TestClient,
+) -> None:
+    """`approval_ref` is `int | None` on the wire (DecideBody). A wrong-typed value
+    (a string that is not an integer) never reaches the engine at all: FastAPI/
+    Pydantic's body validation refuses it with a 422 and its own message before
+    `decide()` runs. This is DIFFERENT from an `int` that names no approval (the
+    "unknown" case from WO-D1 step 2, which the engine itself refuses) -- this is a
+    value the wire schema itself cannot accept.
+
+    Per WO-D2 1(c): the client receives the HTTP layer's words, not the engine's,
+    and that is pinned here rather than rewritten -- -03 does not require the engine
+    to see a value its own wire type already rejects.
+    """
+    r = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "money.transfer",
+            "params": {"to": "acme-gmbh", "amount_eur": "40.00"},
+            "approval_ref": "not-a-number",
+        },
+        headers=_h("dkey"),
+    )
+    assert r.status_code == 422, "a wrong-typed approval_ref is refused before decide() runs"
+    detail = r.json()["detail"]
+    assert isinstance(detail, list) and detail, "FastAPI's own validation-error shape"
+    assert detail[0]["loc"] == ["body", "approval_ref"]
+    assert detail[0]["type"] == "int_parsing"
+    assert "integer" in detail[0]["msg"], (
+        f"the client must receive the HTTP layer's own words, got: {detail[0]['msg']!r}"
+    )
+
+
+# --- WO-D2 1(d): request_id is the join field --------------------------------------
+
+
+def test_request_id_survives_decide_to_audit_row_to_export_unchanged(
+    client: TestClient,
+) -> None:
+    """The value on the wire (DecideBody.request_id, app.py:95), the value stored
+    (audit._row_values, audit.py:437: `str(request.request_id)`), and the value in
+    the export (export.export_rows, generic over columns) must be the same string.
+
+    This is the join field the onetrace extension uses (docs/EXPORT.md, "Join
+    field"): if any of the three disagreed, a reader stitching a decide response to
+    its audit/export row by request_id would silently join the wrong row.
+    """
+    known_id = "8e2a1c44-0000-4000-8000-00000000abcd"
+    r = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "demo.toggle",
+            "params": {"target": "demo.lamp", "state": "on"},
+            "request_id": known_id,
+        },
+        headers=_h("dkey"),
+    )
+    assert r.status_code == 200
+    assert r.json()["request_id"] == known_id, "the wire response must echo the same id"
+
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    row = engine.conn.execute(
+        "SELECT id, request_id FROM actions_audit WHERE request_id=? ORDER BY id DESC LIMIT 1",
+        (known_id,),
+    ).fetchone()
+    assert row is not None, "the audit row must be findable by the wire's own request_id"
+    assert row["request_id"] == known_id
+
+    exported = export_rows(engine.conn)
+    exported_row = next(r for r in exported if r["id"] == row["id"])
+    assert exported_row["request_id"] == known_id == row["request_id"] == r.json()["request_id"]
