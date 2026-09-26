@@ -740,7 +740,8 @@ ledger ships in the wheel. B1 unblocked.
 | `0020` | **WO-D2 step 3** — `approvals.mandate_authority` / `approvals.mandate_core_digest`: a mandate-pending approval (AADP -03 §8.1) is marked so `approvals.cas_approve`/`deny` refuse it structurally, resolvable only through `mandate.ratify` | **written**, WO-D2 |
 | `0021` | **WO-D2 step 3** — `policies.requires_external_authorization`: the per-action-type declaration that a mandate authority must be consulted (the `policies` table is explicit SQL columns, not a JSON blob, so a new `Policy` field needs its own migration + `policy_loader`/`policy.py` wiring, same as `requires_step_up`) | **written**, WO-D2 |
 | `0022` | **WO-D2 step 4** — `policies.present_bound`: the per-action-type declared audience URI (AADP -03 §6), same shape as `0021` — a new `Policy` field needs its own migration + `policy_loader`/`policy.py` wiring | **written**, WO-D2 |
-| `0023`+ | unclaimed — **released** by R047 §2. Candidate storage went to the Studio's own `studio.db` with its own one-table schema version: the main sequence is the **enforcer's** history, and a table in a different file that a different process owns does not belong in it | — |
+| `0023` | `policies.bound_permit_action_type`: the registered action-type name a bound permit's `authorization_details` entry carries, same shape as `0021`/`0022` — a new `Policy` field needs its own migration + `policy_loader`/`policy.py` wiring | **written** |
+| `0024`+ | unclaimed — **released** by R047 §2. Candidate storage went to the Studio's own `studio.db` with its own one-table schema version: the main sequence is the **enforcer's** history, and a table in a different file that a different process owns does not belong in it | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

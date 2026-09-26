@@ -12,6 +12,7 @@ from what onedoor already knows about the decision.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from onedoor.guardrail.models import ActionRequest, JsonValue, Policy, Tier
@@ -20,6 +21,26 @@ from onedoor.permit.jws import encode as jws_encode
 
 DEFAULT_LIFETIME_SECONDS = 120
 """profile §3.3: absent an `execute_within` deadline, `exp - iat` MUST NOT exceed this."""
+
+
+def _json_safe(value: object) -> object:
+    """Render a decided-params value the way this package's JCS already assumes
+    every action object arrives (`onedoor.permit.jcs`'s own docstring): amounts
+    and other precision-sensitive values as decimal strings, never as a bare
+    number. onedoor's own `ActionRequest.params` carries `Decimal` (E10) so that
+    `bounds`/`caps` compare exact values -- `json.dumps` cannot serialize that on
+    its own, and this package's restricted JCS refuses a float rather than lossily
+    rendering one, so a `Decimal` must become a string before either sees it.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
 
 
 class BoundPermitUnavailable(RuntimeError):
@@ -68,6 +89,9 @@ def issue(
             "trust boundary and present_bound is exactly that boundary"
         )
 
+    safe_action_object = _json_safe(dict(action_object))
+    assert isinstance(safe_action_object, dict)  # _json_safe preserves dict-ness
+
     iat = now
     exp = iat + timedelta(seconds=min(lifetime_seconds, DEFAULT_LIFETIME_SECONDS))
     claims: dict[str, object] = {
@@ -79,8 +103,8 @@ def issue(
         "nbf": int(iat.timestamp()),
         "exp": int(exp.timestamp()),
         "cnf": {"jkt": request.presenter_key_thumbprint},
-        "authorization_details": [{"type": policy.bound_permit_action_type, **action_object}],
-        "action_digest": action_digest(action_object),
+        "authorization_details": [{"type": policy.bound_permit_action_type, **safe_action_object}],
+        "action_digest": action_digest(safe_action_object),
         "verdict": "permit",
         "tier": {"nominal": int(nominal_tier), "effective": int(effective_tier)},
         "currentness": "time-bounded",

@@ -43,6 +43,9 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
             else False
         ),
         present_bound=row["present_bound"] if "present_bound" in row.keys() else None,
+        bound_permit_action_type=(
+            row["bound_permit_action_type"] if "bound_permit_action_type" in row.keys() else None
+        ),
         is_default_deny=False,
     )
 

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from sqlite3 import Connection
+from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -63,6 +64,14 @@ class EngineConfig:
     # deployment. Required only when `mandate_resolver` is set; a ratification
     # cannot verify against a key nobody configured.
     mandate_authority_public_key: bytes | None = None
+    # Bound-permit issuance (bound-permit profile §§3-4), configured per deployment.
+    # None (the default, for all three) means no action type ever gets a bound
+    # permit issued, whatever a policy's present_bound/bound_permit_action_type
+    # say -- issuance needs an issuer identity and a signing key configured, the
+    # same way mandate deferral needs a resolver configured before it does anything.
+    permit_issuer: str | None = None
+    permit_issuer_key_id: str | None = None
+    permit_issuer_private_key: Any = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:

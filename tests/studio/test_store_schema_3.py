@@ -160,16 +160,16 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
     `mandate_core_digest`; `policies.requires_external_authorization`;
     `policies.present_bound`) -- exactly the kind of spend this boundary exists to
     let happen, argued rather than silent, as long as it is the enforcer's own
-    history being extended and not a Studio table borrowing a number from it. The
-    live boundary is `0023`+; if a future change spends one of those on a Studio
-    table, this test is where that decision has to be argued.
+    history being extended and not a Studio table borrowing a number from it.
+    `0023` (`policies.bound_permit_action_type`) was since claimed too, the same
+    way. The live boundary is `0024`+; if a future change spends one of those on
+    a Studio table, this test is where that decision has to be argued.
     """
     from pathlib import Path
 
     backlog = Path(__file__).resolve().parents[2] / "BACKLOG.md"
     text = backlog.read_text(encoding="utf-8")
-    assert "| `0023`+ | unclaimed" in text, (
-        "the migration register no longer shows 0023+ as unclaimed; if a Studio column "
-        "took an enforcer migration number, R047 §2's boundary was written out of the "
-        "record"
+    assert "| `0024`+ | unclaimed" in text, (
+        "the migration register no longer shows 0024+ as unclaimed; if a Studio column "
+        "took an enforcer migration number, the boundary was written out of the record"
     )

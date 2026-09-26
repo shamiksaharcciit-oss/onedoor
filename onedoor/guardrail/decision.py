@@ -96,6 +96,14 @@ class PermittedIntent:
     report `not_attempted` per the fail-closed rule; onedoor's own packaged PEPs do
     not implement audience presentation yet (see the WO-D1 design note) and must do
     exactly that."""
+    bound_permit: str | None = None
+    """The signed bound permit (compact JWS, bound-permit profile §§3-4), present
+    iff the policy declared `bound_permit_action_type` -- `decide_and_reserve`
+    already refused the action before caps were ever reserved if issuance was not
+    possible (no issuer configured, no presenter key thumbprint), so by the time a
+    `PermittedIntent` exists with `present_bound` set and `bound_permit_action_type`
+    configured, this is always populated. `None` when the policy asked for no bound
+    permit at all -- unchanged from before this obligation existed."""
 
 
 def decide_and_reserve(
@@ -531,6 +539,63 @@ def decide_and_reserve(
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
+        # 6c. BOUND PERMIT ISSUANCE PRECONDITIONS (bound-permit profile §§3-4).
+        #     Checked here, before any caps reservation, for the same reason 6b is:
+        #     a policy that asks for a bound permit but cannot get one issued must
+        #     not reserve budget for an action it is about to deny. Actually signing
+        #     the permit happens later, once the intent row exists to name as `jti`
+        #     -- these are exactly the two preconditions `bound_permit.issue` itself
+        #     checks, verified early so a failure here can still deny before caps.
+        if policy.bound_permit_action_type is not None:
+            issuer_configured = (
+                getattr(config, "permit_issuer", None) is not None
+                and getattr(config, "permit_issuer_key_id", None) is not None
+                and getattr(config, "permit_issuer_private_key", None) is not None
+            )
+            issuance_ok = (
+                policy.present_bound is not None
+                and issuer_configured
+                and request.presenter_key_thumbprint is not None
+            )
+            trace.add(
+                "bound_permit_issuance",
+                "a policy requiring a bound permit must have one to issue -- "
+                "present_bound configured, an issuer configured, and a presenter "
+                "key thumbprint on the request",
+                "present_bound set, issuer configured, and request.presenter_key_thumbprint is set",
+                request.presenter_key_thumbprint,
+                "pass" if issuance_ok else "fail",
+            )
+            if not issuance_ok:
+                if policy.present_bound is None:
+                    unmet = (
+                        "bound_permit_action_type is set with no present_bound to issue it under"
+                    )
+                elif not issuer_configured:
+                    unmet = "no issuer is configured for this deployment"
+                else:
+                    unmet = "the request carries no presenter key thumbprint"
+                decision = PolicyDecision(
+                    decision=Decision.DENIED,
+                    effective_tier=effective_tier,
+                    nominal_tier=nominal_tier,
+                    reason_code=CheckId.PRESENT_BOUND,
+                    detail=f"policy requires a bound permit (bound-permit profile §§3-4) but {unmet}",
+                )
+                aid = audit.append(
+                    conn,
+                    request,
+                    decision,
+                    kind="decision",
+                    now=now,
+                    approval_ref_status=ref_status,
+                    undo_of=undo_of,
+                    opaque_class=opaque_class,
+                    evaluation_trace_json=trace.to_json(),
+                )
+                bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+
         # 7. TIER 3 — propose and confirm.
         if effective_tier == Tier.CONFIRM:
             approval_id = approvals.create(
@@ -709,6 +774,26 @@ def decide_and_reserve(
             )
     # ==== Tx A committed: caps reserved + intent recorded ====
 
+    bound_permit_token = None
+    if policy.bound_permit_action_type is not None:
+        # Preconditions already verified at 6c, before caps were reserved; this
+        # signs the permit now that intent_id exists to name as the permit's `jti`.
+        from onedoor.guardrail import bound_permit as bound_permit_mod
+
+        bound_permit_token = bound_permit_mod.issue(
+            request=request,
+            policy=policy,
+            action_object=request.params,
+            permit_id=str(intent_id),
+            issuer=getattr(config, "permit_issuer"),
+            issuer_key_id=getattr(config, "permit_issuer_key_id"),
+            issuer_private_key=getattr(config, "permit_issuer_private_key"),
+            nominal_tier=nominal_tier,
+            effective_tier=effective_tier,
+            policy_version=None,
+            now=now,
+        )
+
     return PermittedIntent(
         request=request,
         intent_audit_id=intent_id,
@@ -718,6 +803,7 @@ def decide_and_reserve(
         undo_until=undo_until,
         undo_of=undo_of,
         present_bound=policy.present_bound,
+        bound_permit=bound_permit_token,
     )
 
 
