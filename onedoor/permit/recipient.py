@@ -312,19 +312,47 @@ def verify(
         return _fail(
             8, RefusalReason.REQUEST_SIGNATURE_MISSING, "no HTTP message signature present"
         )
+    # The claimed key is checked before any cryptography or key-directory lookup
+    # runs (profile V09): a signature that honestly names a key other than
+    # cnf.jkt is presenter-key-mismatch on that basis alone. Only once the claim
+    # itself matches does verifying it become a question `httpsig.verify` (and
+    # the directory) can answer.
+    claimed_keyid = httpsig.extract_keyid(request.signature_input_header)
+    if claimed_keyid is None:
+        return _fail(8, RefusalReason.BINDING_INCOMPLETE, "Signature-Input carries no keyid")
+    if claimed_keyid != jkt:
+        return _fail(
+            8,
+            RefusalReason.PRESENTER_KEY_MISMATCH,
+            f"signature claims key {claimed_keyid!r}; permit binds to {jkt!r}",
+        )
+    if request.signature_created is None:
+        return _fail(8, RefusalReason.BINDING_INCOMPLETE, "no created parameter")
     presenter_key = resolve_presenter_key(jkt)
     if presenter_key is None:
         return _could_not_check(
             "presenter-key-directory", f"could not resolve a key for jkt={jkt!r}"
         )
-    if jwk.thumbprint(presenter_key) != jkt:
+    try:
+        resolved_matches = jwk.thumbprint(presenter_key) == jkt
+    except (ValueError, TypeError) as exc:
+        # A directory is free to be wrong, but it must never crash the
+        # recipient: a key of the wrong length or type behind cnf.jkt is a
+        # refusal, not an uncaught exception (profile item 8's wrong-key-type
+        # case -- `jwk.thumbprint` itself raises for anything that is not a
+        # 32-byte value, by design; this is the boundary that must not let it
+        # propagate).
+        return _fail(
+            8,
+            RefusalReason.PRESENTER_KEY_MISMATCH,
+            f"resolved key is not a usable Ed25519 key: {exc}",
+        )
+    if not resolved_matches:
         return _fail(
             8,
             RefusalReason.PRESENTER_KEY_MISMATCH,
             "resolved key's thumbprint does not match cnf.jkt",
         )
-    if request.signature_created is None:
-        return _fail(8, RefusalReason.BINDING_INCOMPLETE, "no created parameter")
     components = {
         "@method": request.method.upper(),
         "@authority": request.authority.lower(),

@@ -463,7 +463,17 @@ def test_a_request_signed_by_the_wrong_key_is_refused() -> None:
     """A different failure mode from the mismatched-directory-key case above: here
     the directory correctly resolves the REAL presenter key, but the request was
     actually signed by a different key -- so the signature itself fails to verify
-    under the key cnf.jkt (and the directory) both name."""
+    under the key cnf.jkt (and the directory) both name.
+
+    V09, second half: the Signature-Input HONESTLY names cnf.jkt (this is
+    exactly what `_build(sign_with=...)` produces -- it always signs the
+    `keyid` parameter as the real jkt, whatever key actually does the
+    signing), but the bytes were produced by a different private key. Only
+    cryptography can tell this apart from a genuine signature, so it is
+    refused as request-signature-invalid, never presenter-key-mismatch --
+    contrast `test_v09_a_signature_that_honestly_claims_a_different_key_is_
+    presenter_key_mismatch` below, V09's other half.
+    """
     other_priv, _ = _keypair()
     fx = _build(sign_with=other_priv)
     result = _verify(fx)
@@ -471,12 +481,61 @@ def test_a_request_signed_by_the_wrong_key_is_refused() -> None:
     assert result.step == 8
 
 
+def test_v09_a_signature_that_honestly_claims_a_different_key_is_presenter_key_mismatch() -> None:
+    """V09, first half: the presenter's OWN Signature-Input names a key other
+    than cnf.jkt -- not a directory lookup gone wrong, the signature's own
+    claim. Checked before any cryptography or key-directory lookup runs: a
+    `resolve_presenter_key` that raises if called proves the directory is
+    never even consulted."""
+    from onedoor.permit.jwk import thumbprint
+
+    other_priv, other_pub = _keypair()
+    fx = _build()
+    real_jkt = fx.claims["cnf"]["jkt"]  # type: ignore[index]
+    other_jkt = thumbprint(other_pub)
+    assert other_jkt != real_jkt
+
+    req = fx.request
+    components = {
+        "@method": req.method,
+        "@authority": req.authority,
+        "@path": req.path,
+        "@query": req.query,
+        "content-digest": req.content_digest_header,
+        "idempotency-key": req.idempotency_key_header or "",
+        "aadp-permit": req.permit_token,
+    }
+    # A self-consistent signature genuinely made with a DIFFERENT key, honestly
+    # claiming that key's own thumbprint -- not cnf.jkt.
+    sig_input, sig = httpsig.sign(
+        components, created=req.signature_created or 0, keyid=other_jkt, private_key=other_priv
+    )
+    fx = replace(fx, request=replace(req, signature_input_header=sig_input, signature_header=sig))
+
+    def _must_not_be_called(jkt: str) -> bytes | None:
+        raise AssertionError("resolve_presenter_key must not run before the claimed key is checked")
+
+    result = _verify(fx, resolve_presenter_key=_must_not_be_called)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.PRESENTER_KEY_MISMATCH
+    assert result.step == 8
+
+
 def test_a_covered_component_dropped_from_signature_input_is_binding_incomplete() -> None:
     fx = _build()
-    # Corrupt the Signature-Input to claim a shorter covered-component list.
+    # Corrupt the Signature-Input to claim a shorter covered-component list, but
+    # keep the real keyid -- otherwise this exercises presenter-key-mismatch
+    # (checked first, per V09) rather than the component-set check this test is
+    # actually about.
+    cnf = fx.claims["cnf"]
+    assert isinstance(cnf, dict)
+    real_jkt = cnf["jkt"]
     fx = replace(
         fx,
-        request=replace(fx.request, signature_input_header='sig1=("@method");created=1;keyid="x"'),
+        request=replace(
+            fx.request,
+            signature_input_header=f'sig1=("@method");created=1;keyid="{real_jkt}"',
+        ),
     )
     result = _verify(fx)
     assert result.reason is RefusalReason.BINDING_INCOMPLETE

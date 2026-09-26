@@ -50,9 +50,12 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     ),
     "V09": (
         IMPLEMENTED,
-        "test_recipient.py::test_the_wrong_presenter_key_is_refused -- see the open "
-        "question in docs/design/bound-permit-next.md about this vector's overlap "
-        "with test_a_request_signed_by_the_wrong_key_is_refused (REQUEST_SIGNATURE_INVALID)",
+        "test_recipient.py::test_v09_a_signature_that_honestly_claims_a_different_key_is_"
+        "presenter_key_mismatch -- ruled: a signature honestly naming a key other than "
+        "cnf.jkt is presenter-key-mismatch, checked before any cryptography or key "
+        "resolution; a signature claiming cnf.jkt that fails to verify is "
+        "request-signature-invalid (test_v09_a_signature_that_claims_the_cnf_jkt_key_but_"
+        "fails_is_request_signature_invalid). The two are distinct code paths.",
     ),
     "V10": (IMPLEMENTED, "test_recipient.py::test_a_missing_http_signature_is_refused"),
     "V11": (

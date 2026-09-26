@@ -45,6 +45,45 @@ def _sf_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def extract_keyid(signature_input_header: str) -> str | None:
+    """The `keyid` parameter as the presenter's own `Signature-Input` claims it,
+    read directly from the raw header -- independent of, and prior to, the full
+    recomputed comparison `verify` performs, and prior to any cryptography.
+
+    Used to tell apart the two ways a presented signature can fail to bind to
+    `cnf.jkt` (profile V09): a signature that honestly names a different key is
+    `presenter-key-mismatch`, checked here before any key resolution or
+    verification is attempted; a signature that claims `cnf.jkt` but does not
+    verify under it is `request-signature-invalid`, which only `verify` itself
+    can determine. Returns `None` if no `keyid` parameter can be found at all,
+    which the caller treats as `binding-incomplete` -- structurally different
+    from a keyid that IS present and simply wrong.
+
+    A small hand-written scanner, not a regex: it reverses exactly the escaping
+    `_sf_string` applies (`\\` and `"` only), character by character, so it
+    cannot be confused by a crafted value that embeds extra quotes or
+    backslashes into looking like more than one parameter.
+    """
+    marker = 'keyid="'
+    start = signature_input_header.find(marker)
+    if start == -1:
+        return None
+    i = start + len(marker)
+    text = signature_input_header
+    result: list[str] = []
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text):
+            result.append(text[i + 1])
+            i += 2
+            continue
+        if ch == '"':
+            return "".join(result)
+        result.append(ch)
+        i += 1
+    return None  # unterminated quoted string
+
+
 def signature_params_value(*, created: int, keyid: str, alg: str = "ed25519") -> str:
     """The `@signature-params` value: an RFC 8941 Inner List of the covered
     component identifiers, followed by this signature's parameters."""

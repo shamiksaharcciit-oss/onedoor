@@ -41,12 +41,32 @@ def _check_bmp_only(key: str) -> None:
         )
 
 
+def _check_no_lone_surrogates(value: str) -> None:
+    """A lone surrogate (U+D800-U+DFFF not part of a valid pair) is not valid
+    Unicode text and cannot be encoded to UTF-8 -- `json.loads` will still
+    happily *produce* one from a `\\uD800`-style escape with no partner, since
+    JSON's own grammar does not forbid it. Left unchecked, `canonical_bytes`'s
+    own `.encode("utf-8")` raises a raw `UnicodeEncodeError` instead of this
+    module's own `NotCanonicalizable` -- a caller catching the latter (as
+    `onedoor.permit.recipient` does at its own action-digest step) would not
+    catch the former, and a value that should refuse cleanly crashes instead.
+    Checked here, at the point the lone surrogate is first seen, not left for
+    the encoder several calls later to discover.
+    """
+    if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
+        raise NotCanonicalizable(
+            f"{value!r} contains a lone UTF-16 surrogate, which is not valid "
+            f"Unicode text and cannot be canonicalized"
+        )
+
+
 def _canon(value: object) -> object:
     if isinstance(value, bool):  # before int: bool is an int subclass
         return value
     if isinstance(value, int):
         return value
     if isinstance(value, str):
+        _check_no_lone_surrogates(value)
         return value
     if value is None:
         return None
@@ -62,6 +82,7 @@ def _canon(value: object) -> object:
             if not isinstance(k, str):
                 raise NotCanonicalizable(f"non-string object key: {k!r}")
             _check_bmp_only(k)
+            _check_no_lone_surrogates(k)
             out[k] = _canon(v)
         return dict(sorted(out.items()))
     if isinstance(value, list):
