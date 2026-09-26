@@ -56,6 +56,23 @@ def _b64url_decode(text: str) -> bytes:
     return decoded
 
 
+def _reject_non_finite(constant: str) -> float:
+    """`json.loads`'s `parse_constant`: refuse `NaN`, `Infinity` and `-Infinity`
+    anywhere in the header or payload, rather than the float `json.loads`
+    otherwise silently produces for them (a non-standard extension to JSON that
+    Python's decoder accepts by default).
+
+    Not merely a defensive nicety for the two numeric claims this package
+    itself compares (`onedoor.permit.recipient`'s own `_as_int` already refuses
+    a non-integer there): a non-finite value anywhere else in the payload --
+    inside `authorization_details`, `cnf`, `mandate`, anywhere -- is exactly
+    the same hazard, and this refuses it at the one place untrusted JSON text
+    enters this package rather than trusting every future reader of a claim to
+    re-derive the same defence.
+    """
+    raise MalformedJWS(f"non-finite numeric constant not allowed in JSON: {constant}")
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
     """`json.loads`'s `object_pairs_hook`: refuse a JSON object that names the
     same key twice, rather than silently keeping the last value the way
@@ -107,8 +124,16 @@ def parse(token: str) -> tuple[dict[str, object], dict[str, object], bytes, byte
         raise MalformedJWS(f"expected 3 dot-separated parts, got {len(parts)}")
     header_b64, payload_b64, signature_b64 = parts
     try:
-        header = json.loads(_b64url_decode(header_b64), object_pairs_hook=_reject_duplicate_keys)
-        payload = json.loads(_b64url_decode(payload_b64), object_pairs_hook=_reject_duplicate_keys)
+        header = json.loads(
+            _b64url_decode(header_b64),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_non_finite,
+        )
+        payload = json.loads(
+            _b64url_decode(payload_b64),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_non_finite,
+        )
     except json.JSONDecodeError as exc:
         raise MalformedJWS(f"header or payload is not valid JSON: {exc}") from exc
     if not isinstance(header, dict) or not isinstance(payload, dict):

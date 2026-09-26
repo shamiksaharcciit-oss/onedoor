@@ -593,3 +593,122 @@ def test_httpsig_verify_rejects_a_signature_over_a_bare_ed25519_message_mismatch
         pass
     else:
         raise AssertionError("a signature over different bytes verified")
+
+
+# --- Numeric claims: NaN, Infinity and non-integers must never pass a time check -----
+#
+# `nan >= x` and `nan <= x` are both False for every `x` -- a time comparison written
+# as "refuse if past exp" (`now > exp: refuse`) is safe against a NaN `exp` reaching
+# it (the comparison is False, so it falls through to the NEXT check rather than
+# silently granting an infinite lifetime), but the safety margin is `recipient.py`
+# never letting a non-integer reach that comparison at all, twice over: `jws.parse`
+# itself now refuses `NaN`/`Infinity`/`-Infinity` anywhere in the token via
+# `parse_constant` (this section), and `_as_int` independently refuses anything that
+# is not a plain, non-boolean `int` before either of the three time comparisons ever
+# runs. Both layers are tested here so a regression in either is caught on its own.
+
+
+def _with_exp_literal(fx, exp_literal: str):  # type: ignore[no-untyped-def]
+    """A permit built from `fx`, re-signed with the SAME issuer key but with its
+    `exp` claim replaced by a raw JSON literal `jws.encode` (which only ever
+    accepts real Python objects) could not produce -- built from raw text for
+    exactly that reason, the same technique the duplicate-key tests above use."""
+    import re
+
+    text = json.dumps(fx.claims)
+    new_text, n = re.subn(r'"exp":\s*-?\d+', f'"exp": {exp_literal}', text)
+    assert n == 1, f"expected exactly one exp field in the built claims, found {n}"
+    return _resign_raw_payload(fx, new_text)
+
+
+def _without_exp(fx):  # type: ignore[no-untyped-def]
+    claims = dict(fx.claims)
+    del claims["exp"]
+    return _resign_raw_payload(fx, json.dumps(claims))
+
+
+def _resign_raw_payload(fx, payload_json: str):  # type: ignore[no-untyped-def]
+    """Re-issue the fixture's permit over literal payload text, signed for real
+    by a freshly generated issuer key installed into the same fixture's issuer
+    table -- so the token clears step 2 and actually reaches the numeric-claims
+    check each test here is exercising, rather than being refused earlier for
+    an unrelated reason (a fake signature would refuse at step 2 regardless of
+    what the payload says)."""
+    issuer_priv, issuer_pub = _keypair()
+    fx = replace(fx, issuer_table={ISSUER: replace(fx.issuer_table[ISSUER], public_key=issuer_pub)})
+    header_b64 = _b64url(json.dumps({"alg": "EdDSA", "typ": "aadp-permit+jwt"}).encode())
+    payload_b64 = _b64url(payload_json.encode())
+    signature = issuer_priv.sign(f"{header_b64}.{payload_b64}".encode("ascii"))
+    token = f"{header_b64}.{payload_b64}.{_b64url(signature)}"
+    return replace(fx, request=replace(fx.request, permit_token=token))
+
+
+def test_exp_nan_is_refused() -> None:
+    fx = _with_exp_literal(_build(), "NaN")
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+
+
+def test_exp_infinity_is_refused() -> None:
+    fx = _with_exp_literal(_build(), "Infinity")
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+
+
+def test_exp_negative_infinity_is_refused() -> None:
+    fx = _with_exp_literal(_build(), "-Infinity")
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+
+
+def test_exp_as_a_float_is_refused() -> None:
+    fx = _with_exp_literal(_build(), "1.5")
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.LIFETIME_INVALID
+    assert result.step == 4
+
+
+def test_exp_as_a_boolean_is_refused() -> None:
+    fx = _with_exp_literal(_build(), "true")
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.LIFETIME_INVALID
+    assert result.step == 4
+
+
+def test_exp_as_a_string_is_refused() -> None:
+    fx = _with_exp_literal(_build(), '"soon"')
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.LIFETIME_INVALID
+    assert result.step == 4
+
+
+def test_a_missing_exp_is_refused() -> None:
+    fx = _without_exp(_build())
+    result = _verify(fx)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+
+
+def test_jws_parse_refuses_nan_anywhere_in_the_payload_directly() -> None:
+    """Unit-level: `parse_constant` refuses the non-finite constant regardless of
+    which claim carries it, not only `exp`."""
+    header_b64 = _b64url(json.dumps({"alg": "EdDSA", "typ": "aadp-permit+jwt"}).encode())
+    for literal in ("NaN", "Infinity", "-Infinity"):
+        payload_b64 = _b64url(f'{{"x": {literal}}}'.encode())
+        token = f"{header_b64}.{payload_b64}.{_b64url(b'x' * 64)}"
+        try:
+            jws.parse(token)
+        except jws.MalformedJWS:
+            pass
+        else:
+            raise AssertionError(f"non-finite constant {literal} was accepted by jws.parse")
