@@ -120,6 +120,7 @@ _SKIP_DIRS = {
     "dist",
     "node_modules",
     ".pytest_cache",
+    ".pytest-tmp",
     ".ruff_cache",
     "build",
     "onedoor.egg-info",

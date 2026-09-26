@@ -211,6 +211,58 @@ def test_a_valid_ratification_resolves_it(conn: Connection, config: EngineConfig
     assert isinstance(outcome, PermittedIntent), "a ratified action must execute on resumption"
 
 
+def test_resumption_re_evaluates_fully_even_after_ratification(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Ruling 26j §3(a): if the policy changes between propose and ratification,
+    the resumed decide re-evaluates against the CURRENT policy, not the one in
+    force at propose time -- a successful ratification authorises resuming the
+    request, never a specific verdict. Tightening `bounds.required` after propose
+    denies the resumption even though the mandate authority ratified it."""
+    _policy(conn)  # lenient bounds, so the initial propose clears bounds and reaches PENDING
+    private, public_key = _key_pair()
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    proposed = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(proposed, ActionResult) and proposed.decision.decision.value == "proposed"
+
+    # Tighten bounds AFTER propose: the original request never had this key.
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type=ACTION,
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.restore",
+            bounds=Bounds(strict_params=False, required=["must_have"]),
+            requires_external_authorization=True,
+        ),
+    )
+
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (proposed.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(private, digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert result.authorised, "the mandate authority DID ratify the original request"
+
+    resumed = result.request.model_copy(update={"request_id": make_request("x").request_id})
+    outcome = decide_and_reserve(
+        resumed, conn=conn, config=cfg, now=FROZEN_NOW, approved_override=True
+    )
+    assert isinstance(outcome, ActionResult), (
+        "a ratification authorises resuming the REQUEST, not a specific verdict -- "
+        "the now-stricter bounds must still deny it"
+    )
+    assert outcome.decision.decision.value == "denied"
+    assert outcome.decision.reason_code.value == "bounds"
+
+
 def test_a_wrong_key_ratification_is_refused_and_audited(
     conn: Connection, config: EngineConfig
 ) -> None:
@@ -375,3 +427,95 @@ def test_no_timeout_ever_permits(conn: Connection, config: EngineConfig) -> None
         )
     assert not result.authorised
     assert result.status is mandate.RatificationStatus.ALREADY_RESOLVED
+
+
+def test_sweep_never_permits_a_mandate_pending_approval(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """`approvals.sweep()` -- the lazy-expiry path a report/decide call runs on the
+    side, entirely independent of `mandate.ratify` -- must never turn a
+    mandate-pending approval into anything but `expired`. Ruling 26j §2 check 8's
+    "or sweep" half, named separately from the TTL check inside `ratify` itself."""
+    private, public_key = _key_pair()
+    short_config = dataclasses.replace(config, approval_ttl_seconds=1)
+    pending = _pending(conn, short_config, public_key)
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+
+    later = FROZEN_NOW + timedelta(hours=1)
+    with tx(conn):
+        swept = approvals.sweep(conn, later)
+    assert swept == 1
+    state = conn.execute(
+        "SELECT state FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["state"]
+    assert state == "expired", "sweep must expire it, never permit or ratify it"
+
+    # A ratification arriving after the sweep finds the row no longer 'pending'
+    # either -- the same CAS that refuses a late ratification refuses a swept one.
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(private, digest),
+            authority_public_key=public_key,
+            now=later,
+        )
+    assert not result.authorised
+    assert result.status is mandate.RatificationStatus.ALREADY_RESOLVED
+
+
+def test_a_signature_replayed_onto_a_different_records_digest_is_refused(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Ruling 26j §2 check 6, distinct from `ALREADY_RESOLVED`: a signature that is
+    genuinely valid -- for a DIFFERENT record's digest -- is presented against a
+    SECOND, unrelated record. Ed25519 binds a signature to the exact bytes signed,
+    so replaying it onto a different digest must fail verification (not merely find
+    the wrong row), and the second record must be untouched -- never resolved by a
+    signature that was never issued for it."""
+    private, public_key = _key_pair()
+    first = _pending(conn, config, public_key)
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    second_outcome = decide_and_reserve(
+        make_request(ACTION, {"x": 1}), conn=conn, config=cfg, now=FROZEN_NOW
+    )
+    assert isinstance(second_outcome, ActionResult)
+
+    first_digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (first.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    second_digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (second_outcome.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    assert first_digest != second_digest
+
+    # A real signature over the FIRST digest, replayed against the SECOND digest.
+    signature_for_first = _sign(private, first_digest)
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=second_digest,
+            signature_hex=signature_for_first,
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert not result.authorised
+    assert result.status is mandate.RatificationStatus.WRONG_KEY, (
+        "Ed25519 must refuse a signature over the wrong message, not merely resolve the wrong row"
+    )
+
+    for approval_id in (first.approval_id, second_outcome.approval_id):
+        state = conn.execute("SELECT state FROM approvals WHERE id=?", (approval_id,)).fetchone()[
+            "state"
+        ]
+        assert state == "pending", "neither record may be resolved by a mismatched replay"
+
+    audited = conn.execute(
+        "SELECT detail FROM actions_audit WHERE kind='mandate_ratification' AND parent_id=?",
+        (second_outcome.audit_id,),
+    ).fetchone()
+    assert audited is not None and "wrong_key" in audited["detail"], (
+        "the refused replay against the second record must be audited against it"
+    )

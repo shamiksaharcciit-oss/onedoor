@@ -4,7 +4,12 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+# Exception: a real /2-era chain, committed as evidence (WO-D2 ruling 26j §1) that
+# the CURRENT code still verifies rows the OLD code sealed. Not generated data --
+# see tests/guardrail/test_stored_v2_chain.py's module docstring.
+!tests/fixtures/chain_v2_61aaeed.db
 .pytest_cache/
+.pytest-tmp/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/

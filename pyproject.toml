@@ -171,6 +171,14 @@ select = ["E4", "E7", "E9", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# WO-D2 ruling 26j §4. The default %TEMP%\pytest-of-<user> base has been found
+# permanently access-denied (a stale reparse point, not held by any process this
+# session could find) on at least three agents' machines independently. A
+# repo-local, git-ignored basetemp makes the gate's declared command --
+# `pytest -q`, unchanged -- work without an environment variable on a machine in
+# that state. pytest clears this directory at the start of each session; it holds
+# nothing worth keeping between runs.
+addopts = "--basetemp=.pytest-tmp"
 # ND-025 follow-up. 19 test modules do `from tests.conftest import ...`, and
 # tests/protocol imports scripts.verify_memo -- both need the repository root on
 # sys.path. `python -m pytest` puts it there implicitly (python -m prepends CWD);
