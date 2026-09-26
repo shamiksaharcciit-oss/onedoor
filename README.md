@@ -220,10 +220,21 @@ draft-and-ceremony path as anything you type or upload. The walls are the featur
 ### Working in this repository instead
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 python -m scripts.gate --all   # the four gates, the documented way
 python -m scripts.demo         # one of everything, end to end, zero external deps
 ```
+
+The venv must actually be **activated**, not merely created: the gate runner
+invokes `ruff`, `mypy` and `pytest` as bare commands (deliberately, so the
+declared command and the one that runs are identical — see
+`scripts/gate.py`), and a bare command resolves through `PATH`. Running
+`.venv\Scripts\python.exe -m scripts.gate --all` without activating first
+finds `ruff` (if one happens to be on `PATH` from elsewhere) but not `mypy` or
+`pytest`, and reports `GATE FAIL (tool not installed: ...)` for a tool that is
+in fact installed — just not on this process's `PATH`.
 
 The demo walks the whole surface: auto-execution and undo, default-deny into a
 real approval that then executes, a bounds rejection, cap exhaustion, dry-run,
