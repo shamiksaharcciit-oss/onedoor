@@ -82,10 +82,15 @@ The authoritative column list and types live in the migrations
 schema — if the two disagree, the migrations are right and this file is
 stale.
 
-## Join field
+## Join field (proposed, not ruled)
 
-`request_id` is the key an external reader — including the onetrace extension
-(decision record D-2026-09-26) — joins on. It is the same value end to end:
+`request_id` is the **candidate** join field for an external reader — including a
+future onetrace extension — to key on, **proposed and not yet ruled** (decision
+record D-2026-09-26 §4: no join key is ruled; the extension, when built, shows
+decisions standing alone until that ruling exists; correction in
+`Core_Ruling_R-2026-09-26i` §1/§5). Recorded here as onedoor's own candidate, and as
+the value that is in fact identical wherever it appears on this side, not as a
+settled cross-system contract. It is the same value end to end on **this** side:
 
 - On the wire, `DecideBody.request_id` (`onedoor/service/app.py:95`), optional —
   the caller supplies it or the service mints one with `uuid4()`
