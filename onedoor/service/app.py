@@ -93,6 +93,12 @@ class DecideBody(BaseModel):
     rationale: str = ""
     source: Source = Source.LLM
     request_id: UUID | None = None  # omit to let the service mint one
+    approval_ref: int | None = None
+    """WO-D1 step 2. Same field as the engine's `ActionRequest.approval_ref`
+    (models.py) -- an enforcement point resuming a previously-approved action
+    presents it here on a fresh request. Absent, invalid, expired, consumed or
+    mismatched all evaluate as absent (ND-009); the engine, never this route,
+    decides which."""
 
 
 class DecideReply(BaseModel):
@@ -245,6 +251,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             source=body.source,
             rationale=body.rationale or f"service decide {body.action_type}",
             params_raw=params_raw,
+            approval_ref=body.approval_ref,
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:

@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
+from onedoor.guardrail import approvals
+from onedoor.guardrail.models import ActionRequest, Source
 from onedoor.service.app import create_app
+from onedoor.store.clock import now_utc
+from onedoor.store.db import tx
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -111,3 +116,92 @@ def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:
     )
     assert r.json()["decision"] == "proposed" and r.json()["reason"] == "kill_switch"
     assert client.get("/v1/health").json()["kill_switch"] is True
+
+
+# --- WO-D1 step 2: approval_ref over HTTP ---------------------------------------
+
+
+def _approval_ref_status(client: TestClient) -> str | None:
+    row = client.app.state.engine.conn.execute(  # type: ignore[attr-defined]
+        "SELECT approval_ref_status FROM actions_audit ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    return row["approval_ref_status"]
+
+
+def _approved_ref(client: TestClient, params: dict[str, object]) -> int:
+    """An approval already granted, sitting `approved` and unconsumed (ND-009).
+
+    Built directly against the engine's own connection -- the admin HTTP route
+    (`/v1/approvals/{id}/approve`) executes immediately and never leaves an
+    `approved`-but-unconsumed row for a PEP to resume, so this is the only way to
+    reach the state `approval_ref` exists to resume.
+    """
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    now = now_utc()
+    request = ActionRequest(
+        request_id=uuid4(),
+        action_type="money.transfer",
+        params=params,  # type: ignore[arg-type]
+        source=Source.LLM,
+        rationale="wo-d1 step 2 fixture",
+        created_at=now,
+    )
+    with tx(engine.conn):
+        approval_id = approvals.create(
+            engine.conn, request, engine.config.approval_ttl_seconds, now
+        )
+        approvals.cas_approve(engine.conn, approval_id, "human-1", now)
+    return approval_id
+
+
+def test_a_valid_approval_ref_over_http_reaches_the_engine_and_is_honored(
+    client: TestClient,
+) -> None:
+    params = {"to": "acme-gmbh", "amount_eur": "40.00"}
+    approval_id = _approved_ref(client, params)
+
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": params, "approval_ref": approval_id},
+        headers=_h("dkey"),
+    )
+    assert r.status_code == 200
+    assert r.json()["decision"] == "permitted", r.json()
+    assert _approval_ref_status(client) == "honored"
+
+
+def test_a_malformed_approval_ref_is_refused_in_the_engines_own_words(
+    client: TestClient,
+) -> None:
+    """An ID no approval was ever created for: refused as `unknown`, never an error.
+
+    The action still re-evaluates on its own merits -- money.transfer is Tier 3 with
+    no approval attached, so it proposes exactly as it would with no ref at all
+    (ND-009: a bad ref evaluates as absent, and never errors).
+    """
+    r = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "money.transfer",
+            "params": {"to": "acme-gmbh", "amount_eur": "40.00"},
+            "approval_ref": 999999,
+        },
+        headers=_h("dkey"),
+    )
+    assert r.status_code == 200
+    assert r.json()["decision"] == "proposed"
+    assert _approval_ref_status(client) == "unknown"
+
+
+def test_no_approval_ref_behaves_exactly_as_today(client: TestClient) -> None:
+    r = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "money.transfer",
+            "params": {"to": "acme-gmbh", "amount_eur": "40.00"},
+        },
+        headers=_h("dkey"),
+    )
+    assert r.status_code == 200
+    assert r.json()["decision"] == "proposed"
+    assert _approval_ref_status(client) == "absent"
