@@ -153,3 +153,25 @@ and WO-D2 step 2 asks specifically to hash the trace into the **row preimage**, 
 to redesign what a receipt discloses. Whether a receipt should also attest to the
 trace is a question for whoever next touches `docs/receipt-digests.md`, not answered
 by silence here.
+
+## Addendum: what a mandate ratification binds to
+
+A live question about `mandate.core_digest` (request_id + action_type +
+params_digest): should it instead bind to the `propose` row's own `/3` `row_hash` —
+the exact sealed verdict record, rather than the logical inputs that produced it?
+**Considered and declined: `core_digest` stays as built.**
+
+Binding to `row_hash` would be strictly stronger — it ties a ratification to the
+verdict as actually sealed (reason code, tier, trace, chain position), not merely to
+the request that led to it, closing the (structurally unlikely, since every decide
+mints a fresh `request_id`, but not structurally forbidden) case of two evaluations
+of an identical logical request producing the same `core_digest` from different
+verdicts. **Declined because of what it would cost**: `row_hash` is populated only
+`if chaining_on(conn)` (`audit.py::append`) — binding to it would make mandate-layer
+deferral **hard-depend on chaining being enabled**, and chaining is opt-in. The cost
+would fall on every deployment that does not chain, which is not a cost mandate-layer
+deferral should impose by itself.
+
+**Reconsider if chaining becomes the default** — at that point the dependency this
+note declines to take on stops being a cost most deployments would not have paid for
+anyway.
