@@ -133,6 +133,11 @@ class CheckId(StrEnum):
     # emitting it before the check exists would be a reason code for a check that
     # never ran. tests/guardrail/test_reason_vocabulary.py holds it unemitted.
     SENDER_MISMATCH = "sender_mismatch"
+    # WO-D2 step 3, AADP -03 §8.1: a mandate-layer authority denied or deferred the
+    # action. One code for both a mandate DENY and a mandate PENDING escalation --
+    # the verdict (`denied` vs `proposed`) already distinguishes them; a second code
+    # per outcome would be two answers to "why did the mandate layer act" (X-14).
+    EXTERNAL_AUTHORIZATION = "external_authorization"
 
 
 class ApprovalState(StrEnum):
@@ -141,6 +146,11 @@ class ApprovalState(StrEnum):
     DENIED = "denied"
     EXPIRED = "expired"
     EXECUTED = "executed"
+    RATIFIED = "ratified"
+    """WO-D2 step 3: a mandate-pending approval resolved by the mandate authority's
+    own ratification (AADP -03 §8.1). A distinct state from `approved` on purpose --
+    the two paths must never be structurally confusable, since only the mandate
+    authority may produce this one (`approvals.cas_approve` never writes it)."""
 
 
 class NumericBound(BaseModel):
@@ -313,6 +323,14 @@ class Policy(BaseModel):
     undo_window_seconds: int = 900
     requires_step_up: bool = False
     is_default_deny: bool = False
+    requires_external_authorization: bool = False
+    """WO-D2 step 3, AADP -03 §8.1. This action type's verdict must be consulted with
+    the configured mandate authority (`EngineConfig.mandate_resolver`) before any
+    other check runs: a DENY is terminal immediately, a PENDING escalates to at
+    least Tier.CONFIRM and can be resolved only by a verified ratification, never by
+    an onedoor admin key and never by a timeout. `False` (the default) means this
+    action type never consults a mandate authority at all -- existing policies are
+    unaffected."""
 
 
 def _reject_non_json(value: object, path: str = "params") -> None:

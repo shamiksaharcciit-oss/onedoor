@@ -27,6 +27,7 @@ from onedoor.config import Settings
 from onedoor.guardrail import approvals
 from onedoor.guardrail import decision as decision_mod
 from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.mandate import MandateResolver
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -53,6 +54,15 @@ class EngineConfig:
     # the reservation is reclaimed and the permit voided (AADP section 6). This
     # is the "execute_within" deadline. 0 disables reclamation.
     reservation_ttl_seconds: int = 3600
+    # WO-D2 step 3, AADP -03 §8.1: the deployment's own mandate-layer client, never
+    # built into onedoor and never called over a network by this package. None
+    # (the default) means no action type ever consults a mandate authority,
+    # regardless of any policy's `requires_external_authorization`.
+    mandate_resolver: MandateResolver | None = None
+    # The mandate authority's Ed25519 public key (raw 32 bytes), configured per
+    # deployment. Required only when `mandate_resolver` is set; a ratification
+    # cannot verify against a key nobody configured.
+    mandate_authority_public_key: bytes | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:

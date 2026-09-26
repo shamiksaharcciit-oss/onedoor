@@ -149,18 +149,20 @@ def test_the_enforcer_store_gains_no_draft_table(conn: Connection, studio: Conne
 def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> None:
     """Not a number from the enforcer's migration sequence (R047 §2).
 
-    `0019` itself was since claimed by `WO-D1` step 5 for a genuine ENFORCER
-    migration (`actions_audit.evaluation_trace_json`) — the line this test guards is
-    that a **Studio** table never borrows one of the enforcer's numbers, not that the
-    enforcer's own sequence freezes forever. The live boundary is `0020`.
+    `0019`, `0020` and `0021` were since claimed by `WO-D1` step 5 and `WO-D2` step 3,
+    all genuine ENFORCER migrations (`actions_audit.evaluation_trace_json`;
+    `approvals.mandate_authority`/`mandate_core_digest`;
+    `policies.requires_external_authorization`) — the line this test guards is that
+    a **Studio** table never borrows one of the enforcer's numbers, not that the
+    enforcer's own sequence freezes forever. The live boundary is `0022`.
     """
     version = studio.execute("SELECT version FROM studio_schema").fetchone()["version"]
     assert int(version) == store.SCHEMA_VERSION
     from onedoor.store import db as db_module
 
     migrations = Path(db_module.__file__).parent / "migrations"
-    assert not list(migrations.glob("0020*")), (
-        "migration 0020 exists — if it belongs to a Studio table, R047 §2's boundary "
+    assert not list(migrations.glob("0022*")), (
+        "migration 0022 exists — if it belongs to a Studio table, R047 §2's boundary "
         "(a table in the Studio's own file must not be written into the enforcer's "
         "history) was crossed"
     )

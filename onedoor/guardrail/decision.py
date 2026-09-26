@@ -40,6 +40,7 @@ from onedoor.guardrail import (
     bounds,
     caps,
     killswitch,
+    mandate,
     opaque_hosts,
 )
 from onedoor.guardrail.audit import RowSource
@@ -364,6 +365,72 @@ def decide_and_reserve(
             "fail" if no_compensation_fired else "pass",
         )
 
+        # 4b. EXTERNAL AUTHORIZATION -- mandate-layer deferral (WO-D2 step 3, AADP
+        #     -03 §8.1). Consulted only for a policy that declares it, and only when
+        #     a deployment has actually configured a resolver -- an unconfigured
+        #     mandate check is a check that was never evaluated, and must not appear
+        #     in the trace at all, let alone as pass.
+        #
+        #     A DENY is unconditional and immediate (checked here, after the tier
+        #     arithmetic above so its trace entry is provably the LAST fail when it
+        #     fires, matching every escalation's reason_confirm precedence). A
+        #     PENDING never returns early: it only escalates the tier, exactly like
+        #     opaque_host/reversibility above, so a LATER denial (bounds, caps) still
+        #     takes precedence over merely proposing -- "unless another check
+        #     already denies the action" is this ordering, not special-cased logic.
+        #
+        #     Never re-consulted when `approved_override` is set: that flag IS the
+        #     proof this exact resumption was already authorised (by a mandate
+        #     ratification or an onedoor admin), and re-asking the same external
+        #     resolver on resumption would re-litigate a settled deferral rather than
+        #     re-evaluate onedoor's OWN checks -- which is what "resumption
+        #     re-evaluates fully" (-03 §8.1) means: bounds, caps, kill switch, not a
+        #     second round of mandate consultation.
+        mandate_core_digest_value: str | None = None
+        mandate_resolver = getattr(config, "mandate_resolver", None)
+        if (
+            policy.requires_external_authorization
+            and mandate_resolver is not None
+            and not approved_override
+        ):
+            mandate_verdict = mandate_resolver(request)
+            trace.add(
+                "external_authorization",
+                "a mandate-layer authority's verdict is consulted before any other check runs",
+                "mandate_verdict == permit",
+                mandate_verdict.value,
+                "pass" if mandate_verdict is mandate.MandateVerdict.PERMIT else "fail",
+            )
+            if mandate_verdict is mandate.MandateVerdict.DENY:
+                decision = PolicyDecision(
+                    decision=Decision.DENIED,
+                    effective_tier=effective_tier,
+                    nominal_tier=nominal_tier,
+                    reason_code=CheckId.EXTERNAL_AUTHORIZATION,
+                    detail="denied by the mandate-layer authority",
+                )
+                aid = audit.append(
+                    conn,
+                    request,
+                    decision,
+                    kind="decision",
+                    now=now,
+                    approval_ref_status=ref_status,
+                    undo_of=undo_of,
+                    opaque_class=opaque_class,
+                    evaluation_trace_json=trace.to_json(),
+                )
+                bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+            if mandate_verdict is mandate.MandateVerdict.PENDING:
+                if int(effective_tier) < int(Tier.CONFIRM):
+                    effective_tier = Tier.CONFIRM
+                reason_confirm = CheckId.EXTERNAL_AUTHORIZATION
+                confirm_detail = "pending the mandate-layer authority's ratification"
+                mandate_core_digest_value = mandate.core_digest(
+                    request.request_id, request.action_type, request.params
+                )
+
         # 5. OBSERVE — audit a no-op read and return.
         if effective_tier == Tier.OBSERVE:
             decision = PolicyDecision(
@@ -421,7 +488,13 @@ def decide_and_reserve(
 
         # 7. TIER 3 — propose and confirm.
         if effective_tier == Tier.CONFIRM:
-            approval_id = approvals.create(conn, request, config.approval_ttl_seconds, now)
+            approval_id = approvals.create(
+                conn,
+                request,
+                config.approval_ttl_seconds,
+                now,
+                mandate_core_digest=mandate_core_digest_value,
+            )
             decision = PolicyDecision(
                 decision=Decision.PROPOSED,
                 effective_tier=Tier.CONFIRM,

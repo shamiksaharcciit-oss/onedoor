@@ -487,15 +487,32 @@ def append_expiry(
     detail: str = "",
     kind: str = "reservation_expired",
     reason: CheckId = CheckId.EXPIRED,
+    decision: Decision = Decision.FAILED,
+    request_id: str | None = None,
 ) -> int:
-    """Append a reservation-disposition row for a permit whose budget went back.
+    """Append a disposition row linked back to an earlier row via `parent_id`.
 
-    Two callers, one shape, on purpose. Reclamation writes
+    Three callers, one shape, on purpose. Reclamation writes
     ``reservation_expired`` when a deadline passes unreported; a ``not_attempted``
     report writes ``reservation_released`` when the enforcement point positively
-    asserts the action did not happen (R005). Both give budget back, and **both are
-    audited events, never silent adjustments** -- the audit's job is to make a false
-    report attributable, not to prevent a trusted reporter from lying.
+    asserts the action did not happen (R005); a mandate ratification attempt writes
+    ``mandate_ratification`` (WO-D2 step 3). All three are lifecycle events *about*
+    an earlier row rather than facts with nowhere to live, and all three are
+    **audited, never silent** -- the audit's job is to make a false report or a
+    forged ratification attempt attributable.
+
+    ``decision`` defaults to ``FAILED`` because the first two callers both give
+    budget back, which reads as a failure to complete; a mandate ratification that
+    actually succeeds passes its own ``decision`` rather than inheriting that
+    default.
+
+    ``request_id`` defaults to the intent row's own -- reclamation and release are
+    each at most once per intent, so reusing it is exactly right. A mandate
+    ratification attempt is NOT at most once (a replay, a wrong key, a retry can all
+    target the same approval), and `actions_audit` carries a hard `UNIQUE(request_id,
+    kind)` backstop -- a second attempt sharing the intent's own request_id would
+    collide with the first. Callers that can attempt more than once per intent pass
+    a fresh id; `parent_id` still carries the link back.
 
     Written directly from the stored exec_intent row rather than a reconstructed
     request, because reclamation runs long after the request object is gone. It
@@ -505,14 +522,14 @@ def append_expiry(
     values = _blank_row()
     values.update(
         {
-            "request_id": intent_row["request_id"],
+            "request_id": request_id if request_id is not None else intent_row["request_id"],
             "kind": kind,
             "parent_id": int(intent_row["id"]),
             "action_type": intent_row["action_type"],
             "source": intent_row["source"],
             # Already-frozen bytes; never re-serialized (E10).
             "params_json": intent_row["params_json"],
-            "decision": Decision.FAILED.value,
+            "decision": decision.value,
             "reason_code": reason.value,
             "nominal_tier": int(intent_row["nominal_tier"]),
             "effective_tier": int(intent_row["effective_tier"]),

@@ -1,0 +1,377 @@
+"""Mandate-layer deferral (WO-D2 step 3, AADP -03 §8.1).
+
+Test keys are generated here, in-process, never written to disk or the repository
+(WO-D2's key-handling rule). No network call happens anywhere in this file.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+from datetime import timedelta
+from sqlite3 import Connection
+
+import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from onedoor.guardrail import approvals, mandate, policy_loader
+from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve
+from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.models import Bounds, Policy, Tier
+from onedoor.store.db import tx
+from tests.conftest import FROZEN_NOW, make_request
+
+ACTION = "demo.mandate"
+
+
+def _key_pair() -> tuple[Ed25519PrivateKey, bytes]:
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(encoding=Encoding.Raw, format=PublicFormat.Raw)
+    return private, public
+
+
+def _sign(private: Ed25519PrivateKey, message: str) -> str:
+    return private.sign(message.encode("ascii")).hex()
+
+
+def _policy(conn: Connection) -> None:
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type=ACTION,
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.restore",
+            bounds=Bounds(strict_params=False),
+            requires_external_authorization=True,
+        ),
+    )
+
+
+def _config(
+    base: EngineConfig, resolver: mandate.MandateResolver, public_key: bytes
+) -> EngineConfig:
+    return dataclasses.replace(
+        base, mandate_resolver=resolver, mandate_authority_public_key=public_key
+    )
+
+
+def _resolver(verdict: mandate.MandateVerdict) -> mandate.MandateResolver:
+    def resolve(request: object) -> mandate.MandateVerdict:
+        return verdict
+
+    return resolve
+
+
+# --- The two verdicts ---------------------------------------------------------------
+
+
+def test_a_mandate_deny_gives_denied_with_the_reason_and_a_failing_trace_entry(
+    conn: Connection, config: EngineConfig
+) -> None:
+    _policy(conn)
+    _, public_key = _key_pair()
+    cfg = _config(config, _resolver(mandate.MandateVerdict.DENY), public_key)
+    result = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+
+    assert isinstance(result, ActionResult)
+    assert result.decision.decision.value == "denied"
+    assert result.decision.reason_code.value == "external_authorization"
+
+    row = conn.execute(
+        "SELECT evaluation_trace_json FROM actions_audit WHERE id=?", (result.audit_id,)
+    ).fetchone()
+    import json
+
+    trace = json.loads(row["evaluation_trace_json"])
+    matching = [e for e in trace if e["check"] == "external_authorization"]
+    assert matching and matching[-1]["result"] == "fail"
+    assert trace[-1]["check"] == "external_authorization", (
+        "the mandate check must be the LAST entry for a mandate denial -- nothing after it ran"
+    )
+
+
+def test_a_mandate_pending_gives_proposed(conn: Connection, config: EngineConfig) -> None:
+    _policy(conn)
+    _, public_key = _key_pair()
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    result = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+
+    assert isinstance(result, ActionResult)
+    assert result.decision.decision.value == "proposed"
+    assert result.decision.reason_code.value == "external_authorization"
+    assert result.approval_id is not None
+
+    row = conn.execute(
+        "SELECT mandate_authority, mandate_core_digest FROM approvals WHERE id=?",
+        (result.approval_id,),
+    ).fetchone()
+    assert row["mandate_authority"] == 1
+    assert row["mandate_core_digest"]
+
+
+def test_a_permit_verdict_continues_normally_and_is_recorded_as_a_pass(
+    conn: Connection, config: EngineConfig
+) -> None:
+    _policy(conn)
+    _, public_key = _key_pair()
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PERMIT), public_key)
+    result = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(result, PermittedIntent)
+
+
+def test_a_later_denial_still_wins_over_a_mandate_pending(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """ "unless another check already denies the action, in which case that denial
+    takes precedence" -- a bounds violation on a mandate-pending request denies."""
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type=ACTION,
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.restore",
+            bounds=Bounds(strict_params=False, required=["must_have"]),
+            requires_external_authorization=True,
+        ),
+    )
+    _, public_key = _key_pair()
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    result = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(result, ActionResult)
+    assert result.decision.decision.value == "denied"
+    assert result.decision.reason_code.value == "bounds", (
+        "bounds must win over a merely-pending mandate check"
+    )
+
+
+def test_a_policy_without_the_flag_never_consults_the_resolver(
+    conn: Connection, config: EngineConfig
+) -> None:
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="demo.unrelated",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.restore",
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+
+    def _boom(request: object) -> mandate.MandateVerdict:
+        raise AssertionError("the resolver must never be called for an unflagged policy")
+
+    _, public_key = _key_pair()
+    cfg = _config(config, _boom, public_key)
+    result = decide_and_reserve(
+        make_request("demo.unrelated", {}), conn=conn, config=cfg, now=FROZEN_NOW
+    )
+    assert isinstance(result, PermittedIntent)
+
+
+# --- Ratification: the only way to resolve a pending mandate approval --------------
+
+
+def _pending(conn: Connection, config: EngineConfig, public_key: bytes) -> ActionResult:
+    _policy(conn)
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    result = decide_and_reserve(make_request(ACTION, {}), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(result, ActionResult)
+    return result
+
+
+def test_a_valid_ratification_resolves_it(conn: Connection, config: EngineConfig) -> None:
+    private, public_key = _key_pair()
+    pending = _pending(conn, config, public_key)
+    row = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()
+    digest = row["mandate_core_digest"]
+
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(private, digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert result.authorised
+    assert result.status is mandate.RatificationStatus.RATIFIED
+    assert result.request is not None
+
+    resumed = result.request.model_copy(update={"request_id": make_request("x").request_id})
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    outcome = decide_and_reserve(
+        resumed, conn=conn, config=cfg, now=FROZEN_NOW, approved_override=True
+    )
+    assert isinstance(outcome, PermittedIntent), "a ratified action must execute on resumption"
+
+
+def test_a_wrong_key_ratification_is_refused_and_audited(
+    conn: Connection, config: EngineConfig
+) -> None:
+    private, public_key = _key_pair()
+    wrong_private, _ = _key_pair()
+    pending = _pending(conn, config, public_key)
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(wrong_private, digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert not result.authorised
+    assert result.status is mandate.RatificationStatus.WRONG_KEY
+
+    state = conn.execute(
+        "SELECT state FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["state"]
+    assert state == "pending", "a wrong-key attempt must not consume the approval"
+
+    audited = conn.execute(
+        "SELECT detail FROM actions_audit WHERE kind='mandate_ratification' AND parent_id=?",
+        (pending.audit_id,),
+    ).fetchone()
+    assert audited is not None and "wrong_key" in audited["detail"]
+
+
+def test_a_ratification_naming_another_records_digest_does_not_cross_resolve(
+    conn: Connection, config: EngineConfig
+) -> None:
+    private, public_key = _key_pair()
+    first = _pending(conn, config, public_key)
+    second_request = make_request(ACTION, {"x": 1})
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    second_outcome = decide_and_reserve(second_request, conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(second_outcome, ActionResult)
+
+    first_digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (first.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    second_digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (second_outcome.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    assert first_digest != second_digest, "two distinct requests must carry distinct digests"
+
+    # A ratification correctly signed over the FIRST record's digest must resolve
+    # only the first record, never the second.
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=first_digest,
+            signature_hex=_sign(private, first_digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert result.authorised and result.approval_id == first.approval_id
+
+    second_state = conn.execute(
+        "SELECT state FROM approvals WHERE id=?", (second_outcome.approval_id,)
+    ).fetchone()["state"]
+    assert second_state == "pending", "the second record must be untouched"
+
+
+def test_a_replayed_ratification_is_refused_and_audited(
+    conn: Connection, config: EngineConfig
+) -> None:
+    private, public_key = _key_pair()
+    pending = _pending(conn, config, public_key)
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+    signature = _sign(private, digest)
+
+    with tx(conn):
+        first = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=signature,
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert first.authorised
+
+    with tx(conn):
+        replay = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=signature,
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert not replay.authorised
+    assert replay.status is mandate.RatificationStatus.ALREADY_RESOLVED
+
+    attempts = list(
+        conn.execute(
+            "SELECT detail FROM actions_audit WHERE kind='mandate_ratification' AND parent_id=?",
+            (pending.audit_id,),
+        )
+    )
+    assert len(attempts) == 2
+    assert "already_resolved" in attempts[-1]["detail"]
+
+
+def test_an_unknown_digest_is_refused(conn: Connection, config: EngineConfig) -> None:
+    private, public_key = _key_pair()
+    _pending(conn, config, public_key)
+    bogus_digest = "0" * 64
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=bogus_digest,
+            signature_hex=_sign(private, bogus_digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert not result.authorised
+    assert result.status is mandate.RatificationStatus.UNKNOWN_DIGEST
+
+
+def test_an_admin_key_attempt_through_the_existing_route_is_refused(
+    conn: Connection, config: EngineConfig
+) -> None:
+    _, public_key = _key_pair()
+    pending = _pending(conn, config, public_key)
+    with pytest.raises(ApprovalError, match="mandate-layer ratification"):
+        approvals.cas_approve(conn, pending.approval_id, "admin-session", FROZEN_NOW)
+    with pytest.raises(ApprovalError, match="mandate-layer ratification"):
+        approvals.deny(conn, pending.approval_id, "admin-session", FROZEN_NOW)
+
+    state = conn.execute(
+        "SELECT state FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["state"]
+    assert state == "pending", "neither admin route may have touched the row"
+
+
+def test_no_timeout_ever_permits(conn: Connection, config: EngineConfig) -> None:
+    """A ratification arriving after the approval's own TTL is refused, exactly like
+    a stale admin approval -- there is no path in onedoor from "time passed" to
+    "permitted" for a mandate-pending action."""
+    private, public_key = _key_pair()
+    short_config = dataclasses.replace(config, approval_ttl_seconds=1)
+    pending = _pending(conn, short_config, public_key)
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+
+    later = FROZEN_NOW + timedelta(hours=1)
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(private, digest),
+            authority_public_key=public_key,
+            now=later,
+        )
+    assert not result.authorised
+    assert result.status is mandate.RatificationStatus.ALREADY_RESOLVED

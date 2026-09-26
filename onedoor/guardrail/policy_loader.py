@@ -125,8 +125,9 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
         " action_type, tier, bounds_json, caps_json, effects_json, param_effects_json,"
         " dry_run, dry_run_until,"
         " compensating_command, cost_param, undo_window_seconds, requires_step_up,"
+        " requires_external_authorization,"
         " updated_at"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(action_type) DO UPDATE SET "
         " tier=excluded.tier, bounds_json=excluded.bounds_json, caps_json=excluded.caps_json,"
         " effects_json=excluded.effects_json, param_effects_json=excluded.param_effects_json,"
@@ -134,7 +135,9 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
         " compensating_command=excluded.compensating_command,"
         " cost_param=excluded.cost_param,"
         " undo_window_seconds=excluded.undo_window_seconds,"
-        " requires_step_up=excluded.requires_step_up, updated_at=excluded.updated_at",
+        " requires_step_up=excluded.requires_step_up,"
+        " requires_external_authorization=excluded.requires_external_authorization,"
+        " updated_at=excluded.updated_at",
         (
             policy.action_type,
             int(policy.tier),
@@ -148,6 +151,7 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
             policy.cost_param,
             policy.undo_window_seconds,
             int(policy.requires_step_up),
+            int(policy.requires_external_authorization),
             to_iso(now_utc()),
         ),
     )

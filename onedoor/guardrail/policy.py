@@ -37,6 +37,11 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         cost_param=row["cost_param"] if "cost_param" in row.keys() else None,
         undo_window_seconds=int(row["undo_window_seconds"]),
         requires_step_up=bool(row["requires_step_up"]),
+        requires_external_authorization=(
+            bool(row["requires_external_authorization"])
+            if "requires_external_authorization" in row.keys()
+            else False
+        ),
         is_default_deny=False,
     )
 

@@ -154,11 +154,13 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
 
     `0019`+ stood released in `BACKLOG.md` for the Studio's own schema (this file):
     a table in `studio.db` that a different process owns does not belong in the
-    enforcer's numbered sequence. `0019` itself was since claimed by `WO-D1` step 5
-    for a genuine ENFORCER migration (`actions_audit.evaluation_trace_json`) --
-    exactly the kind of spend this boundary exists to let happen, argued rather than
+    enforcer's numbered sequence. `0019`, `0020` and `0021` were since claimed by
+    `WO-D1` step 5 and `WO-D2` step 3, all genuine ENFORCER migrations
+    (`actions_audit.evaluation_trace_json`; `approvals.mandate_authority`/
+    `mandate_core_digest`; `policies.requires_external_authorization`) -- exactly
+    the kind of spend this boundary exists to let happen, argued rather than
     silent, as long as it is the enforcer's own history being extended and not a
-    Studio table borrowing a number from it. The live boundary is `0020`+; if a
+    Studio table borrowing a number from it. The live boundary is `0022`+; if a
     future change spends one of those on a Studio table, this test is where that
     decision has to be argued.
     """
@@ -166,8 +168,8 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
 
     backlog = Path(__file__).resolve().parents[2] / "BACKLOG.md"
     text = backlog.read_text(encoding="utf-8")
-    assert "| `0020`+ | unclaimed" in text, (
-        "the migration register no longer shows 0020+ as unclaimed; if a Studio column "
+    assert "| `0022`+ | unclaimed" in text, (
+        "the migration register no longer shows 0022+ as unclaimed; if a Studio column "
         "took an enforcer migration number, R047 §2's boundary was written out of the "
         "record"
     )

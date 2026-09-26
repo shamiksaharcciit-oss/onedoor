@@ -161,7 +161,13 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
 `dry_run` · `cap_rate` · `cap_value` · `cost_unknown` · `kill_switch` · `observe` ·
-`effect_floor` · `malformed` · `expired`
+`effect_floor` · `malformed` · `expired` · `external_authorization`
+
+`external_authorization` (WO-D2, AADP -03 §8.1) is the reason on a `denied` or
+`proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
+action type whose policy sets `requires_external_authorization`. A `proposed` one
+resolves only through a verified ratification from that authority — never through the
+ordinary admin approve/deny routes, and never by a timeout turning into a permit.
 
 `cap_rate` and `cap_value` replaced `cap_daily_rate` / `cap_eur_day` / `cap_eur_month`
 in `0.4.0` (`aadp/0.2`), with the window and unit moving into the `budget` object.

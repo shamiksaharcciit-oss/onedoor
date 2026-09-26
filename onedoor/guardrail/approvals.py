@@ -57,16 +57,31 @@ def loads_request(text: str) -> ActionRequest:
 
 
 def create(
-    conn: sqlite3.Connection, request: ActionRequest, ttl_seconds: int, now: datetime
+    conn: sqlite3.Connection,
+    request: ActionRequest,
+    ttl_seconds: int,
+    now: datetime,
+    *,
+    mandate_core_digest: str | None = None,
 ) -> int:
+    """Create a pending approval.
+
+    `mandate_core_digest` set (WO-D2 step 3) marks it mandate-gated: `cas_approve`/
+    `deny` refuse it structurally, and only `onedoor.guardrail.mandate.ratify` can
+    resolve it, against exactly this digest.
+    """
     cur = conn.execute(
-        "INSERT INTO approvals (request_json, action_type, state, created_at, expires_at) "
-        "VALUES (?, ?, 'pending', ?, ?)",
+        "INSERT INTO approvals "
+        "(request_json, action_type, state, created_at, expires_at, "
+        "mandate_authority, mandate_core_digest) "
+        "VALUES (?, ?, 'pending', ?, ?, ?, ?)",
         (
             dumps_request(request),
             request.action_type,
             to_iso(now),
             to_iso(now + timedelta(seconds=ttl_seconds)),
+            1 if mandate_core_digest is not None else None,
+            mandate_core_digest,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -82,10 +97,30 @@ def list_pending(conn: sqlite3.Connection) -> list[Approval]:
     return [_row_to_approval(r) for r in rows]
 
 
+def _refuse_if_mandate_gated(conn: sqlite3.Connection, approval_id: int) -> None:
+    """The structural half of ruling 26e: not merely "the HTTP route doesn't expose
+    it", but "this function refuses it even if something else calls it directly".
+
+    AADP -03 §8.1: an approval waiting on a mandate-layer deferral is resolved by
+    the mandate authority's ratification and by nothing else -- an admin key is
+    "nothing else", however it reaches this function.
+    """
+    row = conn.execute(
+        "SELECT mandate_authority FROM approvals WHERE id=?", (approval_id,)
+    ).fetchone()
+    if row is not None and row["mandate_authority"]:
+        raise ApprovalError(
+            f"approval {approval_id} waits on a mandate-layer ratification (AADP -03 "
+            f"§8.1); it resolves only through onedoor.guardrail.mandate.ratify, never "
+            f"through an admin key"
+        )
+
+
 def cas_approve(
     conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime
 ) -> ActionRequest:
     """Flip pending -> approved iff still pending and unexpired. Returns the request."""
+    _refuse_if_mandate_gated(conn, approval_id)
     cur = conn.execute(
         "UPDATE approvals SET state='approved', decided_at=?, decided_by_session=? "
         "WHERE id=? AND state='pending' AND expires_at > ?",
@@ -98,6 +133,7 @@ def cas_approve(
 
 
 def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime) -> None:
+    _refuse_if_mandate_gated(conn, approval_id)
     cur = conn.execute(
         "UPDATE approvals SET state='denied', decided_at=?, decided_by_session=? "
         "WHERE id=? AND state='pending'",
