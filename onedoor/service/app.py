@@ -48,7 +48,7 @@ from pydantic import BaseModel, Field
 from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail import rebuild as rebuild_module
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.errors import ApprovalError, ReportError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Budget, Decision, Outcome, Source
 from onedoor.guardrail.received import extract_raw_member
@@ -128,6 +128,12 @@ class ReportBody(BaseModel):
     that never occurred."""
     payload: dict[str, Any] | None = None
     error: str | None = None
+    no_effect: bool = False
+    """WO-D1 step 4 (AADP -03 §4.1). On a `failure` report, a positive assertion
+    that the action is known to have had no effect: the reservation releases like
+    `not_attempted`, except the rate-dimension budget stays charged -- an attempt
+    was made, which is why this is a `failure` and not a `not_attempted`. Refused
+    (400) on any outcome other than `failure`."""
 
 
 class KillBody(BaseModel):
@@ -280,14 +286,18 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         intent = outcome.intent
         assert intent is not None
         with span("onedoor.report", intent.action_type), state.lock:
-            result = report_result(
-                intent,
-                conn=state.conn,
-                outcome=body.outcome,
-                payload=body.payload,
-                error=body.error,
-                now=now_utc(),
-            )
+            try:
+                result = report_result(
+                    intent,
+                    conn=state.conn,
+                    outcome=body.outcome,
+                    payload=body.payload,
+                    error=body.error,
+                    no_effect=body.no_effect,
+                    now=now_utc(),
+                )
+            except ReportError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
         record_decision(
             intent.action_type,
             result.decision.decision.value,

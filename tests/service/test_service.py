@@ -205,3 +205,50 @@ def test_no_approval_ref_behaves_exactly_as_today(client: TestClient) -> None:
     assert r.status_code == 200
     assert r.json()["decision"] == "proposed"
     assert _approval_ref_status(client) == "absent"
+
+
+# --- WO-D1 step 4: no_effect over HTTP -------------------------------------------
+
+
+def test_no_effect_on_a_timeout_is_refused_over_http(client: TestClient) -> None:
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "demo.capped", "params": {}},
+        headers=_h("dkey"),
+    )
+    intent_audit_id = r.json()["intent_audit_id"]
+    rep = client.post(
+        "/v1/report",
+        json={"intent_audit_id": intent_audit_id, "outcome": "timeout", "no_effect": True},
+        headers=_h("dkey"),
+    )
+    assert rep.status_code == 400
+    assert "failure" in rep.json()["detail"]
+
+
+def test_no_effect_on_a_failure_never_releases_the_rate_budget_over_http(
+    client: TestClient,
+) -> None:
+    """`demo.capped` allows 2 calls/day. A no_effect failure must not give the slot
+    back, so a third call the same day still exhausts the cap (-03 §4.1)."""
+
+    def _spend() -> int:
+        r = client.post(
+            "/v1/decide", json={"action_type": "demo.capped", "params": {}}, headers=_h("dkey")
+        )
+        return r.json()["intent_audit_id"]
+
+    first = _spend()
+    client.post(
+        "/v1/report",
+        json={"intent_audit_id": first, "outcome": "failure", "no_effect": True},
+        headers=_h("dkey"),
+    )
+    second = _spend()
+    assert second is not None
+
+    third = client.post(
+        "/v1/decide", json={"action_type": "demo.capped", "params": {}}, headers=_h("dkey")
+    )
+    assert third.json()["decision"] == "denied"
+    assert third.json()["reason"] == "cap_rate", "the no_effect report must not have freed the slot"

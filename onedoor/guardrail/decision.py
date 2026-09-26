@@ -43,6 +43,7 @@ from onedoor.guardrail import (
     opaque_hosts,
 )
 from onedoor.guardrail.audit import RowSource
+from onedoor.guardrail.errors import ReportError
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -565,6 +566,7 @@ def report_result(
     outcome: Outcome,
     payload: dict[str, JsonValue] | None,
     error: str | None,
+    no_effect: bool = False,
     now: datetime,
 ) -> ActionResult:
     """Phase B: append the linked execution result for a permitted intent.
@@ -575,6 +577,19 @@ def report_result(
 
     `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
     of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
+
+    `no_effect` (WO-D1 step 4, AADP -03 §4.1): on a `failure` report, a positive
+    assertion that the action had NO effect at all -- not "it did not succeed" but
+    "it is known to have touched nothing". The reservation releases, audited the
+    same way as `not_attempted`, with one difference: **the rate-dimension budget is
+    never released**. `not_attempted` means no attempt occurred at all, so the
+    call-count budget it would have consumed is given back too; `no_effect` means an
+    attempt WAS made (that is why it is a `failure`, not a `not_attempted`) and
+    merely had no effect on the resource the value budget tracks -- the attempt still
+    consumed a rate-limited slot, so that counter stays charged. Refused with a
+    stated reason (:class:`~onedoor.guardrail.errors.ReportError`) on any outcome
+    other than `failure`: it is not a softer `not_attempted`, and asserting it
+    against `success` or `timeout` would contradict the outcome itself.
 
     Accepts a :class:`~onedoor.guardrail.rebuild.RebuiltIntent` as well, so a permit
     that outlived the process that issued it can still be reported (ND-010). The
@@ -587,12 +602,18 @@ def report_result(
     restart is learned now, however long ago the action was requested. Backdating it
     would be the ledger testifying to a moment it did not witness.
     """
+    if no_effect and outcome is not Outcome.FAILURE:
+        raise ReportError(
+            f"no_effect requires outcome='failure' (a positive assertion about what a "
+            f"failed attempt touched), got outcome={outcome.value!r}"
+        )
     rebuilt = isinstance(intent, RebuiltIntent)
     row_source: RowSource = intent if rebuilt else intent.request  # type: ignore[assignment,union-attr]
     frozen: tuple[str | bytes, str | None] | None = (
         (intent.params_json, intent.params_provenance) if rebuilt else None  # type: ignore[union-attr]
     )
-    settles = outcome is not Outcome.NOT_ATTEMPTED
+    no_effect_release = outcome is Outcome.FAILURE and no_effect
+    settles = outcome is not Outcome.NOT_ATTEMPTED and not no_effect_release
     released_deltas: list[tuple[str, str, str, int, str]] = []
 
     with tx(conn):
@@ -612,16 +633,27 @@ def report_result(
             # the budget it reserved must go back. Settling here is the A4b defect --
             # permanently charging for an action that never occurred. Only a held
             # reservation is released; one already reclaimed stays reclaimed.
+            #
+            # no_effect (WO-D1 step 4): a NARROWER release. An attempt was made --
+            # that is why this is a `failure`, not a `not_attempted` -- so the
+            # rate-dimension delta is excluded: the call happened and consumed its
+            # slot regardless of effect. Only the value-dimension deltas (eur_day/
+            # eur_month) go back, since those track an effect that is now known not
+            # to have occurred.
             row = conn.execute(
                 "SELECT deltas_json FROM cap_reservations "
                 "WHERE intent_audit_id=? AND status='held'",
                 (intent.intent_audit_id,),
             ).fetchone()
             if row is not None:
-                released_deltas = [
-                    tuple(d) for d in json.loads(row["deltas_json"], parse_float=Decimal)
-                ]
-                caps.release(conn, released_deltas)
+                all_deltas = [tuple(d) for d in json.loads(row["deltas_json"], parse_float=Decimal)]
+                released_deltas = (
+                    all_deltas
+                    if outcome is Outcome.NOT_ATTEMPTED
+                    else [d for d in all_deltas if d[1] != "rate"]
+                )
+                if released_deltas:
+                    caps.release(conn, released_deltas)
                 conn.execute(
                     "UPDATE cap_reservations SET status='released' WHERE intent_audit_id=?",
                     (intent.intent_audit_id,),
@@ -634,11 +666,12 @@ def report_result(
                     "SELECT * FROM actions_audit WHERE id=?", (intent.intent_audit_id,)
                 ).fetchone()
                 if intent_row is not None:
+                    reason = "not_attempted" if outcome is Outcome.NOT_ATTEMPTED else "no_effect"
                     audit.append_expiry(
                         conn,
                         intent_row,
                         now,
-                        detail="reservation released: report asserted not_attempted",
+                        detail=f"reservation released: report asserted {reason}",
                         kind="reservation_released",
                     )
 

@@ -37,6 +37,7 @@ import pytest
 
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.errors import ReportError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import (
     ActionRequest,
@@ -258,6 +259,206 @@ def test_reporting_not_attempted_after_reclamation_does_not_double_release(
         before = _spent(conn)
         report_result(
             intent, conn=conn, outcome=Outcome.NOT_ATTEMPTED, payload=None, error=None, now=NOW
+        )
+        assert _spent(conn) == before, "an expired reservation must not be released again"
+    finally:
+        conn.close()
+
+
+# --- WO-D1 step 4: no_effect on failure reports (AADP -03 §4.1) ------------------
+
+
+@pytest.fixture
+def spend_and_call(tmp_path: Path) -> Database:
+    """Both dimensions capped, so a `no_effect` release can be checked on each."""
+    database = Database(str(tmp_path / "no_effect.db"))
+    database.init()
+    conn = database.connect()
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="demo.spend",
+            tier=Tier.AUTO_CAPPED,
+            dry_run=False,
+            compensating_command="demo.spend",
+            caps=Caps(daily_rate=5, eur_day=Decimal("100.00")),
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    conn.close()
+    return database
+
+
+def _calls(conn: object) -> int:
+    row = conn.execute(  # type: ignore[attr-defined]
+        "SELECT count FROM cap_counters WHERE window_kind='rate'"
+    ).fetchone()
+    return int(row["count"]) if row else 0
+
+
+def test_a_plain_failure_still_settles(spend: Database) -> None:
+    """no_effect defaults to False: a bare failure changes nothing from today."""
+    conn = spend.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        report_result(
+            intent, conn=conn, outcome=Outcome.FAILURE, payload=None, error="boom", now=NOW
+        )
+        assert _spent(conn) == Decimal("10.00"), "a failure without no_effect must settle"
+        status = conn.execute(
+            "SELECT status FROM cap_reservations WHERE intent_audit_id=?",
+            (intent.intent_audit_id,),
+        ).fetchone()["status"]
+        assert status == "settled"
+    finally:
+        conn.close()
+
+
+def test_a_timeout_with_no_effect_is_refused(spend: Database) -> None:
+    """no_effect is refused on any outcome but failure -- stated, not silently ignored."""
+    conn = spend.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        with pytest.raises(ReportError, match="failure"):
+            report_result(
+                intent,
+                conn=conn,
+                outcome=Outcome.TIMEOUT,
+                payload=None,
+                error="t",
+                no_effect=True,
+                now=NOW,
+            )
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("outcome", [Outcome.SUCCESS, Outcome.NOT_ATTEMPTED])
+def test_no_effect_is_refused_on_success_and_not_attempted(
+    spend: Database, outcome: Outcome
+) -> None:
+    conn = spend.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        with pytest.raises(ReportError):
+            report_result(
+                intent,
+                conn=conn,
+                outcome=outcome,
+                payload=None,
+                error=None,
+                no_effect=True,
+                now=NOW,
+            )
+    finally:
+        conn.close()
+
+
+def test_a_failure_with_no_effect_releases_the_value_budget(spend_and_call: Database) -> None:
+    conn = spend_and_call.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        assert _spent(conn) == Decimal("10.00")
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.FAILURE,
+            payload=None,
+            error="boom",
+            no_effect=True,
+            now=NOW,
+        )
+        assert _spent(conn) == Decimal(0), "no_effect must release the value dimension"
+    finally:
+        conn.close()
+
+
+def test_a_failure_with_no_effect_never_releases_the_rate_budget(
+    spend_and_call: Database,
+) -> None:
+    """-03 §4.1: the attempt happened -- that is why this is a failure, not a
+    not_attempted -- so the call it made still counts against the rate budget."""
+    conn = spend_and_call.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        assert _calls(conn) == 1
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.FAILURE,
+            payload=None,
+            error="boom",
+            no_effect=True,
+            now=NOW,
+        )
+        assert _calls(conn) == 1, "the rate counter must stay charged after a no_effect release"
+    finally:
+        conn.close()
+
+
+def test_no_effect_release_is_audited_and_distinct_from_not_attempted(
+    spend_and_call: Database,
+) -> None:
+    conn = spend_and_call.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.FAILURE,
+            payload=None,
+            error="boom",
+            no_effect=True,
+            now=NOW,
+        )
+        rows = list(
+            conn.execute(
+                "SELECT parent_id, detail FROM actions_audit WHERE kind='reservation_released'"
+            )
+        )
+        assert len(rows) == 1
+        assert rows[0]["parent_id"] == intent.intent_audit_id
+        assert "no_effect" in rows[0]["detail"]
+        assert "not_attempted" not in rows[0]["detail"]
+
+        status = conn.execute(
+            "SELECT status FROM cap_reservations WHERE intent_audit_id=?",
+            (intent.intent_audit_id,),
+        ).fetchone()["status"]
+        assert status == "released"
+
+        outcome_row = conn.execute(
+            "SELECT outcome, connector_ok FROM actions_audit WHERE kind='exec_result'"
+        ).fetchone()
+        assert outcome_row["outcome"] == "failure"
+        assert outcome_row["connector_ok"] is not None and not outcome_row["connector_ok"], (
+            "an attempt was made and failed -- unlike not_attempted, connector_ok is "
+            "False, never NULL"
+        )
+    finally:
+        conn.close()
+
+
+def test_no_effect_on_an_already_reclaimed_reservation_does_not_double_release(
+    spend_and_call: Database,
+) -> None:
+    conn = spend_and_call.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        conn.execute(
+            "UPDATE cap_reservations SET status='expired' WHERE intent_audit_id=?",
+            (intent.intent_audit_id,),
+        )
+        conn.commit()
+        before = _spent(conn)
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.FAILURE,
+            payload=None,
+            error="boom",
+            no_effect=True,
+            now=NOW,
         )
         assert _spent(conn) == before, "an expired reservation must not be released again"
     finally:
