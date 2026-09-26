@@ -367,7 +367,7 @@ def verify(
     currentness = claims.get("currentness")
     if currentness == "status-checked":
         return _could_not_check(
-            "status-list",
+            RefusalReason.STATUS_UNAVAILABLE.value,
             "status-checked currentness is declared but no status mechanism is configured",
         )
     if currentness != "time-bounded":
@@ -404,22 +404,31 @@ def verify(
         return _fail(12, RefusalReason.LOCAL_POLICY)
 
     # --- 13. (iss, jti) consumed atomically ---
-    existing = consume_store.get(iss, jti)
-    if existing is not None:
-        if existing.content_digest == request.content_digest_header.strip():
-            return VerificationResult(
-                status=VerificationStatus.VERIFIED, repeat=True, detail="stored result returned"
+    # A consume-store failure is a dependency the recipient cannot reach, not a
+    # policy denial -- it must not collapse into a refusal (R010's three outcomes,
+    # this package's own version of it), and a permit refused by an unavailable
+    # store must not read as "the recipient looked and said no".
+    try:
+        existing = consume_store.get(iss, jti)
+        if existing is not None:
+            if existing.content_digest == request.content_digest_header.strip():
+                return VerificationResult(
+                    status=VerificationStatus.VERIFIED, repeat=True, detail="stored result returned"
+                )
+            return _fail(
+                13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti), different Content-Digest"
             )
-        return _fail(
-            13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti), different Content-Digest"
+        if consume_store.in_progress(iss, jti):
+            return _fail(
+                13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti) still in progress"
+            )
+        consume_store.mark_in_progress(iss, jti)
+        result = VerificationResult(status=VerificationStatus.VERIFIED)
+        consume_store.put(
+            iss,
+            jti,
+            StoredConsumption(content_digest=request.content_digest_header.strip(), result=result),
         )
-    if consume_store.in_progress(iss, jti):
-        return _fail(13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti) still in progress")
-    consume_store.mark_in_progress(iss, jti)
-    result = VerificationResult(status=VerificationStatus.VERIFIED)
-    consume_store.put(
-        iss,
-        jti,
-        StoredConsumption(content_digest=request.content_digest_header.strip(), result=result),
-    )
+    except Exception as exc:  # noqa: BLE001 - any consume-store failure is could-not-check
+        return _could_not_check("consume-store", f"consume store unavailable: {exc}")
     return result

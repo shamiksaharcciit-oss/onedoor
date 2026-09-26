@@ -513,7 +513,7 @@ def test_status_checked_currentness_could_not_be_checked() -> None:
     fx = _build(claim_overrides={"currentness": "status-checked"})
     result = _verify(fx)
     assert result.status is VerificationStatus.COULD_NOT_CHECK
-    assert result.dependency == "status-list"
+    assert result.dependency == "status-unavailable"
 
 
 def test_an_unknown_currentness_mode_is_refused() -> None:

@@ -1,0 +1,28 @@
+{
+  "vectors": [
+    {"id": "V01", "mutation": "Body changed after signing", "expected": "content-mismatch"},
+    {"id": "V02", "mutation": "Path changed after signing", "expected": "request-signature-invalid"},
+    {"id": "V03", "mutation": "Presented to a different recipient", "expected": "audience-mismatch"},
+    {"id": "V04", "mutation": "aud carries two values", "expected": "audience-mismatch"},
+    {"id": "V05", "mutation": "Presented after exp", "expected": "expired"},
+    {"id": "V06", "mutation": "exp later than execute_within", "expected": "lifetime-invalid"},
+    {"id": "V07", "mutation": "Same permit presented twice, same body", "expected": "stored result returned; recorded as repeat"},
+    {"id": "V08", "mutation": "Same jti, different body", "expected": "idempotency-conflict"},
+    {"id": "V09", "mutation": "Request signed by a key other than cnf.jkt", "expected": "presenter-key-mismatch"},
+    {"id": "V10", "mutation": "Request not signed at all (bearer presentation)", "expected": "request-signature-missing"},
+    {"id": "V11", "mutation": "Signature omits content-digest from covered components", "expected": "binding-incomplete"},
+    {"id": "V12", "mutation": "Body re-serialised with the same meaning, different bytes", "expected": "content-mismatch"},
+    {"id": "V13", "mutation": "Same bytes, A derived differently from what was decided", "expected": "action-mismatch"},
+    {"id": "V14", "mutation": "authorization_details type unknown to the recipient", "expected": "unknown-authorization-type"},
+    {"id": "V15", "mutation": "Issuer trusted, action type outside its scope", "expected": "issuer-out-of-scope"},
+    {"id": "V16", "mutation": "Issuer trusted for the type, amount above its limit", "expected": "issuer-out-of-scope"},
+    {"id": "V17", "mutation": "status-checked, policy version since superseded", "expected": "stale-policy"},
+    {"id": "V18", "mutation": "status-checked, status endpoint unreachable", "expected": "status-unavailable (could-not-check)"},
+    {"id": "V19", "mutation": "Mandate digest differs from the evaluated AAE", "expected": "mandate-mismatch"},
+    {"id": "V20", "mutation": "Referenced AAE evaluates to PENDING", "expected": "mandate-pending"},
+    {"id": "V21", "mutation": "Permit carries parent", "expected": "chained-permit-unsupported"},
+    {"id": "V22", "mutation": "Recipient confirmation names a different request digest", "expected": "detected by the presenter; report records the discrepancy"},
+    {"id": "V23", "mutation": "Consume store unavailable", "expected": "could-not-check, not a policy denial"},
+    {"id": "V24", "mutation": "Permit valid, local policy denies", "expected": "local-policy, and the permit is not consumed"}
+  ]
+}
