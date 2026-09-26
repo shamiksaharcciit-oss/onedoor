@@ -42,12 +42,21 @@ import sqlite3
 
 VERSION_1 = "onedoor/row-preimage/1"
 VERSION_2 = "onedoor/row-preimage/2"
-CURRENT_VERSION = VERSION_2
+VERSION_3 = "onedoor/row-preimage/3"
+CURRENT_VERSION = VERSION_3
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009, R035 §1): the field records *why*
 an approval did or did not authorise an action, so flipping `expired` to `honored` is
 exactly the edit a chain exists to catch. It could not be excluded.
+
+`/3` adds `evaluation_trace_json` (WO-D2 step 2, design note
+`docs/design/WO-D2_preimage_v3.md`, R035 §1's consequence chain walked in full there):
+the trace is the stated justification for a verdict's reason code, so editing a
+`fail` entry to `pass` after the fact is exactly the same class of edit
+`approval_ref_status` guards against. Left dark at WO-D1 (migration `0019`)
+deliberately, because a version bump was not a call to make mid-work-order; this is
+that bump, made on its own ticket.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -116,12 +125,20 @@ FIELD_ORDER_V2: tuple[str, ...] = (*FIELD_ORDER_V1, "approval_ref_status")
 did not authorise this action (R035 §1).
 """
 
-FIELD_ORDER = FIELD_ORDER_V2
+FIELD_ORDER_V3: tuple[str, ...] = (*FIELD_ORDER_V2, "evaluation_trace_json")
+"""`/3` appends rather than inserts, same precedent as `/1` -> `/2`.
+
+`evaluation_trace_json` is hashed because it is the stated justification for the
+verdict's own reason code (WO-D2 step 2, `docs/design/WO-D2_preimage_v3.md`).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V3
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_1: FIELD_ORDER_V1,
     VERSION_2: FIELD_ORDER_V2,
+    VERSION_3: FIELD_ORDER_V3,
 }
 """Every version this build can verify.
 
@@ -156,12 +173,6 @@ EXCLUDED: dict[str, str] = {
     "anchor_ref": (
         "assigned after anchoring, which under X-8 happens only after verification, "
         "so it is later than the hash by construction"
-    ),
-    "evaluation_trace_json": (
-        "WO-D1 step 5 (migration 0019): deliberately left dark. Hashing a new "
-        "evidence field in is a preimage version bump (/2 -> /3), which is a "
-        "wire-observable chain change -- not a decision delivery makes on its own "
-        "authority. Disclosed as an open question for core, not decided here."
     ),
 }
 """Every column NOT in the preimage, each with the reason.

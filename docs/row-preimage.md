@@ -1,4 +1,4 @@
-# The onedoor row preimage — `onedoor/row-preimage/2`
+# The onedoor row preimage — `onedoor/row-preimage/3`
 
 **Normative.** This document defines the exact bytes that `actions_audit.row_hash`
 is computed over. It is written so an implementer with no access to the Python source
@@ -130,6 +130,7 @@ Order is fixed. **Reordering is a new preimage version, not a refactor.**
 | 28 | `canon_schema` | generated — UTF-8 |
 | 29 | `opaque_class` | generated — UTF-8 |
 | 30 | `approval_ref_status` | generated — UTF-8. **`/2` and later only** |
+| 31 | `evaluation_trace_json` | generated — UTF-8, the JSON text as stored (deterministic per entry, not re-rendered). **`/3` and later only** |
 
 **E10 at the boundary (R031 §1.4): the preimage performs no normalisation of its own.**
 It seals what the row holds, exactly. A "generated" field was already canonicalised
@@ -153,7 +154,6 @@ same octets.
 | `e_digest`, `i_digest`, `t_digest`, `v_digest` | `ND-017` computes these *from* the row. |
 | `preimage_version` | A **hint**, not the authority — §7. A hashed version field would have to be known before choosing the version that hashes it. Self-authenticating: a row whose hint disagrees with how it was sealed fails verification under the version it names, which is detection rather than confusion. |
 | `anchor_ref` | Assigned after anchoring, which under **X-8** happens only after verification — so it is later than the hash by construction. |
-| `evaluation_trace_json` | **WO-D1 step 5** (migration `0019`). Deliberately left dark. Hashing a brand-new evidence field in is a preimage version bump (`/2` → `/3`), which is a wire-observable chain change — not a decision delivery makes on its own authority. Disclosed as an open question for core, not decided here. |
 
 `tests/guardrail/test_row_preimage.py` asserts that **every column of `actions_audit`
 is either in §3 or in this table**. A future migration that adds a column fails that
@@ -202,6 +202,7 @@ and **not** "failed". It is both, stated per region.
 |---|---|---|
 | `onedoor/row-preimage/1` | §3 rows 1–29 | the original (`ND-001`) |
 | `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`, R035 §1) |
+| `onedoor/row-preimage/3` | §3 rows 1–31 | `evaluation_trace_json` (WO-D2 step 2, `docs/design/WO-D2_preimage_v3.md`) |
 
 **A version is chosen per row, recorded in the row, and stated inside the hash.** The
 `preimage_version` column is a hint that lets a verifier pick the right field order
@@ -220,6 +221,8 @@ existed, a new hashed column was possible only while chaining was off everywhere
 impossible for any deployer who had switched it on, because the table forbids `UPDATE`
 and sealed rows can never be re-hashed.
 
-`/2` was therefore the last bump that needed the everything-off window (R035 §1), and
-`tests/guardrail/test_chain.py` verifies the boundary case directly: a chain carrying
-rows of both versions verifies, and tampering with either side still localises.
+`/2` was the last bump that needed the everything-off window (R035 §1) — the hint
+mechanism it introduced is exactly what made `/3` possible on a live chain without one.
+`tests/guardrail/test_chain.py` verifies both boundary cases directly: a chain
+carrying rows of `/1` and `/2`, and one carrying `/2` and `/3`, each verify end to end,
+and tampering with either side of either seam still localises.

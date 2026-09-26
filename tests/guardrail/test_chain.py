@@ -475,12 +475,16 @@ def test_a_chain_verifies_across_a_preimage_version_boundary(
     Before the `preimage_version` hint, a new hashed column was possible only while
     chaining was off everywhere, and impossible for any deployer who had switched it on:
     the table forbids `UPDATE`, so sealed rows can never be re-hashed. With a per-row
-    hint, a ledger whose rows transition `/2 → /3` re-derives end to end, because
+    hint, a ledger whose rows transition `/1 → /2` re-derives end to end, because
     **`prev_hash` links are unaffected by a version change** — each row hashes the
     previous row's `row_hash`, whatever produced it.
 
-    Simulated by writing rows under `/1` and `/2` in one chain, which is the same seam
-    a future `/3` will create.
+    Simulated by writing rows under `/1` and `/2` in one chain, explicitly for BOTH
+    rows: `CURRENT_VERSION` has since moved to `/3` (WO-D2 step 2), so a live `_decide`
+    no longer natively seals under `/2` and this test must force it there rather than
+    lean on it being the engine's default -- which is the exact assumption that broke
+    this test the moment `/3` shipped, caught by re-running it rather than by reasoning
+    about it.
     """
     from onedoor.guardrail.preimage import VERSION_1, VERSION_2, row_hash, values_from_row
 
@@ -500,10 +504,12 @@ def test_a_chain_verifies_across_a_preimage_version_boundary(
     # its own hash is recomputed over that new link, not over the stale one. Getting
     # this wrong is how the first run of this test failed: the fixture hashed values
     # read BEFORE the prev_hash was updated, which is a fixture bug that looks exactly
-    # like the defect the test is hunting.
+    # like the defect the test is hunting. Its hint is force-set to /2 explicitly,
+    # rather than assumed native, for the reason in the docstring above.
     second = conn.execute("SELECT * FROM actions_audit WHERE seq=2").fetchone()
     relinked = values_from_row(second, VERSION_2)
     relinked["prev_hash"] = v1_hash
+    _force(conn, int(second["id"]), "preimage_version", VERSION_2)
     _force(conn, int(second["id"]), "prev_hash", v1_hash)
     _force(conn, int(second["id"]), "row_hash", row_hash(relinked, VERSION_2))
 
@@ -651,3 +657,102 @@ def test_every_audit_write_path_stamps_the_chain() -> None:
         if isinstance(node, ast.FunctionDef) and node.name == "flush"
     )
     assert calls(flush, "_stamp_chain"), "the buffered path must stamp the chain as well"
+
+
+# --- WO-D2 step 2: a chain crossing /2 -> /3 ---------------------------------------
+
+
+def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The `/2 -> /3` sibling of the `/1 -> /2` test above -- the exact seam R035 §1's
+    `preimage_version` hint was built to survive, now actually crossed.
+
+    Row 1 is force-sealed as if written before `evaluation_trace_json` was hashed in;
+    row 2 is native `/3` (today's `CURRENT_VERSION`), and its hash was computed at
+    write time over row 1's ORIGINAL (native) hash, so it must be recomputed once row
+    1 is re-sealed and re-linked -- the identical shape as the `/1 -> /2` fixture.
+    """
+    from onedoor.guardrail.preimage import VERSION_2, VERSION_3, row_hash, values_from_row
+
+    _policies(conn)
+    _enable(conn)
+    for _ in range(2):
+        _decide(conn, config)
+
+    row = conn.execute("SELECT * FROM actions_audit WHERE seq=1").fetchone()
+    v2_hash = row_hash(values_from_row(row, VERSION_2), VERSION_2)
+    _force(conn, int(row["id"]), "preimage_version", VERSION_2)
+    _force(conn, int(row["id"]), "row_hash", v2_hash)
+
+    second = conn.execute("SELECT * FROM actions_audit WHERE seq=2").fetchone()
+    relinked = values_from_row(second, VERSION_3)
+    relinked["prev_hash"] = v2_hash
+    _force(conn, int(second["id"]), "prev_hash", v2_hash)
+    _force(conn, int(second["id"]), "row_hash", row_hash(relinked, VERSION_3))
+
+    report = chain.verify_chain(conn)
+    assert report.sound, (
+        f"a chain crossing /2 -> /3 did not verify: "
+        f"{[(r.status.value, r.detail) for r in report.regions]}"
+    )
+    assert report.chained_rows == 2
+    versions = {
+        r["preimage_version"]
+        for r in conn.execute("SELECT preimage_version FROM actions_audit WHERE seq IS NOT NULL")
+    }
+    assert versions == {VERSION_2, VERSION_3}, "the fixture must actually span two versions"
+
+
+def test_changing_a_byte_of_the_stored_trace_breaks_verification_at_that_row(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Proof that `evaluation_trace_json` is load-bearing under `/3`, not merely
+    present: editing one byte of it must move the row's hash, and `verify_chain` must
+    catch it and localise it to that row -- never a silent pass, never poisoning the
+    rows after it."""
+    _policies(conn)
+    _enable(conn)
+    for _ in range(3):
+        _decide(conn, config)
+
+    row = conn.execute("SELECT id, evaluation_trace_json FROM actions_audit WHERE seq=2").fetchone()
+    stored = str(row["evaluation_trace_json"])
+    assert stored, "the row must actually carry a non-empty trace for this test to mean anything"
+    tampered = stored[:-1] + ("0" if stored[-1] != "0" else "1")
+    assert tampered != stored
+
+    _force(conn, int(row["id"]), "evaluation_trace_json", tampered)
+    report = chain.verify_chain(conn)
+    failed = [r for r in report.regions if r.status is Status.FAILED]
+    assert len(failed) == 1, (
+        f"expected exactly one FAILED region at the tampered row, got: "
+        f"{[(r.status.value, r.first_id, r.last_id) for r in report.regions]}"
+    )
+    assert failed[0].first_id == failed[0].last_id == int(row["id"])
+
+
+def test_a_simulated_pre_bump_2_row_still_hashes_byte_for_byte_to_its_stored_value(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A row written (or, here, force-resealed) under `/2` before this bump existed is
+    untouched by it: `row_hash_of` must recompute EXACTLY the value already stored,
+    with no migration, no rewrite, and no special-casing for the version that happens
+    to be older than `CURRENT_VERSION`."""
+    from onedoor.guardrail.preimage import VERSION_2, row_hash, row_hash_of, values_from_row
+
+    _policies(conn)
+    _enable(conn)
+    _decide(conn, config)
+
+    row = conn.execute("SELECT * FROM actions_audit WHERE seq=1").fetchone()
+    v2_hash = row_hash(values_from_row(row, VERSION_2), VERSION_2)
+    _force(conn, int(row["id"]), "preimage_version", VERSION_2)
+    _force(conn, int(row["id"]), "row_hash", v2_hash)
+
+    resealed = conn.execute("SELECT * FROM actions_audit WHERE id=?", (row["id"],)).fetchone()
+    assert resealed["preimage_version"] == VERSION_2
+    assert row_hash_of(resealed) == resealed["row_hash"] == v2_hash, (
+        "a /2 row must still recompute byte-for-byte to its stored hash after the "
+        "/3 bump, with no rewrite of the row itself"
+    )
