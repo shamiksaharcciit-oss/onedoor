@@ -58,6 +58,7 @@ from onedoor.guardrail.models import (
 )
 from onedoor.guardrail.policy import PolicyStore
 from onedoor.guardrail.rebuild import RebuiltIntent
+from onedoor.guardrail.trace import Trace
 from onedoor.guardrail.urlcanon import (
     CANON_SCHEMA,
     CanonicalizationError,
@@ -118,6 +119,12 @@ def decide_and_reserve(
     reclaim_expired_reservations(conn, config, now)
 
     with tx(conn):
+        # WO-D1 step 5 / AADP -03 §10: the ordered list of checks actually evaluated
+        # for this verdict. Built inline with the pipeline, never after the fact --
+        # an entry for a check the pipeline never reached would be exactly the "never
+        # appear, least of all as pass" defect the MUST exists to prevent.
+        trace = Trace()
+
         # 1. KILL-SWITCH FIRST (invariant: before policy lookup).
         kill = killswitch.is_engaged(conn)
 
@@ -210,6 +217,10 @@ def decide_and_reserve(
                         undo_of=undo_of,
                         malformed_kind="url_canonicalization",
                         canon_schema=CANON_SCHEMA,
+                        # No check in the ordered pipeline ran yet -- this fails
+                        # during effect resolution, before tier/bounds/caps -- so an
+                        # honestly empty trace is correct here, not an omission.
+                        evaluation_trace_json=trace.to_json(),
                     )
                     bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                     return ActionResult(
@@ -222,6 +233,17 @@ def decide_and_reserve(
         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
         reason_confirm = CheckId.TIER_CONFIRM
         confirm_detail = ""
+        # The kill switch is exempt for OBSERVE (reads are exempt from it entirely,
+        # by the same rule §5 below states), so recording a fail/pass for it there
+        # would assert a check ran against a request the switch never gates.
+        if not (not approved_override and policy.tier == Tier.OBSERVE):
+            trace.add(
+                "kill_switch",
+                "an engaged kill switch requires human approval for anything but an exempt read",
+                "engaged == false",
+                kill,
+                "fail" if kill else "pass",
+            )
         if approved_override:
             if kill:
                 decision = PolicyDecision(
@@ -240,6 +262,7 @@ def decide_and_reserve(
                     approval_ref_status=ref_status,
                     undo_of=undo_of,
                     opaque_class=opaque_class,
+                    evaluation_trace_json=trace.to_json(),
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
@@ -253,14 +276,30 @@ def decide_and_reserve(
             effective_tier = policy.tier
             if policy.is_default_deny:
                 reason_confirm = CheckId.DEFAULT_DENY
+            trace.add(
+                "default_deny",
+                "an action type must be declared to a policy to auto-execute or be proposed",
+                "policy.is_default_deny == false",
+                request.action_type,
+                "fail" if policy.is_default_deny else "pass",
+            )
             # Effect tier floors: an action inherits the strictest floor of its
             # effects — aliasing-resistant escalation ("moves money" is Tier 3
             # no matter which tool name moved it).
+            effect_floor_fired = False
             for ep in effect_policies:
                 if ep.min_tier is not None and int(ep.min_tier) > int(effective_tier):
                     effective_tier = ep.min_tier
+                    effect_floor_fired = True
                     if effective_tier == Tier.CONFIRM:
                         reason_confirm = CheckId.EFFECT_FLOOR
+            trace.add(
+                "effect_floor",
+                "an action inherits the strictest tier floor of its resolved effects",
+                "no resolved effect's min_tier exceeds the nominal tier",
+                ",".join(effects) if effects else "none",
+                "fail" if effect_floor_fired else "pass",
+            )
 
         # OPAQUE-HOST INVARIANT (R027 §1). Stated as an invariant, never left to
         # emerge from tier arithmetic: **a host in a declared opaque class can never
@@ -281,7 +320,10 @@ def decide_and_reserve(
         # "a human decides", not "nobody decides". So the floor is the human-approval
         # tier, and a policy that offers no approver ends in denial rather than in
         # execution.
-        if opaque_class is not None and not approved_override and effective_tier != Tier.OBSERVE:
+        opaque_fired = (
+            opaque_class is not None and not approved_override and effective_tier != Tier.OBSERVE
+        )
+        if opaque_fired:
             # OBSERVE is exempt because it never executes at all: a read returns an
             # audited no-op, never a permit. The invariant is about execution.
             if int(effective_tier) < int(Tier.CONFIRM):
@@ -294,18 +336,33 @@ def decide_and_reserve(
                 f"destination unverifiable without a network call; host is in the "
                 f"declared opaque class {opaque_class}"
             )
+        trace.add(
+            "opaque_host",
+            "a declared opaque host class can never resolve to auto-execution; a human decides",
+            "opaque_class is None, already overridden, or the request is exempt",
+            opaque_class,
+            "fail" if opaque_fired else "pass",
+        )
 
         # Reversibility precondition: ANY tier that may execute without a human
         # (auto and auto_capped alike) requires a registered means of reversal.
         # Scoping this to Tier.AUTO alone let an irreversible action auto-execute
         # merely because it also carried a budget.
-        if (
+        no_compensation_fired = (
             effective_tier in (Tier.AUTO, Tier.AUTO_CAPPED)
             and not approved_override
             and not policy.compensating_command
-        ):
+        )
+        if no_compensation_fired:
             effective_tier = Tier.CONFIRM
             reason_confirm = CheckId.NO_COMPENSATION
+        trace.add(
+            "reversibility",
+            "an auto-executing tier requires a registered compensating command",
+            "effective_tier not in (auto, auto_capped) or a compensating_command is set",
+            policy.compensating_command,
+            "fail" if no_compensation_fired else "pass",
+        )
 
         # 5. OBSERVE — audit a no-op read and return.
         if effective_tier == Tier.OBSERVE:
@@ -324,6 +381,7 @@ def decide_and_reserve(
                 approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.observed", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
@@ -331,6 +389,14 @@ def decide_and_reserve(
         # 6. BOUNDS — validated for every tier that could execute OR be proposed,
         #    so a human never approves an out-of-bounds action.
         bounds_result = bounds.validate(policy.bounds, request.params)
+        trace.add(
+            "bounds",
+            "declared parameter bounds (numeric ranges, enum membership, required "
+            "keys) must be satisfied",
+            "bounds.validate(policy.bounds, request.params).ok",
+            bounds_result.detail or "within bounds",
+            "pass" if bounds_result.ok else "fail",
+        )
         if not bounds_result.ok:
             decision = PolicyDecision(
                 decision=Decision.DENIED,
@@ -348,6 +414,7 @@ def decide_and_reserve(
                 approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
@@ -374,6 +441,7 @@ def decide_and_reserve(
                 approval_id=approval_id,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
             )
             bus.publish(
                 conn,
@@ -393,6 +461,13 @@ def decide_and_reserve(
         is_dry = not approved_override and (
             policy.dry_run or (policy.dry_run_until is not None and now < policy.dry_run_until)
         )
+        trace.add(
+            "dry_run",
+            "a policy in dry-run rehearses rather than executes",
+            "not dry_run and (dry_run_until is None or now >= dry_run_until)",
+            "dry_run" if is_dry else "live",
+            "fail" if is_dry else "pass",
+        )
         if is_dry:
             decision = PolicyDecision(
                 decision=Decision.DRY_RUN,
@@ -411,6 +486,7 @@ def decide_and_reserve(
                 approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.dry_run", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
@@ -426,6 +502,17 @@ def decide_and_reserve(
         )
         if cap_result.exceeded:
             assert cap_result.reason is not None
+            trace.add(
+                cap_result.reason.value,
+                "budget caps (rate and/or value) must not be exceeded by this action",
+                (
+                    "cost is resolvable"
+                    if cap_result.reason == CheckId.COST_UNKNOWN
+                    else "already-reserved + this action's cost <= the declared cap"
+                ),
+                cap_result.detail,
+                "unresolved" if cap_result.reason == CheckId.COST_UNKNOWN else "fail",
+            )
             decision = PolicyDecision(
                 decision=Decision.DENIED,
                 effective_tier=effective_tier,
@@ -446,9 +533,17 @@ def decide_and_reserve(
                 approval_ref_status=ref_status,
                 undo_of=undo_of,
                 opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+        trace.add(
+            "caps",
+            "budget caps (rate and/or value) must not be exceeded by this action",
+            "already-reserved + this action's cost <= every declared cap",
+            "within caps",
+            "pass",
+        )
 
         # 10. INTENT — record that we are about to execute. Set the undo window
         #     for reversible Tier-1 actions.
@@ -472,6 +567,7 @@ def decide_and_reserve(
             undo_until=undo_until,
             undo_of=undo_of,
             opaque_class=opaque_class,
+            evaluation_trace_json=trace.to_json(),
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the

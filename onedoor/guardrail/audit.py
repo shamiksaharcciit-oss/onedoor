@@ -265,6 +265,7 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "canon_schema",
     "opaque_class",
     "approval_ref_status",
+    "evaluation_trace_json",
     "preimage_version",
     "e_digest",
     "i_digest",
@@ -327,6 +328,7 @@ def append(
     opaque_class: str | None = None,
     frozen: tuple[str | bytes, str | None] | None = None,
     approval_ref_status: str | None = None,
+    evaluation_trace_json: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -354,6 +356,7 @@ def append(
         opaque_class=opaque_class,
         frozen=frozen,
         approval_ref_status=approval_ref_status,
+        evaluation_trace_json=evaluation_trace_json,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -399,6 +402,7 @@ def _row_values(
     opaque_class: str | None = None,
     frozen: tuple[str | bytes, str | None] | None = None,
     approval_ref_status: str | None = None,
+    evaluation_trace_json: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -466,6 +470,7 @@ def _row_values(
             "canon_schema": canon_schema,
             "opaque_class": opaque_class,
             "approval_ref_status": approval_ref_status,
+            "evaluation_trace_json": evaluation_trace_json,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (X-14, and see `_stamp_chain`).

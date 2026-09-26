@@ -75,6 +75,7 @@ from a field this version of onedoor does not have):
 | `opaque_class` | The declared opaque host class that matched, or `null`. |
 | `approval_ref_status` | The `approval_ref` evidence value (ND-009): `absent`, `honored`, `expired`, `consumed`, `unknown`, `action_mismatch`, or `null` on a pre-`ND-009` row. |
 | `preimage_version` | Which row-preimage version (`docs/row-preimage.md`) this row's hash was computed under, or `null`. |
+| `evaluation_trace_json` | AADP -03 §10: the ordered list of checks actually evaluated for this verdict (`kind` `decision`/`exec_intent` only), as stored — a JSON-encoded **string**, or `null` on a pre-WO-D1-step-5 row or a row of a different `kind`. Each entry: `check`, `rule`, `condition`, `value`, `result` (`pass`\|`fail`\|`unresolved`). **Dark (unhashed)** — see `docs/row-preimage.md` §4. |
 
 The authoritative column list and types live in the migrations
 (`onedoor/store/migrations/`); this table is a reading aid, not a second

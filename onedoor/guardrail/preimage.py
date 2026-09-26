@@ -157,6 +157,12 @@ EXCLUDED: dict[str, str] = {
         "assigned after anchoring, which under X-8 happens only after verification, "
         "so it is later than the hash by construction"
     ),
+    "evaluation_trace_json": (
+        "WO-D1 step 5 (migration 0019): deliberately left dark. Hashing a new "
+        "evidence field in is a preimage version bump (/2 -> /3), which is a "
+        "wire-observable chain change -- not a decision delivery makes on its own "
+        "authority. Disclosed as an open question for core, not decided here."
+    ),
 }
 """Every column NOT in the preimage, each with the reason.
 

@@ -153,6 +153,7 @@ same octets.
 | `e_digest`, `i_digest`, `t_digest`, `v_digest` | `ND-017` computes these *from* the row. |
 | `preimage_version` | A **hint**, not the authority — §7. A hashed version field would have to be known before choosing the version that hashes it. Self-authenticating: a row whose hint disagrees with how it was sealed fails verification under the version it names, which is detection rather than confusion. |
 | `anchor_ref` | Assigned after anchoring, which under **X-8** happens only after verification — so it is later than the hash by construction. |
+| `evaluation_trace_json` | **WO-D1 step 5** (migration `0019`). Deliberately left dark. Hashing a brand-new evidence field in is a preimage version bump (`/2` → `/3`), which is a wire-observable chain change — not a decision delivery makes on its own authority. Disclosed as an open question for core, not decided here. |
 
 `tests/guardrail/test_row_preimage.py` asserts that **every column of `actions_audit`
 is either in §3 or in this table**. A future migration that adds a column fails that
