@@ -14,11 +14,13 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from onedoor.connectors import mock
 from onedoor.guardrail import approvals, mandate, policy_loader
 from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve
 from onedoor.guardrail.errors import ApprovalError
-from onedoor.guardrail.executor import EngineConfig
+from onedoor.guardrail.executor import EngineConfig, resume_ratification
 from onedoor.guardrail.models import Bounds, Policy, Tier
+from onedoor.guardrail.registry import ConnectorRegistry
 from onedoor.store.db import tx
 from tests.conftest import FROZEN_NOW, make_request
 
@@ -263,6 +265,44 @@ def test_resumption_re_evaluates_fully_even_after_ratification(
     assert outcome.decision.reason_code.value == "bounds"
 
 
+def test_a_second_resumption_of_the_same_ratification_does_not_execute_again(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A ratified action executes once. Resuming it again -- under whatever fresh
+    request_id the resume path itself mints, with no second ratification -- must
+    find the approval no longer 'ratified' and refuse, never execute a second time.
+    The same property `test_a_second_resumption_of_the_same_approval_does_not_
+    execute_again` proves for the admin flow (tests/guardrail/test_approvals.py)."""
+    private, public_key = _key_pair()
+    pending = _pending(conn, config, public_key)
+    digest = conn.execute(
+        "SELECT mandate_core_digest FROM approvals WHERE id=?", (pending.approval_id,)
+    ).fetchone()["mandate_core_digest"]
+
+    with tx(conn):
+        result = mandate.ratify(
+            conn,
+            core_digest_value=digest,
+            signature_hex=_sign(private, digest),
+            authority_public_key=public_key,
+            now=FROZEN_NOW,
+        )
+    assert result.authorised
+
+    registry = ConnectorRegistry()
+    registry.register(ACTION, mock.act_ok)
+    cfg = _config(config, _resolver(mandate.MandateVerdict.PENDING), public_key)
+    first = resume_ratification(
+        pending.approval_id, conn=conn, registry=registry, config=cfg, now=FROZEN_NOW
+    )
+    assert first.executed is True
+
+    with pytest.raises(ApprovalError):
+        resume_ratification(
+            pending.approval_id, conn=conn, registry=registry, config=cfg, now=FROZEN_NOW
+        )
+
+
 def test_a_wrong_key_ratification_is_refused_and_audited(
     conn: Connection, config: EngineConfig
 ) -> None:
@@ -403,6 +443,33 @@ def test_an_admin_key_attempt_through_the_existing_route_is_refused(
         "SELECT state FROM approvals WHERE id=?", (pending.approval_id,)
     ).fetchone()["state"]
     assert state == "pending", "neither admin route may have touched the row"
+
+
+def test_an_admin_attempt_on_a_mandate_gated_approval_is_audited_before_the_refusal(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The refusal is not the whole story: an admin attempt against a mandate-gated
+    approval leaves a trace -- who tried, when, which approval -- exactly like a
+    wrong-key ratification attempt does. Two attempts (approve, then deny), two
+    audit rows, each naming the session that tried and the approval it targeted."""
+    _, public_key = _key_pair()
+    pending = _pending(conn, config, public_key)
+
+    with pytest.raises(ApprovalError):
+        approvals.cas_approve(conn, pending.approval_id, "admin-session-1", FROZEN_NOW)
+    with pytest.raises(ApprovalError):
+        approvals.deny(conn, pending.approval_id, "admin-session-2", FROZEN_NOW)
+
+    attempts = list(
+        conn.execute(
+            "SELECT detail FROM actions_audit WHERE kind='mandate_admin_attempt' "
+            "AND parent_id=? ORDER BY id",
+            (pending.audit_id,),
+        )
+    )
+    assert len(attempts) == 2, "both the approve and deny attempts must be audited"
+    assert "admin-session-1" in attempts[0]["detail"]
+    assert "admin-session-2" in attempts[1]["detail"]
 
 
 def test_no_timeout_ever_permits(conn: Connection, config: EngineConfig) -> None:

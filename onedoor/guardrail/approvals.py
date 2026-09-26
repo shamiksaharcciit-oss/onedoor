@@ -14,10 +14,11 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from onedoor.guardrail import audit
 from onedoor.guardrail.errors import ApprovalError
-from onedoor.guardrail.models import ActionRequest, Approval, ApprovalState
+from onedoor.guardrail.models import ActionRequest, Approval, ApprovalState, CheckId, Decision
 from onedoor.store.clock import from_iso, to_iso
 
 
@@ -97,18 +98,41 @@ def list_pending(conn: sqlite3.Connection) -> list[Approval]:
     return [_row_to_approval(r) for r in rows]
 
 
-def _refuse_if_mandate_gated(conn: sqlite3.Connection, approval_id: int) -> None:
+def _refuse_if_mandate_gated(
+    conn: sqlite3.Connection, approval_id: int, *, session_id: str, now: datetime
+) -> None:
     """The structural half of ruling 26e: not merely "the HTTP route doesn't expose
     it", but "this function refuses it even if something else calls it directly".
 
     AADP -03 §8.1: an approval waiting on a mandate-layer deferral is resolved by
     the mandate authority's ratification and by nothing else -- an admin key is
     "nothing else", however it reaches this function.
+
+    A refused attempt is still an attempt, and is audited -- who tried, when, which
+    approval -- BEFORE `ApprovalError` is raised, the same way a wrong-key
+    ratification attempt is audited before `mandate.ratify` refuses it. Silence here
+    would mean the one route explicitly forbidden from resolving a mandate-gated
+    approval is also the one route that leaves no trace when it tries.
     """
     row = conn.execute(
         "SELECT mandate_authority FROM approvals WHERE id=?", (approval_id,)
     ).fetchone()
     if row is not None and row["mandate_authority"]:
+        intent_row = conn.execute(
+            "SELECT * FROM actions_audit WHERE approval_id=? ORDER BY id DESC LIMIT 1",
+            (approval_id,),
+        ).fetchone()
+        if intent_row is not None:  # pragma: no cover - defensive; every approval has one
+            audit.append_expiry(
+                conn,
+                intent_row,
+                now,
+                detail=f"admin attempt by session {session_id!r} on a mandate-gated approval",
+                kind="mandate_admin_attempt",
+                reason=CheckId.EXTERNAL_AUTHORIZATION,
+                decision=Decision.DENIED,
+                request_id=str(uuid4()),
+            )
         raise ApprovalError(
             f"approval {approval_id} waits on a mandate-layer ratification (AADP -03 "
             f"§8.1); it resolves only through onedoor.guardrail.mandate.ratify, never "
@@ -120,7 +144,7 @@ def cas_approve(
     conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime
 ) -> ActionRequest:
     """Flip pending -> approved iff still pending and unexpired. Returns the request."""
-    _refuse_if_mandate_gated(conn, approval_id)
+    _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
     cur = conn.execute(
         "UPDATE approvals SET state='approved', decided_at=?, decided_by_session=? "
         "WHERE id=? AND state='pending' AND expires_at > ?",
@@ -132,8 +156,31 @@ def cas_approve(
     return loads_request(row["request_json"])
 
 
+def cas_resume_ratified(conn: sqlite3.Connection, approval_id: int, now: datetime) -> ActionRequest:
+    """Flip ratified -> approved iff still ratified. Returns the request.
+
+    `mandate.ratify`'s own CAS (pending -> ratified) stops a second ratification of
+    the same record; it does not stop a second RESUMPTION of the one ratification
+    that already succeeded, since resuming is a separate call with no state check
+    of its own. This is that check, mirroring `cas_approve`'s pending -> approved
+    gate exactly: 'approved' is reused rather than adding a new state, because it
+    means the same thing here as it does for an admin approval -- cleared for the
+    one execution now in flight, not yet executed. A second resumption attempt,
+    however it arrives or whatever request_id it mints, finds the row no longer
+    'ratified' and is refused before anything executes twice.
+    """
+    cur = conn.execute(
+        "UPDATE approvals SET state='approved' WHERE id=? AND state='ratified'",
+        (approval_id,),
+    )
+    if cur.rowcount == 0:
+        raise ApprovalError(f"approval {approval_id} not ratified or already resumed")
+    row = conn.execute("SELECT request_json FROM approvals WHERE id=?", (approval_id,)).fetchone()
+    return loads_request(row["request_json"])
+
+
 def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime) -> None:
-    _refuse_if_mandate_gated(conn, approval_id)
+    _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
     cur = conn.execute(
         "UPDATE approvals SET state='denied', decided_at=?, decided_by_session=? "
         "WHERE id=? AND state='pending'",

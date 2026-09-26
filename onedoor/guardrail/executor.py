@@ -233,6 +233,41 @@ def resume_approval(
     return result
 
 
+def resume_ratification(
+    approval_id: int,
+    *,
+    conn: Connection,
+    registry: ConnectorRegistry,
+    config: EngineConfig,
+    now: datetime | None = None,
+    policy_store: PolicyStore | None = None,
+) -> ActionResult:
+    """Resume a mandate-ratified request through the full pipeline, exactly once.
+
+    Mirrors `resume_approval`'s shape: the single-use gate
+    (`approvals.cas_resume_ratified`) runs BEFORE the resumed re-evaluation, in its
+    own transaction, so a second resumption of the same ratified record -- under
+    whatever fresh request_id it mints -- finds the row no longer 'ratified' and is
+    refused before `evaluate_and_execute` runs a second time.
+    """
+    when = now or now_utc()
+    with tx(conn):
+        original = approvals.cas_resume_ratified(conn, approval_id, when)
+    resumed = original.model_copy(update={"request_id": uuid4(), "created_at": when})
+    result = evaluate_and_execute(
+        resumed,
+        conn=conn,
+        registry=registry,
+        config=config,
+        now=when,
+        policy_store=policy_store,
+        approved_override=True,
+    )
+    with tx(conn):
+        approvals.mark_executed(conn, approval_id, result.audit_id)
+    return result
+
+
 def deny_approval(
     approval_id: int, session_id: str, *, conn: Connection, now: datetime | None = None
 ) -> None:
@@ -248,4 +283,5 @@ __all__ = [
     "evaluate_and_execute",
     "propose_action",
     "resume_approval",
+    "resume_ratification",
 ]

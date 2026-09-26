@@ -81,6 +81,21 @@ def test_sweep_then_approve_is_rejected(
         resume_approval(aid, "sess-1", conn=conn, registry=registry, config=config, now=late)
 
 
+def test_a_second_resumption_of_the_same_approval_does_not_execute_again(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """An approved action executes once. Resuming the same approval id again --
+    under whatever fresh request_id `resume_approval` itself mints -- must find it
+    no longer pending and refuse, never execute a second time."""
+    now = make_request("demo.unlisted").created_at
+    aid = _propose(conn, registry, config, now)
+    first = resume_approval(aid, "sess-1", conn=conn, registry=registry, config=config, now=now)
+    assert first.executed is True
+
+    with pytest.raises(ApprovalError):
+        resume_approval(aid, "sess-1", conn=conn, registry=registry, config=config, now=now)
+
+
 def test_resume_rechecks_kill_switch(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
