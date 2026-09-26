@@ -42,6 +42,7 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
             if "requires_external_authorization" in row.keys()
             else False
         ),
+        present_bound=row["present_bound"] if "present_bound" in row.keys() else None,
         is_default_deny=False,
     )
 

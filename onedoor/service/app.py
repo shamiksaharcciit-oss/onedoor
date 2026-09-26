@@ -99,6 +99,10 @@ class DecideBody(BaseModel):
     presents it here on a fresh request. Absent, invalid, expired, consumed or
     mismatched all evaluate as absent (ND-009); the engine, never this route,
     decides which."""
+    presented_audience: str | None = None
+    """WO-D2 step 4. Same field as `ActionRequest.presented_audience` -- the
+    audience URI this enforcement point declares it will present the permit to,
+    compared against the action type's `present_bound` when one is declared."""
 
 
 class DecideReply(BaseModel):
@@ -116,6 +120,10 @@ class DecideReply(BaseModel):
     `cap_rate` -- the machine-readable budget state that `aadp/0.2`'s unit-neutral
     codes no longer carry. A PEP can act on this; it could not act on the prose in
     `detail`."""
+    present_bound: str | None = None
+    """WO-D2 step 4. Present iff permitted and the policy declared one. A PEP that
+    does not recognize this obligation MUST refuse to exercise the permit itself and
+    report `not_attempted` (AADP -03 §6's fail-closed rule)."""
 
 
 class ReportBody(BaseModel):
@@ -215,6 +223,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
             request_id=outcome.request.request_id,
             intent_audit_id=outcome.intent_audit_id,
             undo_until=outcome.undo_until,
+            present_bound=outcome.present_bound,
         )
     d = outcome.decision
     return DecideReply(
@@ -258,6 +267,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             rationale=body.rationale or f"service decide {body.action_type}",
             params_raw=params_raw,
             approval_ref=body.approval_ref,
+            presented_audience=body.presented_audience,
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:

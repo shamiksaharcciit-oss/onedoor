@@ -171,6 +171,27 @@ class Proxy:
         outcome = decide_and_reserve(request, conn=self.conn, config=self.config, now=now)
 
         if isinstance(outcome, PermittedIntent):
+            if outcome.present_bound is not None:
+                # WO-D2 step 4, AADP -03 §6's fail-closed rule: this proxy forwards
+                # to the downstream tool directly -- it does not implement audience
+                # presentation -- so a permit bound to an audience must be refused
+                # rather than forwarded, and reported not_attempted.
+                report_result(
+                    outcome,
+                    conn=self.conn,
+                    outcome=Outcome.NOT_ATTEMPTED,
+                    payload=None,
+                    error=(
+                        f"permit is bound to audience {outcome.present_bound!r}; this "
+                        f"proxy does not implement presentation and refuses to forward"
+                    ),
+                    now=now,
+                )
+                result = _tool_error(
+                    f"onedoor: '{tool}' is bound to audience {outcome.present_bound!r} "
+                    f"and cannot be forwarded by this proxy; not attempted."
+                )
+                return {"jsonrpc": "2.0", "id": msg.get("id"), "result": result}
             return self._forward_and_report(msg, outcome, now)
 
         d = outcome.decision

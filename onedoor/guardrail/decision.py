@@ -90,6 +90,12 @@ class PermittedIntent:
     compensating_command: str | None
     undo_until: datetime | None
     undo_of: int | None
+    present_bound: str | None = None
+    """WO-D2 step 4, AADP -03 §6. Present iff the policy declared one -- a PEP that
+    does not recognize the obligation MUST refuse to exercise this permit itself and
+    report `not_attempted` per the fail-closed rule; onedoor's own packaged PEPs do
+    not implement audience presentation yet (see the WO-D1 design note) and must do
+    exactly that."""
 
 
 def decide_and_reserve(
@@ -486,6 +492,45 @@ def decide_and_reserve(
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
 
+        # 6b. PRESENT_BOUND (WO-D2 step 4, AADP -03 §6). Consulted only for a policy
+        #     that declares it -- an unset bound is a check that never runs, and must
+        #     not appear in the trace at all. Checked before Tier 3 propose/confirm
+        #     for the same reason bounds is: a human must never approve, and the
+        #     engine must never propose, an action whose audience is already wrong.
+        if policy.present_bound is not None:
+            audience_matches = request.presented_audience == policy.present_bound
+            trace.add(
+                "present_bound",
+                "the permit may be exercised only by presenting it to the declared audience",
+                "request.presented_audience == policy.present_bound",
+                request.presented_audience,
+                "pass" if audience_matches else "fail",
+            )
+            if not audience_matches:
+                decision = PolicyDecision(
+                    decision=Decision.DENIED,
+                    effective_tier=effective_tier,
+                    nominal_tier=nominal_tier,
+                    reason_code=CheckId.PRESENT_BOUND,
+                    detail=(
+                        f"presented_audience {request.presented_audience!r} does not "
+                        f"match the declared audience {policy.present_bound!r}"
+                    ),
+                )
+                aid = audit.append(
+                    conn,
+                    request,
+                    decision,
+                    kind="decision",
+                    now=now,
+                    approval_ref_status=ref_status,
+                    undo_of=undo_of,
+                    opaque_class=opaque_class,
+                    evaluation_trace_json=trace.to_json(),
+                )
+                bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+
         # 7. TIER 3 — propose and confirm.
         if effective_tier == Tier.CONFIRM:
             approval_id = approvals.create(
@@ -672,6 +717,7 @@ def decide_and_reserve(
         compensating_command=policy.compensating_command,
         undo_until=undo_until,
         undo_of=undo_of,
+        present_bound=policy.present_bound,
     )
 
 

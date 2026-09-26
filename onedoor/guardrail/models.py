@@ -138,6 +138,9 @@ class CheckId(StrEnum):
     # the verdict (`denied` vs `proposed`) already distinguishes them; a second code
     # per outcome would be two answers to "why did the mandate layer act" (X-14).
     EXTERNAL_AUTHORIZATION = "external_authorization"
+    # WO-D2 step 4, AADP -03 §6: the request's presented_audience does not match
+    # the action type's declared present_bound.
+    PRESENT_BOUND = "present_bound"
 
 
 class ApprovalState(StrEnum):
@@ -331,6 +334,13 @@ class Policy(BaseModel):
     an onedoor admin key and never by a timeout. `False` (the default) means this
     action type never consults a mandate authority at all -- existing policies are
     unaffected."""
+    present_bound: str | None = None
+    """WO-D2 step 4, AADP -03 §6. An absolute URI naming the audience this permit
+    may be presented to; the PEP must not exercise it itself. `None` (the default)
+    means this action type carries no such obligation and behaves exactly as
+    before it existed. When set, the request's own `presented_audience` must match
+    it exactly or the action is refused (`CheckId.PRESENT_BOUND`) before any
+    execution or proposal happens."""
 
 
 def _reject_non_json(value: object, path: str = "params") -> None:
@@ -381,6 +391,12 @@ class ActionRequest(BaseModel):
     never grants, and never errors either: an error path would tell a prober whether
     the ref existed.
     """
+    presented_audience: str | None = None
+    """WO-D2 step 4, AADP -03 §6. The audience URI the enforcement point declares it
+    will present this permit to, when the action type's policy carries a
+    `present_bound`. Compared for exact match against `Policy.present_bound`;
+    absent when the policy carries no bound, in which case nothing is compared and
+    behaviour is unchanged from before this obligation existed."""
     params_raw: str | None = None
     """The verbatim source text of `params` as the enforcement point sent it (E10).
 

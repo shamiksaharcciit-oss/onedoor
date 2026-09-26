@@ -135,18 +135,32 @@ def evaluate_and_execute(
     result_outcome: Outcome
     error: str | None
     payload: dict[str, JsonValue] | None
-    act = registry.resolve(request.action_type)
-    if act is None:
+    if outcome.present_bound is not None:
+        # WO-D2 step 4, AADP -03 §6's own fail-closed rule: a PEP that does not
+        # recognize `present_bound` MUST refuse to exercise the permit itself and
+        # report not_attempted. This in-process executor calls a connector directly
+        # -- it does not implement audience presentation -- so it is exactly such a
+        # PEP, and self-executing here would be the one thing the obligation exists
+        # to prevent.
         result_outcome = Outcome.NOT_ATTEMPTED
-        error, payload = "no connector registered for action_type", None
+        error = (
+            f"permit is bound to audience {outcome.present_bound!r}; the in-process "
+            f"executor does not implement presentation and refuses to self-execute"
+        )
+        payload = None
     else:
-        try:
-            payload = _call_with_timeout(act, request.params, config.connector_timeout_seconds)
-            result_outcome, error = Outcome.SUCCESS, None
-        except FuturesTimeout:
-            result_outcome, error, payload = Outcome.TIMEOUT, "connector timeout", None
-        except Exception as exc:
-            result_outcome, error, payload = Outcome.FAILURE, _redact(str(exc)), None
+        act = registry.resolve(request.action_type)
+        if act is None:
+            result_outcome = Outcome.NOT_ATTEMPTED
+            error, payload = "no connector registered for action_type", None
+        else:
+            try:
+                payload = _call_with_timeout(act, request.params, config.connector_timeout_seconds)
+                result_outcome, error = Outcome.SUCCESS, None
+            except FuturesTimeout:
+                result_outcome, error, payload = Outcome.TIMEOUT, "connector timeout", None
+            except Exception as exc:
+                result_outcome, error, payload = Outcome.FAILURE, _redact(str(exc)), None
 
     return decision_mod.report_result(
         outcome,
