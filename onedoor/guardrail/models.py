@@ -341,6 +341,13 @@ class Policy(BaseModel):
     before it existed. When set, the request's own `presented_audience` must match
     it exactly or the action is refused (`CheckId.PRESENT_BOUND`) before any
     execution or proposal happens."""
+    bound_permit_action_type: str | None = None
+    """The registered action-type name (bound-permit profile §3.4/§17.3) a bound
+    permit's `authorization_details` entry carries for this policy. `None` means
+    this action type never gets a bound permit issued, whatever `present_bound`
+    says -- both must be set for issuance to happen at all (see
+    `onedoor.guardrail.bound_permit.issue`), and a policy with neither is
+    unaffected."""
 
 
 def _reject_non_json(value: object, path: str = "params") -> None:
@@ -405,6 +412,18 @@ class ActionRequest(BaseModel):
     is what makes the two cases distinguishable in the evidence row rather than
     guessed at. Never derived from `params`: a value reconstructed here would be a
     PDP serialization wearing the label "received"."""
+    presenter_id: str | None = None
+    """The bound-permit profile's `sub`: who the enforcement point says will present
+    the permit. Informational only -- nothing in onedoor's own pipeline compares it
+    against anything. `None` when the action carries no bound-permit obligation, or
+    when the enforcement point declines to name a presenter."""
+    presenter_key_thumbprint: str | None = None
+    """The RFC 7638 thumbprint (profile §3.2) of the key the enforcement point will
+    sign its presentation with -- becomes the issued permit's `cnf.jkt`. REQUIRED
+    for a bound permit to be issued at all: `cnf.jkt` binds the permit to a key
+    across the trust boundary `present_bound` names, and a permit issued without one
+    would be exactly the bearer permit profile §4.2 forbids there. `None` means no
+    bound permit is issued for this request, whatever the policy asks for."""
 
     @field_validator("params", mode="before")
     @classmethod
