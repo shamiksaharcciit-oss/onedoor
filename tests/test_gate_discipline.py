@@ -265,3 +265,61 @@ def test_a_missing_tool_is_reported_as_having_checked_nothing() -> None:
     labels = dict(gate._environment(absent))
     assert "NOT INSTALLED" in labels["a-distribution-that-does-not-exist"]
     assert "cannot have checked anything" in labels["a-distribution-that-does-not-exist"]
+
+
+# --- WO-D2 1(a): a missing tool is GATE FAIL, never a traceback -------------------
+
+
+def test_a_missing_tool_fails_the_gate_without_raising(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`subprocess.run` on a nonexistent executable raises `FileNotFoundError`.
+
+    Uncaught, that is a traceback wearing the gate's name -- indistinguishable from the
+    runner itself being broken. It must instead print `GATE FAIL <gate> (tool not
+    installed: <name>)` and return False, with nothing raised past `run()`.
+    """
+    ghost = gate.Gate(
+        name="ghost",
+        command=("onedoor-tool-that-does-not-exist-xyz", "--version"),
+        expect="anything",
+        distribution="ruff",
+    )
+    result = gate.run(ghost)  # must not raise
+    assert result is False
+    out = capsys.readouterr().out
+    assert "GATE FAIL  ghost (tool not installed: onedoor-tool-that-does-not-exist-xyz)" in out
+
+
+# --- WO-D2 1(b): a contract that captures a count must reject zero ----------------
+
+
+def test_the_format_gates_contract_rejects_zero_files_formatted() -> None:
+    fmt = next(g for g in gate.GATES if g.name == "format")
+    assert not fmt.satisfied_by("0 files already formatted"), (
+        "zero files formatted examined nothing; it must not satisfy the contract"
+    )
+    assert fmt.satisfied_by("3 files already formatted"), "a real positive count must still pass"
+
+
+def test_the_types_gates_contract_rejects_zero_source_files() -> None:
+    types_gate = next(g for g in gate.GATES if g.name == "types")
+    assert not types_gate.satisfied_by("Success: no issues found in 0 source files"), (
+        "zero source files examined nothing; it must not satisfy the contract"
+    )
+    assert types_gate.satisfied_by("Success: no issues found in 12 source files")
+
+
+def test_the_tests_gates_contract_rejects_zero_passed() -> None:
+    tests_gate = next(g for g in gate.GATES if g.name == "tests")
+    assert not tests_gate.satisfied_by("0 passed"), (
+        "zero tests passed examined nothing; it must not satisfy the contract"
+    )
+    assert tests_gate.satisfied_by("5 passed")
+
+
+def test_the_lint_gates_contract_carries_no_count_and_is_unaffected() -> None:
+    """`ruff check`'s success message is a sentence, not a count -- nothing for the
+    zero-examined rule to bind to. Documented as a deliberate non-case, not a gap."""
+    lint = next(g for g in gate.GATES if g.name == "lint")
+    assert lint.satisfied_by("All checks passed!")

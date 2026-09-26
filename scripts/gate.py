@@ -63,9 +63,11 @@ class Gate:
 
 GATES: tuple[Gate, ...] = (
     Gate("lint", ("ruff", "check", "."), r"All checks passed!", "ruff"),
-    Gate("format", ("ruff", "format", "--check", "."), r"\d+ files already formatted", "ruff"),
-    Gate("types", ("mypy", "onedoor"), r"Success: no issues found in \d+ source files", "mypy"),
-    Gate("tests", ("pytest", "-q"), r"\d+ passed", "pytest"),
+    Gate("format", ("ruff", "format", "--check", "."), r"[1-9]\d* files already formatted", "ruff"),
+    Gate(
+        "types", ("mypy", "onedoor"), r"Success: no issues found in [1-9]\d* source files", "mypy"
+    ),
+    Gate("tests", ("pytest", "-q"), r"[1-9]\d* passed", "pytest"),
 )
 r"""The four gates, declared once.
 
@@ -78,6 +80,15 @@ it, and caught by `test_no_pattern_matches_another_gates_real_output` on its fir
 
 `\d+ passed` cannot match *"All checks passed!"* because a pytest summary **counts**, and
 a sentence merely asserts. Requiring the count is what turns a proxy into a contract.
+
+**`[1-9]\d*`, not `\d+` (WO-D2, the zero-examined rule).** `\d+` matches `0` as readily
+as `40`, so `0 passed` / `0 files already formatted` / `no issues found in 0 source
+files` all satisfied the old contracts — a suite pointed at an empty directory, or a
+formatter run over zero files, would GATE PASS having examined nothing. The standing
+rule is that zero examined is a failure of the check, not a pass; `[1-9]\d*` is that
+rule written into the pattern itself rather than left for a human to notice the count
+was zero. `lint`'s contract carries no count (`ruff check` prints a sentence on success,
+never a number), so it is unaffected — there is nothing here for the rule to bind to.
 """
 
 
@@ -106,13 +117,22 @@ def run(gate: Gate, *, echo: bool = True) -> bool:
     # pasted into a language is code until you make it not be (R049 §2). A directory
     # named `C:\Users\...` or one with a space in it reaches the process unchanged
     # because nothing ever parsed it.
-    completed = subprocess.run(  # noqa: S603 - fixed argv lists, shell=False by construction
-        list(gate.command),
-        capture_output=True,
-        text=True,
-        shell=False,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed argv lists, shell=False by construction
+            list(gate.command),
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False,
+        )
+    except FileNotFoundError:
+        # The executable itself does not exist -- not a gate failure, a missing tool. An
+        # uncaught FileNotFoundError here is a traceback wearing the gate's name, and a
+        # traceback is not "GATE FAIL": it looks like the runner is broken rather than
+        # the environment being short a tool (WO-D2 1(a), carried from ruling 26e).
+        if echo:
+            print(f"  GATE FAIL  {gate.name} (tool not installed: {gate.command[0]})")
+        return False
     output = completed.stdout + completed.stderr
     contract = gate.satisfied_by(output)
     ok = completed.returncode == 0 and contract
