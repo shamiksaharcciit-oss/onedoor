@@ -2,8 +2,10 @@
 
 **Status:** normative for `ND-052`. This is the **living** text of the five principles.
 
-**Origin:** [`docs/from_core/Policy_Studio_Design_Note_2026-08-22.md`](from_core/Policy_Studio_Design_Note_2026-08-22.md)
-§2, delivered by core on 2026-08-22.
+**Origin:** `Policy_Studio_Design_Note_2026-08-22.md` §2, delivered by core on
+2026-08-22. Correspondence with core is process, not product, and lives
+outside this public repository; this constitution is what is in force, and
+does not depend on a reader being able to fetch the memo.
 
 **Origin pinned by digest** (R054 §2), so *"this document faithfully descends from that
 memo plus the amendments listed in §3"* is **checkable rather than narrated**:
@@ -15,15 +17,11 @@ sha256(Policy_Studio_Design_Note_2026-08-22.md) = aa8cd7c50043c2ef1768d5658b0197
 **That is an OBSERVATION, not the memo's integrity hash — because the memo has none.**
 R054 asked for "the memo's integrity hash"; the design note carries no `Integrity:`
 footer and is recorded as **ABSENT — no integrity claim** (R030 §2). So what is pinned
-here is a whole-file digest **computed by delivery over the copy in this repository**,
-true of these bytes and asserting nothing about who sealed them. The same observation,
-with the same reasoning, is in
-[`docs/from_core/INTEGRITY.md`](from_core/INTEGRITY.md); citing it as an integrity hash
-would manufacture a claim nobody made, which is the one thing a provenance document must
-never do.
-
-`tests/studio/test_constitution.py` recomputes it, so a drift between this pin and the
-archived bytes fails rather than being noticed.
+here is a whole-file digest **computed by delivery over the copy that existed in this
+repository at the time**, true of those bytes and asserting nothing about who sealed
+them. The same observation, with the same reasoning, is recorded in that
+correspondence's own `INTEGRITY.md`; citing it as an integrity hash would manufacture
+a claim nobody made, which is the one thing a provenance document must never do.
 
 **Why this document exists at all.** R053 §1 amended principle 5 and directed that *"the
 amendment is recorded in the constitution's own change history."* The constitution had no

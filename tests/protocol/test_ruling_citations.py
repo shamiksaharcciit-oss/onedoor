@@ -1,4 +1,4 @@
-"""Every cited response number must name the memo that actually bears it.
+"""A cited response number must never be reused for two different rulings.
 
 **Learned the expensive way.** Core's F-B and Appendix B rulings arrived as *unnumbered
 acknowledgments*. Delivery numbered them sequentially by assumption; the real `R055`
@@ -8,7 +8,9 @@ reader does not have to wonder.
 
 **A number that names two rulings names neither.** The rule this enforces: *cite what the
 source calls itself.* An unnumbered acknowledgment gets a date and a subject, never a
-number invented to make it look like the ones around it.
+number invented to make it look like the ones around it. This file used to check every
+citation's date against the archived memo's own filename too; that side of the check now
+runs wherever the correspondence is actually kept, since it moved outside this repository.
 """
 
 from __future__ import annotations
@@ -17,45 +19,21 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ARCHIVE = ROOT / "docs" / "from_core"
 CITATION = re.compile(r"### Resolved by Response (\d+) \(([\d-]{10})\)")
 
-
-def _archived() -> dict[str, str]:
-    """Response number -> the date the archived memo carries, from its filename."""
-    found = {}
-    for path in ARCHIVE.glob("Core_to_Delivery_Response_*.md"):
-        number, date = path.stem.split("_")[-2:]
-        found[number] = date
-    return found
-
-
-def test_every_cited_response_matches_an_archived_memo() -> None:
-    """A citation is a claim about the archive; the archive decides."""
-    archived = _archived()
-    text = (ROOT / "CONFORMANCE.md").read_text(encoding="utf-8")
-    wrong = []
-    for number, date in CITATION.findall(text):
-        actual = archived.get(number)
-        if actual != date:
-            wrong.append(
-                f"cited R{number} ({date}) but the archive holds "
-                f"{'no memo ' + number if actual is None else 'R' + number + ' (' + actual + ')'}"
-            )
-    assert not wrong, (
-        "ruling citations disagree with the archive: "
-        + "; ".join(wrong)
-        + ". Cite what the source calls itself — an unnumbered acknowledgment gets a date "
-        "and a subject, never an invented number."
-    )
+# The archive this used to check citations against (`docs/from_core/`) now lives
+# outside this public repository, so the one check that needs both sides --
+# does every cited number and date match the memo's own filename? -- runs
+# wherever that correspondence is actually kept. What stays checkable here,
+# from CONFORMANCE.md alone, is below.
 
 
 def test_no_response_number_is_cited_twice() -> None:
     """The defect's own shape: one number, two meanings.
 
-    Distinct from the test above — a duplicate could in principle agree with the archive
-    on date and still name two different rulings, and that is the failure that actually
-    happened.
+    A duplicate could in principle name a real, correctly-dated memo both times and
+    still mean two different rulings -- the failure that actually happened -- so this
+    holds regardless of whether the date-matching check above can run.
     """
     text = (ROOT / "CONFORMANCE.md").read_text(encoding="utf-8")
     numbers = [n for n, _ in CITATION.findall(text)]
@@ -67,4 +45,3 @@ def test_the_audit_has_something_to_audit() -> None:
     """A guard whose search space is empty passes for the wrong reason."""
     text = (ROOT / "CONFORMANCE.md").read_text(encoding="utf-8")
     assert len(CITATION.findall(text)) > 15
-    assert len(_archived()) > 15

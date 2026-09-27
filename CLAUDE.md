@@ -17,9 +17,9 @@ Read these before writing a line of code, in this order:
    every ruling in force (§5), and the settled `aadp/0.2` spec surface (§6) that
    `ND-002/003/005/009` build to.
 3. `TICKETS-0.3.6.md` — the specced tickets for the release in progress.
-4. `docs/from_core/` (if present) — core's response memos, Responses 001–006. These
-   are the rulings; `CONFORMANCE.md` §5 summarises them but the memos are
-   authoritative.
+4. Core's response memos — the rulings, Responses 001–006 and after. They arrive
+   outside this repository, not archived here; `CONFORMANCE.md` §5 summarises them
+   but the memos themselves are authoritative.
 5. `reference/rederivable-manifest/` — core's receipt artifact, **pinned at v3**.
    You vendor `canonical.py` from it as ND-001's canonicalisation module. You never
    reimplement the canonical form.
@@ -117,22 +117,24 @@ protection on `main` requires both jobs green.
 
 Escalations are numbered files (`ESCALATION-YYYYMMDD-NNN.md` style — you are at 005;
 core's responses are at 006). Shamik relays them; batch questions rather than
-sending singletons. Core's responses land as `Core_to_Delivery_Response_NNN` memos —
-archive them in `docs/from_core/` and absorb them into `CONFORMANCE.md` §5 and the
-affected tickets. **When receiving a batch, check every file listed in the memo's
-"delivered alongside" line arrived — two crossings happened because attachments went
-missing in relay.**
+sending singletons. Core's responses land as `Core_to_Delivery_Response_NNN` memos.
+Work orders and rulings arrive outside this repository — onedoor is public, and
+correspondence with core is process, not product — and get verified and kept there;
+absorb what they settle into `CONFORMANCE.md` §5 and the affected tickets. **When
+receiving a batch, check every file listed in the memo's "delivered alongside" line
+arrived — two crossings happened because attachments went missing in relay.**
 
 **Verify every memo on receipt** (Response 008, effective immediately): core memos end
 with `Integrity: sha256(body) = <hex>` over every byte above that line. Run
-`python -m scripts.verify_memo docs/from_core/*.md`; `tests/protocol/` holds it in CI.
-A third relay failure mode is live — memos have twice arrived UTF-8-decoded-as-cp1252
-with the continuation bytes discarded, which is **lossy**, so `→` and `—` are not
-mechanically recoverable. Reconstruct from context, then *prove* the reconstruction
-against the footer digest; never archive an unverified repair. Memos 001–006 predate
-the footer and cannot be checked. **Archived memos are now immutable** — any
-annotation changes `body` and breaks the digest, so provenance notes go in
-`docs/from_core/INTEGRITY.md`, never in the memo file.
+`python -m scripts.verify_memo` against them wherever they land; `tests/protocol/`
+holds the checker's own correctness in CI. A third relay failure mode is live —
+memos have twice arrived UTF-8-decoded-as-cp1252 with the continuation bytes
+discarded, which is **lossy**, so `→` and `—` are not mechanically recoverable.
+Reconstruct from context, then *prove* the reconstruction against the footer digest;
+never keep an unverified repair. Memos 001–006 predate the footer and cannot be
+checked. **Once verified, memos are immutable** — any annotation changes `body` and
+breaks the digest, so provenance notes go in that correspondence's own
+`INTEGRITY.md`, never in the memo file.
 
 ## Where you are now
 

@@ -31,9 +31,12 @@ GENERATED = {"INTEGRITY.md"}
 MEMOS = sorted(p for p in ARCHIVE.glob("*.md") if p.name not in GENERATED)
 
 
-def test_archive_is_present() -> None:
-    """A missing archive must fail loudly, not vacuously pass the check below."""
-    assert MEMOS, f"no core memos found in {ARCHIVE}"
+def test_archive_is_absent_from_the_public_tree() -> None:
+    """Correspondence with core is process, not product, and this repository is
+    public: the archive now lives outside it, verified on receipt where it
+    arrives rather than committed here. A folder reappearing at this path
+    must fail loudly, the same way its absence used to."""
+    assert not ARCHIVE.exists(), f"{ARCHIVE} should not exist in the public tree"
 
 
 @pytest.mark.parametrize("memo", MEMOS, ids=lambda p: p.name.split("_")[4])
@@ -181,76 +184,6 @@ def test_our_own_documents_satisfy_the_producer_obligation() -> None:
         "these files start a line with the integrity marker but are not well-formed "
         f"memos: {offenders}. Either indent the quotation / keep it mid-line, or give "
         f"the file a single correct footer."
-    )
-
-
-def test_the_digest_register_is_generated_not_transcribed() -> None:
-    """R012: a digest in a ledger is generated, never transcribed.
-
-    `docs/from_core/INTEGRITY.md` records every memo's body digest. Those cells are
-    emitted by the verifier that computes them, and this asserts the committed block
-    still matches what it emits -- which is the guard a hand-copied digest does not
-    have. Core's own ledger drifted exactly this way: a whole-file hash, circulated as
-    a transfer aid, was hand-copied into a cell meant for the protocol body digest and
-    sat there green.
-
-    Regenerate with:  python -m scripts.verify_memo --table docs/from_core/*.md
-    """
-    from scripts.verify_memo import BEGIN_MARK, END_MARK, render_block
-
-    ledger = (ARCHIVE / "INTEGRITY.md").read_text(encoding="utf-8")
-    start = ledger.find(BEGIN_MARK)
-    end = ledger.find(END_MARK)
-    assert start != -1 and end != -1, "the generated digest block is missing from INTEGRITY.md"
-
-    committed = ledger[start : end + len(END_MARK)]
-    expected = render_block(sorted(ARCHIVE.glob("*.md")))
-    assert committed == expected, (
-        "the digest register in INTEGRITY.md has drifted from what the verifier "
-        "emits. Do not hand-edit it -- regenerate with "
-        "`python -m scripts.verify_memo --table docs/from_core/*.md`."
-    )
-
-
-def test_no_whole_file_hash_is_recorded_beside_a_body_digest() -> None:
-    """The two registers must never mix (R012).
-
-    A body digest is a memo's recorded identity; a whole-file hash is an ephemeral
-    transfer aid, used to prove a copy operation and then discarded. Mixing them is
-    how core's ledger came to carry the wrong number, and the only defence is that
-    delivery's ledgers record exactly one register.
-
-    **R030 §2 settled what "one register" means, and it is sharper than "no digests
-    outside the block": the register holds PRODUCER CLAIMS; the sidecar holds
-    OBSERVATIONS.** A footer digest is the producer saying "I sealed this". A digest
-    delivery computes over an unsigned artifact is something else entirely — a
-    present-tense observation, true of the bytes on this disk today, claiming nothing
-    about who sealed them. Both are sha256 of some bytes and they mean different
-    things, which is exactly why they must not sit in one table.
-
-    So an observation is allowed in the sidecar prose **only** in the declared form
-    `observed sha256 <hex>, <date>`. The date is what makes it an observation rather
-    than a claim: it records when someone looked. A bare hex string in the notes is
-    still a transcribed digest and still fails, because a reader cannot tell which
-    register it belongs to — and a digest whose meaning is ambiguous is worse than
-    none at all.
-    """
-    from scripts.verify_memo import BEGIN_MARK, END_MARK
-
-    hex64 = re.compile(r"\b[0-9a-f]{64}\b")
-    observation = re.compile(r"observed sha256 `?([0-9a-f]{64})`?, \d{4}-\d{2}-\d{2}")
-    offenders = []
-    for name in ("INTEGRITY.md", "unverified/README.md"):
-        path = ARCHIVE / name
-        text = path.read_text(encoding="utf-8")
-        start, end = text.find(BEGIN_MARK), text.find(END_MARK)
-        outside = text[:start] + text[end:] if start != -1 and end != -1 else text
-        declared = set(observation.findall(outside))
-        offenders += [f"{name}: {m}" for m in hex64.findall(outside) if m not in declared]
-    assert not offenders, (
-        f"digests recorded outside the generated register and not declared as dated "
-        f"observations: {offenders}. The register holds producer claims and is "
-        f"generated; the sidecar holds observations, which say when they were made."
     )
 
 
