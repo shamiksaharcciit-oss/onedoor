@@ -171,7 +171,7 @@ def test_a_retired_code_before_its_own_retirement_is_not_failed(conn: Connection
     assert check.status is Status.RETIRED_VOCABULARY, (
         f"a code retired after this row was written must not read failed; got {check.status}"
     )
-    assert not check.status is Status.FAILED
+    assert check.status is not Status.FAILED
 
 
 def test_a_retired_code_after_its_own_retirement_stays_failed(
