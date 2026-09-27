@@ -95,7 +95,14 @@ def assert_every_displayed_budget_number_matches_the_store(
         # No budget is DISPLAYED -- an empty store, or a failure page, which shows no
         # values at all by design.
         return
-    for key in ("limit", "consumed", "remaining", "window", "unit", "dimension"):
+    # Shape tells the pre-/post-0.8.0 budget apart, not the row's own protocol
+    # stamp -- that stays "aadp/0.2" either side of the boundary.
+    fields = (
+        ("limit", "consumed", "remaining", "window", "name", "dimension")
+        if "name" in budget
+        else ("limit", "consumed", "remaining", "window", "unit", "dimension")
+    )
+    for key in fields:
         value = str(budget[key])
         if f">{value}</span>" not in body:
             raise PropertyViolation(

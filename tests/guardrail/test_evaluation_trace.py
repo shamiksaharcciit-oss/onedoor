@@ -43,20 +43,20 @@ def _permit_audit_id(result: ActionResult | PermittedIntent) -> int:
 def test_a_denys_reason_matches_the_traces_failing_entry(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """A cap denial (demo.tier2, eur_day=10): the last fail entry is cap_value."""
+    """A cap denial (demo.tier2, eur_day=10): the last fail entry is budget_exhausted."""
     request = make_request(
         "demo.tier2", {}, source=Source.UI, cost_eur=Decimal("20"), now=FROZEN_NOW
     )
     result = decide_and_reserve(request, conn=conn, config=config, now=FROZEN_NOW)
     assert isinstance(result, ActionResult)
     assert result.decision.decision.value == "denied"
-    assert result.decision.reason_code.value == "cap_value"
+    assert result.decision.reason_code.value == "budget_exhausted"
 
     trace = _trace_of(conn, result.audit_id)
     failing = [e for e in trace if e["result"] == "fail"]
     assert failing, "a denial must have a failing entry"
-    assert failing[-1]["check"] == "cap_value" == result.decision.reason_code.value
-    assert not any(e["result"] == "pass" and e["check"] == "cap_value" for e in trace), (
+    assert failing[-1]["check"] == "budget_exhausted" == result.decision.reason_code.value
+    assert not any(e["result"] == "pass" and e["check"] == "budget_exhausted" for e in trace), (
         "the failing check must never also appear as pass"
     )
 
@@ -76,7 +76,7 @@ def test_a_short_circuited_pipeline_shows_no_entries_after_it_stopped(
     checks = [e["check"] for e in trace]
     assert checks[-1] == "bounds", f"bounds must be the last check evaluated, got {checks}"
     assert "dry_run" not in checks, "dry_run is evaluated after bounds; it must not appear"
-    assert "cap_value" not in checks and "cap_rate" not in checks, (
+    assert "budget_exhausted" not in checks and "rate_exhausted" not in checks, (
         "caps are evaluated after bounds; they must not appear"
     )
     assert trace[-1]["result"] == "fail"

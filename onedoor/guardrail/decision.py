@@ -812,7 +812,17 @@ def decide_and_reserve(
             assert cap_result.reason is not None
             trace.add(
                 cap_result.reason.value,
-                "budget caps (rate and/or value) must not be exceeded by this action",
+                # A budget denial's rule IS the counter's own name -- `Budget.name`
+                # and this trace entry's `rule` name the same counter on purpose,
+                # so a reader can join a budget object to the check that produced
+                # it without guessing. `cost_unknown` carries no budget (the cost
+                # could not be resolved, so no specific counter was ever checked
+                # against), so it keeps the general description instead.
+                (
+                    cap_result.budget.name
+                    if cap_result.budget is not None
+                    else "budget caps (rate and/or value) must not be exceeded by this action"
+                ),
                 (
                     "cost is resolvable"
                     if cap_result.reason == CheckId.COST_UNKNOWN

@@ -297,7 +297,7 @@ def test_a_transfer_over_the_daily_cap_is_denied(adopted: Connection, config: En
     )
     verdict, _ = _verdict(outcome)
     assert verdict == "denied"
-    assert outcome.decision.reason_code.value in {"cap_value", "cap_rate"}
+    assert outcome.decision.reason_code.value in {"budget_exhausted", "rate_exhausted"}
 
 
 def test_a_transfer_over_the_declared_bound_is_denied_not_proposed(

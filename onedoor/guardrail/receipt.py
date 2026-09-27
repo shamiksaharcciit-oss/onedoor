@@ -51,14 +51,24 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from onedoor.guardrail import signing
-from onedoor.guardrail.models import Budget, CheckId
+from onedoor.guardrail.models import Budget, CheckId, LegacyBudget
 from onedoor.guardrail.preimage import row_hash_of
 from onedoor.guardrail.received import Provenance
 from onedoor.guardrail.signing import ALGORITHM
 
-CAP_REASONS = frozenset({CheckId.CAP_RATE.value, CheckId.CAP_VALUE.value})
+LEGACY_CAP_REASONS = frozenset({"cap_rate", "cap_value"})
+"""Deprecated since 0.8.0, never emitted, gone from `CheckId` (nothing constructs
+one from a stored string). Named here, as plain strings, only so a row sealed
+before 0.8.0 -- never rewritten -- is still recognized for what it is."""
+
+CAP_REASONS = frozenset({CheckId.RATE_EXHAUSTED.value, CheckId.BUDGET_EXHAUSTED.value}) | (
+    LEGACY_CAP_REASONS
+)
 """The reasons that MUST carry a budget object (E7). A cap denial that cannot name
-its window is not re-derivable, which is the whole argument for `budget_json`."""
+its window is not re-derivable, which is the whole argument for `budget_json`.
+Both the deprecated and the current names: this set decides whether a ROW, old
+or new, is a cap denial, so it must recognize a row sealed before 0.8.0 exactly
+as readily as one sealed after."""
 
 CHAIN_COLUMNS = ("row_hash", "prev_hash", "seq")
 """ND-001's chain, dark in `0.4.1`. All NULL is `absent`; some NULL is `unverifiable`."""
@@ -177,7 +187,15 @@ def _check_params_provenance(row: sqlite3.Row) -> Check:
 
 
 def _check_reason_vocabulary(row: sqlite3.Row) -> Check:
-    """The reason code is one this PDP can emit, under the protocol the row claims."""
+    """The reason code is one this PDP can emit, under the protocol the row claims.
+
+    Deliberately narrow: LIVE codes only, not "ever valid" -- a retired code
+    failing this check is the established, tested behaviour (a row forced to
+    `cap_eur_day` fails here, on purpose), distinct from whether the row's
+    OTHER evidence (its budget object, its place in the chain) still holds
+    together. Widening this to accept every retired code across every break
+    would blur a real distinction: this check asks "does this build still
+    speak this word", not "was this word ever spoken honestly"."""
     reason = row["reason_code"]
     live = {c.value for c in CheckId}
     if reason not in live:
@@ -208,8 +226,14 @@ def _check_budget_object(row: sqlite3.Row) -> Check:
             Status.FAILED,
             f"reason {row['reason_code']} with no budget: the window cannot be named",
         )
+    # A row sealed before 0.8.0 carries budget_json in the OLD shape (CAP_VALUE/
+    # CAP_RATE), never rewritten into the current one -- validating it against
+    # the current `Budget` model would report every pre-0.8.0 cap denial FAILED
+    # the moment the shape changed under it, which is exactly the regression
+    # "old rows are never rewritten" exists to prevent.
+    model = LegacyBudget if row["reason_code"] in LEGACY_CAP_REASONS else Budget
     try:
-        Budget.model_validate_json(raw)
+        model.model_validate_json(raw)
     except ValueError as exc:
         return Check("budget_object", Status.FAILED, f"budget does not parse: {exc}")
     return Check("budget_object", Status.VERIFIED, "seven fields present and parseable")

@@ -58,6 +58,12 @@ _DECISION_WORDS = {
 }
 
 _REASON_PROSE = {
+    "budget_exhausted": "A value cap was reached for this effect: the action would exceed "
+    "the declared limit for the window. The reservation was refused; nothing executed.",
+    "rate_exhausted": "A rate cap was reached for this effect: too many of these actions in "
+    "the window. The reservation was refused; nothing executed.",
+    # Deprecated names, never emitted since 0.8.0 -- kept so a row sealed before
+    # it still renders its own denial in words, not a blank.
     "cap_value": "A value cap was reached for this effect: the action would exceed the "
     "declared limit for the window. The reservation was refused; nothing executed.",
     "cap_rate": "A rate cap was reached for this effect: too many of these actions in "
@@ -146,7 +152,14 @@ def _budget_cells(row: sqlite3.Row) -> str:
     if raw is None:
         return ""
     budget = json.loads(raw)
-    order = ("dimension", "unit", "window", "limit", "consumed", "remaining")
+    # Shape tells the two eras apart, not the row's own protocol stamp -- that
+    # stays "aadp/0.2" either side of the 0.8.0 boundary. A row from 0.8.0
+    # onward carries "name" and no "unit"; an older one is the reverse.
+    order = (
+        ("name", "dimension", "window", "limit", "consumed", "remaining")
+        if "name" in budget
+        else ("dimension", "unit", "window", "limit", "consumed", "remaining")
+    )
     cells = []
     for key in order:
         hot = ' class="b-cell hot"' if key == "remaining" else ' class="b-cell"'

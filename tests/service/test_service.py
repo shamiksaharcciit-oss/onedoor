@@ -252,7 +252,9 @@ def test_no_effect_on_a_failure_never_releases_the_rate_budget_over_http(
         "/v1/decide", json={"action_type": "demo.capped", "params": {}}, headers=_h("dkey")
     )
     assert third.json()["decision"] == "denied"
-    assert third.json()["reason"] == "cap_rate", "the no_effect report must not have freed the slot"
+    assert third.json()["reason"] == "rate_exhausted", (
+        "the no_effect report must not have freed the slot"
+    )
 
 
 # --- a malformed approval_ref -------------------------------------------------------

@@ -225,12 +225,12 @@ def test_generated_structures_are_still_canonical_not_verbatim() -> None:
     from onedoor.guardrail.models import Budget
 
     budget = Budget(
-        dimension="value",
-        unit="EUR",
-        window="day",
+        name="demo.spend",
+        dimension="EUR",
         limit="250",
-        consumed="250",
         remaining="0",
+        window="day",
+        consumed="250",
         window_resets_at="2026-07-06T00:00:00Z",
     )
     rendered = audit.dumps_json_value(budget.model_dump())

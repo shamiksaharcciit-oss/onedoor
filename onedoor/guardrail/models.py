@@ -112,13 +112,26 @@ class CheckId(StrEnum):
     # budget_json is not optional -- without it the evidence store can no longer
     # tell a day-cap breach from a month-cap one, a granularity regression on 0.3.5.
     #
-    # Clean break, no dual emission. Safe because reason codes are AUDIT vocabulary:
-    # a PEP's behaviour is fixed by the verdict, never by the reason string, so a
-    # -00 PEP that has never heard of cap_value still denies correctly. The
-    # deprecated codes are retained permanently in the IANA registry and MUST NOT be
-    # emitted by a PDP advertising aadp/0.2+.
-    CAP_RATE = "cap_rate"
-    CAP_VALUE = "cap_value"
+    # Second clean break, 0.8.0: the draft's own registered names are
+    # `budget_exhausted` / `rate_exhausted`, not `cap_value` / `cap_rate` -- the
+    # same field name meant two different things (onedoor's `unit` carried what
+    # the draft's `dimension` means), so a reader following the draft would get
+    # the wrong meaning with no error. Same rule as the first break: gone from
+    # this enum, not merely unused -- nothing constructs a `CheckId` from a
+    # stored `reason_code` string (it is compared as a plain string throughout
+    # the reading path), so a deprecated code needs no seat here to stay
+    # readable. `onedoor.guardrail.receipt.CAP_REASONS` and `LegacyBudget` are
+    # where a row sealed before 0.8.0 is still recognized, by its own literal
+    # string, since the audit log is append-only and that row is never
+    # rewritten.
+    #
+    # Clean break, no dual emission, each time: a PEP's behaviour is fixed by
+    # the verdict, never by the reason string, so one that has never heard of
+    # either name still denies correctly. The deprecated codes are retained
+    # permanently in the IANA registry and MUST NOT be emitted by a PDP
+    # advertising this reason vocabulary or later.
+    RATE_EXHAUSTED = "rate_exhausted"
+    BUDGET_EXHAUSTED = "budget_exhausted"
     DRY_RUN = "dry_run"
     TIER_CONFIRM = "tier_confirm"
     NO_COMPENSATION = "no_compensating_command"
@@ -433,36 +446,82 @@ class ActionRequest(BaseModel):
 
 
 class Budget(BaseModel):
-    """Machine-readable budget state on a cap denial (ND-003, AADP A4).
+    """Machine-readable budget state on a cap denial (ND-003, AADP A4;
+    draft-saha-aadp-03 §3.3 from 0.8.0).
 
-    Present **iff** the verdict is `deny` and the reason is `cap_value` or
-    `cap_rate`. It exists because `aadp/0.2` made the reason codes unit-neutral:
-    `cap_value` collapses what used to be `cap_eur_day` and `cap_eur_month`, so
-    without this object the evidence store can no longer tell a day-cap breach from
-    a month-cap one -- a granularity regression against 0.3.5, where the reason code
-    alone carried it. Confirmed normative under the evidence section (E7): a
-    `cap_value` denial that cannot name its window is not re-derivable.
+    Present **iff** the verdict is `deny` and the reason is `budget_exhausted` or
+    `rate_exhausted` (`budget_json` on rows sealed before 0.8.0 uses this same
+    shape's *predecessor*, keyed by the deprecated `cap_value`/`cap_rate`; see
+    `CheckId` and the readers listed there). It exists because the reason codes
+    are unit-neutral: `budget_exhausted` collapses what would otherwise be a
+    day-cap breach and a month-cap breach into one string, so without this
+    object the evidence store can no longer tell them apart -- confirmed
+    normative under the evidence section (E7): a denial that cannot name its
+    window is not re-derivable.
 
-    Persisted to `budget_json`, not merely returned. All seven fields are REQUIRED.
-    Currency lives in `unit`, never in a field name -- that is what "unit-neutral"
-    means, and it is what lets tokens or call counts use the same shape later
-    (ND-027) without another vocabulary change.
+    Persisted to `budget_json`, not merely returned. `name`, `dimension`,
+    `limit`, `remaining` and `window` are the draft's own five (§3.3's worked
+    example); `consumed` and `window_resets_at` are onedoor's own, beyond what
+    the draft names. §14: **a recipient MUST ignore unknown fields**, so
+    carrying two more is conforming, not an extension a recipient must
+    understand -- both stay because each carries evidence the other five
+    cannot reconstruct (E7 again): `consumed` is not recoverable from
+    `limit`/`remaining` alone once an attempt has landed past the limit
+    (`remaining` clamps at zero), and `window_resets_at` is not recoverable
+    from `window` alone without knowing the policy's timezone and the instant
+    the cap was checked.
 
     Numerics are decimal STRINGS in canonical shortest-exact form, never floats and
     never JSON numbers: one form for wire, storage and preimage (E8).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    dimension: Literal["value", "rate"]
-    unit: str
-    """ISO 4217 for a value dimension ("EUR"); a token for a rate ("calls")."""
+    name: str
+    """The stable identifier of the counter this budget is drawn from -- the
+    same string keying `cap_counters` (an action type, or `effect:<name>`),
+    and required to equal the `evaluation_trace` entry's own `rule` for this
+    check: two names for what must always be one counter."""
+    dimension: str
+    """An opaque unit label (draft's own words): ISO 4217 for a value budget
+    ("EUR"), a token for a rate one ("calls"). Was named `unit` before 0.8.0;
+    the kind of budget (value vs rate) that `unit`'s sibling `dimension` field
+    used to carry is dropped -- the reason code (`budget_exhausted` vs
+    `rate_exhausted`) is what distinguishes them now."""
+    limit: str
+    remaining: str
+    """The amount available **before** this request's own reservation --
+    since this object appears only on a denial, this request was never
+    added, so this is simply what the counter already held."""
     window: str
     """"day" | "month" | an ISO-8601 duration."""
+    consumed: str
+    window_resets_at: str
+    """RFC3339, UTC, canonical -- the instant the window rolls and the budget frees."""
+
+
+class LegacyBudget(BaseModel):
+    """`Budget`'s shape before 0.8.0. Reading only -- never constructed for a new
+    decision, never emitted. A row sealed under the deprecated `cap_value`/
+    `cap_rate` reason codes carries `budget_json` in exactly this shape, and
+    the audit log is append-only:
+    that row is never rewritten into the current `Budget` shape, so a reader
+    validating it needs this model, not `Budget`, or every pre-0.8.0 cap denial
+    would report FAILED the moment this shape changed under it.
+
+    Field-for-field the pre-0.8.0 `Budget`: no `name`, and the kind of budget
+    (`dimension`, "value" | "rate") is a separate field from the unit (`unit`)
+    -- the two fields 0.8.0 folded into one `dimension` holding what `unit` used
+    to hold, with the kind moved to the reason code instead.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    dimension: Literal["value", "rate"]
+    unit: str
+    window: str
     limit: str
     consumed: str
     remaining: str
     window_resets_at: str
-    """RFC3339, UTC, canonical -- the instant the window rolls and the budget frees."""
 
 
 DECISION_REF_FORMAT: Literal["onedoor-decision-ref/1"] = "onedoor-decision-ref/1"
@@ -507,7 +566,8 @@ class PolicyDecision(BaseModel):
     requires_approval: bool = False
     compensating_command: str | None = None
     budget: Budget | None = None
-    """Set iff `decision` is a denial and `reason_code` is `cap_value`/`cap_rate`."""
+    """Set iff `decision` is a denial and `reason_code` is `budget_exhausted`/
+    `rate_exhausted`."""
 
 
 class ActionResult(BaseModel):

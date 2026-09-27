@@ -1351,33 +1351,57 @@ undefined; it is superseded, not amended.
 
 ---
 
-## 6. Target vocabulary (`aadp/0.2`, from `0.4.0`)
+## 6. Target vocabulary (`aadp/0.2`, from `0.4.0`; budget object superseded at `0.8.0`)
 
 The settled spec surface for `ND-002`, `ND-003`, `ND-005`, `ND-009`. Reproduced
-here so implementers have one reference; core's Response 001 is authoritative.
+here so implementers have one reference; core's Response 001 is authoritative for
+the reason-code rename and the protocol stamp. The current `budget` object shape
+follows `draft-saha-aadp-03` §3.3 and §14, confirmed with core 2026-09-27.
 
-**Reason codes.** `cap_daily_rate` → **`cap_rate`**; `cap_eur_day` **and**
-`cap_eur_month` → **`cap_value`** (the window moves into the budget object); plus
-one genuinely new code, **`sender_mismatch`** (E5). Old codes are DEPRECATED, never
-removed, and MUST NOT be emitted by a PDP advertising `aadp/0.2+`.
+**Reason codes.** `cap_daily_rate` → **`cap_rate`** → **`rate_exhausted`**;
+`cap_eur_day` **and** `cap_eur_month` → **`cap_value`** → **`budget_exhausted`**
+(the window moves into the budget object); plus one genuinely new code,
+**`sender_mismatch`** (E5, still reserved, unemitted). Every code retired at either
+break is DEPRECATED, never removed **from history** — a row sealed under it keeps
+it, and readers recognise it — but MUST NOT be emitted by a PDP advertising
+`aadp/0.2+`, which since `0.8.0` means `cap_rate`/`cap_value` as well as the
+0.3.5-era three.
 
 **Why a clean break is safe here:** reason codes are *audit vocabulary*. A PEP's
 behaviour is fixed by the **verdict**, never by the reason string — so a `-00` PEP
-that has never heard of `cap_value` still denies correctly. The break is
+that has never heard of `budget_exhausted` still denies correctly. The break is
 **audit-only; there is no enforcement-path regression.**
 
 **`budget` object** — on the Decide Response, present **iff** verdict is `deny` and
-reason ∈ {`cap_value`, `cap_rate`}:
+reason ∈ {`budget_exhausted`, `rate_exhausted`}. Current shape, per
+`draft-saha-aadp-03` §3.3 (§14: a recipient MUST ignore unknown fields), landed
+`0.8.0`:
 
 ```json
 "budget": {
-  "dimension": "value",                        // REQUIRED  "value" | "rate"
-  "unit": "EUR",                               // REQUIRED  ISO 4217 for value; a token ("calls") for rate
-  "window": "month",                           // REQUIRED  "day" | "month" | ISO-8601 duration
-  "limit": "250.00",                           // REQUIRED  decimal string, never float
-  "consumed": "250.00",                        // REQUIRED
-  "remaining": "0.00",                         // REQUIRED
-  "window_resets_at": "2026-09-01T00:00:00Z"   // REQUIRED  RFC3339 UTC
+  "name": "payments.daily",                    // REQUIRED  the same identifier the failing evaluation_trace entry carries as `rule`
+  "dimension": "EUR",                          // REQUIRED  ISO 4217 for a value budget; a token ("calls") for a rate budget
+  "limit": "10000.00",                         // REQUIRED  decimal string, never float
+  "remaining": "0.00",                         // REQUIRED  before this request's own reservation
+  "window": "24h",                             // REQUIRED  "day" | "month" | ISO-8601 duration
+  "consumed": "10000.00",                      // onedoor extra, additive under §14 — not recoverable from limit/remaining, which clamp at zero
+  "window_resets_at": "2026-09-01T00:00:00Z"   // onedoor extra, additive under §14 — not recoverable from window alone (needs timezone + check instant)
+}
+```
+
+Superseded shape (`0.4.0`–`0.7.x`, `aadp/0.2` as Response 001 first settled it —
+still the shape a pre-`0.8.0` row carries and readers still accept, keyed off the
+row's own reason code):
+
+```json
+"budget": {
+  "dimension": "value",                        // "value" | "rate" -- the kind; folded into the reason code from 0.8.0
+  "unit": "EUR",                               // -- folded into `dimension` (the unit) from 0.8.0
+  "window": "month",
+  "limit": "250.00",
+  "consumed": "250.00",
+  "remaining": "0.00",
+  "window_resets_at": "2026-09-01T00:00:00Z"
 }
 ```
 

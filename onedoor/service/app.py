@@ -116,10 +116,12 @@ class DecideReply(BaseModel):
     intent_audit_id: int | None = None  # present iff permitted: enforce, then report
     undo_until: datetime | None = None
     budget: Budget | None = None
-    """ND-003. Present **iff** the verdict is a denial with reason `cap_value` or
-    `cap_rate` -- the machine-readable budget state that `aadp/0.2`'s unit-neutral
-    codes no longer carry. A PEP can act on this; it could not act on the prose in
-    `detail`."""
+    """ND-003. Present **iff** the verdict is a denial with reason `budget_exhausted`
+    or `rate_exhausted` -- the machine-readable budget state that these
+    unit-neutral codes no longer carry by themselves. A PEP can act on this; it
+    could not act on the prose in `detail`. A row sealed before 0.8.0 carries
+    this same field under the deprecated `cap_value`/`cap_rate` reasons, in the
+    shape those codes used."""
     present_bound: str | None = None
     """The audience this permit may be exercised against. Present iff permitted
     and the policy declared one. A PEP that does not recognize this obligation

@@ -89,19 +89,20 @@ def test_a_value_cap_denial_carries_the_window_the_reason_code_no_longer_says(
         denied = _spend(conn, "2.00")
         d = denied.decision  # type: ignore[union-attr]
         assert d.decision is Decision.DENIED
-        assert d.reason_code.value == "cap_value"
+        assert d.reason_code.value == "budget_exhausted"
 
         budget = d.budget
-        assert budget is not None, "a cap_value denial MUST carry the budget object"
-        assert budget.dimension == "value"
-        assert budget.unit == "EUR", "currency lives in `unit`, never in a field name"
+        assert budget is not None, "a budget_exhausted denial MUST carry the budget object"
+        assert budget.dimension == "EUR", "currency lives in `dimension`, never in a field name"
         assert budget.window == "day", "the window the reason code stopped carrying"
+        assert budget.name == "demo.spend", "the counter's own key, no effect label in play"
     finally:
         conn.close()
 
 
 def test_a_month_cap_denial_is_distinguishable_from_a_day_one(tmp_path: Path) -> None:
-    """The whole point of ND-003: both deny `cap_value`, and they must not look alike."""
+    """The whole point of ND-003: both deny `budget_exhausted`, and they must not
+    look alike."""
     conn = _db(tmp_path, "month", Caps(eur_month=Decimal("50.00"))).connect()
     try:
         _spend(conn, "49.00")
@@ -109,24 +110,55 @@ def test_a_month_cap_denial_is_distinguishable_from_a_day_one(tmp_path: Path) ->
         budget = denied.decision.budget  # type: ignore[union-attr]
         assert budget is not None
         assert budget.window == "month"
-        assert denied.decision.reason_code.value == "cap_value"  # type: ignore[union-attr]
+        assert denied.decision.reason_code.value == "budget_exhausted"  # type: ignore[union-attr]
     finally:
         conn.close()
 
 
-def test_a_rate_cap_denial_uses_the_rate_dimension_and_a_token_unit(tmp_path: Path) -> None:
+def test_a_rate_cap_denial_uses_a_token_dimension(tmp_path: Path) -> None:
     conn = _db(tmp_path, "rate", Caps(daily_rate=1)).connect()
     try:
         _spend(conn, "0")
         denied = _spend(conn, "0")
         budget = denied.decision.budget  # type: ignore[union-attr]
-        assert denied.decision.reason_code.value == "cap_rate"  # type: ignore[union-attr]
+        assert denied.decision.reason_code.value == "rate_exhausted"  # type: ignore[union-attr]
         assert budget is not None
-        assert budget.dimension == "rate"
-        assert budget.unit == "calls", "a rate is counted in a token, not a currency"
+        assert budget.dimension == "calls", "a rate is counted in a token, not a currency"
+        assert budget.name == "demo.spend"
         assert budget.limit == "1" and budget.consumed == "1" and budget.remaining == "0"
     finally:
         conn.close()
+
+
+def test_a_value_budget_and_a_rate_budget_each_name_the_check_that_produced_them(
+    tmp_path: Path,
+) -> None:
+    """`budget.name` and the evaluation_trace entry's own `rule` must agree --
+    two names for what is always one counter (the ruling that added `name`)."""
+    for name, caps, spend_first, spend_second in (
+        ("value", Caps(eur_day=Decimal("10.00")), "9.00", "2.00"),
+        ("rate", Caps(daily_rate=1), "0", "0"),
+    ):
+        conn = _db(tmp_path, f"trace-{name}", caps).connect()
+        try:
+            _spend(conn, spend_first)
+            denied = _spend(conn, spend_second)
+            d = denied.decision  # type: ignore[union-attr]
+            assert d.budget is not None
+            row = conn.execute(
+                "SELECT evaluation_trace_json FROM actions_audit "
+                "WHERE reason_code=? ORDER BY id DESC LIMIT 1",
+                (d.reason_code.value,),
+            ).fetchone()
+            entries = json.loads(row["evaluation_trace_json"])
+            failing = [e for e in entries if e["result"] == "fail"]
+            assert failing, f"no failing trace entry recorded for the {name} budget"
+            assert failing[-1]["rule"] == d.budget.name, (
+                f"budget.name ({d.budget.name!r}) must equal the failing trace "
+                f"entry's rule ({failing[-1]['rule']!r})"
+            )
+        finally:
+            conn.close()
 
 
 def test_every_numeric_field_is_a_canonical_decimal_string(tmp_path: Path) -> None:
@@ -182,12 +214,12 @@ def test_the_budget_is_persisted_not_merely_returned(tmp_path: Path) -> None:
         assert stored["window"] == "day"
         assert stored["limit"] == "10"
         assert set(stored) == {
+            "name",
             "dimension",
-            "unit",
-            "window",
             "limit",
-            "consumed",
             "remaining",
+            "window",
+            "consumed",
             "window_resets_at",
         }, "all seven fields are REQUIRED"
     finally:

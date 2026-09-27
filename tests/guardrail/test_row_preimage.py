@@ -127,7 +127,7 @@ def _sample(**overrides: object) -> dict[str, object]:
             "source": "llm",
             "params_json": '{"amount_eur":"9"}',
             "decision": "denied",
-            "reason_code": "cap_value",
+            "reason_code": "budget_exhausted",
             "nominal_tier": 2,
             "effective_tier": 2,
             "detail": "",

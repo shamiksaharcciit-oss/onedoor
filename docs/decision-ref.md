@@ -105,6 +105,13 @@ deployment — chaining's own columns are ordinary columns on the row like any
 other, present and populated when chaining is on, present and empty when it
 is off, hashed either way as whatever they actually hold.
 
+It is also vocabulary-agnostic: `0.8.0`'s switch from `cap_value`/`cap_rate` to
+`budget_exhausted`/`rate_exhausted` (and the accompanying `budget` object shape
+change) does not change the digest of a row sealed before the switch — the
+canonical rendering hashes whatever the row's columns actually hold, never a
+re-encoding of them under the current vocabulary. A reference issued against a
+pre-`0.8.0` row still checks `matches` today.
+
 ## How a holder of an export checks a reference
 
 Given an export file (as `python -m onedoor.export` writes it) and a

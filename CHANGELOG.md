@@ -5,6 +5,62 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## 0.8.0 — 2026-09-27
+
+**One breaking increment: breaking for archives and readers, not for PEP enforcement.**
+`draft-saha-aadp-03` §3.3 settles the budget object's shape; this release switches to
+it. A `-01`-era enforcement point still denies correctly against this release — a PEP's
+behaviour is fixed by the verdict, never by the reason string or the budget object's
+field names. What changes is what the audit says, what the decide response carries, and
+the shape of the `budget` object.
+
+**Upgrading:** no migration — the switch touches only what a decision writes going
+forward, not the schema. In order of how likely it is to touch you:
+
+1. Reason codes `cap_value` / `cap_rate` are gone; match on `budget_exhausted` /
+   `rate_exhausted`.
+2. The `budget` object drops `unit` and the `dimension` *kind* (`value`|`rate`) — the
+   kind is now carried entirely by the reason code — and gains `name`, the identifier
+   of the counter the denial was measured against.
+
+### Changed — BREAKING for archives and readers, not for enforcement
+
+- **Reason codes match the draft's vocabulary.** `cap_value` → **`budget_exhausted`**;
+  `cap_rate` → **`rate_exhausted`**. Clean break, no dual emission, for the same reason
+  the `0.4.0` break was safe: reason codes are *audit* vocabulary, so a PEP that has
+  never heard of the new names still denies correctly. **If you match on `cap_value` or
+  `cap_rate` in dashboards or alerts, they change here** — switch to `budget_exhausted`
+  / `rate_exhausted`.
+- **The `budget` object follows `draft-saha-aadp-03` §3.3.** Before:
+  ```json
+  {"dimension": "value", "unit": "EUR", "window": "day",
+   "limit": "500", "consumed": "500", "remaining": "0",
+   "window_resets_at": "2026-09-28T00:00:00Z"}
+  ```
+  After:
+  ```json
+  {"name": "pay_invoice", "dimension": "EUR", "limit": "500",
+   "remaining": "0", "window": "day", "consumed": "500",
+   "window_resets_at": "2026-09-28T00:00:00Z"}
+  ```
+  `dimension` now names the unit (what `unit` used to hold) — the value/rate kind is
+  dropped, since the reason code already says which. `name` is added: the same
+  identifier the failing check's `evaluation_trace` entry carries as `rule`, so a
+  reader can join a denial to the trace entry that produced it. `consumed` and
+  `window_resets_at` are kept unchanged — neither is recoverable from the draft's own
+  fields (`remaining` clamps at zero, and `window` alone carries no timezone or check
+  instant). Per §14, a recipient MUST ignore unknown fields, so `consumed` and
+  `window_resets_at` are additive, not a departure from the draft.
+- **Past audit rows keep their original codes and shape.** `actions_audit` is
+  append-only; a row sealed under `cap_value`/`cap_rate` and the seven-field object is
+  never rewritten. Readers (`receipt.verify_decision`, the viewer, chain verification,
+  export, `decision_ref.check`) recognise both shapes side by side. A retired reason
+  code still fails the receipt's narrow `reason_vocabulary` check by design — that
+  check asks whether the build can still emit the code, not whether the row's other
+  evidence holds — and a pre-`0.8.0` row's `decision_digest` is unaffected, since the
+  digest is computed over whatever bytes a row actually holds rather than a
+  vocabulary-aware re-encoding of them.
+
 ## 0.7.0 — 2026-09-05
 
 The whole `ND-055` arc (the Ledger Room — eight screens over the policy set, the ledger,

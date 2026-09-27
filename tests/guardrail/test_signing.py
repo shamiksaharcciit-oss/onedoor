@@ -432,6 +432,6 @@ def test_the_signature_survives_a_cap_denial_row(
         now=FROZEN_NOW,
     )
     row = _latest(conn)
-    assert row["reason_code"] == "cap_value"
+    assert row["reason_code"] == "budget_exhausted"
     assert row["sig"] is not None
     assert verify_decision(conn, row).by_name("signature").status is Status.SELF_CONSISTENT

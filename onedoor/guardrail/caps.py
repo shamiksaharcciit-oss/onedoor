@@ -167,15 +167,15 @@ def _check_one(
         if count + 1 > caps.daily_rate:
             return CapResult(
                 True,
-                CheckId.CAP_RATE,
+                CheckId.RATE_EXHAUSTED,
                 f"daily rate {caps.daily_rate} reached{label}",
                 budget=Budget(
-                    dimension="rate",
-                    unit="calls",  # a token, not a currency: the dimension is not money
-                    window="day",
+                    name=key,
+                    dimension="calls",  # a token, not a currency: opaque either way
                     limit=canon_decimal(Decimal(caps.daily_rate)),
-                    consumed=canon_decimal(Decimal(count)),
                     remaining=canon_decimal(max(Decimal(0), Decimal(caps.daily_rate - count))),
+                    window="day",
+                    consumed=canon_decimal(Decimal(count)),
                     window_resets_at=_day_resets_at(now, tz),
                 ),
             )
@@ -184,36 +184,41 @@ def _check_one(
         if total + cost > caps.eur_day:
             return CapResult(
                 True,
-                CheckId.CAP_VALUE,
+                CheckId.BUDGET_EXHAUSTED,
                 f"€/day cap {caps.eur_day} reached{label}",
-                budget=_value_budget("day", caps.eur_day, total, _day_resets_at(now, tz)),
+                budget=_value_budget(key, "day", caps.eur_day, total, _day_resets_at(now, tz)),
             )
     if caps.eur_month is not None:
         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
         if total + cost > caps.eur_month:
             return CapResult(
                 True,
-                CheckId.CAP_VALUE,
+                CheckId.BUDGET_EXHAUSTED,
                 f"€/month cap {caps.eur_month} reached{label}",
-                budget=_value_budget("month", caps.eur_month, total, _month_resets_at(now, tz)),
+                budget=_value_budget(
+                    key, "month", caps.eur_month, total, _month_resets_at(now, tz)
+                ),
             )
     return CapResult(False)
 
 
-def _value_budget(window: str, limit: Decimal, consumed: Decimal, resets_at: str) -> Budget:
-    """A euro-dimension budget. `window` is what `cap_value` no longer says by itself.
+def _value_budget(
+    name: str, window: str, limit: Decimal, consumed: Decimal, resets_at: str
+) -> Budget:
+    """A euro-dimension budget. `window` is what `budget_exhausted` no longer says
+    by itself.
 
     Both euro caps now deny with the same reason code, so this object is the only
     thing that distinguishes a day breach from a month one. That is the granularity
-    `0.3.5` carried in the reason code and `aadp/0.2` moved here on purpose.
+    the reason code alone used to carry, moved here on purpose.
     """
     return Budget(
-        dimension="value",
-        unit="EUR",  # currency lives in `unit`, never in a field name
-        window=window,
+        name=name,
+        dimension="EUR",  # currency lives in `dimension`, never in a field name
         limit=canon_decimal(limit),
-        consumed=canon_decimal(consumed),
         remaining=canon_decimal(max(Decimal(0), limit - consumed)),
+        window=window,
+        consumed=canon_decimal(consumed),
         window_resets_at=resets_at,
     )
 

@@ -62,7 +62,7 @@ def _deny_with_budget(conn: Connection, config: EngineConfig) -> int:
         config=config,
         now=FROZEN_NOW,
     )
-    assert result.decision.reason_code.value == "cap_value"  # type: ignore[union-attr]
+    assert result.decision.reason_code.value == "budget_exhausted"  # type: ignore[union-attr]
     return int(result.audit_id)  # type: ignore[union-attr,arg-type]
 
 

@@ -35,19 +35,22 @@ from onedoor.store.db import Database
 NOW = datetime(2026, 7, 5, 12, 0, tzinfo=UTC)
 CONFIG = EngineConfig(approval_ttl_seconds=3600, connector_timeout_seconds=5.0, tz=ZoneInfo("UTC"))
 
-DEPRECATED = {"cap_daily_rate", "cap_eur_day", "cap_eur_month"}
+DEPRECATED = {"cap_daily_rate", "cap_eur_day", "cap_eur_month", "cap_rate", "cap_value"}
+"""Every code retired so far, across both breaks: the 0.3.5-era three, and the
+0.8.0-era two. All five are readable on rows sealed before their own break and
+gone from `CheckId` -- never merely unused."""
 
 
 def test_the_deprecated_codes_are_gone_not_merely_unused() -> None:
-    """Clean break, no dual emission (E1).
+    """Clean break, no dual emission (E1), each time a vocabulary is retired.
 
     Safe precisely because reason codes are AUDIT vocabulary: a PEP's behaviour is
-    fixed by the verdict, never by the reason string, so a `-00` PEP that has never
-    heard of `cap_value` still denies correctly. The break is audit-only.
+    fixed by the verdict, never by the reason string, so a PEP that has never heard
+    of the current names still denies correctly. The break is audit-only.
     """
     live = {c.value for c in CheckId}
     assert not (live & DEPRECATED), f"a PDP at {AADP_PROTOCOL} must not carry {live & DEPRECATED}"
-    assert {"cap_rate", "cap_value"} <= live
+    assert {"rate_exhausted", "budget_exhausted"} <= live
 
 
 def test_sender_mismatch_is_reserved_and_never_emitted() -> None:
@@ -117,7 +120,7 @@ def test_every_row_this_pdp_writes_is_stamped_with_its_vocabulary(tmp_path) -> N
         assert all(r["protocol"] == AADP_PROTOCOL for r in rows), (
             f"unstamped rows: {[dict(r) for r in rows if r['protocol'] != AADP_PROTOCOL]}"
         )
-        assert any(r["reason_code"] == "cap_rate" for r in rows), (
+        assert any(r["reason_code"] == "rate_exhausted" for r in rows), (
             "the rate cap must deny with the unit-neutral code"
         )
     finally:
@@ -219,6 +222,6 @@ def test_the_operator_documentation_lists_exactly_the_live_vocabulary() -> None:
     missing = expected - listed
     assert not missing, f"the policy reference does not document {sorted(missing)}"
     retired = listed & DEPRECATED
-    assert retired <= {"cap_daily_rate", "cap_eur_day", "cap_eur_month"} and (
-        "replaced" in body or "retired" in body
-    ), f"the policy reference names retired codes {sorted(retired)} without saying they are retired"
+    assert retired <= DEPRECATED and ("replaced" in body or "retired" in body), (
+        f"the policy reference names retired codes {sorted(retired)} without saying they are retired"
+    )

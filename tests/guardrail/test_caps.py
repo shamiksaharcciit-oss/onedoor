@@ -25,7 +25,7 @@ def test_daily_rate_cap(
     assert _run(conn, registry, config, "demo.capped").executed is True
     third = _run(conn, registry, config, "demo.capped")
     assert third.decision.decision == Decision.DENIED
-    assert third.decision.reason_code.value == "cap_rate"  # aadp/0.2: unit-neutral
+    assert third.decision.reason_code.value == "rate_exhausted"  # aadp/0.2: unit-neutral
 
 
 def test_denied_by_cap_does_not_consume_counter(
@@ -69,7 +69,7 @@ def test_eur_day_cap(conn: Connection, registry: ConnectorRegistry, config: Engi
     # aadp/0.2 collapses cap_eur_day and cap_eur_month into cap_value; the WINDOW
     # moves into ND-003's budget object. Until W5 lands it survives only as prose
     # in `detail`, which is exactly the granularity budget_json exists to restore.
-    assert over.decision.reason_code.value == "cap_value"
+    assert over.decision.reason_code.value == "budget_exhausted"
     assert "day" in over.decision.detail
 
 
@@ -93,7 +93,7 @@ def test_eur_month_cap(conn: Connection, registry: ConnectorRegistry, config: En
         conn, registry, config, "demo.month", cost=Decimal("3")
     )  # month 6 > 5, day 6 < 1000
     assert over.decision.decision == Decision.DENIED
-    assert over.decision.reason_code.value == "cap_value"
+    assert over.decision.reason_code.value == "budget_exhausted"
     assert "month" in over.decision.detail  # window still only in prose until W5
 
 

@@ -160,8 +160,9 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 ## Reason codes you will see in decisions and the audit log
 
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
-`dry_run` · `cap_rate` · `cap_value` · `cost_unknown` · `kill_switch` · `observe` ·
-`effect_floor` · `malformed` · `expired` · `external_authorization` · `present_bound`
+`dry_run` · `budget_exhausted` · `rate_exhausted` · `cost_unknown` · `kill_switch` ·
+`observe` · `effect_floor` · `malformed` · `expired` · `external_authorization` ·
+`present_bound`
 
 `external_authorization` (AADP -03 §8.1) is the reason on a `denied` or
 `proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
@@ -174,8 +175,13 @@ request's `presented_audience` does not match the action type's declared
 `present_bound` (the audience URI a permit may be exercised only by being presented
 to). An action type without `present_bound` set never carries this check at all.
 
-`cap_rate` and `cap_value` replaced `cap_daily_rate` / `cap_eur_day` / `cap_eur_month`
-in `0.4.0` (`aadp/0.2`), with the window and unit moving into the `budget` object.
-This list still named the retired codes — a stale doc found and corrected while
-documenting `ND-040`, not a defect introduced by it. `sender_mismatch` is registered
-but **never emitted** until `ND-005` wires the check it belongs to.
+`budget_exhausted` (a value budget) and `rate_exhausted` (a rate budget) replaced
+`cap_value` and `cap_rate` in `0.8.0`, aligning with the draft's own registered
+names: the draft's `dimension` means what onedoor's `budget` object used to call
+`unit`, and the kind of budget (value vs rate) moved from the object into these
+two reason codes. `cap_value` and `cap_rate` themselves replaced `cap_daily_rate` /
+`cap_eur_day` / `cap_eur_month` in `0.4.0` (`aadp/0.2`), with the window and unit
+moving into the `budget` object. All five retired codes are gone from this build's
+vocabulary and never emitted; a row sealed under any of them keeps it, since the
+audit log is append-only. `sender_mismatch` is registered but **never emitted**
+until `ND-005` wires the check it belongs to.
