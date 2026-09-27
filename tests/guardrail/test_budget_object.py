@@ -180,12 +180,24 @@ def test_a_policy_with_all_three_caps_gives_each_denial_a_distinct_name(
     a time requires the untested caps to stay well clear, not merely present.
     """
     cases = (
-        ("eur_day", Caps(daily_rate=100, eur_day=Decimal("10.00"), eur_month=Decimal("1000.00")),
-         ("9.00", "2.00"), "demo.spend.eur_day"),
-        ("eur_month", Caps(daily_rate=100, eur_day=Decimal("1000.00"), eur_month=Decimal("50.00")),
-         ("49.00", "2.00"), "demo.spend.eur_month"),
-        ("rate", Caps(daily_rate=1, eur_day=Decimal("1000.00"), eur_month=Decimal("1000.00")),
-         ("0.01", "0.01"), "demo.spend.rate"),
+        (
+            "eur_day",
+            Caps(daily_rate=100, eur_day=Decimal("10.00"), eur_month=Decimal("1000.00")),
+            ("9.00", "2.00"),
+            "demo.spend.eur_day",
+        ),
+        (
+            "eur_month",
+            Caps(daily_rate=100, eur_day=Decimal("1000.00"), eur_month=Decimal("50.00")),
+            ("49.00", "2.00"),
+            "demo.spend.eur_month",
+        ),
+        (
+            "rate",
+            Caps(daily_rate=1, eur_day=Decimal("1000.00"), eur_month=Decimal("1000.00")),
+            ("0.01", "0.01"),
+            "demo.spend.rate",
+        ),
     )
     names_seen = set()
     for label, caps, (first, second), expected_name in cases:

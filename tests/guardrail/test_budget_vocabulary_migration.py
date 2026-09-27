@@ -36,7 +36,12 @@ def _unstamped_cap_denial(conn: Connection, *, reason_code: str, request_id: str
         " VALUES (?, 'decision', 'demo.legacy_spend', 'ui', '{}', 'denied', ?, 2, 2, ?)",
         (request_id, reason_code, FROZEN_NOW.isoformat()),
     )
-    return int(conn.execute("SELECT id FROM actions_audit WHERE request_id=?", (request_id,)).fetchone()["id"])
+    return int(
+        conn.execute("SELECT id FROM actions_audit WHERE request_id=?", (request_id,)).fetchone()[
+            "id"
+        ]
+    )
+
 
 OLD_VALUE_BUDGET_JSON = json.dumps(
     {
@@ -189,9 +194,7 @@ def test_a_retired_code_after_its_own_retirement_stays_failed(
     )
     with tx(conn):
         conn.execute("DROP TRIGGER actions_audit_no_update")
-        conn.execute(
-            "UPDATE actions_audit SET reason_code=? WHERE id=?", ("cap_eur_day", audit_id)
-        )
+        conn.execute("UPDATE actions_audit SET reason_code=? WHERE id=?", ("cap_eur_day", audit_id))
         conn.execute(
             "CREATE TRIGGER actions_audit_no_update BEFORE UPDATE ON actions_audit "
             "BEGIN SELECT RAISE(ABORT, 'actions_audit is append-only: UPDATE forbidden'); END"
