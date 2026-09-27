@@ -11,6 +11,7 @@ from sqlite3 import Connection
 
 from onedoor.decision_digest import decision_digest
 from onedoor.export import export_rows
+from onedoor.guardrail import chain
 from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve
 from onedoor.guardrail.executor import (
     EngineConfig,
@@ -207,6 +208,49 @@ def test_a_resumed_approval_names_the_resumptions_own_decision(
     assert resume_ref.verdict == "permit"
     assert resume_ref.request_id != propose_ref.request_id
     assert resume_ref.decision_digest != propose_ref.decision_digest
+
+
+def test_the_wire_digest_matches_a_fresh_export_with_chaining_off(
+    conn: Connection, config: EngineConfig
+) -> None:
+    cfg = _with_issuer(config)
+    result = decide_and_reserve(
+        make_request("demo.toggle", {"target": "demo.lamp", "state": "on"}),
+        conn=conn,
+        config=cfg,
+        now=FROZEN_NOW,
+    )
+    assert isinstance(result, PermittedIntent)
+    ref = result.decision_ref
+    assert ref is not None
+    exported = _export_by_id(conn)[result.intent_audit_id]
+    assert exported["row_hash"] is None  # chaining off: never populated
+    assert ref.decision_digest == decision_digest(exported)
+
+
+def test_the_wire_digest_matches_a_fresh_export_with_chaining_on(
+    conn: Connection, config: EngineConfig
+) -> None:
+    with tx(conn):
+        chain.enable(conn)
+    cfg = _with_issuer(config)
+    result = decide_and_reserve(
+        make_request("demo.toggle", {"target": "demo.lamp", "state": "on"}),
+        conn=conn,
+        config=cfg,
+        now=FROZEN_NOW,
+    )
+    assert isinstance(result, PermittedIntent)
+    ref = result.decision_ref
+    assert ref is not None
+    exported = _export_by_id(conn)[result.intent_audit_id]
+    # Chaining on: the row's own chain columns are populated, and the wire
+    # reference (computed before the row was ever read back) still matches
+    # the export's rendering of the same row -- the chain columns are hashed
+    # as whatever they hold, not specially excluded either way.
+    assert exported["row_hash"] is not None
+    assert exported["seq"] is not None
+    assert ref.decision_digest == decision_digest(exported)
 
 
 def test_changing_one_byte_of_an_exported_row_changes_its_digest(
