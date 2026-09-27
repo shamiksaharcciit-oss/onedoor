@@ -121,9 +121,10 @@ class DecideReply(BaseModel):
     codes no longer carry. A PEP can act on this; it could not act on the prose in
     `detail`."""
     present_bound: str | None = None
-    """WO-D2 step 4. Present iff permitted and the policy declared one. A PEP that
-    does not recognize this obligation MUST refuse to exercise the permit itself and
-    report `not_attempted` (AADP -03 §6's fail-closed rule)."""
+    """The audience this permit may be exercised against. Present iff permitted
+    and the policy declared one. A PEP that does not recognize this obligation
+    MUST refuse to exercise the permit itself and report `not_attempted`
+    (AADP -03 §6's fail-closed rule)."""
     decision_ref: DecisionRef | None = None
     """A reference to this decision, joinable and checkable against an export of
     `actions_audit` (`python -m onedoor.decision_ref check`). Present iff this

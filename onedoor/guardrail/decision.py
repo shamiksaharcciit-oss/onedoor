@@ -584,8 +584,9 @@ def decide_and_reserve(
                 ),
             )
 
-        # 6b. PRESENT_BOUND (WO-D2 step 4, AADP -03 §6). Consulted only for a policy
-        #     that declares it -- an unset bound is a check that never runs, and must
+        # 6b. PRESENT_BOUND (AADP -03 §6): the permit may be exercised only by
+        #     presenting it to the declared audience. Consulted only for a policy
+        #     that declares one -- an unset bound is a check that never runs, and must
         #     not appear in the trace at all. Checked before Tier 3 propose/confirm
         #     for the same reason bounds is: a human must never approve, and the
         #     engine must never propose, an action whose audience is already wrong.
