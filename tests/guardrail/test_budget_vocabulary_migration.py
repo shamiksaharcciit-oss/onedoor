@@ -10,8 +10,11 @@ to produce one.
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime
 from sqlite3 import Connection
+
+import pytest
 
 from onedoor.decision_digest import decision_digest
 from onedoor.decision_ref import MATCHES, check
@@ -21,7 +24,7 @@ from onedoor.guardrail.decision import decide_and_reserve
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import CheckId, Decision, PolicyDecision, Tier
 from onedoor.guardrail.receipt import Status, fetch_decision, verify_decision
-from onedoor.store.db import tx
+from onedoor.store.db import run_migrations, tx
 from tests.conftest import FROZEN_NOW, make_request
 
 
@@ -41,6 +44,24 @@ def _unstamped_cap_denial(conn: Connection, *, reason_code: str, request_id: str
             "id"
         ]
     )
+
+
+def _undo_migration_0024(conn: Connection) -> None:
+    """Make it as if `0024_vocabulary_epochs.sql` had not run yet, on a
+    connection where it already has (the `conn` fixture's database is fully
+    migrated before any test body runs). Not a hypothetical: an operator's
+    real database is exactly this shape at the moment they upgrade -- rows
+    already written, the migration about to run for the first time -- and
+    that is the only way to test what the migration itself records rather
+    than what a fresh, empty database trivially would.
+
+    Dropping the table, not just its `schema_migrations` row: the migration's
+    own `CREATE TABLE IF NOT EXISTS` would otherwise no-op against a table
+    that still exists, and its `INSERT` would then collide with the rows
+    already in it.
+    """
+    conn.execute("DELETE FROM schema_migrations WHERE version LIKE '0024%'")
+    conn.execute("DROP TABLE IF EXISTS vocabulary_epochs")
 
 
 OLD_VALUE_BUDGET_JSON = json.dumps(
@@ -205,6 +226,117 @@ def test_a_retired_code_after_its_own_retirement_stays_failed(
     check = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("reason_vocabulary")
     assert check.status is Status.FAILED, (
         f"a retired code on a row that postdates its retirement must fail; got {check.status}"
+    )
+
+
+def test_a_fresh_database_leaves_nothing_to_retire(conn: Connection) -> None:
+    """`cap_value`/`cap_rate` retired without a protocol bump, so the only
+    marker distinguishing an honest pre-0.8.0 row from a post-0.8.0 forgery
+    is the upgrade boundary migration `0024` records -- and on a database
+    that never held either code, that boundary is honestly nothing: `0` is
+    not a real audit id, so no row could ever read at-or-before it."""
+    rows = {
+        r["code"]: (r["retired_in_version"], r["last_audit_id_before"])
+        for r in conn.execute(
+            "SELECT code, retired_in_version, last_audit_id_before FROM vocabulary_epochs"
+        )
+    }
+    assert rows == {"cap_value": ("0.8.0", 0), "cap_rate": ("0.8.0", 0)}
+
+
+def test_07_style_rows_survive_the_upgrade_as_retired_vocabulary(conn: Connection) -> None:
+    """The scenario item 2 is about, not a synthetic stand-in for it: a real
+    database already holding `cap_value`/`cap_rate` denials from before
+    `0.8.0`, migrating forward. `_undo_migration_0024` puts this connection's
+    database back to exactly that state -- rows already written, `0024`
+    about to run for the first time -- then `run_migrations` plays the
+    upgrade forward for real, computing the boundary against the rows that
+    are actually there."""
+    with tx(conn):
+        _undo_migration_0024(conn)
+        value_id = _legacy_cap_denial(
+            conn, reason_code="cap_value", budget_json=OLD_VALUE_BUDGET_JSON
+        )
+        rate_id = _legacy_cap_denial(conn, reason_code="cap_rate", budget_json=OLD_RATE_BUDGET_JSON)
+
+    applied = run_migrations(conn)
+    assert any("0024" in name for name in applied), f"0024 did not re-apply: {applied}"
+
+    epoch = {
+        r["code"]: r["last_audit_id_before"]
+        for r in conn.execute("SELECT code, last_audit_id_before FROM vocabulary_epochs")
+    }
+    assert epoch["cap_value"] >= value_id
+    assert epoch["cap_rate"] >= rate_id
+
+    for audit_id, code in ((value_id, "cap_value"), (rate_id, "cap_rate")):
+        check = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("reason_vocabulary")
+        assert check.status is Status.RETIRED_VOCABULARY, (
+            f"{code} row {audit_id}: expected retired_vocabulary, got {check.status}"
+        )
+
+
+def test_a_cap_value_row_forced_in_after_the_migration_still_fails(conn: Connection) -> None:
+    """The other half of the same distinction: a `cap_value` row written
+    (or forged) on THIS database, after `0024` already ran -- so its id is
+    necessarily past the boundary the migration recorded -- must still read
+    `failed`, exactly as before this migration existed."""
+    with tx(conn):
+        audit_id = _legacy_cap_denial(
+            conn, reason_code="cap_value", budget_json=OLD_VALUE_BUDGET_JSON
+        )
+
+    check = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("reason_vocabulary")
+    assert check.status is Status.FAILED, (
+        f"a cap_value row written after the recorded boundary must fail; got {check.status}"
+    )
+
+
+def test_vocabulary_epochs_refuses_update_and_delete(conn: Connection) -> None:
+    """The boundary is only honest if nothing after the migration can move
+    it -- the same append-only shape `actions_audit` already has, and for
+    the same reason."""
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE vocabulary_epochs SET last_audit_id_before=999 WHERE code='cap_value'")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("DELETE FROM vocabulary_epochs WHERE code='cap_value'")
+
+
+def test_sabotage_a_zeroed_epoch_makes_the_upgrade_test_fail(conn: Connection) -> None:
+    """Proves `test_07_style_rows_survive_the_upgrade_as_retired_vocabulary`
+    actually discriminates on `last_audit_id_before`'s real value, rather
+    than passing regardless of it: force the SAME legacy row's boundary back
+    to `0` -- as if the migration had run on an empty database, the way a
+    fresh install's does -- and the row must stop reading
+    `retired_vocabulary`. Bypasses the table's own append-only trigger the
+    same way the existing `..._stays_failed` test bypasses `actions_audit`'s,
+    to reach a state nothing in the shipped product can ever legitimately
+    create."""
+    with tx(conn):
+        _undo_migration_0024(conn)
+        value_id = _legacy_cap_denial(
+            conn, reason_code="cap_value", budget_json=OLD_VALUE_BUDGET_JSON
+        )
+    run_migrations(conn)
+
+    before = verify_decision(conn, fetch_decision(conn, value_id)).by_name("reason_vocabulary")
+    assert before.status is Status.RETIRED_VOCABULARY, (
+        "fixture setup did not reach the state to sabotage"
+    )
+
+    with tx(conn):
+        conn.execute("DROP TRIGGER vocabulary_epochs_no_update")
+        conn.execute("UPDATE vocabulary_epochs SET last_audit_id_before=0 WHERE code='cap_value'")
+        conn.execute(
+            "CREATE TRIGGER vocabulary_epochs_no_update BEFORE UPDATE ON vocabulary_epochs "
+            "BEGIN SELECT RAISE(ABORT, "
+            "'vocabulary_epochs is append-only: UPDATE forbidden'); END"
+        )
+
+    after = verify_decision(conn, fetch_decision(conn, value_id)).by_name("reason_vocabulary")
+    assert after.status is Status.FAILED, (
+        "sabotage failed to reproduce the regression: a zeroed epoch must make "
+        f"this row read failed again; got {after.status}"
     )
 
 

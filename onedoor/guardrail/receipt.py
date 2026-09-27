@@ -229,24 +229,44 @@ def _check_params_provenance(row: sqlite3.Row) -> Check:
     return Check("params_provenance", Status.VERIFIED, value)
 
 
-def _check_reason_vocabulary(row: sqlite3.Row) -> Check:
+def _vocabulary_epoch(conn: sqlite3.Connection, code: str) -> int | None:
+    """The last `actions_audit` id before `code` was retired, if this database
+    has recorded one (migration `0024`, `vocabulary_epochs`) -- `None` if it
+    has not: a database built before `0024` ran, or a code `0024` never named.
+    A row-carried `protocol` stamp cannot mark this boundary for a code
+    retired without a protocol bump, so the boundary is recorded once, at
+    upgrade time, in a table nothing after that moment can write to."""
+    epoch_row = conn.execute(
+        "SELECT last_audit_id_before FROM vocabulary_epochs WHERE code=?", (code,)
+    ).fetchone()
+    return None if epoch_row is None else int(epoch_row["last_audit_id_before"])
+
+
+def _check_reason_vocabulary(conn: sqlite3.Connection, row: sqlite3.Row) -> Check:
     """The reason code is one this PDP can emit, under the protocol the row claims --
     OR one it used to be able to emit, under the protocol the row's OWN stamp proves
-    it was written under.
+    it was written under -- OR one retired at an upgrade this database recorded the
+    boundary of.
 
     A code live in the CURRENT build's vocabulary is `verified`. A retired code is
     not automatically `failed`: an operator who upgrades must not see every historical
     budget denial turn into a failed verification, because those rows were correct
     when written -- a product about honest records cannot show an honest record as
-    failed. So a retired code gets `retired_vocabulary` exactly when the row's own
-    `protocol` column proves it predates that code's retirement (`RETIRED_BEFORE`),
-    and stays `failed` when the row's protocol postdates it -- the two cases differ by
-    WHEN the row was written, never by the code alone, which is why the existing test
-    that forces a retired code into a CURRENT row still fails here, unchanged.
+    failed. So a retired code gets `retired_vocabulary` when either of two markers
+    proves the row predates its retirement:
 
-    Where no row-carried marker can tell "before" from "after" a retirement --
-    `cap_value`/`cap_rate`, retired without a protocol bump -- this still reads
-    `failed`, deliberately unresolved rather than guessed at; see `RETIRED_BEFORE`.
+    - the row's own `protocol` column, for a code whose retirement coincided with a
+      protocol bump (`RETIRED_BEFORE`); or
+    - the row's own `id`, against the upgrade boundary `vocabulary_epochs` recorded
+      once, at migration time, for a code retired WITHOUT a protocol bump -- where a
+      timestamp is not a verified claim and the row itself carries no other marker.
+
+    Either way the two cases differ by WHEN the row was written, never by the code
+    alone, which is why the existing test that forces a retired code into a CURRENT
+    row still fails here, unchanged. A code with neither marker available (no
+    `vocabulary_epochs` entry, this database predates migration `0024`, or the
+    protocol did not bump) stays `failed`, deliberately unresolved rather than
+    guessed at.
     """
     reason = row["reason_code"]
     live = {c.value for c in CheckId}
@@ -259,6 +279,14 @@ def _check_reason_vocabulary(row: sqlite3.Row) -> Check:
             "reason_vocabulary",
             Status.RETIRED_VOCABULARY,
             f"{reason} was live under {protocol}, retired since",
+        )
+    epoch = _vocabulary_epoch(conn, reason)
+    if epoch is not None and int(row["id"]) <= epoch:
+        return Check(
+            "reason_vocabulary",
+            Status.RETIRED_VOCABULARY,
+            f"{reason} was live at audit id {row['id']} "
+            f"(retired at the upgrade recorded after id {epoch})",
         )
     return Check(
         "reason_vocabulary",
@@ -501,7 +529,7 @@ def verify_decision(
         checks=(
             _check_params_byte_form(row),
             _check_params_provenance(row),
-            _check_reason_vocabulary(row),
+            _check_reason_vocabulary(conn, row),
             _check_budget_object(row),
             _check_policy_snapshot(conn, row),
             _check_chain(row),

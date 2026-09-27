@@ -155,16 +155,18 @@ def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> 
     `policies.requires_external_authorization`; `policies.present_bound`) — the line
     this test guards is that a **Studio** table never borrows one of the enforcer's
     numbers, not that the enforcer's own sequence freezes forever. `0023`
-    (`policies.bound_permit_action_type`) was since claimed too, the same way. The
-    live boundary is `0024`.
+    (`policies.bound_permit_action_type`) was since claimed too, the same way. `0024`
+    (`vocabulary_epochs`, an `actions_audit`-adjacent table the enforcer itself
+    writes and reads) was since claimed the same way too. The live boundary is
+    `0025`.
     """
     version = studio.execute("SELECT version FROM studio_schema").fetchone()["version"]
     assert int(version) == store.SCHEMA_VERSION
     from onedoor.store import db as db_module
 
     migrations = Path(db_module.__file__).parent / "migrations"
-    assert not list(migrations.glob("0024*")), (
-        "migration 0024 exists — if it belongs to a Studio table, the boundary "
+    assert not list(migrations.glob("0025*")), (
+        "migration 0025 exists — if it belongs to a Studio table, the boundary "
         "(a table in the Studio's own file must not be written into the enforcer's "
         "history) was crossed"
     )

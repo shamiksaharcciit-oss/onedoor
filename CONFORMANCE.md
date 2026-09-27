@@ -1380,7 +1380,7 @@ reason ∈ {`budget_exhausted`, `rate_exhausted`}. Current shape, per
 
 ```json
 "budget": {
-  "name": "payments.daily",                    // REQUIRED  the same identifier the failing evaluation_trace entry carries as `rule`
+  "name": "payments.transfer.eur_day",         // REQUIRED  the same identifier the failing evaluation_trace entry carries as `rule` -- the action type ("payments.transfer") plus the window kind ("eur_day" | "eur_month" | "rate") that was exhausted, not a free-form label
   "dimension": "EUR",                          // REQUIRED  ISO 4217 for a value budget; a token ("calls") for a rate budget
   "limit": "10000.00",                         // REQUIRED  decimal string, never float
   "remaining": "0.00",                         // REQUIRED  before this request's own reservation
