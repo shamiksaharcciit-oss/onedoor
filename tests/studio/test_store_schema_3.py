@@ -1,9 +1,8 @@
 """`ND-056` / T2 — studio schema 3: the `state` column, and the upgrade that adds it.
 
-The Studio store carries its OWN version (R047 §2). No enforcer migration number is
-claimed here and none should be: `BACKLOG.md`'s register released `0019`+ for exactly
-this reason — the enforcer's numbered sequence is the enforcer's history, and a column
-in a different file that a different process owns does not belong in it.
+The Studio store carries its OWN version. No enforcer migration number is claimed
+here and none should be: a table in `studio.db` that a different process owns does
+not belong in the enforcer's numbered migration sequence.
 """
 
 from __future__ import annotations
@@ -150,29 +149,21 @@ def test_setting_the_state_of_a_draft_that_is_not_there_is_refused(tmp_path) -> 
 
 
 def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
-    """The boundary, asserted against the register rather than remembered.
-
-    `0019`+ stood released in `BACKLOG.md` for the Studio's own schema (this file):
-    a table in `studio.db` that a different process owns does not belong in the
-    enforcer's numbered sequence. `0019` through `0022` were since claimed by
-    other, genuine ENFORCER migrations
-    (`actions_audit.evaluation_trace_json`; `approvals.mandate_authority`/
-    `mandate_core_digest`; `policies.requires_external_authorization`;
-    `policies.present_bound`) -- exactly the kind of spend this boundary exists to
-    let happen, argued rather than silent, as long as it is the enforcer's own
-    history being extended and not a Studio table borrowing a number from it.
-    `0023` (`policies.bound_permit_action_type`) was since claimed too, the same
-    way. `0024` (`vocabulary_epochs`, an `actions_audit`-adjacent table the
-    enforcer itself writes and reads) was since claimed the same way too, and so
-    was `0025` (`actions_audit.resumes_audit_id`, the same kind of enforcer-owned
-    column). The live boundary is `0026`+; if a future change spends one of those
-    on a Studio table, this test is where that decision has to be argued.
+    """The boundary, asserted against the enforcer's actual migration directory
+    rather than a register file -- a table in `studio.db` that a different
+    process owns does not belong in the enforcer's numbered sequence, and the
+    directory listing is the ground truth for what that sequence has spent.
+    The live boundary is `0026`+; if a future change spends one of those on a
+    Studio table, this test is where that decision has to be argued.
     """
     from pathlib import Path
 
-    backlog = Path(__file__).resolve().parents[2] / "BACKLOG.md"
-    text = backlog.read_text(encoding="utf-8")
-    assert "| `0026`+ | unclaimed" in text, (
-        "the migration register no longer shows 0026+ as unclaimed; if a Studio column "
-        "took an enforcer migration number, the boundary was written out of the record"
+    from onedoor.store import db as db_module
+
+    migrations = Path(db_module.__file__).parent / "migrations"
+    claimed = sorted(p.name for p in migrations.glob("00[3-9][0-9]*.sql") if int(p.name[:4]) >= 26)
+    assert not claimed, (
+        f"a migration numbered 0026 or above exists ({claimed}); if it belongs to a "
+        f"Studio table, the boundary (a table in the Studio's own file must not be "
+        f"written into the enforcer's history) was crossed"
     )

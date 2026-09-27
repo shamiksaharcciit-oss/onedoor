@@ -225,16 +225,11 @@ def test_the_note_describes_what_the_engine_does_today(draft) -> None:
         assert hedge.lower() not in note.lower(), f"the note hedges toward a fix: {hedge!r}"
 
 
-def test_the_note_matches_the_behaviour_the_frozen_ticket_measured() -> None:
-    """The wording is drawn from `TICKETS-ND-054.md` §3, which measured it on shipped
-    code. A note that drifted from the measurement would be a note about nothing."""
-    from pathlib import Path
-
-    ticket = Path(__file__).resolve().parents[2] / "TICKETS-ND-054.md"
-    # Whitespace-normalised and de-emphasised: the ticket wraps the sentence across a
-    # line and bolds it, and neither is a change to what it says.
-    text = " ".join(ticket.read_text(encoding="utf-8").replace("**", "").split())
-    assert "Adding a bound changes which wire types the action accepts" in text
+def test_the_note_matches_the_behaviour_originally_measured_on_shipped_code() -> None:
+    """The wording was drawn from a measurement on shipped code (ticket ND-054,
+    archived outside this repository): adding a bound changes which wire types
+    the action accepts. A note that drifted from the measurement would be a
+    note about nothing."""
     assert "changes which wire types that action accepts" in editor.DECIMAL_DIVERGENCE
 
 

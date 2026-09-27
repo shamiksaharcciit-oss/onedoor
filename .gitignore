@@ -8,6 +8,10 @@ __pycache__/
 # the CURRENT code still verifies rows the OLD code sealed. Not generated data --
 # see tests/guardrail/test_stored_v2_chain.py's module docstring.
 !tests/fixtures/chain_v2_61aaeed.db
+# Exception: a real 0.8.0-era ledger, committed as evidence that migration 0025
+# still verifies rows the released 0.8.0 wheel sealed -- see
+# tests/guardrail/test_0_8_0_upgrade.py's module docstring.
+!tests/fixtures/upgrade_0.8.0.db
 .pytest_cache/
 .pytest-tmp/
 .mypy_cache/
@@ -15,3 +19,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# The delivery agent's own instruction file (WO-D6 part 1). Stays on disk here,
+# untracked; the tracked-history copy lives in the private channel repository
+# alongside from_core/ and to_core/.
+CLAUDE.md

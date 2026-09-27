@@ -11,14 +11,15 @@ reader does not have to wonder.
 source calls itself.* An unnumbered acknowledgment gets a date and a subject, never a
 number invented to make it look like the ones around it.
 
-This file used to cross-check every citation's date against the real archive's own
-filenames too. That specific comparison cannot run here any more -- the archive moved
-outside this repository, and CI here will never have both sides of it at once -- but the
-MATCHING LOGIC itself (a cited number and date must agree with the memo's own filename)
-is exactly the kind of thing a regression could silently break without either side's
-content being involved at all. `test_the_matcher_catches_a_real_mismatch` below proves
-that logic against a synthetic fixture built in this file: invented response numbers,
-invented dates, no real correspondence content anywhere in it.
+This file used to audit `CONFORMANCE.md`'s own citations directly (no duplicate response
+number, and a minimum count so an empty search space couldn't pass for the wrong reason).
+That document has since moved out of this repository entirely (WO-D6 part 1): a public
+tree with zero internal-process citations has nothing left in it for that specific audit
+to run against. The MATCHING LOGIC itself (a cited number and date must agree with the
+memo's own filename) still matters wherever a citation like this could recur, so
+`test_the_matcher_catches_a_real_mismatch` below keeps proving it against a synthetic
+fixture built in this file: invented response numbers, invented dates, no real
+correspondence content anywhere in it.
 """
 
 from __future__ import annotations
@@ -26,7 +27,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
 CITATION = re.compile(r"### Resolved by Response (\d+) \(([\d-]{10})\)")
 
 
@@ -54,26 +54,6 @@ def mismatched_citations(text: str, archived: dict[str, str]) -> list[str]:
                 f"{'no memo ' + number if actual is None else 'R' + number + ' (' + actual + ')'}"
             )
     return wrong
-
-
-def test_no_response_number_is_cited_twice() -> None:
-    """The defect's own shape: one number, two meanings.
-
-    A duplicate could in principle name a real, correctly-dated memo both times and
-    still mean two different rulings -- the failure that actually happened -- so this
-    holds regardless of whether the date-matching check can run against the real
-    archive.
-    """
-    text = (ROOT / "CONFORMANCE.md").read_text(encoding="utf-8")
-    numbers = [n for n, _ in CITATION.findall(text)]
-    duplicates = sorted({n for n in numbers if numbers.count(n) > 1})
-    assert not duplicates, f"these response numbers head more than one section: {duplicates}"
-
-
-def test_the_audit_has_something_to_audit() -> None:
-    """A guard whose search space is empty passes for the wrong reason."""
-    text = (ROOT / "CONFORMANCE.md").read_text(encoding="utf-8")
-    assert len(CITATION.findall(text)) > 15
 
 
 def test_the_matcher_catches_a_real_mismatch(tmp_path: Path) -> None:
