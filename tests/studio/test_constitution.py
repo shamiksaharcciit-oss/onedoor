@@ -10,6 +10,7 @@ So the living text pins the origin by digest, and this recomputes it — descent
 
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -27,6 +28,31 @@ def test_the_living_text_pins_its_origin_by_digest() -> None:
     match = PINNED.search(LIVING.read_text(encoding="utf-8"))
     assert match, "the living constitution does not pin its origin"
     assert len(match.group(1)) == 64
+
+
+def test_a_pin_that_drifts_from_its_origin_is_detectable(tmp_path: Path) -> None:
+    """The mechanism `docs/studio-constitution.md` relies on -- a living document
+    pins a digest of its origin file, and descent is checkable rather than
+    narrated -- proven against an invented origin and an invented pin, since the
+    real origin's bytes no longer live in this repository to recompute against.
+
+    Both directions: a pin that matches its origin passes, and a pin that has
+    drifted from it (the origin edited after the pin was taken, or the pin
+    copied from a different revision) is caught, not waved through.
+    """
+    origin = tmp_path / "Fixture_Origin_Note.md"
+    origin.write_text("# A fixture origin\n\nNothing real, just fixture bytes.\n", encoding="utf-8")
+    correct_digest = hashlib.sha256(origin.read_bytes()).hexdigest()
+
+    living_matching = f"sha256(Fixture_Origin_Note.md) = {correct_digest}\n"
+    match = re.search(r"sha256\(Fixture_Origin_Note\.md\) = ([0-9a-f]{64})", living_matching)
+    assert match
+    assert match.group(1) == hashlib.sha256(origin.read_bytes()).hexdigest()
+
+    origin.write_text("# A fixture origin\n\nEdited after the pin was taken.\n", encoding="utf-8")
+    drifted_digest = hashlib.sha256(origin.read_bytes()).hexdigest()
+    assert drifted_digest != correct_digest, "the fixture edit must actually change the bytes"
+    assert match.group(1) != drifted_digest, "a stale pin must disagree with the edited origin"
 
 
 def test_the_pin_is_labelled_an_observation_and_not_an_integrity_hash() -> None:
