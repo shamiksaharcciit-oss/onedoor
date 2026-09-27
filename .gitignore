@@ -20,6 +20,5 @@ __pycache__/
 dist/
 build/
 # The delivery agent's own instruction file. Stays on disk here, untracked;
-# the tracked-history copy lives in the private channel repository alongside
-# from_core/ and to_core/.
+# a tracked-history copy also lives in the private channel repository.
 CLAUDE.md
