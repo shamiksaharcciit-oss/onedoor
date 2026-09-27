@@ -408,8 +408,7 @@ on budget arithmetic — so the stricter-looking check steers callers toward the
 
 Found by the first operator to run `0.6.0` from PyPI. The failing direction is closed (a
 denial, never a permit). The fix widens a verdict from denied to permitted, so it lands as
-the first post-freeze change rather than a hotfix: see `TICKETS-ND-054.md` and
-`escalations/ESCALATION-20260827-006.md`.
+the first post-freeze change rather than a hotfix: see `TICKETS-ND-054.md`.
 
 
 Stated here rather than left to be discovered. The full list, with the measurement

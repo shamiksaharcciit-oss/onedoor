@@ -118,9 +118,10 @@ protection on `main` requires both jobs green.
 Escalations are numbered files (`ESCALATION-YYYYMMDD-NNN.md` style — you are at 005;
 core's responses are at 006). Shamik relays them; batch questions rather than
 sending singletons. Core's responses land as `Core_to_Delivery_Response_NNN` memos.
-Work orders and rulings arrive outside this repository — onedoor is public, and
-correspondence with core is process, not product — and get verified and kept there;
-absorb what they settle into `CONFORMANCE.md` §5 and the affected tickets. **When
+Correspondence with core, in both directions — work orders and rulings arriving,
+and delivery's own escalations going out — is process, not product, and lives
+outside this repository, since onedoor is public; it gets verified and kept there.
+Absorb what it settles into `CONFORMANCE.md` §5 and the affected tickets. **When
 receiving a batch, check every file listed in the memo's "delivered alongside" line
 arrived — two crossings happened because attachments went missing in relay.**
 
