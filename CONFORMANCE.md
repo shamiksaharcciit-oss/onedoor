@@ -1354,8 +1354,8 @@ undefined; it is superseded, not amended.
 ## 6. Target vocabulary (`aadp/0.2`, from `0.4.0`; budget object superseded at `0.8.0`)
 
 The settled spec surface for `ND-002`, `ND-003`, `ND-005`, `ND-009`. Reproduced
-here so implementers have one reference; core's Response 001 is authoritative for
-the reason-code rename and the protocol stamp. The current `budget` object shape
+here so implementers have one reference; Response 001 is authoritative for the
+reason-code rename and the protocol stamp. The current `budget` object shape
 follows `draft-saha-aadp-03` §3.3 and §14, confirmed with core 2026-09-27.
 
 **Reason codes.** `cap_daily_rate` → **`cap_rate`** → **`rate_exhausted`**;
