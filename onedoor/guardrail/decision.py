@@ -50,6 +50,7 @@ from onedoor.guardrail.models import (
     ActionResult,
     CheckId,
     Decision,
+    DecisionRef,
     EngineConfigLike,
     JsonValue,
     Outcome,
@@ -71,6 +72,26 @@ from onedoor.store.db import tx
 
 # EngineConfig lives in executor.py for backwards compatibility; import lazily
 # to avoid a circular import at module load.
+
+
+def _decision_ref(
+    conn: Connection, *, audit_id: int, request_id: UUID, decision: Decision, config: object
+) -> DecisionRef | None:
+    """Fetch the audit row just written and build its reference, or `None` if
+    this deployment has not configured an issuer (`audit.build_decision_ref`
+    does the actual construction -- shared with the replay-reconstruction path,
+    which cannot import this module without a cycle).
+
+    Reads the row BACK from the connection rather than re-serializing values
+    already in hand: the row as SQLite actually stored it is the one thing
+    `onedoor.decision_digest.decision_digest` and a later `python -m
+    onedoor.export` are both guaranteed to agree on.
+    """
+    issuer = getattr(config, "issuer", None)
+    if not issuer:
+        return None
+    row = conn.execute("SELECT * FROM actions_audit WHERE id=?", (audit_id,)).fetchone()
+    return audit.build_decision_ref(row, request_id=request_id, decision=decision, issuer=issuer)
 
 
 @dataclass(frozen=True)
@@ -104,6 +125,14 @@ class PermittedIntent:
     `PermittedIntent` exists with `present_bound` set and `bound_permit_action_type`
     configured, this is always populated. `None` when the policy asked for no bound
     permit at all -- unchanged from before this obligation existed."""
+    decision_ref: DecisionRef | None = None
+    """A reference to this intent's own `exec_intent` row (ruling on joining a
+    onedoor decision to a onetrace run), `verdict="permit"`. Present iff
+    `EngineConfigLike` declares a non-empty `issuer`; a deployment that has not
+    configured one gets no reference, never a guessed value. `report_result`
+    copies this same reference onto the final `ActionResult` unchanged -- a
+    connector failure after this permit is granted does not change what was
+    decided."""
 
 
 def decide_and_reserve(
@@ -125,7 +154,9 @@ def decide_and_reserve(
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
 
     # --- Idempotency / replay guard (no transaction) ---
-    prior = audit.result_for_request_id(conn, request.request_id)
+    prior = audit.result_for_request_id(
+        conn, request.request_id, issuer=getattr(config, "issuer", None)
+    )
     if prior is not None:
         return prior
 
@@ -239,7 +270,16 @@ def decide_and_reserve(
                     )
                     bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                     return ActionResult(
-                        request_id=request.request_id, decision=decision, audit_id=aid
+                        request_id=request.request_id,
+                        decision=decision,
+                        audit_id=aid,
+                        decision_ref=_decision_ref(
+                            conn,
+                            audit_id=aid,
+                            request_id=request.request_id,
+                            decision=decision.decision,
+                            config=config,
+                        ),
                     )
             if matched:
                 effects.extend(e for e in rule.add_effects if e not in effects)
@@ -280,7 +320,18 @@ def decide_and_reserve(
                     evaluation_trace_json=trace.to_json(),
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+                return ActionResult(
+                    request_id=request.request_id,
+                    decision=decision,
+                    audit_id=aid,
+                    decision_ref=_decision_ref(
+                        conn,
+                        audit_id=aid,
+                        request_id=request.request_id,
+                        decision=decision.decision,
+                        config=config,
+                    ),
+                )
             effective_tier = Tier.AUTO
         elif policy.tier == Tier.OBSERVE:
             effective_tier = Tier.OBSERVE  # reads are exempt from the kill switch
@@ -435,7 +486,18 @@ def decide_and_reserve(
                     evaluation_trace_json=trace.to_json(),
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+                return ActionResult(
+                    request_id=request.request_id,
+                    decision=decision,
+                    audit_id=aid,
+                    decision_ref=_decision_ref(
+                        conn,
+                        audit_id=aid,
+                        request_id=request.request_id,
+                        decision=decision.decision,
+                        config=config,
+                    ),
+                )
             if mandate_verdict is mandate.MandateVerdict.PENDING:
                 if int(effective_tier) < int(Tier.CONFIRM):
                     effective_tier = Tier.CONFIRM
@@ -465,7 +527,18 @@ def decide_and_reserve(
                 evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.observed", {"request_id": str(request.request_id)})
-            return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
 
         # 6. BOUNDS — validated for every tier that could execute OR be proposed,
         #    so a human never approves an out-of-bounds action.
@@ -498,7 +571,18 @@ def decide_and_reserve(
                 evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-            return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
 
         # 6b. PRESENT_BOUND (WO-D2 step 4, AADP -03 §6). Consulted only for a policy
         #     that declares it -- an unset bound is a check that never runs, and must
@@ -537,7 +621,18 @@ def decide_and_reserve(
                     evaluation_trace_json=trace.to_json(),
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+                return ActionResult(
+                    request_id=request.request_id,
+                    decision=decision,
+                    audit_id=aid,
+                    decision_ref=_decision_ref(
+                        conn,
+                        audit_id=aid,
+                        request_id=request.request_id,
+                        decision=decision.decision,
+                        config=config,
+                    ),
+                )
 
         # 6c. BOUND PERMIT ISSUANCE PRECONDITIONS (bound-permit profile §§3-4).
         #     Checked here, before any caps reservation, for the same reason 6b is:
@@ -594,7 +689,18 @@ def decide_and_reserve(
                     evaluation_trace_json=trace.to_json(),
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-                return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+                return ActionResult(
+                    request_id=request.request_id,
+                    decision=decision,
+                    audit_id=aid,
+                    decision_ref=_decision_ref(
+                        conn,
+                        audit_id=aid,
+                        request_id=request.request_id,
+                        decision=decision.decision,
+                        config=config,
+                    ),
+                )
 
         # 7. TIER 3 — propose and confirm.
         if effective_tier == Tier.CONFIRM:
@@ -636,6 +742,13 @@ def decide_and_reserve(
                 decision=decision,
                 audit_id=aid,
                 approval_id=approval_id,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
             )
 
         # --- Auto path (Tier 1, Tier 2, or approved override) ---
@@ -672,7 +785,18 @@ def decide_and_reserve(
                 evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.dry_run", {"request_id": str(request.request_id)})
-            return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
 
         # 9. CAPS — action caps AND effect-shared caps, all-or-nothing.
         cap_result = caps.check_and_reserve(
@@ -719,7 +843,18 @@ def decide_and_reserve(
                 evaluation_trace_json=trace.to_json(),
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
-            return ActionResult(request_id=request.request_id, decision=decision, audit_id=aid)
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
         trace.add(
             "caps",
             "budget caps (rate and/or value) must not be exceeded by this action",
@@ -804,6 +939,13 @@ def decide_and_reserve(
         undo_of=undo_of,
         present_bound=policy.present_bound,
         bound_permit=bound_permit_token,
+        decision_ref=_decision_ref(
+            conn,
+            audit_id=intent_id,
+            request_id=request.request_id,
+            decision=Decision.EXECUTED,
+            config=config,
+        ),
     )
 
 
@@ -1042,6 +1184,11 @@ def report_result(
         error=error,
         audit_id=intent.intent_audit_id,
         undo_available_until=intent.undo_until if ok else None,
+        # The reference to the ORIGINAL permit, unchanged -- a connector outcome
+        # (success, failure, timeout) never revises what was decided. Propagated
+        # from the intent, never recomputed here: `result_decision.decision` can
+        # be FAILED, which has no defined decision_ref verdict on purpose.
+        decision_ref=intent.decision_ref,
     )
 
 

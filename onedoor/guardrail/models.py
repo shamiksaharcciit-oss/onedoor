@@ -465,6 +465,35 @@ class Budget(BaseModel):
     """RFC3339, UTC, canonical -- the instant the window rolls and the budget frees."""
 
 
+DECISION_REF_FORMAT: Literal["onedoor-decision-ref/1"] = "onedoor-decision-ref/1"
+"""Ruling on joining a onedoor decision to a onetrace run: the PEP is the one
+component holding both halves at once, and passes onedoor's answer into the
+run's own receipt as this small, plain object. Neither product imports the
+other; they share only this shape."""
+
+
+class DecisionRef(BaseModel):
+    """A reference to one decision, joinable and checkable against an export --
+    never a claim of what was done, only of what was decided and that the
+    record naming it has not been altered.
+
+    `decision_digest` is `onedoor.decision_digest.decision_digest` of the
+    exact audit row this reference names, computed once, at the moment that
+    row is written -- the same function `python -m onedoor.export` calls on
+    the same row later, so a holder of the export can always recompute this
+    value and compare (`onedoor.decision_ref`'s own checker does exactly
+    that). `request_id` is the join key; `decision_digest` is what proves the
+    reference names *that* decision as recorded, not an edited one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    format: Literal["onedoor-decision-ref/1"] = DECISION_REF_FORMAT
+    request_id: UUID
+    decision_digest: str
+    verdict: Literal["permit", "deny", "propose"]
+    issuer: str
+
+
 class PolicyDecision(BaseModel):
     """The fully-explainable verdict."""
 
@@ -497,6 +526,14 @@ class ActionResult(BaseModel):
     audit_id: int | None = None
     approval_id: int | None = None
     undo_available_until: datetime | None = None
+    decision_ref: DecisionRef | None = None
+    """Present iff the deployment has configured `EngineConfig.issuer` -- absent
+    otherwise, never a guessed value (a onedoor deployment with no declared
+    issuer id does not fabricate one from a hostname). For an executed or
+    failed outcome, this names the ORIGINAL decision (the `exec_intent` row,
+    verdict `permit`) that authorised the action, not the result row: a
+    connector failure after a permit was granted does not change what was
+    decided, only what happened next."""
 
 
 class Approval(BaseModel):

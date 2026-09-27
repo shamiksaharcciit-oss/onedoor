@@ -50,7 +50,7 @@ from onedoor.guardrail import rebuild as rebuild_module
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.errors import ApprovalError, ReportError
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Budget, Decision, Outcome, Source
+from onedoor.guardrail.models import ActionRequest, Budget, Decision, DecisionRef, Outcome, Source
 from onedoor.guardrail.received import extract_raw_member
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
@@ -124,6 +124,11 @@ class DecideReply(BaseModel):
     """WO-D2 step 4. Present iff permitted and the policy declared one. A PEP that
     does not recognize this obligation MUST refuse to exercise the permit itself and
     report `not_attempted` (AADP -03 §6's fail-closed rule)."""
+    decision_ref: DecisionRef | None = None
+    """A reference to this decision, joinable and checkable against an export of
+    `actions_audit` (`python -m onedoor.decision_ref check`). Present iff this
+    deployment has configured `EngineConfig.issuer`; absent otherwise, never a
+    guessed value."""
 
 
 class ReportBody(BaseModel):
@@ -173,6 +178,9 @@ class EngineState:
             approval_ttl_seconds=int(os.environ.get("ONEDOOR_APPROVAL_TTL", "3600")),
             connector_timeout_seconds=30.0,
             tz=ZoneInfo(os.environ.get("ONEDOOR_TZ", "UTC")),
+            # A deployment-declared id, never guessed: absent means no decide
+            # response ever carries a decision_ref, not a fabricated hostname.
+            issuer=os.environ.get("ONEDOOR_ISSUER") or None,
         )
         self.lock = threading.Lock()
         self.notifier: Notifier = build_notifier()
@@ -224,6 +232,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
             intent_audit_id=outcome.intent_audit_id,
             undo_until=outcome.undo_until,
             present_bound=outcome.present_bound,
+            decision_ref=outcome.decision_ref,
         )
     d = outcome.decision
     return DecideReply(
@@ -235,6 +244,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
         audit_id=outcome.audit_id,
         approval_id=outcome.approval_id,
         budget=d.budget,
+        decision_ref=outcome.decision_ref,
     )
 
 
@@ -282,7 +292,9 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
 
     @app.post("/v1/report", response_model=DecideReply)
     def report(body: ReportBody, _key: str = Depends(require_decide)) -> DecideReply:
-        outcome = rebuild_module.rebuild(state.conn, body.intent_audit_id)
+        outcome = rebuild_module.rebuild(
+            state.conn, body.intent_audit_id, issuer=getattr(state.config, "issuer", None)
+        )
         if outcome.status is not rebuild_module.RebuildStatus.REBUILT:
             # Four outcomes, and the HTTP status distinguishes them: an absent intent
             # is the client asking about something that is not pending (404), while an

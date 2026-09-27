@@ -72,6 +72,16 @@ class EngineConfig:
     permit_issuer: str | None = None
     permit_issuer_key_id: str | None = None
     permit_issuer_private_key: Any = None
+    # A reference to onedoor's own decision, joinable and checkable against an
+    # export (ruling on joining a onedoor decision to a onetrace run). None (the
+    # default) means no decide response ever carries a decision_ref -- this is a
+    # deployment-declared id, never a hostname guessed at runtime, so a
+    # deployment that has not set one gets no reference rather than a fabricated
+    # one. Distinct from `permit_issuer`: that identifies who signs a bound
+    # permit; this identifies who decided, for a plain, unsigned reference that
+    # every decide response can carry regardless of whether bound permits are
+    # ever used.
+    issuer: str | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:

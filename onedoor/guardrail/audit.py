@@ -14,6 +14,7 @@ from typing import NamedTuple, Protocol
 from uuid import UUID
 
 from onedoor._vendor.canonical import canon_decimal
+from onedoor.decision_digest import decision_digest as compute_decision_digest
 from onedoor.guardrail import digests, signing
 from onedoor.guardrail import preimage as preimage_module
 from onedoor.guardrail.models import (
@@ -21,6 +22,7 @@ from onedoor.guardrail.models import (
     ActionResult,
     CheckId,
     Decision,
+    DecisionRef,
     JsonValue,
     PolicyDecision,
     Source,
@@ -29,6 +31,49 @@ from onedoor.guardrail.models import (
 from onedoor.guardrail.received import Provenance
 from onedoor.store.clock import from_iso, now_utc, to_iso
 from onedoor.store.db import tx
+
+DECISION_REF_VERDICT: dict[Decision, str] = {
+    Decision.EXECUTED: "permit",
+    Decision.DRY_RUN: "permit",
+    Decision.PROPOSED: "propose",
+    Decision.DENIED: "deny",
+    # Decision.FAILED deliberately has no entry: it is a report-time outcome
+    # (Tx B), never a decide-time verdict -- see `build_decision_ref`'s own note.
+}
+
+
+def build_decision_ref(
+    row: sqlite3.Row, *, request_id: UUID, decision: Decision, issuer: str | None
+) -> DecisionRef | None:
+    """The one place a `DecisionRef` is actually built, called from both the
+    decide path (`onedoor.guardrail.decision`) and the replay-reconstruction
+    path (`result_for_request_id`, below) -- `decision.py` already imports
+    this module, so this is where logic shared by both lives, rather than in
+    `models.py` (declared "pure data: no I/O, no DB") or in
+    `onedoor.decision_digest` (stdlib-only, so a consumer can vendor it
+    without onedoor's own dependency tree -- it must not import pydantic).
+
+    `None` if `issuer` is falsy: a deployment that has not configured one gets
+    no reference, never a guessed value. Raises if `decision` has no defined
+    verdict (`Decision.FAILED`, a report-time outcome that must never reach
+    this function) -- a caller passing it is a bug at the call site, not a
+    case to paper over with a default.
+    """
+    if not issuer:
+        return None
+    verdict = DECISION_REF_VERDICT.get(decision)
+    if verdict is None:
+        raise ValueError(
+            f"no decision_ref verdict is defined for {decision!r} -- FAILED is a "
+            "report-time outcome and must never reach this function; the caller is "
+            "naming the wrong row's decision"
+        )
+    return DecisionRef(
+        request_id=request_id,
+        decision_digest=compute_decision_digest(row),
+        verdict=verdict,  # type: ignore[arg-type]
+        issuer=issuer,
+    )
 
 
 def frozen_params(request: ActionRequest) -> tuple[str, str]:
@@ -583,8 +628,17 @@ def _row_decision(row: sqlite3.Row) -> PolicyDecision:
     )
 
 
-def result_for_request_id(conn: sqlite3.Connection, request_id: UUID) -> ActionResult | None:
-    """Reconstruct the prior :class:`ActionResult` for a replayed request, if any."""
+def result_for_request_id(
+    conn: sqlite3.Connection, request_id: UUID, *, issuer: str | None = None
+) -> ActionResult | None:
+    """Reconstruct the prior :class:`ActionResult` for a replayed request, if any.
+
+    `issuer`, when given, reconstructs the same `decision_ref` the original
+    decide call would have returned -- computed from `anchor` (below), the same
+    row `audit_id` already names, never from `primary`, whose own `decision`
+    column can be `FAILED` for an executed-then-failed request and has no
+    defined decision_ref verdict.
+    """
     rows = find_rows(conn, request_id)
     if not rows:
         return None
@@ -624,6 +678,9 @@ def result_for_request_id(conn: sqlite3.Connection, request_id: UUID) -> ActionR
         audit_id=int(anchor["id"]),
         approval_id=primary["approval_id"],
         undo_available_until=undo_until if executed else None,
+        decision_ref=build_decision_ref(
+            anchor, request_id=request_id, decision=Decision(anchor["decision"]), issuer=issuer
+        ),
     )
 
 

@@ -45,7 +45,14 @@ from onedoor.guardrail import approvals, killswitch, policy_loader
 from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, JsonValue, Outcome, Source
+from onedoor.guardrail.models import (
+    ActionRequest,
+    Decision,
+    DecisionRef,
+    JsonValue,
+    Outcome,
+    Source,
+)
 from onedoor.guardrail.received import extract_raw_member
 from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
@@ -102,7 +109,9 @@ class Downstream:
 
 
 class Proxy:
-    def __init__(self, downstream_cmd: str, policies: Path, db_path: str) -> None:
+    def __init__(
+        self, downstream_cmd: str, policies: Path, db_path: str, *, issuer: str | None = None
+    ) -> None:
         self.down = Downstream(downstream_cmd)
         db = Database(db_path)
         db.init()
@@ -112,7 +121,17 @@ class Proxy:
             approval_ttl_seconds=3600,
             connector_timeout_seconds=15.0,
             tz=ZoneInfo("UTC"),
+            issuer=issuer,
         )
+        self.last_decision_ref: DecisionRef | None = None
+        """The reference to the most recent decision this proxy acted on --
+        `None` before any call, or if no `issuer` was configured. The
+        documented hook by which whatever wraps this proxy (a onetrace stage
+        around its stdio process, a test harness) reads the reference: this
+        proxy speaks MCP's own wire format on both sides and does not own the
+        shape of what it forwards, so the reference cannot be embedded in a
+        downstream tool's own JSON-RPC response without conflating two
+        different messages' content."""
 
     # --- the interception ---------------------------------------------------
 
@@ -169,6 +188,7 @@ class Proxy:
             created_at=now,
         )
         outcome = decide_and_reserve(request, conn=self.conn, config=self.config, now=now)
+        self.last_decision_ref = outcome.decision_ref
 
         if isinstance(outcome, PermittedIntent):
             if outcome.present_bound is not None:
@@ -225,6 +245,7 @@ class Proxy:
         outcome = decide_and_reserve(
             approved_req, conn=self.conn, config=self.config, now=now, approved_override=True
         )
+        self.last_decision_ref = outcome.decision_ref
         if not isinstance(outcome, PermittedIntent):
             return {
                 "jsonrpc": "2.0",

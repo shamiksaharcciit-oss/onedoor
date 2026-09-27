@@ -37,8 +37,10 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
-from onedoor.guardrail.models import Source, Tier
+from onedoor.guardrail import audit
+from onedoor.guardrail.models import Decision, DecisionRef, Source, Tier
 from onedoor.store.clock import from_iso
 
 
@@ -119,6 +121,12 @@ class RebuiltIntent:
     a caller cannot reach for the wrong one.
     """
 
+    decision_ref: DecisionRef | None = None
+    """The same reference the original decide call would have returned, rebuilt
+    from the ledger rather than carried over in memory (this whole module's own
+    point). `None` iff the deployment has not configured an issuer -- never a
+    guessed value, the same rule the live path follows."""
+
 
 @dataclass(frozen=True)
 class RebuildResult:
@@ -136,8 +144,15 @@ def _reservation(conn: sqlite3.Connection, intent_audit_id: int) -> sqlite3.Row 
     return row
 
 
-def rebuild(conn: sqlite3.Connection, intent_audit_id: int) -> RebuildResult:
-    """Reconstruct one pending permit, or say precisely why not."""
+def rebuild(
+    conn: sqlite3.Connection, intent_audit_id: int, *, issuer: str | None = None
+) -> RebuildResult:
+    """Reconstruct one pending permit, or say precisely why not.
+
+    `issuer`, when given, rebuilds the same `decision_ref` the original decide
+    call would have returned for this intent (always `verdict="permit"`: an
+    `exec_intent` row is only ever written for one).
+    """
     row = conn.execute(
         "SELECT * FROM actions_audit WHERE id=? AND kind='exec_intent'", (intent_audit_id,)
     ).fetchone()
@@ -207,6 +222,12 @@ def rebuild(conn: sqlite3.Connection, intent_audit_id: int) -> RebuildResult:
             reservation_deltas=deltas,
             reservation_deadline=deadline,
             requested_at=from_iso(str(row["created_at"])),
+            decision_ref=audit.build_decision_ref(
+                row,
+                request_id=UUID(str(row["request_id"])),
+                decision=Decision.EXECUTED,
+                issuer=issuer,
+            ),
         ),
         f"rebuilt from audit row {intent_audit_id}"
         + (f" and its reservation held until {deadline}" if deadline else " (no budget reserved)"),

@@ -27,28 +27,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from onedoor.decision_digest import canonical_row_json, canonical_row_record
 from onedoor.store.clock import from_iso
 from onedoor.store.db import Database
-
-
-def _row_to_record(row: sqlite3.Row) -> dict[str, object]:
-    record: dict[str, object] = {}
-    for key in row.keys():
-        value = row[key]
-        if isinstance(value, float):
-            raise TypeError(
-                f"actions_audit.{key} carries a float ({value!r}) on row id={row['id']!r}; "
-                "onedoor forbids floats on the evaluation path (E10) and this export "
-                "refuses to launder one into a decision record"
-            )
-        record[key] = value
-    return record
 
 
 def export_rows(
@@ -65,16 +51,22 @@ def export_rows(
     values a `datetime` actually means.
     """
     cursor = conn.execute("SELECT * FROM actions_audit ORDER BY id ASC")
-    rows = [_row_to_record(row) for row in cursor.fetchall()]
+    rows = [canonical_row_record(row) for row in cursor.fetchall()]
     if since is None:
         return rows
     return [row for row in rows if from_iso(str(row["created_at"])) >= since]
 
 
 def write_export(conn: sqlite3.Connection, out: Path, *, since: datetime | None = None) -> int:
-    """Write the export and its ``.sha256`` sidecar. Returns the row count."""
+    """Write the export and its ``.sha256`` sidecar. Returns the row count.
+
+    Each line is exactly `canonical_row_json` of that row -- the same
+    rendering `onedoor.decision_digest.decision_digest` hashes, so a
+    `decision_ref` computed at decide time and a digest recomputed later from
+    this file can never disagree about what "the row" was.
+    """
     rows = export_rows(conn, since=since)
-    lines = [json.dumps(row, sort_keys=True, separators=(",", ":")) for row in rows]
+    lines = [canonical_row_json(row).decode("utf-8") for row in rows]
     text = "".join(line + "\n" for line in lines)
     out.write_bytes(text.encode("utf-8"))
     digest = hashlib.sha256(out.read_bytes()).hexdigest()
