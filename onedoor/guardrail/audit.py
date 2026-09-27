@@ -34,12 +34,20 @@ from onedoor.store.db import tx
 
 DECISION_REF_VERDICT: dict[Decision, str] = {
     Decision.EXECUTED: "permit",
-    Decision.DRY_RUN: "permit",
     Decision.PROPOSED: "propose",
     Decision.DENIED: "deny",
-    # Decision.FAILED deliberately has no entry: it is a report-time outcome
-    # (Tx B), never a decide-time verdict -- see `build_decision_ref`'s own note.
 }
+"""`Decision.DRY_RUN` and `Decision.FAILED` are deliberately absent, both
+meaning "no reference", handled explicitly in `build_decision_ref` rather
+than raising:
+
+- `DRY_RUN` executed nothing -- there is nothing for a run to cite. An
+  earlier cut of this module mapped it to `permit`; that was wrong, since
+  nothing was actually enforced.
+- `FAILED` is a report-time outcome (Tx B), never a decide-time verdict.
+"""
+
+_NO_REFERENCE_DECISIONS = (Decision.DRY_RUN, Decision.FAILED)
 
 
 def build_decision_ref(
@@ -54,20 +62,21 @@ def build_decision_ref(
     without onedoor's own dependency tree -- it must not import pydantic).
 
     `None` if `issuer` is falsy: a deployment that has not configured one gets
-    no reference, never a guessed value. Raises if `decision` has no defined
-    verdict (`Decision.FAILED`, a report-time outcome that must never reach
-    this function) -- a caller passing it is a bug at the call site, not a
-    case to paper over with a default.
+    no reference, never a guessed value. `None` too for `DRY_RUN` and
+    `FAILED` (see `_NO_REFERENCE_DECISIONS`), and for an `EXECUTED` row whose
+    `effective_tier` is `Tier.OBSERVE`: observe mode runs the action whatever
+    policy says, so a `permit` reference would claim a decision that gated
+    nothing. Raises for any other `Decision` with no defined verdict -- that
+    is a caller naming the wrong row's decision, not a case to paper over
+    with a default.
     """
-    if not issuer:
+    if not issuer or decision in _NO_REFERENCE_DECISIONS:
         return None
     verdict = DECISION_REF_VERDICT.get(decision)
     if verdict is None:
-        raise ValueError(
-            f"no decision_ref verdict is defined for {decision!r} -- FAILED is a "
-            "report-time outcome and must never reach this function; the caller is "
-            "naming the wrong row's decision"
-        )
+        raise ValueError(f"no decision_ref verdict is defined for {decision!r}")
+    if verdict == "permit" and Tier(int(row["effective_tier"])) == Tier.OBSERVE:
+        return None
     return DecisionRef(
         request_id=request_id,
         decision_digest=compute_decision_digest(row),

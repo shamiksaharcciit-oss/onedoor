@@ -55,6 +55,39 @@ reference: it still names the original `permit` decision, because that is
 what was decided. What happened to the connector afterward is a separate
 fact, reported separately.
 
+### The verdict mapping
+
+A reference may say `permit` only when onedoor actually enforced a permit.
+This table maps every `Decision` value, and mode, to what a decide call
+returns:
+
+| `Decision` | Mode | Reference returned |
+|---|---|---|
+| `EXECUTED` | enforce (an ordinary auto or confirmed real execution) | `permit` |
+| `EXECUTED` | observe (`effective_tier` is `Tier.OBSERVE`) | **none** |
+| `DRY_RUN` | dry-run | **none** |
+| `PROPOSED` | — | `propose` |
+| `DENIED` | — | `deny` |
+| `FAILED` | — (a report-time outcome, never a decide-time verdict) | **none** |
+
+- **Dry-run:** nothing was executed, so there is nothing a reference could
+  cite. Returning `permit` here (an earlier cut of this feature's own
+  mistake) would let a run claim a decision that never actually ran.
+- **Observe mode:** the action goes ahead whatever policy says — that is
+  what "observe" means — so a `permit` reference would claim a decision
+  that gated nothing. `EXECUTED` is the same `Decision` value an ordinary
+  enforced permit gets; what tells them apart is the row's own
+  `effective_tier`, not the `decision` column.
+- If observe mode records the policy's would-be verdict, that stays in the
+  audit row exactly as it does today — reading the export still shows what
+  policy would have said. It simply never appears inside a reference, since
+  a reference specifically claims "this was enforced."
+- The practical effect: a run whose gated stage happened to be running
+  under observe mode has no reference to cite, and shows "no decision
+  cited" to whatever is checking — which is the truth. Telling that apart
+  from "this action was never gated in the first place" is not this
+  reference's job; see the limit below.
+
 ## How the digest is computed
 
 `decision_digest` is the SHA-256 of the canonical JSON rendering of the exact

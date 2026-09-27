@@ -19,6 +19,7 @@ from onedoor.guardrail.executor import (
     resume_approval,
 )
 from onedoor.guardrail.registry import ConnectorRegistry
+from onedoor.store.db import tx
 from tests.conftest import FROZEN_NOW, make_request
 
 ISSUER = "https://onedoor.example/deployment-1"
@@ -81,34 +82,25 @@ def test_a_proposed_decision_carries_a_propose_verdict_matching_the_export(
     assert ref.decision_digest == decision_digest(exported)
 
 
-def test_a_dry_run_decision_carries_a_permit_verdict_matching_the_export(
-    conn: Connection, config: EngineConfig
-) -> None:
+def test_a_dry_run_decision_returns_no_reference(conn: Connection, config: EngineConfig) -> None:
+    """Dry-run executed nothing, so there is nothing a reference could cite."""
     cfg = _with_issuer(config)
     request = make_request("demo.dry", {"target": "demo.lamp", "state": "on"})
     result = decide_and_reserve(request, conn=conn, config=cfg, now=FROZEN_NOW)
     assert isinstance(result, ActionResult)
     assert result.decision.decision.value == "dry_run"
-    ref = result.decision_ref
-    assert ref is not None
-    assert ref.verdict == "permit"
-    exported = _export_by_id(conn)[result.audit_id]
-    assert ref.decision_digest == decision_digest(exported)
+    assert result.decision_ref is None
 
 
-def test_an_observe_decision_carries_a_permit_verdict_matching_the_export(
-    conn: Connection, config: EngineConfig
-) -> None:
+def test_an_observe_decision_returns_no_reference(conn: Connection, config: EngineConfig) -> None:
+    """Observe mode runs the action whatever policy says, so a `permit`
+    reference would claim a decision that gated nothing."""
     cfg = _with_issuer(config)
     result = decide_and_reserve(
         make_request("demo.read", {}), conn=conn, config=cfg, now=FROZEN_NOW
     )
     assert isinstance(result, ActionResult)
-    ref = result.decision_ref
-    assert ref is not None
-    assert ref.verdict == "permit"
-    exported = _export_by_id(conn)[result.audit_id]
-    assert ref.decision_digest == decision_digest(exported)
+    assert result.decision_ref is None
 
 
 def test_a_permitted_intent_carries_a_permit_verdict_matching_the_export(
