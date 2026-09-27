@@ -477,10 +477,15 @@ class Budget(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     name: str
-    """The stable identifier of the counter this budget is drawn from -- the
-    same string keying `cap_counters` (an action type, or `effect:<name>`),
-    and required to equal the `evaluation_trace` entry's own `rule` for this
-    check: two names for what must always be one counter."""
+    """The exhausted counter's own identity: `<key>.<window_kind>`, where `key`
+    is the action type (or `effect:<name>`) and `window_kind` is the counter's
+    own stored kind (`rate` | `eur_day` | `eur_month`, `cap_counters`'s own
+    vocabulary, never invented). `key` alone is not enough -- `cap_counters`'s
+    primary key is `(action_type, window_kind, window_key)`, so an action with
+    both an `eur_day` and an `eur_month` cap has two distinct counters sharing
+    one `key`, and naming only the `key` would give both budgets the same
+    `name`. Required to equal the `evaluation_trace` entry's own `rule` for
+    this check: two names for what must always be one counter."""
     dimension: str
     """An opaque unit label (draft's own words): ISO 4217 for a value budget
     ("EUR"), a token for a rate one ("calls"). Was named `unit` before 0.8.0;

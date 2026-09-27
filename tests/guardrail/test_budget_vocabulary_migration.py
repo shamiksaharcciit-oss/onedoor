@@ -24,6 +24,20 @@ from onedoor.guardrail.receipt import Status, fetch_decision, verify_decision
 from onedoor.store.db import tx
 from tests.conftest import FROZEN_NOW, make_request
 
+
+def _unstamped_cap_denial(conn: Connection, *, reason_code: str, request_id: str) -> int:
+    """A row exactly as pre-0.4.0 code wrote one: no `protocol` column at all (it did
+    not exist yet), so it reads back NULL -- the absent-value rule's `aadp/0.1`. A raw
+    INSERT, not `audit._row_values`, because that helper always stamps the CURRENT
+    protocol; this fixture's whole point is a row with none."""
+    conn.execute(
+        "INSERT INTO actions_audit (request_id, kind, action_type, source, params_json,"
+        " decision, reason_code, nominal_tier, effective_tier, created_at)"
+        " VALUES (?, 'decision', 'demo.legacy_spend', 'ui', '{}', 'denied', ?, 2, 2, ?)",
+        (request_id, reason_code, FROZEN_NOW.isoformat()),
+    )
+    return int(conn.execute("SELECT id FROM actions_audit WHERE request_id=?", (request_id,)).fetchone()["id"])
+
 OLD_VALUE_BUDGET_JSON = json.dumps(
     {
         "dimension": "value",
@@ -105,12 +119,15 @@ def test_old_rows_still_verify_after_new_ones_are_written(
     under the shape it was actually written in -- still holds together;
     neither row is reinterpreted as the other's shape.
 
-    `reason_vocabulary` is deliberately NOT asserted sound here: a retired
-    code failing that specific, narrower check is established, tested
-    behaviour (see `tests/viewer/test_receipt_verification.py`'s own
-    `..._outside_the_vocabulary_fails`), unrelated to whether the row's other
-    evidence still checks out -- widening it would blur a real distinction
-    this codebase already draws on purpose.
+    `reason_vocabulary` still reads `failed` here, not `retired_vocabulary`
+    (core ruling 27o) -- NOT because a retired code is categorically a
+    failure (see `test_a_retired_code_before_its_own_retirement_is_not_
+    failed` below, which is the opposite outcome for a DIFFERENT retired
+    code), but because `cap_value`/`cap_rate` retired at 0.8.0 without a
+    protocol bump: every row since 0.4.0, this fixture's included, carries
+    the identical `aadp/0.2` stamp, so nothing on the row lets this check
+    tell "written in 2026-05, honestly" from "forged today using an old
+    word". See `RETIRED_BEFORE` in `receipt.py`.
     """
     with tx(conn):
         legacy_id = _legacy_cap_denial(
@@ -134,6 +151,58 @@ def test_old_rows_still_verify_after_new_ones_are_written(
     ).fetchone()
     assert legacy_row["reason_code"] == "cap_value"
     assert json.loads(legacy_row["budget_json"]) == json.loads(OLD_VALUE_BUDGET_JSON)
+
+
+def test_a_retired_code_before_its_own_retirement_is_not_failed(conn: Connection) -> None:
+    """Core ruling 27o, case (a) and (c) together: `cap_eur_day` retired at 0.4.0,
+    which is also where the `protocol` column was born. A row with none -- read as
+    `aadp/0.1` by the absent-value rule -- can only predate 0.4.0, so it can only
+    predate this code's own retirement: a real, row-carried marker, not an inference
+    from when someone happened to look.
+
+    An operator who upgrades must not see this honest, contemporaneous record turn
+    into a failed verification -- it gets its own state instead.
+    """
+    audit_id = _unstamped_cap_denial(conn, reason_code="cap_eur_day", request_id="pre-0.4.0")
+    row = conn.execute("SELECT protocol FROM actions_audit WHERE id=?", (audit_id,)).fetchone()
+    assert row["protocol"] is None, "the fixture must genuinely carry no protocol stamp"
+
+    check = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("reason_vocabulary")
+    assert check.status is Status.RETIRED_VOCABULARY, (
+        f"a code retired after this row was written must not read failed; got {check.status}"
+    )
+    assert not check.status is Status.FAILED
+
+
+def test_a_retired_code_after_its_own_retirement_stays_failed(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Core ruling 27o, case (b): the SAME retired code (`cap_eur_day`), on a row
+    whose own protocol stamp is `aadp/0.2` -- current, i.e. from 0.4.0 or later, long
+    after `cap_eur_day` retired. The two cases differ by WHEN the row was written,
+    never by the code alone: same string, opposite verdict, because this row's own
+    marker proves it could not have been an honest record of that code.
+    """
+    decide_and_reserve(make_request("demo.capped", {}), conn=conn, config=config, now=FROZEN_NOW)
+    audit_id = int(
+        conn.execute("SELECT id FROM actions_audit ORDER BY id DESC LIMIT 1").fetchone()["id"]
+    )
+    with tx(conn):
+        conn.execute("DROP TRIGGER actions_audit_no_update")
+        conn.execute(
+            "UPDATE actions_audit SET reason_code=? WHERE id=?", ("cap_eur_day", audit_id)
+        )
+        conn.execute(
+            "CREATE TRIGGER actions_audit_no_update BEFORE UPDATE ON actions_audit "
+            "BEGIN SELECT RAISE(ABORT, 'actions_audit is append-only: UPDATE forbidden'); END"
+        )
+    row = conn.execute("SELECT protocol FROM actions_audit WHERE id=?", (audit_id,)).fetchone()
+    assert row["protocol"] == "aadp/0.2", "the fixture must genuinely carry the current stamp"
+
+    check = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("reason_vocabulary")
+    assert check.status is Status.FAILED, (
+        f"a retired code on a row that postdates its retirement must fail; got {check.status}"
+    )
 
 
 def test_the_chain_verifies_across_the_switch(conn: Connection, config: EngineConfig) -> None:

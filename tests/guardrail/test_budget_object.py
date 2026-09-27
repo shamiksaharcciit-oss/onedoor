@@ -95,7 +95,9 @@ def test_a_value_cap_denial_carries_the_window_the_reason_code_no_longer_says(
         assert budget is not None, "a budget_exhausted denial MUST carry the budget object"
         assert budget.dimension == "EUR", "currency lives in `dimension`, never in a field name"
         assert budget.window == "day", "the window the reason code stopped carrying"
-        assert budget.name == "demo.spend", "the counter's own key, no effect label in play"
+        assert budget.name == "demo.spend.eur_day", (
+            "the counter's full key: action type + this counter's own window_kind"
+        )
     finally:
         conn.close()
 
@@ -124,7 +126,7 @@ def test_a_rate_cap_denial_uses_a_token_dimension(tmp_path: Path) -> None:
         assert denied.decision.reason_code.value == "rate_exhausted"  # type: ignore[union-attr]
         assert budget is not None
         assert budget.dimension == "calls", "a rate is counted in a token, not a currency"
-        assert budget.name == "demo.spend"
+        assert budget.name == "demo.spend.rate"
         assert budget.limit == "1" and budget.consumed == "1" and budget.remaining == "0"
     finally:
         conn.close()
@@ -159,6 +161,59 @@ def test_a_value_budget_and_a_rate_budget_each_name_the_check_that_produced_them
             )
         finally:
             conn.close()
+
+
+def test_a_policy_with_all_three_caps_gives_each_denial_a_distinct_name(
+    tmp_path: Path,
+) -> None:
+    """Core ruling 27o: `key` alone is not a budget's identity -- `cap_counters`
+    is keyed by `(action_type, window_kind, window_key)`, so one action type
+    carrying an `eur_day` cap AND an `eur_month` cap has two distinct
+    counters sharing one `key`. 27l's `name = key` gave both the same name;
+    this proves the fix names each of the three (`eur_day`, `eur_month`,
+    `rate`) distinctly, on a single policy that declares all three at once,
+    with each denial's `name` still equal to its own trace entry's `rule`.
+
+    Each sub-case tunes the *other* two limits generously enough that only
+    the cap under test trips -- day and month totals coincide when every
+    spend in a test happens at the same instant, so isolating one denial at
+    a time requires the untested caps to stay well clear, not merely present.
+    """
+    cases = (
+        ("eur_day", Caps(daily_rate=100, eur_day=Decimal("10.00"), eur_month=Decimal("1000.00")),
+         ("9.00", "2.00"), "demo.spend.eur_day"),
+        ("eur_month", Caps(daily_rate=100, eur_day=Decimal("1000.00"), eur_month=Decimal("50.00")),
+         ("49.00", "2.00"), "demo.spend.eur_month"),
+        ("rate", Caps(daily_rate=1, eur_day=Decimal("1000.00"), eur_month=Decimal("1000.00")),
+         ("0.01", "0.01"), "demo.spend.rate"),
+    )
+    names_seen = set()
+    for label, caps, (first, second), expected_name in cases:
+        conn = _db(tmp_path, f"three-{label}", caps).connect()
+        try:
+            _spend(conn, first)
+            denied = _spend(conn, second)
+            d = denied.decision  # type: ignore[union-attr]
+            assert d.decision is Decision.DENIED, f"{label}: expected a denial"
+            assert d.budget is not None
+            assert d.budget.name == expected_name, (
+                f"{label}: expected name {expected_name!r}, got {d.budget.name!r}"
+            )
+            row = conn.execute(
+                "SELECT evaluation_trace_json FROM actions_audit "
+                "WHERE reason_code=? ORDER BY id DESC LIMIT 1",
+                (d.reason_code.value,),
+            ).fetchone()
+            failing = [e for e in json.loads(row["evaluation_trace_json"]) if e["result"] == "fail"]
+            assert failing, f"{label}: no failing trace entry recorded"
+            assert failing[-1]["rule"] == d.budget.name, (
+                f"{label}: budget.name ({d.budget.name!r}) must equal the failing "
+                f"trace entry's rule ({failing[-1]['rule']!r})"
+            )
+            names_seen.add(d.budget.name)
+        finally:
+            conn.close()
+    assert len(names_seen) == 3, f"the three denials must carry three distinct names: {names_seen}"
 
 
 def test_every_numeric_field_is_a_canonical_decimal_string(tmp_path: Path) -> None:

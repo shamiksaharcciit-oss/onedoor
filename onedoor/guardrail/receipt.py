@@ -73,6 +73,31 @@ as readily as one sealed after."""
 CHAIN_COLUMNS = ("row_hash", "prev_hash", "seq")
 """ND-001's chain, dark in `0.4.1`. All NULL is `absent`; some NULL is `unverifiable`."""
 
+RETIRED_BEFORE: dict[str, str] = {
+    "cap_daily_rate": "aadp/0.1",
+    "cap_eur_day": "aadp/0.1",
+    "cap_eur_month": "aadp/0.1",
+}
+"""Core ruling 27o: for each retired code, the ONE protocol stamp a row must
+carry for that code to be an honest record rather than a failure -- the code
+was live under exactly that protocol, before its own retirement.
+
+`cap_daily_rate`/`cap_eur_day`/`cap_eur_month` retired at 0.4.0, which is also
+where the `protocol` column was born: a row with no stamp (read as `aadp/0.1`,
+the absent-value rule) can only predate 0.4.0, so it can only predate these
+codes' own retirement. That is a real, row-carried marker.
+
+`cap_value`/`cap_rate` are deliberately NOT here. They retired at 0.8.0
+WITHOUT a protocol bump -- `AADP_PROTOCOL` has been the literal constant
+`"aadp/0.2"` since 0.4.0 and did not change for this switch -- so a row
+written the day `cap_value` was born (0.4.0) and a row forged today with the
+same reason code both carry the identical `aadp/0.2` stamp. No column on the
+row distinguishes them, and the reason-code string itself cannot be used as
+its own marker: that is exactly what `reason_vocabulary` is checking, so
+using it as evidence for itself would let a forged row excuse itself just by
+using an old word. Absent a real marker, a `cap_value`/`cap_rate` row still
+reads `failed` here -- unresolved, reported to core rather than guessed at."""
+
 REQUIRED_AUDIT_TRIGGERS = ("actions_audit_no_update", "actions_audit_no_delete")
 
 
@@ -94,6 +119,23 @@ class Status(StrEnum):
     ABSENT = "absent"
     UNVERIFIABLE = "unverifiable"
     FAILED = "failed"
+    RETIRED_VOCABULARY = "retired_vocabulary"
+    """Core ruling 27o: a reason code retired from the CURRENT build's vocabulary,
+    found on a row whose own `protocol` stamp proves it was written before that
+    code's retirement. Not a fault -- the row is an honest record of a decision
+    this PDP correctly made under the vocabulary live at the time -- but distinct
+    from `verified`, because an operator reading a receipt should see that the
+    code is no longer current, not just that the row checks out.
+
+    Judged from the row's OWN `protocol` column, never from the reason-code
+    string itself (that would be circular: the string is the very thing under
+    test, and an attacker forging a row today could simply write an old code
+    into it) and never from `created_at` (a received/generated timestamp is not
+    a verified claim about when a row was sealed). Where no such marker
+    distinguishes "before" from "after" a code's own retirement -- true for
+    `cap_value`/`cap_rate`, retired at 0.8.0 without a protocol bump, so every
+    row from 0.4.0 onward carries the identical `aadp/0.2` stamp either way --
+    this state is not assigned; see `_check_reason_vocabulary`."""
 
 
 @dataclass(frozen=True)
@@ -117,10 +159,11 @@ class Check:
     def is_partial(self) -> bool:
         """True for a check that passed as far as it could and no further.
 
-        `self_consistent` is not a fault -- nothing is wrong -- but it must never be
-        displayed as a pass, so the renderer needs a third class rather than a boolean.
+        `self_consistent` and `retired_vocabulary` are not faults -- nothing is wrong
+        -- but neither must be displayed as a plain pass, so the renderer needs a third
+        class rather than a boolean.
         """
-        return self.status is Status.SELF_CONSISTENT
+        return self.status in (Status.SELF_CONSISTENT, Status.RETIRED_VOCABULARY)
 
 
 @dataclass(frozen=True)
@@ -187,25 +230,41 @@ def _check_params_provenance(row: sqlite3.Row) -> Check:
 
 
 def _check_reason_vocabulary(row: sqlite3.Row) -> Check:
-    """The reason code is one this PDP can emit, under the protocol the row claims.
+    """The reason code is one this PDP can emit, under the protocol the row claims --
+    OR one it used to be able to emit, under the protocol the row's OWN stamp proves
+    it was written under (core ruling 27o).
 
-    Deliberately narrow: LIVE codes only, not "ever valid" -- a retired code
-    failing this check is the established, tested behaviour (a row forced to
-    `cap_eur_day` fails here, on purpose), distinct from whether the row's
-    OTHER evidence (its budget object, its place in the chain) still holds
-    together. Widening this to accept every retired code across every break
-    would blur a real distinction: this check asks "does this build still
-    speak this word", not "was this word ever spoken honestly"."""
+    A code live in the CURRENT build's vocabulary is `verified`. A retired code is
+    not automatically `failed`: an operator who upgrades must not see every historical
+    budget denial turn into a failed verification, because those rows were correct
+    when written -- a product about honest records cannot show an honest record as
+    failed. So a retired code gets `retired_vocabulary` exactly when the row's own
+    `protocol` column proves it predates that code's retirement (`RETIRED_BEFORE`),
+    and stays `failed` when the row's protocol postdates it -- the two cases differ by
+    WHEN the row was written, never by the code alone, which is why the existing test
+    that forces a retired code into a CURRENT row still fails here, unchanged.
+
+    Where no row-carried marker can tell "before" from "after" a retirement --
+    `cap_value`/`cap_rate`, retired without a protocol bump -- this still reads
+    `failed`, deliberately unresolved rather than guessed at; see `RETIRED_BEFORE`.
+    """
     reason = row["reason_code"]
     live = {c.value for c in CheckId}
-    if reason not in live:
+    protocol = row["protocol"] or "aadp/0.1"
+    if reason in live:
+        return Check("reason_vocabulary", Status.VERIFIED, f"{reason} under {protocol}")
+    valid_under = RETIRED_BEFORE.get(reason)
+    if valid_under is not None and protocol == valid_under:
         return Check(
             "reason_vocabulary",
-            Status.FAILED,
-            f"{reason!r} is not in this build's vocabulary",
+            Status.RETIRED_VOCABULARY,
+            f"{reason} was live under {protocol}, retired since",
         )
-    protocol = row["protocol"] or "aadp/0.1"
-    return Check("reason_vocabulary", Status.VERIFIED, f"{reason} under {protocol}")
+    return Check(
+        "reason_vocabulary",
+        Status.FAILED,
+        f"{reason!r} is not in this build's vocabulary",
+    )
 
 
 def _check_budget_object(row: sqlite3.Row) -> Check:

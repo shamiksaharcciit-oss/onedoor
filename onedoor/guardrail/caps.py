@@ -170,7 +170,7 @@ def _check_one(
                 CheckId.RATE_EXHAUSTED,
                 f"daily rate {caps.daily_rate} reached{label}",
                 budget=Budget(
-                    name=key,
+                    name=f"{key}.rate",
                     dimension="calls",  # a token, not a currency: opaque either way
                     limit=canon_decimal(Decimal(caps.daily_rate)),
                     remaining=canon_decimal(max(Decimal(0), Decimal(caps.daily_rate - count))),
@@ -186,7 +186,9 @@ def _check_one(
                 True,
                 CheckId.BUDGET_EXHAUSTED,
                 f"€/day cap {caps.eur_day} reached{label}",
-                budget=_value_budget(key, "day", caps.eur_day, total, _day_resets_at(now, tz)),
+                budget=_value_budget(
+                    f"{key}.eur_day", "day", caps.eur_day, total, _day_resets_at(now, tz)
+                ),
             )
     if caps.eur_month is not None:
         _, total = counters.get((key, "eur_month", month), (0, Decimal(0)))
@@ -196,7 +198,7 @@ def _check_one(
                 CheckId.BUDGET_EXHAUSTED,
                 f"€/month cap {caps.eur_month} reached{label}",
                 budget=_value_budget(
-                    key, "month", caps.eur_month, total, _month_resets_at(now, tz)
+                    f"{key}.eur_month", "month", caps.eur_month, total, _month_resets_at(now, tz)
                 ),
             )
     return CapResult(False)

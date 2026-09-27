@@ -29,10 +29,9 @@ line was used incorrectly") a missing or unreadable file gets instead:
     3   malformed ref     -- the ref itself is not a well-formed decision_ref/1
     4   export damaged    -- the export's .sha256 does not match, or a line will not parse
 
-A damaged export is never silently skipped into looking like `not in export`
-(core ruling, effective immediately): a corrupted or truncated file could
-otherwise hide the very row a reference names, and answer "not in export"
-about a row that is, in fact, there.
+A damaged export is never silently skipped into looking like `not in export`:
+a corrupted or truncated file could otherwise hide the very row a reference
+names, and answer "not in export" about a row that is, in fact, there.
 """
 
 from __future__ import annotations

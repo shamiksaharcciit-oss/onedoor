@@ -92,6 +92,9 @@ _STATUS_CLASS = {
     # keyring is real information and is not verification -- rendering it green would be
     # the page doing exactly what R038 §1 forbids the system to do: witness itself.
     Status.SELF_CONSISTENT: "partial",
+    # Also its own class, not `ok`: an honest record under a vocabulary this build no
+    # longer speaks is not a plain pass, even though nothing is wrong with the row.
+    Status.RETIRED_VOCABULARY: "partial",
     Status.ABSENT: "absent",
     Status.UNVERIFIABLE: "bad",
     Status.FAILED: "bad",
