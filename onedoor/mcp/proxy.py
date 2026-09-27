@@ -131,7 +131,19 @@ class Proxy:
         proxy speaks MCP's own wire format on both sides and does not own the
         shape of what it forwards, so the reference cannot be embedded in a
         downstream tool's own JSON-RPC response without conflating two
-        different messages' content."""
+        different messages' content.
+
+        Safe under concurrent calls because there is no such thing here: this
+        one mutable attribute, with no lock, would be unsafe if two calls
+        could be in flight together, but `serve` below handles exactly one
+        call at a time -- a plain synchronous loop over one stdin stream,
+        where deciding, forwarding to the downstream subprocess, reporting
+        the outcome, and writing the response all block the same thread in
+        order before the next line is even read. Nothing in this module
+        imports threading or asyncio. A caller that needs the reference must
+        still read it before starting its NEXT call through this same proxy,
+        same as it must already do to read the ordinary MCP response for the
+        one it just made."""
 
     # --- the interception ---------------------------------------------------
 

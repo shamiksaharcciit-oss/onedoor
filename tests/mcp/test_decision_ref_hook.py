@@ -7,6 +7,8 @@ messages.
 
 from __future__ import annotations
 
+import io
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -87,3 +89,57 @@ def test_a_resumed_approval_is_obtainable_through_the_hook() -> None:
     assert resume_ref is not None
     assert resume_ref.verdict == "permit"
     assert resume_ref.request_id != propose_ref.request_id
+
+
+def test_serve_handles_one_call_at_a_time_so_last_decision_ref_is_safe() -> None:
+    """`Proxy.last_decision_ref` is a single mutable attribute with no lock,
+    which would be unsafe if two calls could be in flight together. They
+    cannot: `serve` is a plain synchronous `for line in lines` loop over one
+    stdin stream, and every step of handling a call -- deciding, forwarding
+    to the downstream subprocess, reporting the outcome, writing the
+    response -- blocks the same thread in order. Nothing in `proxy.py`
+    imports threading or asyncio, and MCP-over-stdio gives the proxy exactly
+    one input stream to read from, so there is no second call for one to
+    race against.
+
+    This is checked here, not merely asserted, by feeding `serve` two calls
+    for two different cities in one input stream and confirming both that
+    the two responses come back in order, matched to their own call, and
+    that the hook ends up holding the SECOND call's own reference -- the
+    shape a race would get wrong.
+    """
+    proxy = _proxy()
+    lines = io.StringIO(
+        json.dumps(
+            {
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "get_weather", "arguments": {"city": "Amsterdam"}},
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "get_weather", "arguments": {"city": "Utrecht"}},
+            }
+        )
+        + "\n"
+    )
+    out = io.StringIO()
+    proxy.serve(lines, out)
+
+    responses = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert len(responses) == 2
+    assert responses[0]["id"] == 1
+    assert "Amsterdam" in responses[0]["result"]["content"][0]["text"]
+    assert responses[1]["id"] == 2
+    assert "Utrecht" in responses[1]["result"]["content"][0]["text"]
+
+    final_ref = proxy.last_decision_ref
+    assert final_ref is not None
+    row = proxy.conn.execute(
+        "SELECT request_id FROM actions_audit WHERE kind='exec_intent' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert str(final_ref.request_id) == row["request_id"]

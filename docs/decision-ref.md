@@ -124,6 +124,35 @@ The checker is a small function using only the Python standard library
 to check references — never to run onedoor itself — can vendor those two
 functions without taking on onedoor's own dependencies.
 
+## How the executor and the MCP proxy expose it
+
+The in-process engine (`onedoor.guardrail.executor.EngineConfig.issuer`) and
+the HTTP service (`ONEDOOR_ISSUER`) both configure the same thing: whether,
+and as whom, decide calls issue references. Anything calling
+`decide_and_reserve`, `evaluate_and_execute` or `resume_approval` directly
+gets the reference on the object those functions already return — no
+separate hook is needed there.
+
+The MCP proxy (`onedoor.mcp.proxy.Proxy`) is different: it sits between an
+agent and a downstream tool server, speaking that pair's own MCP wire format
+on both sides, and does not own the shape of what it forwards. It cannot
+embed a reference inside a downstream tool's own JSON-RPC response without
+conflating two different messages. Instead it keeps `Proxy.last_decision_ref`
+— the reference to the most recent decision it acted on, `None` before any
+call or when no issuer is configured — as a documented hook for whatever
+wraps the proxy to read.
+
+**This is safe without a lock because the proxy handles exactly one call at
+a time.** `Proxy.serve` is a plain synchronous loop over one stdin stream:
+deciding, forwarding to the downstream subprocess, reporting the outcome,
+and writing the response all block the same thread, in order, before the
+next line is even read. Nothing in the proxy imports threading or asyncio,
+and MCP-over-stdio gives it exactly one input stream to read from, so there
+is no second call for one to race against. A caller does need to read
+`last_decision_ref` before starting its next call through the same proxy —
+the same discipline it already needs for reading that call's own ordinary
+MCP response before sending another.
+
 ## The limit
 
 **A reference proves that a run cites an unaltered decision; it does not
