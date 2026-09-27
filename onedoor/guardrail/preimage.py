@@ -43,7 +43,8 @@ import sqlite3
 VERSION_1 = "onedoor/row-preimage/1"
 VERSION_2 = "onedoor/row-preimage/2"
 VERSION_3 = "onedoor/row-preimage/3"
-CURRENT_VERSION = VERSION_3
+VERSION_4 = "onedoor/row-preimage/4"
+CURRENT_VERSION = VERSION_4
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009, R035 §1): the field records *why*
@@ -56,6 +57,11 @@ reason code, so editing a `fail` entry to `pass` after the fact is exactly the s
 class of edit `approval_ref_status` guards against. Left dark when the trace column
 itself was added (migration `0019`) deliberately, because a version bump was not a
 call to make in that same change; this is that bump, made on its own.
+
+`/4` adds `resumes_audit_id` (WO-D6 part 2, migration `0025`): the audit id of the
+proposal a resumption's own row resumes is exactly the kind of fact this chain
+exists to protect once it is written -- an attacker rewriting which proposal a
+resumption claims to resume is the same class of edit as flipping a reason code.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -131,13 +137,21 @@ FIELD_ORDER_V3: tuple[str, ...] = (*FIELD_ORDER_V2, "evaluation_trace_json")
 verdict's own reason code (see the design note for this version).
 """
 
-FIELD_ORDER = FIELD_ORDER_V3
+FIELD_ORDER_V4: tuple[str, ...] = (*FIELD_ORDER_V3, "resumes_audit_id")
+"""`/4` appends rather than inserts, same precedent as `/2` -> `/3`.
+
+`resumes_audit_id` is hashed because it is the fact a resumption's own row makes
+about itself -- which proposal it resumes (see the design note for this version).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V4
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_1: FIELD_ORDER_V1,
     VERSION_2: FIELD_ORDER_V2,
     VERSION_3: FIELD_ORDER_V3,
+    VERSION_4: FIELD_ORDER_V4,
 }
 """Every version this build can verify.
 

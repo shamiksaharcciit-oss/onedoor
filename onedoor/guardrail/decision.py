@@ -44,7 +44,6 @@ from onedoor.guardrail import (
     opaque_hosts,
 )
 from onedoor.guardrail.audit import RowSource
-from onedoor.guardrail.errors import ReportError
 from onedoor.guardrail.models import (
     ActionRequest,
     ActionResult,
@@ -143,12 +142,20 @@ def decide_and_reserve(
     now: datetime,
     policy_store: PolicyStore | None = None,
     approved_override: bool = False,
+    resumes_audit_id: int | None = None,
 ) -> ActionResult | PermittedIntent:
     """Phase A: evaluate the ordered checks; reserve caps; record intent.
 
     Returns an :class:`ActionResult` when the decision is terminal (nothing to
     enforce), or a :class:`PermittedIntent` when the action may proceed and the
     caller owns execution + :func:`report_result`.
+
+    `resumes_audit_id` (WO-D6 part 2): set by a resumption (an approval or a
+    mandate ratification resuming through :func:`evaluate_and_execute`) to the
+    audit id of the proposal it resumes -- the row this call's own audit row
+    names as what it resumes, so an evidence reader is not left assuming a
+    link that no row actually carries. `None` for an ordinary, non-resumed
+    evaluation, and for every row written before this parameter existed.
     """
     store = policy_store or PolicyStore()
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
@@ -267,6 +274,7 @@ def decide_and_reserve(
                         # during effect resolution, before tier/bounds/caps -- so an
                         # honestly empty trace is correct here, not an omission.
                         evaluation_trace_json=trace.to_json(),
+                        resumes_audit_id=resumes_audit_id,
                     )
                     bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                     return ActionResult(
@@ -318,6 +326,7 @@ def decide_and_reserve(
                     undo_of=undo_of,
                     opaque_class=opaque_class,
                     evaluation_trace_json=trace.to_json(),
+                    resumes_audit_id=resumes_audit_id,
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(
@@ -484,6 +493,7 @@ def decide_and_reserve(
                     undo_of=undo_of,
                     opaque_class=opaque_class,
                     evaluation_trace_json=trace.to_json(),
+                    resumes_audit_id=resumes_audit_id,
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(
@@ -525,6 +535,7 @@ def decide_and_reserve(
                 undo_of=undo_of,
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
             )
             bus.publish(conn, "action.observed", {"request_id": str(request.request_id)})
             return ActionResult(
@@ -569,6 +580,7 @@ def decide_and_reserve(
                 undo_of=undo_of,
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(
@@ -620,6 +632,7 @@ def decide_and_reserve(
                     undo_of=undo_of,
                     opaque_class=opaque_class,
                     evaluation_trace_json=trace.to_json(),
+                    resumes_audit_id=resumes_audit_id,
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(
@@ -688,6 +701,7 @@ def decide_and_reserve(
                     undo_of=undo_of,
                     opaque_class=opaque_class,
                     evaluation_trace_json=trace.to_json(),
+                    resumes_audit_id=resumes_audit_id,
                 )
                 bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
                 return ActionResult(
@@ -732,6 +746,7 @@ def decide_and_reserve(
                 undo_of=undo_of,
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
             )
             bus.publish(
                 conn,
@@ -784,6 +799,7 @@ def decide_and_reserve(
                 undo_of=undo_of,
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
             )
             bus.publish(conn, "action.dry_run", {"request_id": str(request.request_id)})
             return ActionResult(
@@ -852,6 +868,7 @@ def decide_and_reserve(
                 undo_of=undo_of,
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
             )
             bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
             return ActionResult(
@@ -897,6 +914,7 @@ def decide_and_reserve(
             undo_of=undo_of,
             opaque_class=opaque_class,
             evaluation_trace_json=trace.to_json(),
+            resumes_audit_id=resumes_audit_id,
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the
@@ -1032,18 +1050,22 @@ def report_result(
     `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
     of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
 
+    Neither `not_attempted` nor a `failure` reported with `no_effect=True` ever
+    releases the rate-dimension delta (AADP -03 §4.1). A rate budget tracks calls
+    made, and both of these dispositions still represent one call having
+    happened -- releasing it would let a caller cycle decide and
+    not_attempted/no_effect without bound. Only the value-dimension deltas
+    (eur_day/eur_month) go back.
+
     `no_effect` (AADP -03 §4.1): on a `failure` report, a positive
     assertion that the action had NO effect at all -- not "it did not succeed" but
-    "it is known to have touched nothing". The reservation releases, audited the
-    same way as `not_attempted`, with one difference: **the rate-dimension budget is
-    never released**. `not_attempted` means no attempt occurred at all, so the
-    call-count budget it would have consumed is given back too; `no_effect` means an
-    attempt WAS made (that is why it is a `failure`, not a `not_attempted`) and
-    merely had no effect on the resource the value budget tracks -- the attempt still
-    consumed a rate-limited slot, so that counter stays charged. Refused with a
-    stated reason (:class:`~onedoor.guardrail.errors.ReportError`) on any outcome
-    other than `failure`: it is not a softer `not_attempted`, and asserting it
-    against `success` or `timeout` would contradict the outcome itself.
+    "it is known to have touched nothing". The reservation releases the value
+    dimension the same way as `not_attempted` (rate excluded either way, as above).
+    Asserted on any outcome other than `failure`, it is **accepted rather than
+    refused**: AADP -03 §4.1 requires a PDP to ignore it there, not reject the
+    report, so the disposition proceeds exactly as it would with `no_effect`
+    absent, and the exec_result row's own `detail` records that it was asserted
+    and ignored -- nothing is silently dropped.
 
     Accepts a :class:`~onedoor.guardrail.rebuild.RebuiltIntent` as well, so a permit
     that outlived the process that issued it can still be reported (ND-010). The
@@ -1056,11 +1078,11 @@ def report_result(
     restart is learned now, however long ago the action was requested. Backdating it
     would be the ledger testifying to a moment it did not witness.
     """
-    if no_effect and outcome is not Outcome.FAILURE:
-        raise ReportError(
-            f"no_effect requires outcome='failure' (a positive assertion about what a "
-            f"failed attempt touched), got outcome={outcome.value!r}"
-        )
+    # AADP -03 §4.1: a PDP MUST ignore no_effect on any outcome but failure,
+    # never refuse the report over it -- it is not a softer not_attempted, and
+    # asserting it against success/timeout/not_attempted would contradict the
+    # outcome itself, but the contradiction is dropped, not the report.
+    no_effect_ignored = no_effect and outcome is not Outcome.FAILURE
     rebuilt = isinstance(intent, RebuiltIntent)
     row_source: RowSource = intent if rebuilt else intent.request  # type: ignore[assignment,union-attr]
     frozen: tuple[str | bytes, str | None] | None = (
@@ -1084,16 +1106,18 @@ def report_result(
             )
         else:
             # not_attempted: a POSITIVE assertion that the action did not happen, so
-            # the budget it reserved must go back. Settling here is the A4b defect --
-            # permanently charging for an action that never occurred. Only a held
-            # reservation is released; one already reclaimed stays reclaimed.
+            # the value budget it reserved must go back. Settling here is the A4b
+            # defect -- permanently charging for an action that never occurred.
+            # Only a held reservation is released; one already reclaimed stays
+            # reclaimed.
             #
-            # no_effect: a NARROWER release. An attempt was made --
-            # that is why this is a `failure`, not a `not_attempted` -- so the
-            # rate-dimension delta is excluded: the call happened and consumed its
-            # slot regardless of effect. Only the value-dimension deltas (eur_day/
-            # eur_month) go back, since those track an effect that is now known not
-            # to have occurred.
+            # Neither disposition ever releases the rate dimension (WO-D6 addendum
+            # 1, item 1; AADP -03 §4.1): a call happened either way -- an attempt
+            # was made for `no_effect` by definition, and even `not_attempted`
+            # would let a caller cycle decide and not_attempted without bound if
+            # its call-count slot came back too. Only the value-dimension deltas
+            # (eur_day/eur_month) go back, since those track an effect that is now
+            # known not to have occurred.
             row = conn.execute(
                 "SELECT deltas_json FROM cap_reservations "
                 "WHERE intent_audit_id=? AND status='held'",
@@ -1101,11 +1125,7 @@ def report_result(
             ).fetchone()
             if row is not None:
                 all_deltas = [tuple(d) for d in json.loads(row["deltas_json"], parse_float=Decimal)]
-                released_deltas = (
-                    all_deltas
-                    if outcome is Outcome.NOT_ATTEMPTED
-                    else [d for d in all_deltas if d[1] != "rate"]
-                )
+                released_deltas = [d for d in all_deltas if d[1] != "rate"]
                 if released_deltas:
                     caps.release(conn, released_deltas)
                 conn.execute(
@@ -1134,6 +1154,12 @@ def report_result(
         effective_tier=intent.effective_tier,
         nominal_tier=intent.nominal_tier,
         reason_code=CheckId.PASSED,
+        detail=(
+            f"no_effect asserted on outcome={outcome.value!r}: ignored, AADP -03 "
+            f"§4.1 restricts it to a failure report"
+            if no_effect_ignored
+            else ""
+        ),
     )
     topic = "action.executed" if outcome is Outcome.SUCCESS else "action.failed"
     event: dict[str, object] = {

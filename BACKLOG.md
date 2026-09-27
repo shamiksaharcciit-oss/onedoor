@@ -742,7 +742,8 @@ ledger ships in the wheel. B1 unblocked.
 | `0022` | `policies.present_bound`: the per-action-type declared audience URI (AADP -03 §6), same shape as `0021` — a new `Policy` field needs its own migration + `policy_loader`/`policy.py` wiring | **written** |
 | `0023` | `policies.bound_permit_action_type`: the registered action-type name a bound permit's `authorization_details` entry carries, same shape as `0021`/`0022` — a new `Policy` field needs its own migration + `policy_loader`/`policy.py` wiring | **written** |
 | `0024` | `vocabulary_epochs`: the upgrade boundary for a reason code retired without a `protocol` bump (`cap_value`/`cap_rate`) — the last `actions_audit` id at the moment the migration ran, recorded once and append-only, so a row on either side of an upgrade it cannot itself mark still reads honestly | **written**, `0.8.0` |
-| `0025`+ | unclaimed — the slot was **released** by R047 §2 (Studio candidate storage moved to its own `studio.db`) and `0024` above has since claimed it | — |
+| `0025` | `actions_audit.resumes_audit_id`: an optional link from a resumption's own re-evaluation row to the audit id of the proposal it resumes (a link WO-D6 part 2 found no row actually carried) — nullable, set only on a resumption, never rewritten for an existing row | **written**, `0.8.1` |
+| `0026`+ | unclaimed — the slot was **released** by R047 §2 (Studio candidate storage moved to its own `studio.db`) and `0024`/`0025` above have since claimed it | — |
 
 Forward-only migrations mean a collision is a merge conflict that cannot be resolved by
 renumbering after the fact. Claim a number here before writing one.

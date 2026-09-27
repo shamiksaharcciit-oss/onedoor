@@ -5,6 +5,43 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## 0.8.1 — unreleased
+
+Under way; dated and completed once every part of this release has landed.
+
+### Fixed
+
+- **`not_attempted` no longer returns the call-count budget.** Two divergences
+  from `draft-saha-aadp-03` §4.1, found on the published 0.8.0 wheel while
+  writing `-04`:
+  - A rate budget is never released by any outcome. `not_attempted` was
+    releasing it alongside the value dimension — the same over-release the
+    rate exclusion already applied to a `failure`+`no_effect` report, now
+    applied uniformly. A caller could otherwise cycle decide and
+    `not_attempted` to spend rate-limited calls without bound.
+  - `no_effect` asserted on any outcome but `failure` is now **accepted and
+    ignored**, not refused. `-03 §4.1` requires a PDP to ignore it there, not
+    reject the report; the exec_result row's own `detail` records that it was
+    asserted and ignored, so nothing is silently dropped. `ReportError` is no
+    longer raised for this case.
+
+  Both are recorded as open divergences in draft `-04`'s implementation-status
+  appendix; this release closes them.
+
+### Added
+
+- **A resumption's audit row names the proposal it resumes.** An approval or a
+  mandate ratification, resumed through `evaluate_and_execute`, now writes
+  `resumes_audit_id` on its own re-evaluation row: the audit id of the
+  `PROPOSED` decision it resumes. No row previously carried this link — an
+  earlier ruling had assumed one existed. Nullable and set only on a
+  resumption (migration `0025`); a pre-`0.8.1` resumption simply has no link.
+  Included in the export whenever set. The row-preimage version moves to
+  `onedoor/row-preimage/4` to cover the new field; `decision_digest` covers it
+  only when actually set, so an existing row's digest is unchanged and an
+  ordinary (non-resumption) row's digest is unaffected by the column's mere
+  existence.
+
 ## 0.8.0 — 2026-09-27
 
 **One breaking increment: breaking for archives and readers, not for PEP enforcement.**

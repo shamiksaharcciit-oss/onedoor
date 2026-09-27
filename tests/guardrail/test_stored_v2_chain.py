@@ -26,7 +26,7 @@ from onedoor.guardrail import chain
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Source
-from onedoor.guardrail.preimage import VERSION_2, VERSION_3
+from onedoor.guardrail.preimage import CURRENT_VERSION, VERSION_2
 from onedoor.store.db import Database
 from tests.conftest import FROZEN_NOW
 
@@ -66,8 +66,11 @@ def test_the_stored_2_chain_verifies_unchanged_under_the_current_code(
 def test_the_stored_chain_continues_into_3_and_the_mixed_chain_verifies(
     tmp_path: Path,
 ) -> None:
-    """Not simulated: the fixture's real /2 rows, followed by REAL /3 rows written
-    by decide_and_reserve as it stands today (CURRENT_VERSION == VERSION_3)."""
+    """Not simulated: the fixture's real /2 rows, followed by REAL rows written by
+    decide_and_reserve as it stands today, sealed under today's `CURRENT_VERSION`
+    -- whichever version that is; this test does not pin a specific one, since a
+    later bump moving it (as WO-D6 part 2's `/3` -> `/4` did) is not what this
+    test exists to catch."""
     database = _copy(tmp_path)
     conn = database.connect()
     try:
@@ -89,7 +92,7 @@ def test_the_stored_chain_continues_into_3_and_the_mixed_chain_verifies(
 
         report = chain.verify_chain(conn)
         assert report.sound, (
-            f"the mixed /2 -> /3 chain did not verify: "
+            f"the mixed /2 -> current chain did not verify: "
             f"{[(r.status.value, r.detail) for r in report.regions]}"
         )
         assert report.chained_rows == 5 + 3
@@ -99,6 +102,8 @@ def test_the_stored_chain_continues_into_3_and_the_mixed_chain_verifies(
                 "SELECT preimage_version FROM actions_audit WHERE seq IS NOT NULL"
             )
         }
-        assert versions == {VERSION_2, VERSION_3}, "the fixture must actually span both versions"
+        assert versions == {VERSION_2, CURRENT_VERSION}, (
+            "the fixture must actually span both the stored version and today's"
+        )
     finally:
         conn.close()

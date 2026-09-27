@@ -184,9 +184,15 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         now = now_utc()
         with self._lock:
             original = approvals.cas_approve(self._conn, approval_id, "langchain-human", now)
+            proposal_audit_id = approvals.proposed_audit_id(self._conn, approval_id)
             resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
             outcome = decide_and_reserve(
-                resumed, conn=self._conn, config=self._config, now=now, approved_override=True
+                resumed,
+                conn=self._conn,
+                config=self._config,
+                now=now,
+                approved_override=True,
+                resumes_audit_id=proposal_audit_id,
             )
             if isinstance(outcome, PermittedIntent):
                 approvals.mark_executed(self._conn, approval_id, outcome.intent_audit_id)

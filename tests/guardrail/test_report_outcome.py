@@ -35,20 +35,22 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from onedoor.guardrail import policy_loader
+from onedoor.guardrail import caps, policy_loader
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from onedoor.guardrail.errors import ReportError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import (
     ActionRequest,
+    ActionResult,
     Bounds,
     Caps,
+    CheckId,
+    Decision,
     Outcome,
     Policy,
     Source,
     Tier,
 )
-from onedoor.store.db import Database
+from onedoor.store.db import Database, tx
 
 NOW = datetime(2026, 7, 5, 12, 0, tzinfo=UTC)
 CONFIG = EngineConfig(approval_ttl_seconds=3600, connector_timeout_seconds=5.0, tz=ZoneInfo("UTC"))
@@ -314,44 +316,118 @@ def test_a_plain_failure_still_settles(spend: Database) -> None:
         conn.close()
 
 
-def test_a_timeout_with_no_effect_is_refused(spend: Database) -> None:
-    """no_effect is refused on any outcome but failure -- stated, not silently ignored."""
+def test_no_effect_on_a_timeout_is_accepted_and_ignored(spend: Database) -> None:
+    """WO-D6 addendum 1, item 2: AADP -03 §4.1 requires a PDP to IGNORE no_effect
+    on any outcome but failure, never refuse the report over it -- the 0.8.0
+    behaviour (a stated `ReportError`) was itself the divergence."""
     conn = spend.connect()
     try:
         intent = _permit(conn, "10.00")
-        with pytest.raises(ReportError, match="failure"):
-            report_result(
-                intent,
-                conn=conn,
-                outcome=Outcome.TIMEOUT,
-                payload=None,
-                error="t",
-                no_effect=True,
-                now=NOW,
-            )
+        result = report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.TIMEOUT,
+            payload=None,
+            error="t",
+            no_effect=True,
+            now=NOW,
+        )
+        assert result.decision.decision == Decision.FAILED
+        assert _spent(conn) == Decimal("10.00"), "a timeout still settles; no_effect had no bearing"
     finally:
         conn.close()
 
 
 @pytest.mark.parametrize("outcome", [Outcome.SUCCESS, Outcome.NOT_ATTEMPTED])
-def test_no_effect_is_refused_on_success_and_not_attempted(
+def test_no_effect_on_success_or_not_attempted_is_accepted_and_ignored(
     spend: Database, outcome: Outcome
 ) -> None:
+    """Accepted as if `no_effect` were absent: the disposition follows `outcome`
+    alone, exactly as `test_the_four_outcomes_do_not_collapse`'s own family
+    already proves for a report with no `no_effect` at all."""
     conn = spend.connect()
     try:
         intent = _permit(conn, "10.00")
-        with pytest.raises(ReportError):
-            report_result(
-                intent,
-                conn=conn,
-                outcome=outcome,
-                payload=None,
-                error=None,
-                no_effect=True,
-                now=NOW,
-            )
+        report_result(
+            intent,
+            conn=conn,
+            outcome=outcome,
+            payload=None,
+            error=None,
+            no_effect=True,
+            now=NOW,
+        )
+        expected_spent = Decimal(0) if outcome is Outcome.NOT_ATTEMPTED else Decimal("10.00")
+        assert _spent(conn) == expected_spent, (
+            "no_effect must not change a disposition it does not apply to"
+        )
     finally:
         conn.close()
+
+
+def test_no_effect_ignored_is_recorded_in_the_exec_result_rows_own_detail(spend: Database) -> None:
+    """ "the entry shows the ignored flag" (WO-D6 addendum 1, item 2): a `no_effect`
+    asserted where it does not apply is not silently dropped -- it is recorded,
+    once, on the row it was asserted against."""
+    conn = spend.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.SUCCESS,
+            payload=None,
+            error=None,
+            no_effect=True,
+            now=NOW,
+        )
+        row = conn.execute("SELECT detail FROM actions_audit WHERE kind='exec_result'").fetchone()
+        assert "no_effect" in row["detail"] and "ignored" in row["detail"]
+    finally:
+        conn.close()
+
+
+def test_no_effect_ignored_flag_is_absent_when_no_effect_genuinely_applies(
+    spend: Database,
+) -> None:
+    """The flag names an IGNORED assertion specifically -- a genuine
+    `failure`+`no_effect` report (the one case it does apply to) carries none."""
+    conn = spend.connect()
+    try:
+        intent = _permit(conn, "10.00")
+        report_result(
+            intent,
+            conn=conn,
+            outcome=Outcome.FAILURE,
+            payload=None,
+            error="boom",
+            no_effect=True,
+            now=NOW,
+        )
+        row = conn.execute("SELECT detail FROM actions_audit WHERE kind='exec_result'").fetchone()
+        assert row["detail"] == ""
+    finally:
+        conn.close()
+
+
+def test_sabotage_the_old_refusal_would_have_rejected_this_exact_report() -> None:
+    """The four tests above are not vacuous. `report_result` used to raise
+    `ReportError` here:
+
+        if no_effect and outcome is not Outcome.FAILURE:
+            raise ReportError(...)
+
+    reconstructed verbatim and checked against the exact input
+    `test_no_effect_on_a_timeout_is_accepted_and_ignored` uses -- proving the
+    removed check really would have refused the report the fix now accepts,
+    not that it happened to never apply."""
+    outcome = Outcome.TIMEOUT
+    no_effect = True
+    old_check_would_have_refused = no_effect and outcome is not Outcome.FAILURE
+    assert old_check_would_have_refused, (
+        "the removed check must actually fire on this input, or the acceptance "
+        "test above proves nothing about the fix"
+    )
 
 
 def test_a_failure_with_no_effect_releases_the_value_budget(spend_and_call: Database) -> None:
@@ -461,5 +537,94 @@ def test_no_effect_on_an_already_reclaimed_reservation_does_not_double_release(
             now=NOW,
         )
         assert _spent(conn) == before, "an expired reservation must not be released again"
+    finally:
+        conn.close()
+
+
+# --- not_attempted never releases the rate dimension (WO-D6 addendum 1, item 1) ---
+
+
+@pytest.fixture
+def rate_capped(tmp_path: Path) -> Database:
+    """A rate cap of exactly 1 -- tight enough that a second decide, right after
+    the first is reported `not_attempted`, directly proves whether the call-count
+    slot came back."""
+    database = Database(str(tmp_path / "rate_capped.db"))
+    database.init()
+    conn = database.connect()
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="demo.spend",
+            tier=Tier.AUTO_CAPPED,
+            dry_run=False,
+            compensating_command="demo.spend",
+            caps=Caps(daily_rate=1),
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    conn.close()
+    return database
+
+
+def _second_decide(conn: object) -> ActionResult | PermittedIntent:
+    return decide_and_reserve(
+        ActionRequest(
+            request_id=uuid4(),
+            action_type="demo.spend",
+            params={},
+            source=Source.UI,
+            rationale="second",
+            cost_eur=Decimal("1.00"),
+            created_at=NOW,
+        ),
+        conn=conn,  # type: ignore[arg-type]
+        config=CONFIG,
+        now=NOW,
+    )
+
+
+def test_not_attempted_repeated_past_the_rate_limit_still_denies(rate_capped: Database) -> None:
+    """WO-D6 addendum 1, item 1's own test: decide, then `not_attempted`, repeated
+    past the rate limit, must still deny with `rate_exhausted` -- proving the
+    rate counter was never given back, unlike the value dimension."""
+    conn = rate_capped.connect()
+    try:
+        first = _permit(conn, "1.00")
+        report_result(
+            first, conn=conn, outcome=Outcome.NOT_ATTEMPTED, payload=None, error=None, now=NOW
+        )
+        second = _second_decide(conn)
+        assert isinstance(second, ActionResult)
+        assert second.decision.decision == Decision.DENIED
+        assert second.decision.reason_code == CheckId.RATE_EXHAUSTED
+    finally:
+        conn.close()
+
+
+def test_sabotage_releasing_the_rate_counter_again_lets_the_limit_be_exceeded(
+    rate_capped: Database,
+) -> None:
+    """The positive test above is not vacuous: releasing the rate delta again
+    after `report_result` -- exactly what the pre-fix code did for
+    `not_attempted` (`released_deltas = all_deltas if outcome is
+    Outcome.NOT_ATTEMPTED else ...`) -- reproduced here directly against the
+    live counters, shows the identical two-decide sequence now wrongly executes
+    a second time instead of denying."""
+    conn = rate_capped.connect()
+    try:
+        first = _permit(conn, "1.00")
+        report_result(
+            first, conn=conn, outcome=Outcome.NOT_ATTEMPTED, payload=None, error=None, now=NOW
+        )
+        # Sabotage: reproduce the old bug's own effect directly, against the same
+        # live counters `check_and_reserve`/`release` already maintain.
+        with tx(conn):
+            caps.release(conn, [("demo.spend", "rate", caps._day_key(NOW, CONFIG.tz), 1, "0")])
+        second = _second_decide(conn)
+        assert isinstance(second, PermittedIntent), (
+            "sabotaging the release must let a second call through -- proving the "
+            "positive test's denial actually depends on the fix, not on something else"
+        )
     finally:
         conn.close()

@@ -38,8 +38,9 @@ class UndoError(GuardrailError):
 class ReportError(GuardrailError):
     """A `/v1/report` body asserts something the outcome vocabulary does not allow.
 
-    E.g. `no_effect=True` on an outcome other than `failure` (AADP -03 §4.1):
-    `no_effect` is a claim about what a *failed* attempt did, and has no
-    meaning against `success` (it plainly had an effect), `timeout` (doubt, not a
-    positive assertion) or `not_attempted` (already the strongest release there is).
+    Currently unraised: the one case this existed for -- `no_effect=True` on an
+    outcome other than `failure` -- is accepted and ignored as of 0.8.1, not
+    refused (AADP -03 §4.1 requires a PDP to ignore it there, not reject the
+    report). Kept for a future outcome-vocabulary violation that does need a
+    hard refusal.
     """

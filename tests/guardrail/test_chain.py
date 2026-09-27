@@ -668,10 +668,11 @@ def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(
     """The `/2 -> /3` sibling of the `/1 -> /2` test above -- the exact seam R035 §1's
     `preimage_version` hint was built to survive, now actually crossed.
 
-    Row 1 is force-sealed as if written before `evaluation_trace_json` was hashed in;
-    row 2 is native `/3` (today's `CURRENT_VERSION`), and its hash was computed at
-    write time over row 1's ORIGINAL (native) hash, so it must be recomputed once row
-    1 is re-sealed and re-linked -- the identical shape as the `/1 -> /2` fixture.
+    Both rows are force-sealed: row 1 as if written before `evaluation_trace_json`
+    was hashed in, row 2 as `/3` -- one version behind today's `CURRENT_VERSION`
+    (`/4`, WO-D6 part 2's `resumes_audit_id`), the same way row 1 is one version
+    behind row 2 here. Row 2's hash is recomputed under `/3` over row 1's
+    re-sealed hash, the identical shape as the `/1 -> /2` fixture.
     """
     from onedoor.guardrail.preimage import VERSION_2, VERSION_3, row_hash, values_from_row
 
@@ -688,6 +689,7 @@ def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(
     second = conn.execute("SELECT * FROM actions_audit WHERE seq=2").fetchone()
     relinked = values_from_row(second, VERSION_3)
     relinked["prev_hash"] = v2_hash
+    _force(conn, int(second["id"]), "preimage_version", VERSION_3)
     _force(conn, int(second["id"]), "prev_hash", v2_hash)
     _force(conn, int(second["id"]), "row_hash", row_hash(relinked, VERSION_3))
 

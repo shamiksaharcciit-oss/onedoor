@@ -122,6 +122,7 @@ def evaluate_and_execute(
     now: datetime,
     policy_store: PolicyStore | None = None,
     approved_override: bool = False,
+    resumes_audit_id: int | None = None,
 ) -> ActionResult:
     """Evaluate a request against policy and, if permitted, execute it.
 
@@ -130,6 +131,10 @@ def evaluate_and_execute(
     outside any DB lock -> :func:`onedoor.guardrail.decision.report_result` (Tx B).
     External enforcement points (an MCP proxy, a gateway filter) compose the
     same two phases around their own act.
+
+    `resumes_audit_id` (WO-D6 part 2): passed through unchanged to
+    :func:`onedoor.guardrail.decision.decide_and_reserve`, which is where it is
+    actually documented -- see there.
     """
     outcome = decision_mod.decide_and_reserve(
         request,
@@ -138,6 +143,7 @@ def evaluate_and_execute(
         now=now,
         policy_store=policy_store,
         approved_override=approved_override,
+        resumes_audit_id=resumes_audit_id,
     )
     if not isinstance(outcome, decision_mod.PermittedIntent):
         return outcome
@@ -237,6 +243,7 @@ def resume_approval(
     when = now or now_utc()
     with tx(conn):
         original = approvals.cas_approve(conn, approval_id, session_id, when)
+        proposal_audit_id = approvals.proposed_audit_id(conn, approval_id)
     resumed = original.model_copy(update={"request_id": uuid4(), "created_at": when})
     result = evaluate_and_execute(
         resumed,
@@ -246,6 +253,7 @@ def resume_approval(
         now=when,
         policy_store=policy_store,
         approved_override=True,
+        resumes_audit_id=proposal_audit_id,
     )
     with tx(conn):
         approvals.mark_executed(conn, approval_id, result.audit_id)
@@ -272,6 +280,7 @@ def resume_ratification(
     when = now or now_utc()
     with tx(conn):
         original = approvals.cas_resume_ratified(conn, approval_id, when)
+        proposal_audit_id = approvals.proposed_audit_id(conn, approval_id)
     resumed = original.model_copy(update={"request_id": uuid4(), "created_at": when})
     result = evaluate_and_execute(
         resumed,
@@ -281,6 +290,7 @@ def resume_ratification(
         now=when,
         policy_store=policy_store,
         approved_override=True,
+        resumes_audit_id=proposal_audit_id,
     )
     with tx(conn):
         approvals.mark_executed(conn, approval_id, result.audit_id)

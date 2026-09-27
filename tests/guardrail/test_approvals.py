@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 from sqlite3 import Connection
+from uuid import uuid4
 
 import pytest
 
+from onedoor.export import export_rows
 from onedoor.guardrail import approvals, killswitch
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import (
@@ -107,3 +109,118 @@ def test_resume_rechecks_kill_switch(
     # Kill switch engaged after proposal -> approved action is blocked, not executed.
     assert result.decision.decision == Decision.DENIED
     assert result.executed is False
+
+
+# --- resumes_audit_id (WO-D6 part 2): the link 26z assumed but no row carried ----
+
+
+def test_resumption_names_the_proposals_audit_id(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """Canary showed, with real fixtures, that a resumption's audit row carries no
+    field linking it to the proposal it resumes; ruling 26z had assumed one
+    existed. This is that link, checked directly against the row it names."""
+    now = make_request("demo.unlisted").created_at
+    req = make_request("demo.unlisted", now=now)
+    proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
+    assert proposed.approval_id is not None
+    proposal_audit_id = proposed.audit_id
+
+    result = resume_approval(
+        proposed.approval_id, "sess-1", conn=conn, registry=registry, config=config, now=now
+    )
+    assert result.executed is True
+    row = conn.execute(
+        "SELECT resumes_audit_id FROM actions_audit WHERE id=?", (result.audit_id,)
+    ).fetchone()
+    assert row["resumes_audit_id"] == proposal_audit_id
+
+
+def test_a_replayed_resumption_does_not_add_a_second_link(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """The idempotency guard returns the recorded result for a repeated
+    request_id (test_decision_split.py's own `test_replay_guard_runs_before_decide`,
+    applied here): a replayed resumption must not write a second linked row."""
+    now = make_request("demo.unlisted").created_at
+    req = make_request("demo.unlisted", now=now)
+    proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
+    approval_id = proposed.approval_id
+    assert approval_id is not None
+    proposal_audit_id = proposed.audit_id
+
+    with tx(conn):
+        original = approvals.cas_approve(conn, approval_id, "sess-1", now)
+    resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
+
+    first = evaluate_and_execute(
+        resumed,
+        conn=conn,
+        registry=registry,
+        config=config,
+        now=now,
+        approved_override=True,
+        resumes_audit_id=proposal_audit_id,
+    )
+    assert first.executed is True
+
+    replay = evaluate_and_execute(
+        resumed,
+        conn=conn,
+        registry=registry,
+        config=config,
+        now=now,
+        approved_override=True,
+        resumes_audit_id=proposal_audit_id,
+    )
+    assert replay.audit_id == first.audit_id, (
+        "a replay must return the recorded result, not write again"
+    )
+
+    count = conn.execute(
+        "SELECT COUNT(*) AS n FROM actions_audit WHERE resumes_audit_id=?", (proposal_audit_id,)
+    ).fetchone()["n"]
+    assert count == 1, "a replay of the same resumed request must not add a second link"
+
+
+def test_export_carries_the_resumption_link(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    now = make_request("demo.unlisted").created_at
+    req = make_request("demo.unlisted", now=now)
+    proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
+    assert proposed.approval_id is not None
+    proposal_audit_id = proposed.audit_id
+
+    result = resume_approval(
+        proposed.approval_id, "sess-1", conn=conn, registry=registry, config=config, now=now
+    )
+    exported = export_rows(conn)
+    resumption_record = next(r for r in exported if r["id"] == result.audit_id)
+    assert resumption_record["resumes_audit_id"] == proposal_audit_id
+
+
+def test_sabotage_omitting_resumes_audit_id_leaves_no_link(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """The three tests above are not vacuous: reconstructed here without passing
+    `resumes_audit_id` at all -- the pre-0.8.1 call shape -- to prove the link
+    genuinely depends on threading it through, not on some other mechanism that
+    would populate it regardless."""
+    now = make_request("demo.unlisted").created_at
+    req = make_request("demo.unlisted", now=now)
+    proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
+    approval_id = proposed.approval_id
+    assert approval_id is not None
+
+    with tx(conn):
+        original = approvals.cas_approve(conn, approval_id, "sess-1", now)
+    resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
+    result = evaluate_and_execute(
+        resumed, conn=conn, registry=registry, config=config, now=now, approved_override=True
+    )
+    assert result.executed is True
+    row = conn.execute(
+        "SELECT resumes_audit_id FROM actions_audit WHERE id=?", (result.audit_id,)
+    ).fetchone()
+    assert row["resumes_audit_id"] is None, "omitting the parameter must leave no link"

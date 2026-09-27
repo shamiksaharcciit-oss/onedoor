@@ -320,6 +320,7 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "opaque_class",
     "approval_ref_status",
     "evaluation_trace_json",
+    "resumes_audit_id",
     "preimage_version",
     "e_digest",
     "i_digest",
@@ -383,6 +384,7 @@ def append(
     frozen: tuple[str | bytes, str | None] | None = None,
     approval_ref_status: str | None = None,
     evaluation_trace_json: str | None = None,
+    resumes_audit_id: int | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -411,6 +413,7 @@ def append(
         frozen=frozen,
         approval_ref_status=approval_ref_status,
         evaluation_trace_json=evaluation_trace_json,
+        resumes_audit_id=resumes_audit_id,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -457,6 +460,7 @@ def _row_values(
     frozen: tuple[str | bytes, str | None] | None = None,
     approval_ref_status: str | None = None,
     evaluation_trace_json: str | None = None,
+    resumes_audit_id: int | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -525,6 +529,10 @@ def _row_values(
             "opaque_class": opaque_class,
             "approval_ref_status": approval_ref_status,
             "evaluation_trace_json": evaluation_trace_json,
+            # WO-D6 part 2: the audit id of the proposal this row resumes, if this
+            # row is a resumption's own re-evaluation -- `None` for an ordinary
+            # decision and for every row written before this column existed.
+            "resumes_audit_id": resumes_audit_id,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (X-14, and see `_stamp_chain`).

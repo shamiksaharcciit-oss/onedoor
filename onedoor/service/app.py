@@ -355,9 +355,15 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
                 original = approvals.cas_approve(state.conn, approval_id, f"key:{_key[:6]}", now)
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
+            proposal_audit_id = approvals.proposed_audit_id(state.conn, approval_id)
             resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
             outcome = decide_and_reserve(
-                resumed, conn=state.conn, config=state.config, now=now, approved_override=True
+                resumed,
+                conn=state.conn,
+                config=state.config,
+                now=now,
+                approved_override=True,
+                resumes_audit_id=proposal_audit_id,
             )
             if isinstance(outcome, PermittedIntent):
                 approvals.mark_executed(state.conn, approval_id, outcome.intent_audit_id)

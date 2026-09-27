@@ -24,10 +24,26 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     allowed (E10: every numeric column on this table is an integer or an
     already-canonical decimal string inside a JSON-text column, so a float here
     is a bug in the row, not a formatting choice).
+
+    One deliberate exception: `resumes_audit_id` (migration `0025`, WO-D6 part 2)
+    is omitted when it is `None`. Every other column already existed when this
+    function was written, so a row that predates it was never digested without
+    that column present. `resumes_audit_id` is different: a row written and
+    digested BEFORE migration `0025` ran gets read back afterwards with this
+    column newly present (SQL NULL, from the `ALTER TABLE`) -- and this function
+    reads `row.keys()` from whatever the connection hands it, so an unqualified
+    inclusion would change that row's digest the moment the column existed,
+    breaking "the decision_digest of every existing row is unchanged" for every
+    row ever written. Omitting it when `None` makes an old row's digest and a
+    new, ordinary (non-resumption) row's digest identical to what they would be
+    without the column at all; a genuine resumption sets a real value, which IS
+    included, covering the new field like any other.
     """
     keys = row.keys()
     record: dict[str, object] = {}
     for key in keys:
+        if key == "resumes_audit_id" and row[key] is None:
+            continue
         value = row[key]
         if isinstance(value, float):
             row_id = row["id"] if "id" in keys else "?"

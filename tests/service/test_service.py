@@ -211,7 +211,9 @@ def test_no_approval_ref_behaves_exactly_as_today(client: TestClient) -> None:
 # --- no_effect over HTTP -----------------------------------------------------------
 
 
-def test_no_effect_on_a_timeout_is_refused_over_http(client: TestClient) -> None:
+def test_no_effect_on_a_timeout_is_accepted_and_ignored_over_http(client: TestClient) -> None:
+    """WO-D6 addendum 1, item 2: AADP -03 §4.1 requires a PDP to IGNORE `no_effect`
+    on any outcome but `failure`, never refuse the report over it."""
     r = client.post(
         "/v1/decide",
         json={"action_type": "demo.capped", "params": {}},
@@ -223,8 +225,8 @@ def test_no_effect_on_a_timeout_is_refused_over_http(client: TestClient) -> None
         json={"intent_audit_id": intent_audit_id, "outcome": "timeout", "no_effect": True},
         headers=_h("dkey"),
     )
-    assert rep.status_code == 400
-    assert "failure" in rep.json()["detail"]
+    assert rep.status_code == 200
+    assert rep.json()["decision"] == "failed", "a timeout still settles; no_effect had no bearing"
 
 
 def test_no_effect_on_a_failure_never_releases_the_rate_budget_over_http(

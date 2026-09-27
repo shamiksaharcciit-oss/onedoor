@@ -190,6 +190,26 @@ def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datet
         raise ApprovalError(f"approval {approval_id} not pending")
 
 
+def proposed_audit_id(conn: sqlite3.Connection, approval_id: int) -> int | None:
+    """The audit id of the row that proposed this approval (`kind='decision'`,
+    the Tier-3 `PROPOSED` verdict written when the approval was created) --
+    the link a resumption's own new audit row needs to name what it resumes
+    (WO-D6 part 2). `None` if somehow no such row exists (defensive; every
+    approval this module creates is immediately followed by exactly one).
+
+    A read against `actions_audit`, not a new column on `approvals`: the
+    audit row already carries `approval_id` (set by the same `decide_and_reserve`
+    call that created this approval), so the link already exists in the one
+    place it can never be edited out from under a caller.
+    """
+    row = conn.execute(
+        "SELECT id FROM actions_audit WHERE approval_id=? AND kind='decision' "
+        "ORDER BY id ASC LIMIT 1",
+        (approval_id,),
+    ).fetchone()
+    return int(row["id"]) if row is not None else None
+
+
 def mark_executed(conn: sqlite3.Connection, approval_id: int, audit_id: int | None) -> None:
     conn.execute(
         "UPDATE approvals SET state='executed', resulting_audit_id=? WHERE id=?",

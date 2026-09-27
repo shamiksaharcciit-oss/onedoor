@@ -251,11 +251,17 @@ class Proxy:
         approval_id = int(msg.get("params", {}).get("approval_id"))
         now = now_utc()
         approved_req = approvals.cas_approve(self.conn, approval_id, "mcp-proxy-demo", now)
+        proposal_audit_id = approvals.proposed_audit_id(self.conn, approval_id)
         # Fresh request id: the approval resumes as a new pipeline entry, so the
         # idempotency guard doesn't return the original PROPOSED decision.
         approved_req = approved_req.model_copy(update={"request_id": uuid4(), "created_at": now})
         outcome = decide_and_reserve(
-            approved_req, conn=self.conn, config=self.config, now=now, approved_override=True
+            approved_req,
+            conn=self.conn,
+            config=self.config,
+            now=now,
+            approved_override=True,
+            resumes_audit_id=proposal_audit_id,
         )
         self.last_decision_ref = outcome.decision_ref
         if not isinstance(outcome, PermittedIntent):
