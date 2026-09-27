@@ -119,8 +119,8 @@ def test_old_rows_still_verify_after_new_ones_are_written(
     under the shape it was actually written in -- still holds together;
     neither row is reinterpreted as the other's shape.
 
-    `reason_vocabulary` still reads `failed` here, not `retired_vocabulary`
-    (core ruling 27o) -- NOT because a retired code is categorically a
+    `reason_vocabulary` still reads `failed` here, not `retired_vocabulary` --
+    NOT because a retired code is categorically a
     failure (see `test_a_retired_code_before_its_own_retirement_is_not_
     failed` below, which is the opposite outcome for a DIFFERENT retired
     code), but because `cap_value`/`cap_rate` retired at 0.8.0 without a
@@ -154,7 +154,7 @@ def test_old_rows_still_verify_after_new_ones_are_written(
 
 
 def test_a_retired_code_before_its_own_retirement_is_not_failed(conn: Connection) -> None:
-    """Core ruling 27o, case (a) and (c) together: `cap_eur_day` retired at 0.4.0,
+    """`cap_eur_day` retired at 0.4.0,
     which is also where the `protocol` column was born. A row with none -- read as
     `aadp/0.1` by the absent-value rule -- can only predate 0.4.0, so it can only
     predate this code's own retirement: a real, row-carried marker, not an inference
@@ -177,7 +177,7 @@ def test_a_retired_code_before_its_own_retirement_is_not_failed(conn: Connection
 def test_a_retired_code_after_its_own_retirement_stays_failed(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Core ruling 27o, case (b): the SAME retired code (`cap_eur_day`), on a row
+    """The SAME retired code (`cap_eur_day`), on a row
     whose own protocol stamp is `aadp/0.2` -- current, i.e. from 0.4.0 or later, long
     after `cap_eur_day` retired. The two cases differ by WHEN the row was written,
     never by the code alone: same string, opposite verdict, because this row's own

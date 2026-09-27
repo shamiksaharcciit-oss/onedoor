@@ -166,10 +166,10 @@ def test_a_value_budget_and_a_rate_budget_each_name_the_check_that_produced_them
 def test_a_policy_with_all_three_caps_gives_each_denial_a_distinct_name(
     tmp_path: Path,
 ) -> None:
-    """Core ruling 27o: `key` alone is not a budget's identity -- `cap_counters`
-    is keyed by `(action_type, window_kind, window_key)`, so one action type
-    carrying an `eur_day` cap AND an `eur_month` cap has two distinct
-    counters sharing one `key`. 27l's `name = key` gave both the same name;
+    """`key` alone is not a budget's identity -- `cap_counters` is keyed by
+    `(action_type, window_kind, window_key)`, so one action type carrying an
+    `eur_day` cap AND an `eur_month` cap has two distinct counters sharing
+    one `key`. Naming a budget by `key` alone gives both the same name;
     this proves the fix names each of the three (`eur_day`, `eur_month`,
     `rate`) distinctly, on a single policy that declares all three at once,
     with each denial's `name` still equal to its own trace entry's `rule`.

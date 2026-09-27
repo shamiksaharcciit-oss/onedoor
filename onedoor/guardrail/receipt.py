@@ -78,9 +78,9 @@ RETIRED_BEFORE: dict[str, str] = {
     "cap_eur_day": "aadp/0.1",
     "cap_eur_month": "aadp/0.1",
 }
-"""Core ruling 27o: for each retired code, the ONE protocol stamp a row must
-carry for that code to be an honest record rather than a failure -- the code
-was live under exactly that protocol, before its own retirement.
+"""For each retired code, the ONE protocol stamp a row must carry for that
+code to be an honest record rather than a failure -- the code was live
+under exactly that protocol, before its own retirement.
 
 `cap_daily_rate`/`cap_eur_day`/`cap_eur_month` retired at 0.4.0, which is also
 where the `protocol` column was born: a row with no stamp (read as `aadp/0.1`,
@@ -120,9 +120,9 @@ class Status(StrEnum):
     UNVERIFIABLE = "unverifiable"
     FAILED = "failed"
     RETIRED_VOCABULARY = "retired_vocabulary"
-    """Core ruling 27o: a reason code retired from the CURRENT build's vocabulary,
-    found on a row whose own `protocol` stamp proves it was written before that
-    code's retirement. Not a fault -- the row is an honest record of a decision
+    """A reason code retired from the CURRENT build's vocabulary, found on a
+    row whose own `protocol` stamp proves it was written before that code's
+    retirement. Not a fault -- the row is an honest record of a decision
     this PDP correctly made under the vocabulary live at the time -- but distinct
     from `verified`, because an operator reading a receipt should see that the
     code is no longer current, not just that the row checks out.
@@ -232,7 +232,7 @@ def _check_params_provenance(row: sqlite3.Row) -> Check:
 def _check_reason_vocabulary(row: sqlite3.Row) -> Check:
     """The reason code is one this PDP can emit, under the protocol the row claims --
     OR one it used to be able to emit, under the protocol the row's OWN stamp proves
-    it was written under (core ruling 27o).
+    it was written under.
 
     A code live in the CURRENT build's vocabulary is `verified`. A retired code is
     not automatically `failed`: an operator who upgrades must not see every historical
