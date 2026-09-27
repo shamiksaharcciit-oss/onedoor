@@ -19,7 +19,7 @@ without taking on onedoor's own dependency tree.
 
     python -m onedoor.decision_ref check --export <file.jsonl> --ref <ref.json>
 
-Answers exactly one of four, each with its own exit code, distinct from the
+Answers exactly one of five, each with its own exit code, distinct from the
 generic usage-error code (64, the `sysexits.h` convention for "the command
 line was used incorrectly") a missing or unreadable file gets instead:
 
@@ -27,11 +27,18 @@ line was used incorrectly") a missing or unreadable file gets instead:
     1   digest mismatch   -- a row shares the request_id, none matches the digest
     2   not in export     -- no row in the export shares the request_id at all
     3   malformed ref     -- the ref itself is not a well-formed decision_ref/1
+    4   export damaged    -- the export's .sha256 does not match, or a line will not parse
+
+A damaged export is never silently skipped into looking like `not in export`
+(core ruling, effective immediately): a corrupted or truncated file could
+otherwise hide the very row a reference names, and answer "not in export"
+about a row that is, in fact, there.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections.abc import Iterable, Mapping
@@ -46,18 +53,19 @@ MATCHES = "matches"
 DIGEST_MISMATCH = "digest_mismatch"
 NOT_IN_EXPORT = "not_in_export"
 MALFORMED_REF = "malformed_ref"
+EXPORT_DAMAGED = "export_damaged"
 
 EXIT_CODES: dict[str, int] = {
     MATCHES: 0,
     DIGEST_MISMATCH: 1,
     NOT_IN_EXPORT: 2,
     MALFORMED_REF: 3,
+    EXPORT_DAMAGED: 4,
 }
 EXIT_USAGE_ERROR = 64
-"""Not one of the four named outcomes: the command itself could not run (a
-missing file, unreadable JSON in the export line-by-line stream) -- kept
-clearly outside 0-3 so a script branching on those four never mistakes a
-usage error for one of them."""
+"""Not one of the five named outcomes: the command itself could not run (a
+missing file, an unreadable ref) -- kept clearly outside 0-4 so a script
+branching on those five never mistakes a usage error for one of them."""
 
 _REQUIRED_FIELDS = ("format", "request_id", "decision_digest", "verdict", "issuer")
 _VALID_VERDICTS = ("permit", "deny", "propose")
@@ -65,7 +73,8 @@ _VALID_VERDICTS = ("permit", "deny", "propose")
 
 class CheckResult(NamedTuple):
     status: str
-    """One of `MATCHES`, `DIGEST_MISMATCH`, `NOT_IN_EXPORT`, `MALFORMED_REF`."""
+    """One of `MATCHES`, `DIGEST_MISMATCH`, `NOT_IN_EXPORT`, `MALFORMED_REF`,
+    `EXPORT_DAMAGED`."""
     detail: str
 
     @property
@@ -132,25 +141,72 @@ def check(ref: object, export_rows: Iterable[Mapping[str, object]]) -> CheckResu
     )
 
 
+def _sidecar_digest(sidecar_text: str, export_name: str) -> str | None:
+    """The hex digest a `.sha256` sidecar names for `export_name`, or `None`
+    if the sidecar does not name it in a form this reads -- callers treat
+    `None` as "nothing to check against", never as damage in itself."""
+    first_line = sidecar_text.strip().splitlines()[0] if sidecar_text.strip() else ""
+    parts = first_line.split(None, 1)
+    if len(parts) != 2:
+        return None
+    digest, name = parts
+    name = name.strip().removeprefix("*")  # sha256sum's binary-mode marker
+    return digest if name == export_name else None
+
+
 def check_files(export_path: Path, ref_path: Path) -> CheckResult:
-    """`check`, reading both files from disk. Raises `OSError`/`json.JSONDecodeError`
-    for a file that cannot be read or parsed at all -- a usage error, not one
-    of the four named outcomes (the CLI below maps it to `EXIT_USAGE_ERROR`).
-    A single unparseable LINE inside an otherwise-readable export is not
-    fatal: it is skipped, since it cannot be the row the ref names either way.
+    """`check`, reading both files from disk.
+
+    Raises `OSError`/`json.JSONDecodeError` for a ref that cannot be read or
+    parsed at all -- a usage error, not one of the five named outcomes (the
+    CLI below maps it to `EXIT_USAGE_ERROR`); a ref is one small file supplied
+    by the caller, and an unreadable one is a mistake in the invocation, not a
+    fact about the export.
+
+    The export is different: it is the thing being checked, so damage to IT
+    is itself an outcome (`EXPORT_DAMAGED`), never an exception and never a
+    silent skip. Its own `<export>.sha256` sidecar (as `python -m
+    onedoor.export` writes beside every export) is verified first, when one
+    is present beside it; a mismatch is reported before a single line is
+    parsed, since a file that fails its own checksum cannot be trusted to
+    explain itself line by line. After that, every non-blank line must parse
+    as a JSON object -- one that doesn't is `EXPORT_DAMAGED`, not a skipped
+    line, because a corrupted or truncated export could otherwise hide the
+    very row a reference names and this would then wrongly answer
+    `NOT_IN_EXPORT` about a row that is, in fact, there.
     """
     ref = json.loads(ref_path.read_text(encoding="utf-8"))
+    export_bytes = export_path.read_bytes()
+
+    sidecar_path = export_path.with_name(export_path.name + ".sha256")
+    if sidecar_path.is_file():
+        expected = _sidecar_digest(sidecar_path.read_text(encoding="utf-8"), export_path.name)
+        if expected is not None:
+            actual = hashlib.sha256(export_bytes).hexdigest()
+            if actual != expected:
+                return CheckResult(
+                    EXPORT_DAMAGED,
+                    f"{export_path.name}.sha256 says {expected}, the file's own sha256 is "
+                    f"{actual}: the export does not match its own checksum",
+                )
+
     rows: list[Mapping[str, object]] = []
-    for line in export_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for lineno, raw_line in enumerate(export_bytes.decode("utf-8").splitlines(), start=1):
+        line = raw_line.strip()
         if not line:
             continue
         try:
             row = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(row, dict):
-            rows.append(row)
+        except json.JSONDecodeError as exc:
+            return CheckResult(
+                EXPORT_DAMAGED, f"line {lineno} of {export_path.name} is not valid JSON: {exc}"
+            )
+        if not isinstance(row, dict):
+            return CheckResult(
+                EXPORT_DAMAGED,
+                f"line {lineno} of {export_path.name} is valid JSON but not an object",
+            )
+        rows.append(row)
     return check(ref, rows)
 
 

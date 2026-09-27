@@ -1,11 +1,13 @@
-"""onedoor.decision_ref: the standalone checker. One test per answer, plus the
-sabotage the ruling asks for -- a checker that matched on `request_id` alone,
-never comparing the digest, would wrongly call a genuine mismatch a match, and
-a named test here would fail if that regression landed.
+"""onedoor.decision_ref: the standalone checker. One test per answer, plus two
+sabotages: a checker that matched on `request_id` alone, never comparing the
+digest, would wrongly call a genuine mismatch a match; a checker that skips a
+line it cannot parse would wrongly call a damaged export "not in export".
+Restoring either regression here makes a named test fail.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from onedoor.decision_digest import decision_digest
 from onedoor.decision_ref import (
     DIGEST_MISMATCH,
     EXIT_USAGE_ERROR,
+    EXPORT_DAMAGED,
     FORMAT,
     MALFORMED_REF,
     MATCHES,
@@ -132,7 +135,10 @@ def test_check_files_matches_end_to_end(tmp_path: Path) -> None:
     assert result.status == MATCHES
 
 
-def test_check_files_skips_an_unparseable_export_line(tmp_path: Path) -> None:
+def test_check_files_reports_export_damaged_on_an_unparseable_line(tmp_path: Path) -> None:
+    """An unparseable line is never silently skipped: skipping it would let a
+    truncated or corrupted export answer NOT_IN_EXPORT about a row that is,
+    in fact, sitting right there on the damaged line."""
     export_path = tmp_path / "export.jsonl"
     export_path.write_text(
         json.dumps(ROW_A) + "\n" + "{not json\n" + json.dumps(ROW_B) + "\n", encoding="utf-8"
@@ -143,7 +149,100 @@ def test_check_files_skips_an_unparseable_export_line(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     result = check_files(export_path, ref_path)
+    assert result.status == EXPORT_DAMAGED
+    assert result.exit_code == 4
+    assert "line 2" in result.detail
+
+
+def test_check_files_reports_export_damaged_on_a_non_object_line(tmp_path: Path) -> None:
+    export_path = tmp_path / "export.jsonl"
+    export_path.write_text(json.dumps(ROW_A) + "\n" + "[1, 2, 3]\n", encoding="utf-8")
+    ref_path = tmp_path / "ref.json"
+    ref_path.write_text(
+        json.dumps(_ref(request_id="req-a", decision_digest_value=decision_digest(ROW_A))),
+        encoding="utf-8",
+    )
+    result = check_files(export_path, ref_path)
+    assert result.status == EXPORT_DAMAGED
+    assert "line 2" in result.detail
+
+
+def test_check_files_reports_export_damaged_on_a_sha256_mismatch(tmp_path: Path) -> None:
+    export_path = tmp_path / "export.jsonl"
+    export_path.write_text(json.dumps(ROW_A) + "\n", encoding="utf-8")
+    sidecar_path = tmp_path / "export.jsonl.sha256"
+    sidecar_path.write_text("0" * 64 + "  export.jsonl\n", encoding="utf-8")
+    ref_path = tmp_path / "ref.json"
+    ref_path.write_text(
+        json.dumps(_ref(request_id="req-a", decision_digest_value=decision_digest(ROW_A))),
+        encoding="utf-8",
+    )
+    result = check_files(export_path, ref_path)
+    assert result.status == EXPORT_DAMAGED
+    assert "sha256" in result.detail
+
+
+def test_check_files_matches_when_the_sha256_sidecar_is_correct(tmp_path: Path) -> None:
+    """The sidecar check must not itself break the ordinary matching path.
+
+    Written with `write_bytes`, not `write_text`: the digest below must match
+    the file's ACTUAL bytes, and `write_text` translates `\\n` to the
+    platform's line ending, which would make the two disagree on Windows.
+    """
+    export_path = tmp_path / "export.jsonl"
+    text = json.dumps(ROW_A) + "\n"
+    export_path.write_bytes(text.encode("utf-8"))
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    (tmp_path / "export.jsonl.sha256").write_text(f"{digest}  export.jsonl\n", encoding="utf-8")
+    ref_path = tmp_path / "ref.json"
+    ref_path.write_text(
+        json.dumps(_ref(request_id="req-a", decision_digest_value=decision_digest(ROW_A))),
+        encoding="utf-8",
+    )
+    result = check_files(export_path, ref_path)
     assert result.status == MATCHES
+
+
+def _check_files_that_skips_unparseable_lines(export_path: Path, ref_path: Path) -> str:
+    """The sabotage this module's tests guard against: the checker's first
+    cut, restored here to prove the regression it corrects would actually be
+    caught. It skips a line it cannot parse instead of reporting
+    EXPORT_DAMAGED -- exactly the shape of bug that would let a truncated
+    export answer NOT_IN_EXPORT about a row sitting on the damaged line."""
+    ref = json.loads(ref_path.read_text(encoding="utf-8"))
+    rows: list[dict[str, object]] = []
+    for line in export_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return check(ref, rows).status
+
+
+def test_the_export_damaged_sabotage(tmp_path: Path) -> None:
+    """req-b's own line is the one that fails to parse -- not some other,
+    unrelated line. Restoring the old skip-on-parse-error behaviour therefore
+    drops req-b's row entirely and answers NOT_IN_EXPORT, the wrong answer:
+    the row is there, just damaged. The real `check_files` must give a
+    different answer on the exact same fixture."""
+    export_path = tmp_path / "export.jsonl"
+    export_path.write_text(json.dumps(ROW_A) + "\n" + "{not json\n", encoding="utf-8")
+    ref_path = tmp_path / "ref.json"
+    ref_path.write_text(
+        json.dumps(_ref(request_id="req-b", decision_digest_value=decision_digest(ROW_B))),
+        encoding="utf-8",
+    )
+
+    assert _check_files_that_skips_unparseable_lines(export_path, ref_path) == NOT_IN_EXPORT
+
+    result = check_files(export_path, ref_path)
+    assert result.status == EXPORT_DAMAGED
+    assert result.status != NOT_IN_EXPORT
 
 
 # --- The CLI: one exit code per answer, plus the usage-error code -------------------
@@ -191,6 +290,16 @@ def test_cli_exit_code_malformed_ref(tmp_path: Path) -> None:
     ref_path = _write(tmp_path, "ref.json", {"not": "a valid ref"})
     rc = main(["check", "--export", str(export_path), "--ref", str(ref_path)])
     assert rc == 3
+
+
+def test_cli_exit_code_export_damaged(tmp_path: Path) -> None:
+    export_path = tmp_path / "export.jsonl"
+    export_path.write_text(json.dumps(ROW_A) + "\n" + "{not json\n", encoding="utf-8")
+    ref_path = _write(
+        tmp_path, "ref.json", _ref(request_id="req-a", decision_digest_value=decision_digest(ROW_A))
+    )
+    rc = main(["check", "--export", str(export_path), "--ref", str(ref_path)])
+    assert rc == 4
 
 
 def test_cli_exit_code_usage_error_on_missing_export(tmp_path: Path) -> None:
