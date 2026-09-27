@@ -1,8 +1,8 @@
 # Design note: hash `evaluation_trace` into the row preimage (`/2` → `/3`)
 
-WO-D2 step 2. Walks every item of R035 §1's consequence chain — the ruling that bumped
-`/1` → `/2` for `approval_ref_status` — against this bump, then verdicts WO-D2's four
-build constraints. **Verdict: build.** All four constraints hold, and the mechanism
+Walks every item of R035 §1's consequence chain — the ruling that bumped
+`/1` → `/2` for `approval_ref_status` — against this bump, then verdicts the four
+build constraints below. **Verdict: build.** All four constraints hold, and the mechanism
 R035 §1 put in place for exactly this case (the per-row `preimage_version` hint) needs
 no new engineering — only the version bump itself.
 
@@ -16,7 +16,7 @@ Quoting `docs/from_core/Core_to_Delivery_Response_035_2026-08-22.md` (verified,
 
 The same argument applies to `evaluation_trace_json`, more directly: it is not
 adjacent evidence, it is the **stated justification** for the verdict's reason code —
-"the verdict's reason must be checkable from the trace alone" is WO-D1's own MUST.
+"the verdict's reason must be checkable from the trace alone" is the standing MUST.
 Editing a `fail` entry to `pass` after the fact — flipping `cap_value` to `caps: pass`
 in a denied row's trace — would rewrite the *reason the row gives for itself* while
 the reason code and the trace both still read as internally consistent, exactly the
@@ -33,14 +33,14 @@ signs, and an anchor is still assigned after re-verification. `e_digest`/`i_dige
 `t_digest`/`v_digest` (ND-017) are likewise unchanged: still computed *from* the row.
 `preimage_version` remains excluded for the same self-authentication reason. **No
 column needs reclassifying except `evaluation_trace_json` itself** — it is the only
-column WO-D1 left in `EXCLUDED` rather than `FIELD_ORDER`, and it says so in its own
+column left in `EXCLUDED` rather than `FIELD_ORDER` from its own introduction, and it says so in its own
 exclusion entry (`preimage.py`'s `EXCLUDED["evaluation_trace_json"]`).
 
 > **"ND-050 is NOT pre-folded — its row shape is undesigned, and guessing it now to
 > save a bump would be designing a ticket in a hurry inside another ticket."**
 
-The direct analogue here: **`external_authorization` and `present_bound` (WO-D2 steps
-3–4) are NOT pre-folded into `/3` either**, for the identical reason. Their evidence
+The direct analogue here: **`external_authorization` and `present_bound` are NOT
+pre-folded into `/3` either**, for the identical reason. Their evidence
 shape (a `mandate_status` column, a ratification reference, an audience-match
 outcome — whatever step 3's own design settles on) does not exist yet at the point
 this note is written; step 2 runs before step 3 in this same work order. Guessing
@@ -117,7 +117,7 @@ demonstrated by the new `/2 → /3` test alongside the existing `/1 → /2` one.
 recompute any row's hash.**
 
 Already true and already shipped: `preimage_version` is an ordinary column,
-`onedoor/export.py`'s `export_rows` is generic over every column (WO-D1 step 3), and
+`onedoor/export.py`'s `export_rows` is generic over every column, and
 `docs/EXPORT.md`'s field table already documents `preimage_version` ("Which
 row-preimage version this row's hash was computed under, or `null`"). No change
 needed here — the export was built generic enough that this constraint was satisfied
@@ -149,7 +149,7 @@ before this ticket existed. **Verdict: holds, already shipped.**
 `digests.py`'s four ND-017 receipt digests (`E`/`I`/`T`/`v`) are untouched.
 `verdict()` does not read `evaluation_trace_json`, and this note does not add it: the
 receipt digests are a separate, already-shipped forensic layer over the row (ND-017),
-and WO-D2 step 2 asks specifically to hash the trace into the **row preimage**, not
+and this note asks specifically to hash the trace into the **row preimage**, not
 to redesign what a receipt discloses. Whether a receipt should also attest to the
 trace is a question for whoever next touches `docs/receipt-digests.md`, not answered
 by silence here.

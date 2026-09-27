@@ -163,13 +163,13 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 `dry_run` · `cap_rate` · `cap_value` · `cost_unknown` · `kill_switch` · `observe` ·
 `effect_floor` · `malformed` · `expired` · `external_authorization` · `present_bound`
 
-`external_authorization` (WO-D2, AADP -03 §8.1) is the reason on a `denied` or
+`external_authorization` (AADP -03 §8.1) is the reason on a `denied` or
 `proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
 action type whose policy sets `requires_external_authorization`. A `proposed` one
 resolves only through a verified ratification from that authority — never through the
 ordinary admin approve/deny routes, and never by a timeout turning into a permit.
 
-`present_bound` (WO-D2, AADP -03 §6) is the reason on a `denied` verdict when the
+`present_bound` (AADP -03 §6) is the reason on a `denied` verdict when the
 request's `presented_audience` does not match the action type's declared
 `present_bound` (the audience URI a permit may be exercised only by being presented
 to). An action type without `present_bound` set never carries this check at all.

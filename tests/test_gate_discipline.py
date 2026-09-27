@@ -267,7 +267,7 @@ def test_a_missing_tool_is_reported_as_having_checked_nothing() -> None:
     assert "cannot have checked anything" in labels["a-distribution-that-does-not-exist"]
 
 
-# --- WO-D2 1(a): a missing tool is GATE FAIL, never a traceback -------------------
+# --- a missing tool is GATE FAIL, never a traceback ---------------------------------
 
 
 def test_a_missing_tool_fails_the_gate_without_raising(
@@ -291,7 +291,7 @@ def test_a_missing_tool_fails_the_gate_without_raising(
     assert "GATE FAIL  ghost (tool not installed: onedoor-tool-that-does-not-exist-xyz)" in out
 
 
-# --- WO-D2 1(b): a contract that captures a count must reject zero ----------------
+# --- a contract that captures a count must reject zero ------------------------------
 
 
 def test_the_format_gates_contract_rejects_zero_files_formatted() -> None:

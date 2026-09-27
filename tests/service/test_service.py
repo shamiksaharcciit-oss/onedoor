@@ -119,7 +119,7 @@ def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:
     assert client.get("/v1/health").json()["kill_switch"] is True
 
 
-# --- WO-D1 step 2: approval_ref over HTTP ---------------------------------------
+# --- approval_ref over HTTP ---------------------------------------------------------
 
 
 def _approval_ref_status(client: TestClient) -> str | None:
@@ -208,7 +208,7 @@ def test_no_approval_ref_behaves_exactly_as_today(client: TestClient) -> None:
     assert _approval_ref_status(client) == "absent"
 
 
-# --- WO-D1 step 4: no_effect over HTTP -------------------------------------------
+# --- no_effect over HTTP -----------------------------------------------------------
 
 
 def test_no_effect_on_a_timeout_is_refused_over_http(client: TestClient) -> None:
@@ -255,7 +255,7 @@ def test_no_effect_on_a_failure_never_releases_the_rate_budget_over_http(
     assert third.json()["reason"] == "cap_rate", "the no_effect report must not have freed the slot"
 
 
-# --- WO-D2 1(c): a malformed approval_ref -----------------------------------------
+# --- a malformed approval_ref -------------------------------------------------------
 
 
 def test_a_malformed_approval_ref_is_refused_in_the_http_layers_own_words(
@@ -265,10 +265,10 @@ def test_a_malformed_approval_ref_is_refused_in_the_http_layers_own_words(
     (a string that is not an integer) never reaches the engine at all: FastAPI/
     Pydantic's body validation refuses it with a 422 and its own message before
     `decide()` runs. This is DIFFERENT from an `int` that names no approval (the
-    "unknown" case from WO-D1 step 2, which the engine itself refuses) -- this is a
+    "unknown" case, which the engine itself refuses) -- this is a
     value the wire schema itself cannot accept.
 
-    Per WO-D2 1(c): the client receives the HTTP layer's words, not the engine's,
+    The client receives the HTTP layer's words, not the engine's,
     and that is pinned here rather than rewritten -- -03 does not require the engine
     to see a value its own wire type already rejects.
     """
@@ -291,7 +291,7 @@ def test_a_malformed_approval_ref_is_refused_in_the_http_layers_own_words(
     )
 
 
-# --- WO-D2 1(d): request_id is the join field --------------------------------------
+# --- request_id is the join field ---------------------------------------------------
 
 
 def test_request_id_survives_decide_to_audit_row_to_export_unchanged(

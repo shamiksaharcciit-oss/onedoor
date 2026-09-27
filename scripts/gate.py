@@ -81,7 +81,7 @@ it, and caught by `test_no_pattern_matches_another_gates_real_output` on its fir
 `\d+ passed` cannot match *"All checks passed!"* because a pytest summary **counts**, and
 a sentence merely asserts. Requiring the count is what turns a proxy into a contract.
 
-**`[1-9]\d*`, not `\d+` (WO-D2, the zero-examined rule).** `\d+` matches `0` as readily
+**`[1-9]\d*`, not `\d+` (the zero-examined rule).** `\d+` matches `0` as readily
 as `40`, so `0 passed` / `0 files already formatted` / `no issues found in 0 source
 files` all satisfied the old contracts — a suite pointed at an empty directory, or a
 formatter run over zero files, would GATE PASS having examined nothing. The standing
@@ -129,7 +129,7 @@ def run(gate: Gate, *, echo: bool = True) -> bool:
         # The executable itself does not exist -- not a gate failure, a missing tool. An
         # uncaught FileNotFoundError here is a traceback wearing the gate's name, and a
         # traceback is not "GATE FAIL": it looks like the runner is broken rather than
-        # the environment being short a tool (WO-D2 1(a), carried from ruling 26e).
+        # the environment being short a tool, not a defect in what it checked.
         if echo:
             print(f"  GATE FAIL  {gate.name} (tool not installed: {gate.command[0]})")
         return False

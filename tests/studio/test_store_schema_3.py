@@ -155,7 +155,7 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
     `0019`+ stood released in `BACKLOG.md` for the Studio's own schema (this file):
     a table in `studio.db` that a different process owns does not belong in the
     enforcer's numbered sequence. `0019` through `0022` were since claimed by
-    `WO-D1` step 5 and `WO-D2` steps 3-4, all genuine ENFORCER migrations
+    other, genuine ENFORCER migrations
     (`actions_audit.evaluation_trace_json`; `approvals.mandate_authority`/
     `mandate_core_digest`; `policies.requires_external_authorization`;
     `policies.present_bound`) -- exactly the kind of spend this boundary exists to

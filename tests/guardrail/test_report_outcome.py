@@ -265,7 +265,7 @@ def test_reporting_not_attempted_after_reclamation_does_not_double_release(
         conn.close()
 
 
-# --- WO-D1 step 4: no_effect on failure reports (AADP -03 §4.1) ------------------
+# --- no_effect on failure reports (AADP -03 §4.1) ---------------------------------
 
 
 @pytest.fixture

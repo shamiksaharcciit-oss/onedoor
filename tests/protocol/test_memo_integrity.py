@@ -215,7 +215,7 @@ def test_an_undated_observation_is_still_a_transcribed_digest(tmp_path: Path) ->
 
 
 def test_preimage_strips_ascii_whitespace_only_never_unicode(tmp_path: Path) -> None:
-    """Forward 003 §1: the strip is byte-level ASCII, never text semantics.
+    """The strip is byte-level ASCII, never text semantics.
 
     The preimage is defined over bytes, and the strip set is ` \t\n\r\f\v`.
     `str.rstrip()` consults the Unicode database and would eat U+00A0, so a body
@@ -239,7 +239,7 @@ def test_preimage_strips_ascii_whitespace_only_never_unicode(tmp_path: Path) -> 
 
 
 def test_the_footer_line_ends_the_file(tmp_path: Path) -> None:
-    """Forward 003 §2: any byte after the footer's terminating LF is malformed.
+    """Any byte after the footer's terminating LF is malformed.
 
     Binding, not advisory: a passing verification must attest every byte in the
     file, so the permissive reading would let unattested content ride under a green

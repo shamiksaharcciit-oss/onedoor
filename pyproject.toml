@@ -171,7 +171,7 @@ select = ["E4", "E7", "E9", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-# WO-D2 ruling 26j §4. The default %TEMP%\pytest-of-<user> base has been found
+# The default %TEMP%\pytest-of-<user> base has been found
 # permanently access-denied (a stale reparse point, not held by any process this
 # session could find) on at least three agents' machines independently. A
 # repo-local, git-ignored basetemp makes the gate's declared command --

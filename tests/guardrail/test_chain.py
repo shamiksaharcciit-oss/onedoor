@@ -480,7 +480,7 @@ def test_a_chain_verifies_across_a_preimage_version_boundary(
     previous row's `row_hash`, whatever produced it.
 
     Simulated by writing rows under `/1` and `/2` in one chain, explicitly for BOTH
-    rows: `CURRENT_VERSION` has since moved to `/3` (WO-D2 step 2), so a live `_decide`
+    rows: `CURRENT_VERSION` has since moved to `/3`, so a live `_decide`
     no longer natively seals under `/2` and this test must force it there rather than
     lean on it being the engine's default -- which is the exact assumption that broke
     this test the moment `/3` shipped, caught by re-running it rather than by reasoning
@@ -659,7 +659,7 @@ def test_every_audit_write_path_stamps_the_chain() -> None:
     assert calls(flush, "_stamp_chain"), "the buffered path must stamp the chain as well"
 
 
-# --- WO-D2 step 2: a chain crossing /2 -> /3 ---------------------------------------
+# --- a chain crossing /2 -> /3 ------------------------------------------------------
 
 
 def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(

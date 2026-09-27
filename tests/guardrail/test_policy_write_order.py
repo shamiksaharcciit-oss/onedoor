@@ -69,7 +69,7 @@ def test_load_file_writes_policies_before_effect_policies() -> None:
     order = _write_order(policy_loader.load_file)
     assert order == ["upsert", "upsert_effect"], (
         f"`load_file`'s write order changed to {order}. That is not forbidden — but a "
-        "recorded ruling rests on it (ND-053 §6a): during `load_file` no effect policy "
+        "recorded analysis rests on it: during `load_file` no effect policy "
         "exists yet when a rule is upserted, which is why a per-row connection check is "
         "wrong. If this order changed, go re-run that analysis before trusting it."
     )
@@ -78,7 +78,7 @@ def test_load_file_writes_policies_before_effect_policies() -> None:
 def test_the_ceremony_writes_effect_policies_before_policies() -> None:
     order = _write_order(ratify._apply)
     assert order == ["upsert_effect", "upsert"], (
-        f"the ceremony's write order changed to {order}. See ND-053 §6a — the asymmetry "
+        f"the ceremony's write order changed to {order}. The asymmetry "
         "between this and `load_file` is the evidence that killed option (a)."
     )
 
@@ -94,7 +94,7 @@ def test_the_two_orders_are_still_opposite() -> None:
     ceremony = _write_order(ratify._apply)
     assert loader == list(reversed(ceremony)), (
         f"the two set-writing paths no longer disagree: load_file={loader}, "
-        f"ceremony={ceremony}. ND-053 §6a's argument against a per-row connection check "
+        f"ceremony={ceremony}. The argument against a per-row connection check "
         "depends on them differing. Harmonising them may well be an improvement — but it "
         "changes what is provable, so the ruling's evidence must be re-derived rather "
         "than assumed to survive."

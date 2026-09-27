@@ -126,7 +126,7 @@ def verify(path: Path) -> Result:
         """Every damaged verdict names the encoding cause when CRLF is present.
 
         The hint used to hang off the digest-mismatch branch alone. Adding the
-        Forward 003 §2 trailing-byte check moved CRLF files onto a different branch,
+        trailing-byte check moved CRLF files onto a different branch,
         which silently dropped the diagnosis -- a diagnosability regression in the
         very property core endorsed as the pattern. Attaching it to the outcome
         rather than to one route is what makes it survive the next new branch.
@@ -147,7 +147,7 @@ def verify(path: Path) -> Result:
             f"Ambiguity is surfaced, never resolved (Response 010)."
         )
     start = starts[0]
-    # Forward 003 §2: the file ends at the footer line's terminating LF. Any byte
+    # The file ends at the footer line's terminating LF. Any byte
     # after it makes the file malformed, never ignorable -- a passing verification
     # must attest EVERY byte in the file, and the permissive reading lets unattested
     # content ride under a green verdict. This checker previously did

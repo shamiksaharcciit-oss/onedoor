@@ -1,7 +1,8 @@
-"""Mandate-layer deferral (WO-D2 step 3, AADP -03 §8.1).
+"""Mandate-layer deferral (AADP -03 §8.1).
 
-Test keys are generated here, in-process, never written to disk or the repository
-(WO-D2's key-handling rule). No network call happens anywhere in this file.
+Test keys are generated here, in-process, never written to disk or the repository,
+per this module's own key-handling rule. No network call happens anywhere in this
+file.
 """
 
 from __future__ import annotations
@@ -216,7 +217,7 @@ def test_a_valid_ratification_resolves_it(conn: Connection, config: EngineConfig
 def test_resumption_re_evaluates_fully_even_after_ratification(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Ruling 26j §3(a): if the policy changes between propose and ratification,
+    """If the policy changes between propose and ratification,
     the resumed decide re-evaluates against the CURRENT policy, not the one in
     force at propose time -- a successful ratification authorises resuming the
     request, never a specific verdict. Tightening `bounds.required` after propose
@@ -501,8 +502,9 @@ def test_sweep_never_permits_a_mandate_pending_approval(
 ) -> None:
     """`approvals.sweep()` -- the lazy-expiry path a report/decide call runs on the
     side, entirely independent of `mandate.ratify` -- must never turn a
-    mandate-pending approval into anything but `expired`. Ruling 26j §2 check 8's
-    "or sweep" half, named separately from the TTL check inside `ratify` itself."""
+    mandate-pending approval into anything but `expired`. This is the
+    "or sweep" half of that rule, named separately from the TTL check inside
+    `ratify` itself."""
     private, public_key = _key_pair()
     short_config = dataclasses.replace(config, approval_ttl_seconds=1)
     pending = _pending(conn, short_config, public_key)
@@ -536,7 +538,7 @@ def test_sweep_never_permits_a_mandate_pending_approval(
 def test_a_signature_replayed_onto_a_different_records_digest_is_refused(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Ruling 26j §2 check 6, distinct from `ALREADY_RESOLVED`: a signature that is
+    """Distinct from `ALREADY_RESOLVED`: a signature that is
     genuinely valid -- for a DIFFERENT record's digest -- is presented against a
     SECOND, unrelated record. Ed25519 binds a signature to the exact bytes signed,
     so replaying it onto a different digest must fail verification (not merely find

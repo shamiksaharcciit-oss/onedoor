@@ -64,12 +64,12 @@ before delivery had to argue them.**
 
 | Artifact | Defect | Ruling |
 |---|---|---|
-| Forward 006 §2 | The "no approval-by-API" wall, written by the author of a tree that already served one | R066 §1 — and the missing law: *every route declares what it is permitted to do* |
-| Forward 006 §2 | "The FULL loader rulebook" — an absolute the engine does not offer | R066 §3, delivery's wording adopted |
-| Forward 006 §2 | Two of five named checks are runtime behaviour, not loader refusals | R066 §3 |
-| Forward 006 §2 | Principle 4 omitted from the walls though the constitution binds T3 | R066 §4 |
-| Forward 006 §3.1 | "F046 shape" — an artifact of a different channel | R066 §4 |
-| Forward 006 §3.2 | `0.6.3` as the release number, on an assumption C2 dissolved | R066 §2 |
+| Forward 006, §2 | The "no approval-by-API" wall, written by the author of a tree that already served one | R066 §1 — and the missing law: *every route declares what it is permitted to do* |
+| Forward 006, §2 | "The FULL loader rulebook" — an absolute the engine does not offer | R066 §3, delivery's wording adopted |
+| Forward 006, §2 | Two of five named checks are runtime behaviour, not loader refusals | R066 §3 |
+| Forward 006, §2 | Principle 4 omitted from the walls though the constitution binds T3 | R066 §4 |
+| Forward 006, §3.1 | "F046 shape" — an artifact of a different channel | R066 §4 |
+| Forward 006, §3.2 | `0.6.3` as the release number, on an assumption C2 dissolved | R066 §2 |
 
 ## The law this arc added
 
@@ -147,7 +147,7 @@ manual is core's artifact, built from source on core's side, and core owes the `
 edition — new sections for the three tracks, cover line unchanged and now simply true —
 after the dogfooding pass and before the Sept 7 tag, so that what it documents is what an
 operator has actually seen. `docs/OneDoor_User_Manual.pdf` is an **incoming binary, never
-a build input**, and Forward 006 §4's "manual updated to match" is discharged on core's
+a build input**, and Forward 006, §4's "manual updated to match" is discharged on core's
 ledger. It is off this ticket's list of owed work.
 
 **What the channel now holds:** three tracks feature-complete on 2026-08-30, five days of

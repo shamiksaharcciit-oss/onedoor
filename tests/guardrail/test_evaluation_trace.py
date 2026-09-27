@@ -1,7 +1,7 @@
-"""`evaluation_trace`: the ordered list of checks actually evaluated (WO-D1 step 5,
-AADP -03 §10, a MUST).
+"""`evaluation_trace`: the ordered list of checks actually evaluated (AADP -03 §10,
+a MUST).
 
-The three checks the ticket names:
+The three checks this covers:
 
     a deny's reason matches the trace's failing entry
     a short-circuited pipeline shows no entries after the point where it stopped

@@ -1,6 +1,6 @@
 # Handover — onedoor `0.4.1` · for Shamik's credentials
 
-**Staged by:** delivery · **Date:** 2026-08-22 · **GO:** Response 027 §3
+**Staged by:** delivery · **Date:** 2026-08-22 · **GO:** Response 027, §3
 **Commit:** `61fb46a` (`release: onedoor 0.4.1`) on `main`
 **Nothing below has been published.** PyPI upload and the GitHub release both need
 your credentials; the commands are exact and the artifacts are already verified.

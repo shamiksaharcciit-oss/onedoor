@@ -1,6 +1,6 @@
-"""`python -m onedoor.export`: audit rows as stored, one JSON object per line (WO-D1 step 3).
+"""`python -m onedoor.export`: audit rows as stored, one JSON object per line.
 
-Every check the ticket names, both directions: round-trip against the database row,
+Every check this covers, both directions: round-trip against the database row,
 byte-identical repeat exports, the `.sha256` sidecar verifying, and `--since` filtering
 exactly at the boundary.
 """

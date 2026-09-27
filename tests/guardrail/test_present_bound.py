@@ -1,6 +1,6 @@
-"""`present_bound` (WO-D2 step 4, AADP -03 §6): the audience URI a permit is bound to.
+"""`present_bound` (AADP -03 §6): the audience URI a permit is bound to.
 
-The three checks the ticket names, plus the fail-closed rule §6 itself states for a
+The three checks this covers, plus the fail-closed rule §6 itself states for a
 PEP that does not implement audience presentation.
 """
 

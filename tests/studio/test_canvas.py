@@ -149,8 +149,8 @@ def test_the_enforcer_store_gains_no_draft_table(conn: Connection, studio: Conne
 def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> None:
     """Not a number from the enforcer's migration sequence (R047 §2).
 
-    `0019` through `0022` were since claimed by `WO-D1` step 5 and `WO-D2` steps 3-4,
-    all genuine ENFORCER migrations (`actions_audit.evaluation_trace_json`;
+    `0019` through `0022` were since claimed by other, genuine ENFORCER migrations
+    (`actions_audit.evaluation_trace_json`;
     `approvals.mandate_authority`/`mandate_core_digest`;
     `policies.requires_external_authorization`; `policies.present_bound`) — the line
     this test guards is that a **Studio** table never borrows one of the enforcer's

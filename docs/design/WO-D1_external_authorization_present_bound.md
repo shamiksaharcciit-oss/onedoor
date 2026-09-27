@@ -42,7 +42,7 @@ the resolved `Policy` to know whether this action type is even governed by a man
 authority, but its verdict (DENY especially) should pre-empt everything downstream,
 the same way the kill switch pre-empts policy arithmetic. Concretely: a new function
 `onedoor/guardrail/mandate.py::resolve(conn, policy, request, now) -> MandateResolution`,
-called and folded into `evaluation_trace` (WO-D1 step 5) as its own check
+called and folded into `evaluation_trace` as its own check
 (`"external_authorization"`) — the trace design already generalises to a new check
 without touching `Trace` itself.
 
@@ -202,7 +202,7 @@ Purely declarative once the mandate is decided — no new ordered check, no new
   the defect this note flags before it can be built.
 - Same test for `mcp/proxy.py`.
 - A report against a `present_bound` permit carrying the documented payload shape
-  round-trips through the export (WO-D1 step 3) as ordinary payload JSON — no new
+  round-trips through the export as ordinary payload JSON — no new
   column needed unless Q6 is ruled the other way.
 
 ### Questions
