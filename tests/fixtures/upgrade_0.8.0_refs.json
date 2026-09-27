@@ -1,0 +1,18 @@
+[
+  {
+    "format": "onedoor-decision-ref/1",
+    "request_id": "adc65421-a5fe-4f63-a550-e559dd7587b1",
+    "decision_digest": "sha256:8b9dd12a79d1331193b2b599c2571c37565e0ad89b6f65baf8f2b34d37de923d",
+    "verdict": "permit",
+    "issuer": "https://onedoor.example/upgrade-fixture",
+    "audit_id": 1
+  },
+  {
+    "format": "onedoor-decision-ref/1",
+    "request_id": "f2825750-4b3a-4212-98ab-edf4cfa17f25",
+    "decision_digest": "sha256:62c7ed5021ee110b4a49abdfc40b2fc0fa3a4c5e20ee48867e8d74abf232c6a9",
+    "verdict": "deny",
+    "issuer": "https://onedoor.example/upgrade-fixture",
+    "audit_id": 3
+  }
+]
