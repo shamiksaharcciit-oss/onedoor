@@ -133,12 +133,12 @@ class CheckId(StrEnum):
     # emitting it before the check exists would be a reason code for a check that
     # never ran. tests/guardrail/test_reason_vocabulary.py holds it unemitted.
     SENDER_MISMATCH = "sender_mismatch"
-    # WO-D2 step 3, AADP -03 §8.1: a mandate-layer authority denied or deferred the
+    # AADP -03 §8.1: a mandate-layer authority denied or deferred the
     # action. One code for both a mandate DENY and a mandate PENDING escalation --
     # the verdict (`denied` vs `proposed`) already distinguishes them; a second code
     # per outcome would be two answers to "why did the mandate layer act" (X-14).
     EXTERNAL_AUTHORIZATION = "external_authorization"
-    # WO-D2 step 4, AADP -03 §6: the request's presented_audience does not match
+    # AADP -03 §6: the request's presented_audience does not match
     # the action type's declared present_bound.
     PRESENT_BOUND = "present_bound"
 
@@ -150,7 +150,7 @@ class ApprovalState(StrEnum):
     EXPIRED = "expired"
     EXECUTED = "executed"
     RATIFIED = "ratified"
-    """WO-D2 step 3: a mandate-pending approval resolved by the mandate authority's
+    """A mandate-pending approval resolved by the mandate authority's
     own ratification (AADP -03 §8.1). A distinct state from `approved` on purpose --
     the two paths must never be structurally confusable, since only the mandate
     authority may produce this one (`approvals.cas_approve` never writes it)."""
@@ -327,7 +327,7 @@ class Policy(BaseModel):
     requires_step_up: bool = False
     is_default_deny: bool = False
     requires_external_authorization: bool = False
-    """WO-D2 step 3, AADP -03 §8.1. This action type's verdict must be consulted with
+    """AADP -03 §8.1. This action type's verdict must be consulted with
     the configured mandate authority (`EngineConfig.mandate_resolver`) before any
     other check runs: a DENY is terminal immediately, a PENDING escalates to at
     least Tier.CONFIRM and can be resolved only by a verified ratification, never by
@@ -335,7 +335,7 @@ class Policy(BaseModel):
     action type never consults a mandate authority at all -- existing policies are
     unaffected."""
     present_bound: str | None = None
-    """WO-D2 step 4, AADP -03 §6. An absolute URI naming the audience this permit
+    """AADP -03 §6. An absolute URI naming the audience this permit
     may be presented to; the PEP must not exercise it itself. `None` (the default)
     means this action type carries no such obligation and behaves exactly as
     before it existed. When set, the request's own `presented_audience` must match
@@ -399,7 +399,7 @@ class ActionRequest(BaseModel):
     the ref existed.
     """
     presented_audience: str | None = None
-    """WO-D2 step 4, AADP -03 §6. The audience URI the enforcement point declares it
+    """AADP -03 §6. The audience URI the enforcement point declares it
     will present this permit to, when the action type's policy carries a
     `present_bound`. Compared for exact match against `Policy.present_bound`;
     absent when the policy carries no bound, in which case nothing is compared and

@@ -94,13 +94,13 @@ class DecideBody(BaseModel):
     source: Source = Source.LLM
     request_id: UUID | None = None  # omit to let the service mint one
     approval_ref: int | None = None
-    """WO-D1 step 2. Same field as the engine's `ActionRequest.approval_ref`
+    """Same field as the engine's `ActionRequest.approval_ref`
     (models.py) -- an enforcement point resuming a previously-approved action
     presents it here on a fresh request. Absent, invalid, expired, consumed or
     mismatched all evaluate as absent (ND-009); the engine, never this route,
     decides which."""
     presented_audience: str | None = None
-    """WO-D2 step 4. Same field as `ActionRequest.presented_audience` -- the
+    """Same field as `ActionRequest.presented_audience` -- the
     audience URI this enforcement point declares it will present the permit to,
     compared against the action type's `present_bound` when one is declared."""
 
@@ -143,7 +143,7 @@ class ReportBody(BaseModel):
     payload: dict[str, Any] | None = None
     error: str | None = None
     no_effect: bool = False
-    """WO-D1 step 4 (AADP -03 §4.1). On a `failure` report, a positive assertion
+    """AADP -03 §4.1. On a `failure` report, a positive assertion
     that the action is known to have had no effect: the reservation releases like
     `not_attempted`, except the rate-dimension budget stays charged -- an attempt
     was made, which is why this is a `failure` and not a `not_attempted`. Refused

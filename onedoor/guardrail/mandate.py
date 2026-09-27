@@ -1,11 +1,11 @@
-"""Mandate-layer deferral (WO-D2 step 3, AADP -03 §8.1).
+"""Mandate-layer deferral (AADP -03 §8.1).
 
 A PDP consuming a mandate-layer verdict must not return `permit` while that verdict
 denies or defers the action. onedoor is the PDP here, never the mandate authority: a
 deployment supplies a resolver (:data:`MandateResolver`) that answers DENY / PENDING /
 PERMIT for a request, and this module handles what onedoor itself owns -- turning a
 PENDING into a Tier-3-shaped approval that **only a verified ratification can
-resolve**, never an onedoor admin key and never a timeout (ruling 26e).
+resolve**, never an onedoor admin key and never a timeout.
 
 `core_digest` is onedoor's OWN identifier for a pending mandate decision, not a
 byte-for-byte implementation of AAE's (`draft-kroehl-agentic-trust-aae` §2.5.3, which
@@ -53,8 +53,9 @@ class MandateResolver(Protocol):
     """A deployment-supplied callable: what does the mandate authority say?
 
     Never built into onedoor and never called over the network by this module --
-    WO-D2 explicitly keeps key/network fetches out of this work order. A deployment
-    wires its own resolver into `EngineConfig.mandate_resolver`; tests supply a stub.
+    key and network fetches for mandate resolution are deliberately kept out of this
+    component. A deployment wires its own resolver into
+    `EngineConfig.mandate_resolver`; tests supply a stub.
     """
 
     def __call__(self, request: ActionRequest) -> MandateVerdict: ...

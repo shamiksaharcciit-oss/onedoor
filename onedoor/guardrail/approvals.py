@@ -67,7 +67,7 @@ def create(
 ) -> int:
     """Create a pending approval.
 
-    `mandate_core_digest` set (WO-D2 step 3) marks it mandate-gated: `cas_approve`/
+    `mandate_core_digest` set marks it mandate-gated: `cas_approve`/
     `deny` refuse it structurally, and only `onedoor.guardrail.mandate.ratify` can
     resolve it, against exactly this digest.
     """
@@ -101,7 +101,7 @@ def list_pending(conn: sqlite3.Connection) -> list[Approval]:
 def _refuse_if_mandate_gated(
     conn: sqlite3.Connection, approval_id: int, *, session_id: str, now: datetime
 ) -> None:
-    """The structural half of ruling 26e: not merely "the HTTP route doesn't expose
+    """The structural half of the rule: not merely "the HTTP route doesn't expose
     it", but "this function refuses it even if something else calls it directly".
 
     AADP -03 §8.1: an approval waiting on a mandate-layer deferral is resolved by

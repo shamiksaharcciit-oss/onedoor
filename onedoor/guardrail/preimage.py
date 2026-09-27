@@ -50,13 +50,12 @@ CURRENT_VERSION = VERSION_3
 an approval did or did not authorise an action, so flipping `expired` to `honored` is
 exactly the edit a chain exists to catch. It could not be excluded.
 
-`/3` adds `evaluation_trace_json` (WO-D2 step 2, design note
-`docs/design/WO-D2_preimage_v3.md`, R035 §1's consequence chain walked in full there):
-the trace is the stated justification for a verdict's reason code, so editing a
-`fail` entry to `pass` after the fact is exactly the same class of edit
-`approval_ref_status` guards against. Left dark at WO-D1 (migration `0019`)
-deliberately, because a version bump was not a call to make mid-work-order; this is
-that bump, made on its own ticket.
+`/3` adds `evaluation_trace_json` (the design note for this version walks R035 §1's
+consequence chain in full): the trace is the stated justification for a verdict's
+reason code, so editing a `fail` entry to `pass` after the fact is exactly the same
+class of edit `approval_ref_status` guards against. Left dark when the trace column
+itself was added (migration `0019`) deliberately, because a version bump was not a
+call to make in that same change; this is that bump, made on its own.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -129,7 +128,7 @@ FIELD_ORDER_V3: tuple[str, ...] = (*FIELD_ORDER_V2, "evaluation_trace_json")
 """`/3` appends rather than inserts, same precedent as `/1` -> `/2`.
 
 `evaluation_trace_json` is hashed because it is the stated justification for the
-verdict's own reason code (WO-D2 step 2, `docs/design/WO-D2_preimage_v3.md`).
+verdict's own reason code (see the design note for this version).
 """
 
 FIELD_ORDER = FIELD_ORDER_V3

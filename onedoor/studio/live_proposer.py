@@ -63,7 +63,7 @@ from onedoor.guardrail.models import Policy
 from onedoor.studio import proposer, staging
 
 CAPABILITY = "drafts proposed by a model, ratified by you"
-"""The exact words, on every surface that mentions this feature (Forward 006 §2, wall 5).
+"""The exact words, on every surface that mentions this feature (wall 5).
 
 One constant, because two spellings of one claim are two claims. What it must never
 become is any sentence in which the model is the author of a policy: the model produces

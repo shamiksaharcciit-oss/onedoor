@@ -1,5 +1,5 @@
 """The evaluation trace: the ordered list of checks a verdict was actually made from
-(WO-D1 step 5, AADP -03 §10, a MUST).
+(AADP -03 §10, a MUST).
 
 A check that the pipeline never reached must never appear in the trace -- least of
 all as `pass`. This module gives :mod:`decision` exactly one way to grow a trace: an

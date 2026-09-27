@@ -38,8 +38,8 @@ class UndoError(GuardrailError):
 class ReportError(GuardrailError):
     """A `/v1/report` body asserts something the outcome vocabulary does not allow.
 
-    E.g. `no_effect=True` on an outcome other than `failure` (WO-D1 step 4, AADP
-    -03 §4.1): `no_effect` is a claim about what a *failed* attempt did, and has no
+    E.g. `no_effect=True` on an outcome other than `failure` (AADP -03 §4.1):
+    `no_effect` is a claim about what a *failed* attempt did, and has no
     meaning against `success` (it plainly had an effect), `timeout` (doubt, not a
     positive assertion) or `not_attempted` (already the strongest release there is).
     """

@@ -112,11 +112,11 @@ class PermittedIntent:
     undo_until: datetime | None
     undo_of: int | None
     present_bound: str | None = None
-    """WO-D2 step 4, AADP -03 §6. Present iff the policy declared one -- a PEP that
+    """AADP -03 §6. Present iff the policy declared one -- a PEP that
     does not recognize the obligation MUST refuse to exercise this permit itself and
     report `not_attempted` per the fail-closed rule; onedoor's own packaged PEPs do
-    not implement audience presentation yet (see the WO-D1 design note) and must do
-    exactly that."""
+    not implement audience presentation yet (see the design note on this obligation)
+    and must do exactly that."""
     bound_permit: str | None = None
     """The signed bound permit (compact JWS, bound-permit profile §§3-4), present
     iff the policy declared `bound_permit_action_type` -- `decide_and_reserve`
@@ -165,7 +165,7 @@ def decide_and_reserve(
     reclaim_expired_reservations(conn, config, now)
 
     with tx(conn):
-        # WO-D1 step 5 / AADP -03 §10: the ordered list of checks actually evaluated
+        # AADP -03 §10: the ordered list of checks actually evaluated
         # for this verdict. Built inline with the pipeline, never after the fact --
         # an entry for a check the pipeline never reached would be exactly the "never
         # appear, least of all as pass" defect the MUST exists to prevent.
@@ -430,8 +430,8 @@ def decide_and_reserve(
             "fail" if no_compensation_fired else "pass",
         )
 
-        # 4b. EXTERNAL AUTHORIZATION -- mandate-layer deferral (WO-D2 step 3, AADP
-        #     -03 §8.1). Consulted only for a policy that declares it, and only when
+        # 4b. EXTERNAL AUTHORIZATION -- mandate-layer deferral (AADP -03 §8.1).
+        #     Consulted only for a policy that declares it, and only when
         #     a deployment has actually configured a resolver -- an unconfigured
         #     mandate check is a check that was never evaluated, and must not appear
         #     in the trace at all, let alone as pass.
@@ -1022,7 +1022,7 @@ def report_result(
     `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
     of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
 
-    `no_effect` (WO-D1 step 4, AADP -03 §4.1): on a `failure` report, a positive
+    `no_effect` (AADP -03 §4.1): on a `failure` report, a positive
     assertion that the action had NO effect at all -- not "it did not succeed" but
     "it is known to have touched nothing". The reservation releases, audited the
     same way as `not_attempted`, with one difference: **the rate-dimension budget is
@@ -1078,7 +1078,7 @@ def report_result(
             # permanently charging for an action that never occurred. Only a held
             # reservation is released; one already reclaimed stays reclaimed.
             #
-            # no_effect (WO-D1 step 4): a NARROWER release. An attempt was made --
+            # no_effect: a NARROWER release. An attempt was made --
             # that is why this is a `failure`, not a `not_attempted` -- so the
             # rate-dimension delta is excluded: the call happened and consumed its
             # slot regardless of effect. Only the value-dimension deltas (eur_day/

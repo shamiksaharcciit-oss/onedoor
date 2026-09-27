@@ -7,7 +7,7 @@ example (`"amount_eur": "40.00"`) was read as money by one path and refused by t
 other. Two implementations of one question is X-14, and here it sat on the
 arithmetical entrance to the evaluation path.
 
-The ruling (ND-054 §4): **one ``numeric_value(raw)``, called by both**, with a test
+The fix (ND-054, §4): **one ``numeric_value(raw)``, called by both**, with a test
 asserting they cannot answer differently. That clause is the fix; accepting decimal
 strings is what it makes true in both places at once.
 
@@ -24,8 +24,8 @@ Readings, stated rather than implied:
   objects over rather than bytes (JSON ingress produces no floats).
 - **The accepted string form is plain fixed-point** (`"12.50"`, `"-0.5"`, `"12"`).
   Exponent notation is refused: `Decimal("1e400")` would be finite and would compare,
-  so that refusal is a decision about the accepted *spelling* (WO-D1 step 1 names
-  `"1e400"` as a must-refuse case). The canonical renderer (`canon_decimal`) does
+  so that refusal is a decision about the accepted *spelling* -- `"1e400"` is exactly
+  the case that must be refused. The canonical renderer (`canon_decimal`) does
   *not* refuse exponent notation on input — it accepts it and normalises to
   fixed-point on output — so it is not authority for refusing it here; this module
   simply never emits the exponent form it declines to accept.

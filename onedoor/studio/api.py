@@ -9,8 +9,8 @@ this module adds an entry point, never a second set of rules.
 
 ## Approval is not here, and the reason is not squeamishness
 
-**Ratification stays the human ceremony.** Forward 006 §2 gave the reason and it is
-exact: *an approval without a named approver is testimony.* The engine records
+**Ratification stays the human ceremony**, and the reason is exact: *an approval
+without a named approver is testimony.* The engine records
 `ratified_by_session` — declared, never authenticated — and until actor identity exists
 (Q7's `key_id`, ruled in R059 §3 and frozen until the freeze lifts), an API that
 ratified would be writing an approval nobody can be held to.

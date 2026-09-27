@@ -1,4 +1,4 @@
--- WO-D1 step 5, AADP -03 §10 (a MUST). Every verdict carries an evaluation_trace: the
+-- AADP -03 §10 (a MUST). Every verdict carries an evaluation_trace: the
 -- ordered list of checks the engine actually evaluated for that decision (kind
 -- 'decision' or 'exec_intent'), each entry naming the check, the rule it enforces,
 -- the condition tested, the value/bound/state read, and the result

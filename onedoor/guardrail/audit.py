@@ -550,7 +550,7 @@ def append_expiry(
     ``reservation_expired`` when a deadline passes unreported; a ``not_attempted``
     report writes ``reservation_released`` when the enforcement point positively
     asserts the action did not happen (R005); a mandate ratification attempt writes
-    ``mandate_ratification`` (WO-D2 step 3). All three are lifecycle events *about*
+    ``mandate_ratification``. All three are lifecycle events *about*
     an earlier row rather than facts with nowhere to live, and all three are
     **audited, never silent** -- the audit's job is to make a false report or a
     forged ratification attempt attributable.

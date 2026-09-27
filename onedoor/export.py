@@ -1,4 +1,4 @@
-"""`python -m onedoor.export` — decision records, one JSON object per line (WO-D1 step 3).
+"""`python -m onedoor.export` — decision records, one JSON object per line.
 
     python -m onedoor.export --store <db> --out <file> [--since <utc>]
 

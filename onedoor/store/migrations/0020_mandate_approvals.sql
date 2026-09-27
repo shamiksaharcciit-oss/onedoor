@@ -1,8 +1,8 @@
--- WO-D2 step 3, AADP -03 §8.1: mandate-layer deferral.
+-- AADP -03 §8.1: mandate-layer deferral.
 --
 -- A PENDING mandate verdict creates a Tier-3-shaped approval row exactly as any
 -- propose does, but it MUST resolve only through a verified ratification from the
--- mandate authority (ruling 26e: the existing admin approval routes are not used).
+-- mandate authority: the existing admin approval routes are not used.
 --
 --   mandate_authority   -- 1 iff this approval waits on a mandate-layer ratification,
 --                          never resolvable via approvals.cas_approve/deny (both

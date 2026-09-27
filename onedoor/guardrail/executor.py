@@ -55,7 +55,7 @@ class EngineConfig:
     # the reservation is reclaimed and the permit voided (AADP section 6). This
     # is the "execute_within" deadline. 0 disables reclamation.
     reservation_ttl_seconds: int = 3600
-    # WO-D2 step 3, AADP -03 §8.1: the deployment's own mandate-layer client, never
+    # AADP -03 §8.1: the deployment's own mandate-layer client, never
     # built into onedoor and never called over a network by this package. None
     # (the default) means no action type ever consults a mandate authority,
     # regardless of any policy's `requires_external_authorization`.
@@ -155,7 +155,7 @@ def evaluate_and_execute(
     error: str | None
     payload: dict[str, JsonValue] | None
     if outcome.present_bound is not None:
-        # WO-D2 step 4, AADP -03 §6's own fail-closed rule: a PEP that does not
+        # AADP -03 §6's own fail-closed rule: a PEP that does not
         # recognize `present_bound` MUST refuse to exercise the permit itself and
         # report not_attempted. This in-process executor calls a connector directly
         # -- it does not implement audience presentation -- so it is exactly such a
