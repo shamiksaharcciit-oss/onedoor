@@ -13,9 +13,9 @@ derived — every sentence comes from a field, and a field with nothing to say p
 sentence rather than a reassuring one. *A rendering that adds a clause the policy does
 not contain is a rendering that will be trusted for a guarantee nobody wrote.*
 
-## `descriptions.py` is not this, and R055's pointer to it is a mis-citation
+## `descriptions.py` is not this, and pointing to it as the plain-language renderer would be a mis-citation
 
-R055 V2 says *"plain-language rendering (descriptions.py exists for this)"*.
+The design note says *"plain-language rendering (descriptions.py exists for this)"*.
 `studio/descriptions.py` freezes the **operator's own words** as received data — the
 input to S6's proposer — and holds no renderer at all. The design note asks for
 something else: *"plain-language rendering of each rule beside its YAML"*, generated
@@ -23,8 +23,8 @@ from the rule.
 
 So both are shown, and they are labelled as different kinds of thing: what the rule
 **does** (derived here, from the policy) and what someone **said it was for** (frozen
-bytes, if a description exists). Reported to core rather than silently resolved, because
-the two would be easy to conflate on screen and conflating them is exactly the mistake
+bytes, if a description exists). This distinction is stated plainly rather than silently
+resolved, because the two would be easy to conflate on screen and conflating them is exactly the mistake
 S6's asserted/measured split exists to prevent.
 """
 
@@ -45,7 +45,7 @@ ABSENCE_IS_DENIAL = (
     "under what limits; it is not a list of what is blocked, because nothing needs to "
     "be listed to be blocked."
 )
-"""The sentence R055 V2 requires on the library page.
+"""The sentence the design note requires on the library page.
 
 It is the single most load-bearing fact about the engine and the easiest to get
 backwards from a screen full of rules: a reader who sees six permissive-looking rows
@@ -295,7 +295,7 @@ def yaml_text(policy: Policy) -> str:
 def _drop_nulls(value: object) -> object:
     """Strip absent keys from nested structures, at every depth.
 
-    R015: null and empty are different, and an *undeclared* bound is neither — it is
+    Null and empty are different, and an *undeclared* bound is neither — it is
     absent. `NumericBound(max="500")` dumps as `{"max": "500", "min": null}`, and
     rendering that would show an operator a `min` they never wrote, on the page that
     exists to tell them what their rules say. **A field the policy does not declare must
@@ -311,7 +311,7 @@ def _drop_nulls(value: object) -> object:
     return value
 
 
-# --- Q5: the operator's own words, kept apart from the engine's -----------------------
+# --- The operator's own words, kept apart from the engine's -----------------------
 
 
 @dataclass(frozen=True)
@@ -319,8 +319,8 @@ class FrozenWords:
     """What an operator wrote about the proposal this rule came from.
 
     **Received data.** The description is frozen byte-for-byte (E10) and reaches the
-    page as a quotation, attributed, never merged into the derived sentences. R058 §6:
-    *the screen's value is exactly the gap between them — merging them would manufacture
+    page as a quotation, attributed, never merged into the derived sentences.
+    *The screen's value is exactly the gap between them — merging them would manufacture
     agreement.*
     """
 

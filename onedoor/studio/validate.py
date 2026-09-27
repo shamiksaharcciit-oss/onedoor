@@ -6,7 +6,7 @@ set is a process making decisions under rules nobody approved — and wrong for 
 because an editor that dies on an invalid draft is not an editor.
 
 **This is a wrapper over that function, never a second validator.** Fence post two
-(R046 §3) says every number the canvas shows is produced by an engine function; the same
+says every number the canvas shows is produced by an engine function; the same
 applies to every *judgement*. A canvas with its own idea of what makes a policy invalid
 is a second implementation of a rule that has an owner, and the two will disagree in the
 direction that lets a bad rule through — the Studio saying "looks fine" and the loader
@@ -39,8 +39,8 @@ from onedoor.guardrail.models import EffectPolicy, Policy
 FOUND_WORDING = "problems found"
 """The exact words, referenced by the renderer and by the tests that hold them.
 
-One constant rather than two strings that happen to agree — R045 §1's law applied to
-prose, the same way `NO_BACKTEST_SENTENCE` holds S2's absence statement.
+One constant rather than two strings that happen to agree, the same way
+`NO_BACKTEST_SENTENCE` holds S2's absence statement.
 """
 
 INCOMPLETE_NOTICE = (
@@ -91,6 +91,6 @@ def summary(found: list[Problem]) -> str:
 
     Phrased as a count after the constant rather than around it, so the singular case
     does not need a second wording. Two spellings of one sentence are two names for one
-    fact, and R045 §1 ruled on what happens to those.
+    fact, and one name is what this uses.
     """
     return f"{FOUND_WORDING}: {len(found)}"

@@ -1,6 +1,6 @@
 """The Studio's own store — `studio.db` (ND-052 / S3-T1).
 
-**The enforcer's database contains no row the Studio can edit** (R047 §2). That is the
+**The enforcer's database contains no row the Studio can edit.** That is the
 line this module exists to hold, and it is a sharper line than "the main store is
 append-only", which was never true: `policy_current` moves, approvals transition, the
 kill switch flips. Mutability already lives in the main store **where the enforcer owns
@@ -61,7 +61,7 @@ a store written by version 1 and read by a build expecting version 3 must be
 recognisable as such, and `open_store` already refuses a store from the FUTURE for the
 same reason.
 
-**No enforcer migration number is claimed** (R047 §2, and `BACKLOG.md`'s register says
+**No enforcer migration number is claimed** (`BACKLOG.md`'s register says
 `0019`+ is released for exactly this): the main store's numbered migrations are the
 enforcer's history, and a column in a different file that a different process owns does
 not belong in it. Spending `0019` on one would have written the boundary this split
@@ -178,7 +178,7 @@ def open_store(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.C
 class Draft:
     """A candidate being edited, and the version it was pinned to when opened.
 
-    `base_version` is Q3's pin (R047 §3): the canvas diffs against the version it was
+    `base_version` is the pin the canvas relies on: the canvas diffs against the version it was
     opened on, so a moved active set becomes a **visible state** rather than a picture
     that silently re-bases. `None` means the draft was opened on a store with no
     recorded version — absent, not "unpinned by choice".
@@ -347,7 +347,7 @@ def set_derivation(conn: sqlite3.Connection, draft_id: str, *, record_digest: st
 def repin(conn: sqlite3.Connection, draft_id: str, *, base_version: str | None) -> Draft:
     """Move a draft's pin to the active version, after the operator has looked.
 
-    Separate from `save` because re-pinning is a **decision**, not an edit. R047 §3:
+    Separate from `save` because re-pinning is a **decision**, not an edit:
     resolving a moved-beneath state invalidates every preview computed from the old
     base, and that invalidation is `canvas.build`'s job — which it can only do
     correctly if re-pinning is a distinct act it can see.

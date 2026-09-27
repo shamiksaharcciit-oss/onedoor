@@ -1,6 +1,6 @@
 """V1 — the Studio shell: header, version banner, tabs, footer.
 
-The chrome every Studio screen sits inside. Built from the mockup R055 §0 names as
+The chrome every Studio screen sits inside. Built from the mockup that stands as
 binding design authority; the tokens come from `studio.tokens`, never from this file.
 
 ## Three decisions this module makes, and why each is not a deviation
@@ -11,7 +11,7 @@ built"* — this is the built thing, so carrying the banner into it would be the
 lying about itself in the one line whose whole job is to say what the page is.
 
 **Tabs are links, not buttons.** The mockup switches tabs in JavaScript because it is
-one static file. R055's V1 asks for the F-A regression to be rerun *"against every new
+one static file. The design calls for the F-A regression to be rerun *"against every new
 route"* — routes, plural, server-side — and the Studio has held a no-JavaScript line
 since F-G, where a `<form>` was chosen over `fetch` so the page works with scripting
 off. Same design, delivered by the transport this app actually has.
@@ -29,9 +29,9 @@ The design note asks for digests rendered `first-8…last-4`, *"with copy-on-cli
 on hover."* Truncation is arithmetic and the full value goes in `title`; copy-on-click
 needs JavaScript.
 
-V1 first dropped the feature to keep the page script-free. **That was stricter than the
-ruling and cost a mandated affordance** — R055 §3 permits *"minimal inline JS, matching
-the current architecture"*, and R057 §2 restored copy-on-click as **progressive
+V1 first dropped the feature to keep the page script-free. **That was stricter than
+necessary and cost a mandated affordance** — the design permits *"minimal inline JS, matching
+the current architecture"*, and copy-on-click was later restored as **progressive
 enhancement**.
 
 The shape is the point. `cursor:copy` lives on `.digest.copyable`, and **nothing in the
@@ -79,7 +79,7 @@ failure, which is the wrong worry.
 
 NOT_RECORDED = "not recorded"
 """What a digest slot says when it is null for a legitimate reason that is NOT the
-absence of a policy version — R089 F-H1. The history detail page's receipt/chain digests
+absence of a policy version. The history detail page's receipt/chain digests
 are null because ND-017 (content-addressed receipts, anchoring) is unimplemented, and
 `NOTHING_IN_FORCE` would tell the reader something false and beside the point: a version
 IS in force, shown elsewhere on the same page, and these are digest slots, not version
@@ -171,8 +171,8 @@ def digest_html(
     version digests this function was written for — every caller that renders one keeps
     that wording unchanged. It is a parameter and not a constant because **a label
     composed for one state leaks into another the moment a second caller reuses the
-    function for a digest that is not a policy version** (R089 F-H1, fix C's banner
-    finding again): the history detail page's Digests/Chain panels called this on
+    function for a digest that is not a policy version**: the history detail page's
+    Digests/Chain panels called this on
     receipt and chain-anchor digests — genuinely null because ND-017 is unimplemented —
     and every null slot read *"no version in force"*, a sentence about a version, over
     eight fields that are not about one. A version demonstrably WAS in force, shown two
@@ -195,7 +195,7 @@ def chip(state: str, label: str | None = None) -> str:
     """A state chip: a colour **and** a word, never a colour alone.
 
     This is the design system's answer to what the contrast correction cost. Lightening
-    `--refuse` far enough to be readable (R057 §5) pushed it toward `--review` under
+    `--refuse` far enough to be readable pushed it toward `--review` under
     tritanopia and toward `--allow` under deuteranopia — measured, disclosed, and not
     fixable by any choice of hex, because the darkness that separated it *was* the
     thing that failed the contrast requirement.
@@ -452,7 +452,7 @@ textarea{background:var(--well);color:var(--ink);border:1px solid var(--line);
   padding:.8rem 1rem;width:100%;resize:vertical}
 /* F-H's empty-store advice. Configuration advice, NOT a verdict: it gets its own
    weight from a border and a surface, never from the semantic triple -- and never from
-   the brand accent either (R056 §4). It must look different from an ordinary empty
+   the brand accent either. It must look different from an ordinary empty
    state, because it is telling the operator something is wrong with their setup. */
 .store-warning{border-left:3px solid var(--ink);background:var(--panel2);
   color:var(--ink);font-style:normal}
@@ -492,7 +492,7 @@ COPY_SCRIPT = (
     "}"
     "})();"
 )
-"""Copy-on-click, as progressive enhancement (R057 §2).
+"""Copy-on-click, as progressive enhancement.
 
 Inline, tiny, and it touches nothing but elements the server already marked with
 `data-digest`. Two properties are load-bearing and are tested rather than trusted:
@@ -533,7 +533,7 @@ LIVE_VALIDATE_SCRIPT = (
 
 **It parses nothing.** It reads a textarea, posts the text, and replaces a container with
 HTML the server rendered. Every judgement in that HTML was made by the engine's own
-loader on the server, which is the whole design: R063 §1 syncs the panes through the
+loader on the server, which is the whole design: the panes are synced through the
 server *because the server owns the only parser*, and a browser-side mirror of that
 parser would be a second implementation in a second language, disagreeing first on
 exactly the inputs this engine is careful about — decimal strings, unicode, key order,
@@ -553,7 +553,7 @@ DECLARED_SCRIPTS = (COPY_SCRIPT, LIVE_VALIDATE_SCRIPT)
 """Every script the Studio serves, declared in one place.
 
 The allow-list tests read this rather than naming scripts one at a time — a vocabulary
-half-derived and half-typed drifts from both ends (R057 §6). Adding a script without
+half-derived and half-typed drifts from both ends. Adding a script without
 adding it here fails the law tests, which is the point: the list is the declaration, and
 a script nobody declared is a script nobody read.
 """

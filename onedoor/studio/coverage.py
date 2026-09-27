@@ -17,7 +17,7 @@ second is better than a description would have been:
 happened.* When S6 lands, the description's list joins these as a **third** source, never
 replacing them.
 
-Four states, ranked by what they do rather than by how they sound (R049 §3)
+Four states, ranked by what they do rather than by how they sound
 -----------------------------------------------------------------------------
 | state | at decision time |
 |---|---|
@@ -31,14 +31,14 @@ Four states, ranked by what they do rather than by how they sound (R049 §3)
 finds out. *Declared but inert* sounds fine and behaves dangerously: a silent permit
 inside a rule its author believes is governing. Rank by behaviour, not by name.
 
-What this map does not measure, stated on the map itself (R049 §4)
+What this map does not measure, stated on the map itself
 --------------------------------------------------------------------
 `UNREACHED` is a row **only within a bounded vocabulary** — the effects this deployment
 has declared. Action types that were never declared and never seen are an **unbounded
 set**, and an unbounded set cannot be a row; that is the map's footer instead, which is
 principle 4 turned on the coverage map.
 
-This map PROJECTS; it does not recall (R050 §4)
+This map PROJECTS; it does not recall
 ------------------------------------------------
 `actions_audit` records `action_type` but **not** the effects that resolved. So
 `would_exercise` is exactly what its name says: *under the policy set being mapped, the
@@ -70,13 +70,14 @@ COVERED = "covered"
 DECLARED_INERT = "declared_inert"
 UNCOVERED_OBSERVED = "uncovered_observed"
 UNREACHED = "unreached"
-"""Renamed from `unobserved` by R051 §1, and the error was core's, owned plainly.
+"""Renamed from `unobserved`, and the naming error is owned plainly here rather than
+quietly patched over.
 
 *Unobserved* claimed an observation was made and returned empty. **Effects are never
 observed at all** — the ledger records action types, not resolved effects — so the old
-name was a projection wearing a measurement's name, which is the exact defect R050 §4
-condemned one layer down in `exercised_effects`. It was minted by a ruling and it was
-still wrong: **a ruling's own vocabulary is not exempt from the ruling's law.**
+name was a projection wearing a measurement's name, which is the exact defect
+condemned one layer down in `exercised_effects`. Even a name chosen deliberately can
+still be wrong: **no vocabulary is exempt from the law it is meant to express.**
 
 **An absent-class state, never a warning.** A declared effect nothing reaches may be dead
 configuration or a control waiting for traffic, and **the map does not know which** — so
@@ -84,7 +85,7 @@ it is not rendered as covered, not as safe, and not as a fault.
 """
 
 PROMINENCE = (DECLARED_INERT, UNCOVERED_OBSERVED, UNREACHED, COVERED)
-"""Loudest first, ordered by behaviour at decision time (R049 §3).
+"""Loudest first, ordered by behaviour at decision time.
 
 A silent permit outranks a loud denial, which outranks a measurement nobody took, which
 outranks the quiet case. Any rendering orders by this and never by name.
@@ -175,14 +176,14 @@ class CoverageMap:
     notes: tuple[str, ...] = (PROJECTION_NOTE, UNBOUNDED_NOTE)
 
     def ranked(self, rows: list[Row]) -> list[Row]:
-        """Loudest first, by behaviour (R049 §3), then alphabetically within a state."""
+        """Loudest first, by behaviour, then alphabetically within a state."""
         return sorted(rows, key=lambda r: (PROMINENCE.index(r.state), r.name))
 
     def counts(self, rows: list[Row]) -> dict[str, int]:
         return {state: sum(1 for r in rows if r.state == state) for state in PROMINENCE}
 
     def citation(self) -> dict[str, object]:
-        """The exportable pair a third party re-derives from (R049 §5).
+        """The exportable pair a third party re-derives from.
 
         `(version_hash, range)` and nothing else — everything on this map is a pure
         function of those two, which is why the map is a **view that cites** rather than
@@ -262,7 +263,7 @@ def build(
     ]
 
     # Every effect any rule names, plus every effect with a policy of its own. That union
-    # is the bounded vocabulary R049 §4 allows `UNREACHED` to be a row within.
+    # is the bounded vocabulary that allows `UNREACHED` to be a row within.
     named_by_rules: dict[str, list[str]] = {}
     for policy in declared:
         for effect in policy.effects:
@@ -271,7 +272,7 @@ def build(
             for effect in rule.add_effects:
                 named_by_rules.setdefault(effect, []).append(policy.action_type)
 
-    # `would_exercise`, not `exercised` (R050 §4). The old name claimed history and the
+    # `would_exercise`, not `exercised`. The old name claimed history and the
     # computation is a PROJECTION: what the observed traffic would reach under the policy
     # set being mapped. For a candidate that is the right question — *if I ratify this,
     # what does it reach?* — and for the active set the historical reading is one the

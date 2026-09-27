@@ -5,7 +5,7 @@ and issue a receipt. This is the act that turns a *candidate* — which has only
 `policy_digest`, a digest over models — into a *version*: a `version_hash` recorded in
 the store's own `policy_versions`.
 
-The ceremony cites; it never re-derives (R043 §4, R045 §2)
+The ceremony cites; it never re-derives
 -----------------------------------------------------------
 `policy_loader.record_snapshot` owns the canonical form of a policy set and the hash
 over it, and `SNAPSHOT_SCHEMA` owns the attribution for when that form changes. Nothing
@@ -28,7 +28,7 @@ alone:** `_normalized_snapshot` renders the *whole* policy table. Seeding a scra
 store with just the changed rules yields the hash of a two-rule deployment — *a
 different number wearing the right label*. The scratch store therefore holds the
 candidate **merged over the active set**, seeded by copying the live rows verbatim, and
-`test_sabotage_a_scratch_store_seeded_with_only_the_changed_rules` (R045 §2) watches the
+`test_sabotage_a_scratch_store_seeded_with_only_the_changed_rules` watches the
 equality test fail when it is not.
 
 Why the write is a compare-and-swap
@@ -71,7 +71,7 @@ from onedoor.studio import backtest
 SCHEMA = "onedoor/ratification/1"
 """Version 1 records a **declared** session, not an authenticated principal.
 
-R045 §3: when ND-004/005 brings an authenticated caller identity, that is
+When ND-004/005 brings an authenticated caller identity, that is
 `onedoor/ratification/2`. Receipts are versioned for exactly this reason — the field's
 meaning changes, so its schema must.
 """
@@ -86,8 +86,8 @@ proceed, not a PDP verdict about an action, and the protocol's vocabulary is clo
 (`tests/guardrail/test_reason_vocabulary.py`). Naming them apart keeps a Studio refusal
 from ever being mistaken for a decision the engine made.
 
-The two backtest reasons are separate because *unverifiable and failed never collapse*
-(R010): a digest that resolves to nothing is a citation this store cannot check; a
+The two backtest reasons are separate because *unverifiable and failed never collapse*:
+a digest that resolves to nothing is a citation this store cannot check; a
 digest that resolves to a receipt about a **different candidate** is a citation this
 store checked and rejected. Different facts, different remedies, different words.
 """
@@ -198,7 +198,7 @@ class Preview:
     """What the operator reads before deciding: from, to, and what moved.
 
     `to_version` is `None` exactly when `refusal` is not — a candidate the loader would
-    refuse has no hash to become, because `_apply` never ran to completion (R088 §1/§2).
+    refuse has no hash to become, because `_apply` never ran to completion.
     `changes`, `effect_changes` and `candidate_digest` are computed either way: none of
     the three needs `_apply` to succeed, only `from_version`'s active snapshot and the
     candidate as given, so a refused draft still shows what it WOULD have changed even
@@ -219,7 +219,7 @@ class Preview:
         """False when the candidate is already in force — `to_version` equals `from`.
 
         Meaningless when `refusal` is set: `to_version` is `None` then, and the property
-        is not read on that branch — the caller defers to the refusal instead (R088 §2).
+        is not read on that branch — the caller defers to the refusal instead.
         """
         return self.from_version != self.to_version
 
@@ -233,12 +233,12 @@ def preview(
 ) -> Preview:
     """T2. The hash the candidate would become, produced the way it will be produced.
 
-    `seed_active=False` exists **only** for the sabotage in R045 §2 — it seeds the
+    `seed_active=False` exists **only** for the sabotage test described above — it seeds the
     scratch store with the changed rules alone, which is the mistake the trap describes,
     and the equality test then fails as it must. No caller should pass it.
 
     **A candidate the loader would refuse is not an error in this function; it is an
-    answer** (R088 §1/§2, F-U1). Fix B made an upload's save unconditional, so a draft
+    answer.** Fix B made an upload's save unconditional, so a draft
     may now honestly hold a rule `validate_policy` refuses — and `_apply` is shared with
     real ratification by design, so THIS function must not be taught to let one through;
     the fix is not "make preview permissive." What was wrong was letting `_apply`'s
@@ -329,7 +329,7 @@ class Ratification:
 
 
 def _check_citation(conn: sqlite3.Connection, backtest_digest: str, candidate_digest: str) -> None:
-    """R045 §4.1. A citation nobody checks is decoration.
+    """A citation nobody checks is decoration.
 
     The digest must resolve **here**, and the receipt it names must be about **this**
     candidate. Citing someone else's homework is made structurally impossible rather
@@ -372,7 +372,7 @@ def ratify(
     first ratification on a fresh store, which is **absent, not empty**, and is not the
     same as "I did not check".
 
-    The kill switch does **not** block this (R045 §5). It wins over every action under
+    The kill switch does **not** block this. It wins over every action under
     every policy, so nothing ratified can move while it holds: the moment of risk is the
     lift, not the ratification, and blocking here would punish the operator tightening
     rules mid-incident while stopping no attacker who already has ratification access.

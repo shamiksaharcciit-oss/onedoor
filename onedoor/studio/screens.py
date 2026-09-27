@@ -150,7 +150,7 @@ def policy_body(
 
 
 def _frozen_voice(words: library.FrozenWords | None) -> str:
-    """The operator's own words, quoted and attributed — never merged (R058 §6).
+    """The operator's own words, quoted and attributed — never merged.
 
     A third block rather than a third column, and styled as a quotation, because the
     two are **different kinds of claim**: the panes above say what the rule *does*,
@@ -313,7 +313,7 @@ def entry_body(row: Any) -> str:
     )
     kv = "".join(f"<dt>{escape(k)}</dt><dd>{v}</dd>" for k, v in facts)
 
-    # R089 F-H1: these are receipt/chain digests, never policy versions — a null one
+    # These are receipt/chain digests, never policy versions — a null one
     # here is legitimate (ND-017 is unimplemented) and must not read `NOTHING_IN_FORCE`,
     # which is a sentence about a version, on a page whose header already shows one IS
     # in force. `shell.NOT_RECORDED` is the honest word for this null.
@@ -520,7 +520,7 @@ def live_body(model: live.LiveState) -> str:
 
 
 def _honesty_footnote() -> str:
-    """`validate.INCOMPLETE_NOTICE`, VERBATIM (R055 V5).
+    """`validate.INCOMPLETE_NOTICE`, VERBATIM.
 
     Interpolated from the constant rather than retyped, so the page and the validator
     cannot drift apart. The design note calls this a feature: *honest limits are part of
@@ -543,7 +543,7 @@ def drafts_body(
     to — **a shipped fix quietly stranded by a redesign.** Caught by V8's universal pass;
     it lives here now, on the page the operator actually reaches.
 
-    `db_defaulted` picks which warning has standing (R086 §2D). It defaults to `True`
+    `db_defaulted` picks which warning has standing. It defaults to `True`
     because that wording carries the extra hypothesis, and a caller that did not say
     should be offered the possibility rather than have it silently withdrawn.
     """
@@ -596,7 +596,7 @@ def drafts_body(
 PREVIEW_UNAVAILABLE = (
     "This draft cannot be previewed: it would be refused at load. See the refusals below."
 )
-"""R088 §1/§2 (F-U1). `ratify.preview` shares `_apply` with real ratification by design
+"""`ratify.preview` shares `_apply` with real ratification by design
 — *"the two cannot diverge in what they apply or in the order they apply it"* — so a
 candidate the loader refuses is refused identically by both, and the fix is not making
 preview permissive. The Changes panel used to have no way to say that and crashed the
@@ -794,7 +794,7 @@ loader refused the file, and either way the reader should know what ratifying it
 
 
 def _rules_block(view: drafts.DraftView) -> str:
-    """The draft's rules, each a link into the editor (R086 §2A, finding 6).
+    """The draft's rules, each a link into the editor.
 
     **The editor had no door.** `GET /drafts/{id}/edit/{action_type}` was complete —
     both panes, live validation wired — and the only two `/edit/` references in the
@@ -834,8 +834,8 @@ def _rules_block(view: drafts.DraftView) -> str:
 def ceremony_body(view: drafts.DraftView) -> str:
     """The ratify page: three true things and one deliberate confirm.
 
-    Its gravity comes from the digest, the diff and the irreversibility stated — R060
-    §5. Nothing here dramatizes beyond what the engine does: no countdown, no warning
+    Its gravity comes from the digest, the diff and the irreversibility stated.
+    Nothing here dramatizes beyond what the engine does: no countdown, no warning
     the engine cannot back, and no claim that the change is irreversible in a stronger
     sense than *the way back is forward*.
     """
@@ -850,7 +850,7 @@ def ceremony_body(view: drafts.DraftView) -> str:
         # Same fact `_diff_block` renders, on the one page where showing a Ratify
         # button would be worse than a crash: submitting it would still hit
         # `ratify.ratify`'s own `_apply` call, refused for the identical reason
-        # (R088 §2 — preview and ratification cannot diverge). No confirm form here,
+        # (preview and ratification cannot diverge). No confirm form here,
         # never a button that reads as live and 500s when pressed.
         return (
             f'<h2>Ratify {escape(view.draft.title)}</h2><div class="rulebar"></div>'
@@ -885,7 +885,7 @@ def ceremony_body(view: drafts.DraftView) -> str:
 
 
 def receipt_body(outcome: Any, draft_id: str) -> str:
-    """What came back. A refusal keeps the ceremony's own words (R047 §S2-T5)."""
+    """What came back. A refusal keeps the ceremony's own words."""
     if not outcome.ratified:
         return (
             '<h2>Not ratified</h2><div class="rulebar"></div>'
@@ -927,12 +927,12 @@ def reevaluate_block(
 ) -> str:
     """The flagship, on the History detail page.
 
-    **Both versions are named in the same breath** (R061 §5) — the one that decided
+    **Both versions are named in the same breath** — the one that decided
     then and the one replaying now — and the block wears the would-have sentence. A
     counterfactual that does not name its counterfactual-ness on the screen where it
     renders is the backtest panel\u2019s lie one click deeper.
 
-    The dropdown offers only versions `snapshot_for` can actually serve (R056). A
+    The dropdown offers only versions `snapshot_for` can actually serve. A
     version this store cannot rebuild is not an option that returns nothing; it is not
     an option.
     """
@@ -1211,7 +1211,7 @@ def verify_index_body(receipts: tuple[Any, ...]) -> str:
 
 
 DOWNLOAD_NOTE = "Download for the exact bytes rather than copying the text below."
-"""R089 F-V1. The pane below is still shown in full — a reader should not have to
+"""The pane below is still shown in full — a reader should not have to
 download a file to see what is in it — but selecting text out of a `<pre>` block risks
 losing or gaining a byte, and a single wrong byte here produces a **false `failed`** on
 a receipt that was sound. The route this points at (`server.py`'s
@@ -1313,7 +1313,7 @@ def refusals_block(result: staging.StagedResult) -> str:
 
     Kept structurally apart from `forecasts_block` because they answer different
     questions, and a reader who cannot tell them apart learns a schema the engine does
-    not have (R066 §3).
+    not have.
     """
     stage = ""
     if result.stopped_at is not None:
@@ -1342,7 +1342,7 @@ def forecasts_block(
 ) -> str:
     """How each rule will behave once in force. NOT refusals, and the heading says so.
 
-    `refused` is R092 F-D1: whether the refusals list above this one is non-empty. The
+    `refused` is whether the refusals list above this one is non-empty. The
     notice's own claim — "the loader accepts every rule below" — is a statement about
     the SAME candidate the refusals list just refused, and it must stop being false the
     moment that list is not empty. It is a caller-supplied fact, not recomputed here,

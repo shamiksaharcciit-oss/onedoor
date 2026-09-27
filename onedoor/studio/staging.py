@@ -53,7 +53,7 @@ stage that never ran is not a clean bill.**
 `INCOMPLETE_NOTICE` is unchanged and still binds: `validate_policy` stops at the **first
 failure per rule**, and set-level defects are invisible to a per-rule loop. Reaching
 three more stages widens what can be found; it does not make the list complete, and no
-wording here says it does. The honest sentence, ruled in R066 §3:
+wording here says it does. The honest sentence:
 
 > every refusal the loader can produce for this candidate, at the stage that produces
 > it — first failure per rule, set-level defects still invisible.
@@ -79,7 +79,7 @@ STAGE_RULES = "rules"
 STAGES = (STAGE_LOAD, STAGE_SCHEMA, STAGE_RULES, STAGE_EFFECTS)
 """The loader's order, declared once. The renderer reads this rather than spelling it.
 
-A vocabulary half-derived and half-typed drifts from both ends (R057 §6), and the stage
+A vocabulary half-derived and half-typed drifts from both ends, and the stage
 names appear on the page, in the API's JSON and in the tests.
 
 The order is asserted against `load_file`'s AST by

@@ -7,7 +7,7 @@ module decides only what a reader is shown and in what order.
 
 ## The ceremony's gravity comes from what is true
 
-R060 §5, and it is the constraint that shapes every sentence below. The weight of the
+This is the constraint that shapes every sentence below: the weight of the
 ratify page must come from **the digest, the diff, and the irreversibility stated** —
 never from an element that dramatizes beyond what the engine does. *A ceremony that
 overstates is a design-study banner away from a lie.*
@@ -106,7 +106,7 @@ class RuleDiff:
 
     action_type: str
     kind: str
-    """`added` or `modified` — `ratify.Changes` has no `removed`, by R046's ruling."""
+    """`added` or `modified` — `ratify.Changes` has no `removed`."""
 
     was: Policy | None
     becomes: Policy | None
@@ -132,7 +132,7 @@ class DraftView:
     @property
     def preview_refusal(self) -> str | None:
         """The loader's own refusal of this draft's candidate, or `None` when the
-        preview computed cleanly (R088 §1/§2, F-U1).
+        preview computed cleanly.
 
         Drawn from `ratify.preview`'s own words — never a second validator's paraphrase
         of them — so the "Changes" panel can defer to the Validation panel that already

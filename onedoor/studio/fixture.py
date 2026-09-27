@@ -25,13 +25,13 @@ would mean threading an injected clock through migrations and snapshot writes, w
 change to the engine for the sake of a demo asset.
 
 So **the pinned artifact is the chain head**, committed as one line in `_fixture/HEAD`,
-and the ledger is built on demand. That serves both purposes R043 §3 named better than a
+and the ledger is built on demand. That serves both purposes better than a
 committed `.db` would: the regeneration test compares what is actually deterministic, and
 the anti-masquerade property depends only on `row_hash` values, which are. It also keeps
 the wheel small — the committed database measured 315 KB, over the 256 KB the ticket
 declared, and this is a few hundred bytes.
 
-The property that pinning buys beyond reproducibility (R043 §3): **the fixture's chain
+The property that pinning buys beyond reproducibility: **the fixture's chain
 head is a published constant.** Every install ships the same bytes, so its `row_hash`
 values are public — which makes a fixture-backed receipt stripped of its label and
 presented as `live` **checkable by anyone**, by comparing the cited

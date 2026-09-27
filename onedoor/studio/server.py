@@ -1,6 +1,6 @@
 """The Studio server (ND-052 / S3-T2) — loopback only, and it refuses to be otherwise.
 
-Why this is a **separate process** from `onedoor.service` (R047 §1)
+Why this is a **separate process** from `onedoor.service`
 --------------------------------------------------------------------
 `onedoor.service` is the PDP: the machine-to-machine endpoint agents call for decisions.
 An operator GUI that *changes the rules* must not live on it, because then **one leaked
@@ -119,7 +119,7 @@ def require_loopback(host: str) -> str:
 
 @dataclass
 class StudioState:
-    """The two stores, held apart on purpose (R047 §2), and safe to serve.
+    """The two stores, held apart on purpose, and safe to serve.
 
     `enforcer` is opened for reading and for the ratification ceremony, which writes
     only through the engine's own functions. `studio` holds drafts and is the only
@@ -155,7 +155,7 @@ class StudioState:
     db_defaulted: bool = True
     """Whether `--db` was left at its default rather than named on the command line.
 
-    Threaded from argparse (R086 §2D) — `has_default_value` on the namespace is the only
+    Threaded from argparse — `has_default_value` on the namespace is the only
     place this fact exists, since a path equal to the default string was still typed by
     an operator who should not be doubted. Defaults to `True` so a caller built directly
     (a test, a library use) gets the warning wording with the extra hypothesis rather
@@ -299,7 +299,7 @@ def repin(state: StudioState, draft_id: str) -> store.Draft:
 
     Every preview computed from the old base dies with this call — not because this
     function deletes them, but because `canvas.build` recomputes `Panels` as a unit from
-    whatever the pin now says. R047 §3: they go stale together and recompute together.
+    whatever the pin now says. They go stale together and recompute together.
     """
     return store.repin(
         state.studio, draft_id, base_version=policy_loader.current_version(state.enforcer)
@@ -309,7 +309,7 @@ def repin(state: StudioState, draft_id: str) -> store.Draft:
 REFUSED_CANDIDATE_INVALID = "candidate_invalid_at_load"
 """Alongside `ratify.REFUSED_LOST_RACE` etc — this one is caught here, not raised inside
 `ratify.ratify`, because the message is `_apply`'s own `ValueError` text and this route
-is where it is first safe to stop it climbing further (R088 §2's boundary, one page
+is where it is first safe to stop it climbing further (a boundary drawn one page
 later)."""
 
 
@@ -361,14 +361,14 @@ def ratify_draft(
         return RatifyOutcome(ratified=False, reason=exc.reason, message=str(exc))
     except ValueError as exc:
         # `ratify.ratify` calls the same shared `_apply` `ratify.preview` does, and
-        # neither is taught to be permissive (R088 §2) -- a candidate the loader
+        # neither is taught to be permissive -- a candidate the loader
         # refuses is refused identically by both, `_apply` untouched either way. This
         # route is a second reach to that same refusal, alongside F-U1/F-U2's
         # draft-detail and ceremony pages: `ceremony_body` no longer offers a Ratify
         # button on a refused draft, but nothing stops a stale link, a replayed form,
         # or a direct POST from reaching this route anyway, and it must answer rather
-        # than 500 -- self-found while completing the same boundary fix, not part of
-        # R088's enumerated findings, and reported as such.
+        # than 500 -- self-found while completing the same boundary fix, and reported
+        # as such.
         return RatifyOutcome(ratified=False, reason=REFUSED_CANDIDATE_INVALID, message=str(exc))
     return RatifyOutcome(ratified=True, receipt=receipt)
 
@@ -417,7 +417,7 @@ def validation_for_rule(state: StudioState, text: str) -> tuple[Any, Any]:
 def create_app(state: StudioState) -> Any:
     """Build the ASGI app. Imports FastAPI here so the library never requires it.
 
-    The same shape as signing's X-6 reading (R038 §2): the dependency is hard **at the
+    The same shape as signing's X-6 reading: the dependency is hard **at the
     point of use**, refused with a message naming the remedy, rather than carried by
     every reader who only ever used the engine as a library.
     """
@@ -448,7 +448,7 @@ def create_app(state: StudioState) -> Any:
     # Turning them off rather than vendoring the assets: the Studio is an operator GUI
     # on loopback, not an API surface for third parties, and the JSON endpoints it does
     # have are documented in the README where they do not cost a network call.
-    # `openapi_url` is ON for ND-056/T2 and `/docs`/`/redoc` stay OFF (Q12, R066 §5).
+    # `openapi_url` is ON for ND-056/T2 and `/docs`/`/redoc` stay OFF.
     # V8's finding had two heads: a surface nobody chose to publish, and external
     # origins pulled in to render it. T2 is a chosen surface, and the JSON schema fetches
     # nothing -- so the first head is answered by the choice and the second never applies.
@@ -658,7 +658,7 @@ def create_app(state: StudioState) -> Any:
     async def validate_fragment(request: Request, draft_id: str) -> Any:
         """Live validation: the SERVER parses, and returns the rendered lists.
 
-        R063 §1 is what shapes this route. The panes sync through the server because the
+        The panes sync through the server because the
         server owns the only parser, and *they cannot drift because there is nothing to
         drift between*. Live validation must not weaken that, so the browser sends text
         and receives HTML — it never learns what a policy is.
@@ -779,7 +779,7 @@ def create_app(state: StudioState) -> Any:
             # A refused ratification is not a server error and not a success: the
             # request was well-formed and the engine declined it. 409 is the status for
             # a state conflict, which is exactly what a moved base or a failed citation
-            # is. R059 §2: status, media type and body are one statement.
+            # is. Status, media type and body are one statement.
             status_code=200 if outcome.ratified else 409,
         )
 
@@ -934,7 +934,7 @@ def create_app(state: StudioState) -> Any:
     def _deposition_download(ratification_digest: str, *, filename: str, text: str) -> Any:
         """One route body shared by both download endpoints below.
 
-        R089 F-V1: the page's own instruction \u2014 *"Copy them anywhere, run it there"* \u2014
+        The page's own instruction \u2014 *"Copy them anywhere, run it there"* \u2014
         was unfollowable. The only path to the bytes was select-and-paste out of a
         `<pre>` block, which risks losing or gaining a byte and turning a sound receipt
         into a **false `failed`** \u2014 the worst error this page could make, one command
@@ -987,10 +987,10 @@ def create_app(state: StudioState) -> Any:
         """One rule: what it does, beside what it says.
 
         A rule absent from the version in force answers **404**, with an honest body
-        that still explains what the absence means (R058 §6).
+        that still explains what the absence means.
 
         V2 answered 200 here, reasoning that the route is valid and the absence is a
-        fact about the deployed system. Core ruled that a defect, and the reason is the
+        fact about the deployed system. That is a defect, and the reason is the
         audience: **the status code is the machine-readable verdict, and a 200 whose
         body says "not found" is the right-typed lie for machines.** Every crawler,
         cache, monitor and script reads the type and believes the page exists -- so the
@@ -1062,7 +1062,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/history/{row_id}", response_class=HTMLResponse)
     def history_entry(row_id: int, against: str = "") -> Any:
-        """One decision in full. 404 when the entry does not exist (R058 §6)."""
+        """One decision in full. 404 when the entry does not exist."""
         with state.lock:
             row = history.entry(state.enforcer, row_id)
             if row is None:
@@ -1287,7 +1287,7 @@ def create_app(state: StudioState) -> Any:
     async def api_put_rule(request: Request, draft_id: str, action_type: str) -> Any:
         """Add or update ONE rule inside a draft. Everything else is left alone.
 
-        R063 §4's law, at the API: *a partial editor that writes a whole object deletes
+        *A partial editor that writes a whole object deletes
         what it never displayed.* The other rules are carried over rather than rebuilt,
         and a body whose `action_type` disagrees with the path is a malformed request
         rather than a silent rename.
@@ -1406,7 +1406,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get(f"{api.API_ROOT}/policies")
     def api_policies() -> Any:
-        """The rules in force, read from the SNAPSHOT the version names (R058 §1).
+        """The rules in force, read from the SNAPSHOT the version names.
 
         Not from live tables. The digest in the header names the snapshot, so the
         snapshot is the only honest source for the answer under it — and the two agree
@@ -1491,12 +1491,12 @@ def create_app(state: StudioState) -> Any:
         """LEGACY, deprecated. Ratifies over HTTP with a DECLARED session string.
 
         Shipped in `ND-052`/S3-T2, undocumented and untested by path until ND-056 found
-        it while checking Forward 006's "no approval-by-API" wall against the code. The
+        it while checking the "no approval-by-API" wall against the code. The
         wall was written by the author of a tree that already served this route, and V8's
         universal pass could not have caught it because no law said what a route may DO.
         That law exists now; this route is what it was written for.
 
-        R066 §1 rules it stays through this release — launch week is the wrong week to
+        It stays through this release — launch week is the wrong week to
         break a published surface — and adds two teeth, both here:
 
         1. **A witness test** pins its exact current behaviour, so its retirement in the

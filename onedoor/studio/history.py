@@ -1,8 +1,8 @@
 """V3 / S4 — the execution ledger, read and never written.
 
 The decisions the engine actually made, as a filterable register. **Read-only, with no
-mutating path in the module at all** — R055 V3 says *"no mutation of any kind on this
-screen"*, and the way that is kept is that nothing here can write: every query is a
+mutating path in the module at all** — *"no mutation of any kind on this
+screen"* is the requirement, and the way that is kept is that nothing here can write: every query is a
 `SELECT`, and the connection is the same read path the library uses.
 
 ## Entries are numbered by the chain, not by the page
@@ -16,9 +16,9 @@ belong to the register.**
 Rows that predate the chain carry no `seq`, and those render as absent rather than as
 zero — see `Entry.number`.
 
-## The filter R055 asks for that this store cannot answer
+## The filter this store cannot answer
 
-R055 V3 lists filters for *"time, action, verdict, policy version, key"*. Four of those
+The filters expected here are *"time, action, verdict, policy version, key"*. Four of those
 are columns. **The fifth is not recorded anywhere.** `onedoor.service` authenticates
 callers with bearer API keys, but `audit.append` takes no caller identity and
 `actions_audit` has no column for one, so the ledger cannot say *who asked*.

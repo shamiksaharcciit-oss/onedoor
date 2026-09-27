@@ -6,7 +6,7 @@ it is the deterministic engine, dry-run, run twice.
 
 Two rulings shape every line below.
 
-**A backtest writes nothing to the decision ledger. Ever** (R042 §3) — not a decision
+**A backtest writes nothing to the decision ledger. Ever** — not a decision
 row, not a marker, not a breadcrumb. `actions_audit` is the enforcer's record and the
 Studio is a proposer; constitution principle 1 does not bend for evidence's sake.
 
@@ -55,7 +55,7 @@ SCHEMA = "onedoor/backtest/1"
 
 LIVE = "live"
 FIXTURE = "fixture"
-"""The two values of `ledger_provenance`, and there is no third (R043 §2).
+"""The two values of `ledger_provenance`, and there is no third.
 
 It describes the **cited range**, not the store. A mixed store — a sealed chain with an
 unchained prefix — is `live` over the chained span, with the prefix counted as a skip:
@@ -67,7 +67,7 @@ SKIP_UNCHAINED_PREFIX = "unchained_prefix"
 SKIP_COST_UNDERIVABLE = "cost_underivable"
 """The candidate declares no `cost_param`, so this action's cost is a NON-MEASUREMENT.
 
-R043 §1's law: **measured zero and declared zero never share a representation.** A cost
+**Measured zero and declared zero never share a representation.** A cost
 of `0.00` resolved from `params_json` through the candidate's `cost_param` is a
 measurement and participates in cap accounting. An action whose candidate policy
 declares no `cost_param` is not a zero — and the engine already says so, because
@@ -172,7 +172,7 @@ class BacktestReceipt:
 def _cited_range(ledger: sqlite3.Connection) -> tuple[CitedRange, int]:
     """The chained span, and how many rows precede it. Refuses an unchained store.
 
-    **R043 §2's unasked ruling:** a store with no chain at all gets a **refusal, not a
+    A store with no chain at all gets a **refusal, not a
     receipt**. `row_hash_at_last_seq` is REQUIRED precisely so this door cannot be left
     open — a receipt whose citation is null is the store vouching for itself, which this
     product never does. Chaining is opt-in and off by default, so this is the common
@@ -212,7 +212,7 @@ def _request_from(row: sqlite3.Row) -> ActionRequest | None:
     from `params_json` through `caps.resolve_cost`, which is the same mechanism the live
     engine uses — the instrument is identical, not merely the answer plausible. Where
     the candidate declares no `cost_param`, `resolve_cost` returns **None rather than
-    zero** and the verdict comes back `cost_unknown`, which is R043 §1's law enforced by
+    zero** and the verdict comes back `cost_unknown`, enforced by
     the engine itself.
     """
     raw = row["params_json"]
@@ -289,7 +289,7 @@ def run(
                     skipped[SKIP_UNREPLAYABLE] += 1
                     continue
                 if not declares_cost.get(request.action_type, True):
-                    # A non-measurement, not a zero (R043 §1). Counted here AND left to
+                    # A non-measurement, not a zero. Counted here AND left to
                     # the engine, which returns `cost_unknown` rather than assuming a
                     # free action -- so the two cases cannot collapse into one receipt.
                     skipped[SKIP_COST_UNDERIVABLE] += 1
@@ -339,7 +339,7 @@ def policy_digest(candidate: list[Policy]) -> str:
     Built from the models rather than from a store, because a candidate is a proposal
     and has not been ratified into one. S2's ceremony is what turns a candidate into a
     `version_hash`, and it will do that by citing `policy_loader.record_snapshot` rather
-    than re-deriving it (R043 §4).
+    than re-deriving it.
     """
     return digest_obj(
         [json.loads(p.model_dump_json()) for p in sorted(candidate, key=lambda p: p.action_type)]

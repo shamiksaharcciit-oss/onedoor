@@ -1,7 +1,7 @@
 """V8 / S6 — the deposition page, and the command a stranger runs.
 
 **This module is written for a reader who distrusts the operator, the vendor, and this
-page** (R063 §6). Everything it asserts must be checkable by that reader with what the
+page.** Everything it asserts must be checkable by that reader with what the
 page hands them: a command they can run, files they can hash, and outcomes named in the
 three-outcome vocabulary.
 
@@ -22,8 +22,8 @@ the store, the independence this page claims would be false.
 
 Exit status is the verdict: `0` verified, `1` failed, `2` the files could not be read.
 **Three outcomes, in the exit code as well as the words** — a stranger scripting this
-gets the same three answers a reader gets, which is R059 §2's whole-response honesty
-applied to a command line.
+gets the same three answers a reader gets, applying the same whole-response honesty
+to a command line.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ CANNOT_VERIFY = (
     "that produced the receipt, so it shows you a check that was run and the exact "
     "command to run it yourself, on files you hold, without this program's cooperation."
 )
-"""The oneview §4 discipline as a destination (R063 §6).
+"""The oneview §4 discipline as a destination.
 
 Not modesty. A verification rendered by the party being audited is worth exactly what
 the auditor's trust in that party is worth, and this page's job is to need none of it.
@@ -122,7 +122,7 @@ def check(receipt_json: str, snapshot_text: str) -> tuple[str, str]:
     Shares `ratify.verify_files`' arithmetic by writing the same two files a stranger
     would — through a temporary directory, so the page and the command run **the same
     code over the same bytes**. A page that reimplemented the check would be a second
-    implementation of the answer, and R062 §1 has already ruled on those.
+    implementation of the answer, and that is exactly why it is avoided here.
     """
     import tempfile
     from pathlib import Path

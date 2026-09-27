@@ -2,28 +2,28 @@
 
 What the engine's state is *right now*, read and never written.
 
-## The kill switch is rendered read-only, and this is the escalation R055 V4 asked for
+## The kill switch is rendered read-only, and this is the escalation this design calls for
 
-R055 V4: *"Engage/release only through an admin API that already exists; if none does,
-render read-only and escalate."* R059 §5 adds that a half-existing API is still the
+*"Engage/release only through an admin API that already exists; if none does,
+render read-only and escalate."* A half-existing API is still the
 read-only case.
 
 **An admin API exists — and it is not one the Studio may use.** `POST /v1/killswitch`
 lives on `onedoor.service`, the PDP. There are two ways the Studio could reach the
 switch and both break something load-bearing:
 
-1. **`killswitch.set_engaged(state.enforcer, …)` directly.** R047 §2 is that *the
+1. **`killswitch.set_engaged(state.enforcer, …)` directly.** *The
    enforcer's database contains no row the Studio can edit* — the ratification ceremony
    is the single exception, and it is sealed on arrival. A second write path would make
    that sentence false, and it is the sentence the whole two-process design rests on.
 2. **Calling the service over HTTP.** That needs the PDP's admin credential inside the
-   Studio, which is precisely what R047 §1 separates the processes to prevent — *one
+   Studio, which is precisely what separating these into two processes exists to prevent — *one
    leaked credential both answers decisions and rewrites the rules those decisions are
    made under*. It would also make a page that promises *nothing leaves this machine*
    open a socket.
 
 So the state is shown and the control is not offered. **A control that renders as
-operable and is not would be the right-typed lie as a button** (R059 §5).
+operable and is not would be the right-typed lie as a button**.
 
 ## What the switch does not stop, said on the page
 
@@ -65,7 +65,7 @@ RANK = (
     "it before any policy lookup, and while it holds, every acting tier is clamped to "
     "propose-only."
 )
-"""R055 V4: *"its rank stated plainly"*. Checked against `decision.py`, where the switch
+"""The design calls for *"its rank stated plainly"*. Checked against `decision.py`, where the switch
 is step 1 and the clamp is unconditional — not inferred from the name."""
 
 DOES_NOT_STOP = (
@@ -324,7 +324,7 @@ def build(
 
 
 def _policies_in_force(ledger: sqlite3.Connection) -> list[Policy]:
-    """The policy set behind the pinned version — R058 §1's law, applied here too.
+    """The policy set behind the pinned version — the same rule applied here too.
 
     The caps a bar is measured against must come from the same snapshot the header's
     digest names, or the page draws a limit the engine is not enforcing.

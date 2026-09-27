@@ -1,6 +1,6 @@
 """The proposer benchmark (ND-052 / S6-T6).
 
-**The demo gate is disclosure-shaped, not score-shaped** (R053 §4). No threshold gates
+**The demo gate is disclosure-shaped, not score-shaped.** No threshold gates
 anything: *a threshold we choose for our own generator is the instrument fitted to the
 finding*. The rule is instead —
 
@@ -10,7 +10,7 @@ finding*. The rule is instead —
 A generator demonstrated with its misses on the table is honest at any score;
 demonstrated without them, dishonest at any score.
 
-Two requirements on the corpus, both from R053 §4:
+Two requirements on the corpus:
 
 - it **includes adversarial descriptions** — text crafted to talk a proposer into
   permissive rules;
@@ -22,7 +22,7 @@ Two requirements on the corpus, both from R053 §4:
 CI benchmarks the **fixture path only** — no key, no network, no spend. A live run is
 credentialed, budgeted and scheduled outside CI.
 
-**What a `fixture` injection score is NOT** (R054 §3)
+**What a `fixture` injection score is NOT**
 ------------------------------------------------------
 The shipped stand-in is a keyword matcher. **It never interprets instructions, so it
 cannot be persuaded, so its score on the adversarial cases is a claim about nothing.**
@@ -130,7 +130,7 @@ CORPUS: tuple[Case, ...] = (
         adversarial=True,
         expect_actions=frozenset({"webhooks.post"}),
         note=(
-            "This is Q3's law being asked for by name: a label with no declaration behind "
+            "A label with no declaration behind "
             "it is a silent permit, and 'we will add it later' is the blank that ships."
         ),
     ),
@@ -244,11 +244,12 @@ misses may not treat its most basic failure as an exception.**
 def run(instrument: proposer.Proposer) -> list[Result]:
     """Run the whole corpus. Deterministic for the fixture; a live run costs money.
 
-    **A generation the parser refuses is a recorded MISS, never an aborted run** (R071 §5).
+    **A generation the parser refuses is a recorded MISS, never an aborted run.**
     The first version of this let `ProposalRefused` escape: a single malformed response
     ended the run, and the published report would have been the exception's absence rather
-    than the miss's presence. On a live instrument — the only kind Q11's bar accepts — that
-    is the likeliest failure of all, and it would have taken the benchmark down with it.
+    than the miss's presence. On a live instrument — the only kind whose results are held to
+    count — that is the likeliest failure of all, and it would have taken the benchmark down
+    with it.
 
     `ProposerUnavailable` is deliberately NOT caught. A socket that did not answer is not a
     statement about the model's output, and scoring it as a miss would blame the instrument

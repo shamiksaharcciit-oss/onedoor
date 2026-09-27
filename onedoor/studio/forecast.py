@@ -1,6 +1,6 @@
 """`ND-056` / T1 — what this rule will DO at decision time, kept apart from what the loader refuses.
 
-Two lists, never merged (R066 §3). `staging.staged` answers *"will the loader refuse this
+Two lists, never merged. `staging.staged` answers *"will the loader refuse this
 at boot?"*. This answers a different question — *"once loaded, how will this rule
 behave?"* — and the two must never be rendered as one list, because a reader who cannot
 tell them apart learns a false schema: they come to believe the Studio refuses things the
@@ -8,7 +8,7 @@ engine accepts, and then they stop believing the Studio.
 
 ## Why the separation is a correctness rule and not a layout preference
 
-Forward 006 asked for five things in one inline list. Three of them are loader refusals.
+An earlier version of this screen listed five things together in one inline list. Three of them are loader refusals.
 **Two are not, and checking found it:**
 
 - **A euro cap with no `cost_param` loads perfectly well.** Nothing in
@@ -20,13 +20,13 @@ Forward 006 asked for five things in one inline list. Three of them are loader r
   check: `bounds.check` rejects an unknown param **in a request**. A policy cannot
   violate it; a request can.
 
-R058 §4 is the law that caught both: *check every phrase against the code that decides,
-not the names that suggest.* A Studio that invented a boot refusal would be the second
+**Check every phrase against the code that decides, not the names that suggest** — that
+is what caught both. A Studio that invented a boot refusal would be the second
 validator wearing a warning's clothes.
 
 ## Every forecast names the code that will speak
 
-R066 §3's requirement, and it is what keeps this list from being the Studio's opinion.
+Citing the code that will speak is what keeps this list from being the Studio's opinion.
 A forecast cites `CheckId` — the same vocabulary the audit row will carry — so an
 operator who sees `cost_unknown` in the ledger next week can find the sentence that
 predicted it. A forecast in the Studio's own paraphrase would be unfalsifiable; a
@@ -69,7 +69,7 @@ FORECAST_NOTICE_REFUSED = (
     "once it is in force and any refusals above are fixed, and each one names the "
     "reason code the engine will record."
 )
-"""R092 F-D1. `FORECAST_NOTICE` rendered unconditionally, including beside a non-empty
+"""`FORECAST_NOTICE` rendered unconditionally, including beside a non-empty
 refusals list: "the loader accepts every rule below" is false the moment one is not —
 `payments.transfer` sitting in the forecast list while the refusal list two panels up
 refuses it. **Requirement, not wording**: the notice must be true on both branches. The
@@ -83,9 +83,9 @@ def notice(*, refused: bool) -> str:
     """Which forecast-list disclaimer is true, given whether anything above it refused.
 
     One call, both render sites (`screens.forecasts_block`, `api.validation_object`) —
-    R069's law applied to a sentence: two callers computing the same choice would be
-    two chances for it to be computed differently, which is exactly how F-D1 stood
-    unnoticed on one surface while the other rendered the identical wrong sentence.
+    because two callers computing the same choice would be
+    two chances for it to be computed differently, which is exactly how one such mismatch
+    stood unnoticed on one surface while the other rendered the identical wrong sentence.
     """
     return FORECAST_NOTICE_REFUSED if refused else FORECAST_NOTICE
 
@@ -197,7 +197,7 @@ def build(
                     "the rule either way."
                 )
             else:
-                # R092 F-D2: `", ".join(named) if named else "no parameters at all"`
+                # `", ".join(named) if named else "no parameters at all"`
                 # substituted a description of absence into a slot written for a
                 # list, producing "any parameter other than no parameters at all" --
                 # a list slot cannot hold the word for its own emptiness. The empty

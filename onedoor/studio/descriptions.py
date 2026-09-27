@@ -14,7 +14,7 @@ is why it is stored as a **BLOB** and why any committed fixture description need
 
 Why here and not in the enforcer's store
 ------------------------------------------
-R047 §2's line still holds: **the enforcer's database contains no row the Studio can
+**The enforcer's database contains no row the Studio can
 edit.** Descriptions and derivation records are the proposer's working evidence, and they
 live in `studio.db` with the drafts. What crosses into the enforcer's store is the
 ratification — through the ceremony, sealed on arrival — and nothing else.
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS descriptions (
 );
 
 -- Derivation records. NOT receipts: a proposal is not recomputable, and principle 5 was
--- amended rather than stretched to say so (R053 section 1). Append-only, because a record
+-- amended rather than stretched to say so. Append-only, because a record
 -- of what a model produced that the producer can quietly revise is not a record.
 CREATE TABLE IF NOT EXISTS derivation_records (
     record_digest       TEXT PRIMARY KEY,

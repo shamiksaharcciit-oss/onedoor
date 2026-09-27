@@ -13,7 +13,7 @@ same law tests, the same coverage map and the same human ratification as a hand-
 one. Fail-closed defaults mean a rule the model got wrong is a rule that **refuses**.
 That is the whole reason the proposer was built last and the ceremony first.
 
-A record, not a receipt (R053 §1)
+A record, not a receipt
 -----------------------------------
 Every other artifact this product emits is **recomputable** — a backtest replays, a
 ratification's hash is reproduced by `record_snapshot`, a coverage map is a pure function
@@ -43,7 +43,7 @@ SCHEMA = "onedoor/derivation-record/1"
 
 LIVE = "live"
 FIXTURE = "fixture"
-"""`proposer_provenance`, and it is **the same value pair as `ledger_provenance`** (R053 §2).
+"""`proposer_provenance`, and it is **the same value pair as `ledger_provenance`**.
 
 The label's job is identical — was this the real instrument or the shipped stand-in — and
 a renderer that already speaks `live | fixture` must not learn a second dialect for one
@@ -101,8 +101,8 @@ class Mention:
     """Something the description referred to, as **a model's reading of a sentence**.
 
     Not a measurement. `coverage.build`'s rows are facts about the engine and the ledger;
-    this is a claim about what someone meant, and R053 §3 keeps the two in different
-    sections of one surface precisely so a claim can never occupy a measurement's row.
+    this is a claim about what someone meant, kept in a different section of the surface
+    precisely so a claim can never occupy a measurement's row.
     """
 
     subject: str
@@ -139,7 +139,7 @@ class Proposer(Protocol):
     """What the Studio needs from anything that drafts policy.
 
     Two members, and `identity` is not optional: **the instrument block is never empty in
-    either case** (R053 §2). A fixture records its own identity, version and digest exactly
+    either case**. A fixture records its own identity, version and digest exactly
     as a model records its id — an unrecorded instrument is an unrecorded derivation.
     """
 
@@ -249,10 +249,10 @@ KINDS = (MEASURED, ASSERTED)
 
 `measured` is what the engine observed; `asserted` is what a description *claims*. The
 distinction is the whole point of the page — a reader must not mistake a claim for a
-measurement — which is exactly why it must not be marked in the brand accent (R056 §4)
+measurement — which is exactly why it must not be marked in the brand accent
 and why the seal check has to know these words.
 
-Promoted from literal class names by R057 §6. They were spelled in `viewer/proposal.py`
+Promoted from literal class names. They were spelled in `viewer/proposal.py`
 and declared nowhere, so the check that guards them needed one hand-typed entry beside
 a vocabulary derived from every other enumeration. **A vocabulary half-derived and
 half-typed drifts from both ends:** type it once, import it everywhere.
@@ -275,7 +275,7 @@ class FixtureProposer:
         self._pack_digest = pack_digest or templates.PACK_DIGEST
 
     def identity(self) -> dict[str, Any]:
-        """Never empty (R053 §2): a stand-in records its identity as a model records its id."""
+        """Never empty: a stand-in records its identity as a model records its id."""
         return {
             "kind": "fixture",
             "name": "onedoor.studio.proposer.FixtureProposer",
@@ -329,7 +329,7 @@ class FixtureProposer:
         return Proposal(
             policies=[chosen[a] for a in sorted(chosen)],
             # Only the effects the chosen rules name — never a bare label, which would be
-            # the `declared_inert` defect emitted by our own generator (Q3's law, T7).
+            # the `declared_inert` defect emitted by our own generator.
             effects=[e for e in effects if e.effect in needed],
             mentions=sorted(mentions, key=lambda m: (m.kind, m.subject)),
         )

@@ -17,7 +17,7 @@ from onedoor.studio.server import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_STUDIO_DB,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m onedoor.studio", description=__doc__)
     default_db = "onedoor.db"
-    # `default=None` rather than `default=default_db`: R086 §2D needs to know whether
+    # `default=None` rather than `default=default_db`: the code needs to know whether
     # `--db` was TYPED, not whether its value happens to equal the default string. An
     # operator who typed `--db onedoor.db` named it and should not be doubted; comparing
     # the parsed value against `default_db` would have called that "defaulted" too.

@@ -9,7 +9,7 @@ The obvious way is JavaScript: parse the raw pane in the browser, mirror it into
 form, and mirror the form back. **That requires a second implementation of the policy
 parser**, in a different language, and the two would disagree on exactly the inputs this
 engine cares about most — decimal strings, unicode, key order, `null` against absent.
-R062 §1 named the law for the replay and it applies unchanged here: *two implementations
+That same law applies unchanged here: *two implementations
 of a thing disagree the first time anything subtle changes.*
 
 So the panes sync through the **server**, which owns the only parser. Editing either
@@ -25,8 +25,8 @@ would parse differently.
 
 Everything here edits `store.Draft` rows in the **Studio's** database.
 `policy_loader.upsert` is never called, the enforcer connection is never written, and
-the only path from a draft to the live rules remains the ratification ceremony. R047 §2
-stands: *the enforcer's database contains no row the Studio can edit.*
+the only path from a draft to the live rules remains the ratification ceremony.
+*The enforcer's database contains no row the Studio can edit.*
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ DECIMAL_DIVERGENCE = (
     "bound over the same parameter refuses it. Declaring a numeric bound on a parameter "
     "therefore changes which wire types that action accepts."
 )
-"""The ND-054 note, at the decimal fields (R055 V7, R062 §5).
+"""The ND-054 note, at the decimal fields.
 
 **It describes what the engine does today, and nothing else.** No "will be fixed", no
 "until ND-054 lands", no softening toward a change that has not happened: *a note that
@@ -116,7 +116,7 @@ def _int_or_none(raw: str, field: str) -> int | None:
 
 
 def _numeric_clauses(name: str, span: dict[str, object]) -> list[str]:
-    """One clause per bound present, both when both are — R089 F-E1.
+    """One clause per bound present, both when both are.
 
     The ternary this replaced printed `max` OR `min`, never both: on a rule with both
     bounds (`payments.transfer`'s `amount_eur`, min 0.01 max 2000), the guided pane read

@@ -5,12 +5,12 @@ split that keeps `viewer/page.py` from growing a second opinion about whether a 
 is sound, and the same reason: two implementations of a fact eventually disagree, and
 the one the user sees is the one that is wrong.
 
-**Every number here is produced by an engine function** (fence post two, R046 §3): the
+**Every number here is produced by an engine function** (fence post two): the
 previewed hash by `ratify.preview`, the diff by `ratify.diff`, divergence and coverage
 by S1's `backtest.run`, the problem list by `validate.problems` wrapping the engine's
 own validator. Nothing in this module computes a summary of its own.
 
-Pin and surface, and what it costs the panels (R047 §3)
+Pin and surface, and what it costs the panels
 --------------------------------------------------------
 A draft is pinned to the version it was opened against. When the active set moves, the
 canvas does **not** silently re-base: a live re-base is S2's stale read arriving one
@@ -18,8 +18,8 @@ layer earlier, before anyone clicks, where the compare-and-swap cannot catch it.
 moved state is surfaced instead, and it **names both hashes** — *a warning that names
 no versions is a mood, not a fact.*
 
-The consequence R047 attached is the reason `Panels` is one object rather than three
-fields: **every number goes stale together and recomputes together.** A diff from base
+The reason `Panels` is one object rather than three
+fields is exactly this: **every number goes stale together and recomputes together.** A diff from base
 X beside a preview from base Y is two truths about different worlds on one screen. So
 the panels are computed as a unit or not at all, and a stale draft has `panels is None`
 — there is no code path that can produce one panel from a base the diff no longer uses,
@@ -51,7 +51,7 @@ BACKTEST_RAN = "ran"
 """Three outcomes for the divergence panel, and none of them is an empty table.
 
 *Not requested* is a choice the caller made. *Refused* is the engine declining to
-receipt an unciteable range (R043 §2) and it carries the refusal's own words. Only
+receipt an unciteable range and it carries the refusal's own words. Only
 *ran* has numbers. A canvas that rendered all three as "0 divergences" would be
 reporting a measurement it never took.
 """
@@ -164,7 +164,7 @@ def build(
 ) -> CanvasView:
     """Assemble the canvas for one draft. Reads the enforcer's store; writes nothing to it.
 
-    Fence post one (R046 §3): the canvas edits candidates and touches nothing else. The
+    Fence post one: the canvas edits candidates and touches nothing else. The
     enforcer connection is opened for reading — `ratify.preview` does its work in a
     scratch database and `backtest.run` in another, so neither adds a row here nor moves
     a cap counter.

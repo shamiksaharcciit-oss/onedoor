@@ -31,7 +31,7 @@ becomes a POLICY only by surviving the ceremony a person performs.
 5. **Capability language** — `CAPABILITY` is the one sentence, used everywhere.
 6. **The dark-surface list** — `Proposal.mentions` carries what the description
    mentioned that got no rule, quoting the description's own words. Constitution
-   principle 4, and R066 §4 confirmed it binds.
+   principle 4 applies here too.
 
 ## Why stdlib and not `httpx`
 
@@ -45,7 +45,7 @@ library and does exactly one thing here.
 A proposal is **not recomputable**: the same description through the same model twice may
 differ. Recording the instrument pins the conditions, never the output — which is why
 this emits a `DerivationRecord` and not a receipt, and why principle 5 was amended rather
-than stretched (R053 §1). `NOT_REDERIVABLE` and `AUTHORITY_FROM_CHECKS` travel with every
+than stretched. `NOT_REDERIVABLE` and `AUTHORITY_FROM_CHECKS` travel with every
 rendering.
 """
 
@@ -87,7 +87,7 @@ CAPABILITY_FORBIDDEN = (
 """Phrasings this feature may never carry, held as a test over every T3 surface.
 
 Each one either makes the model the author or removes the person. The list is a fence
-around wall 5 rather than a style guide — R063 §3's pattern, where the wording is pinned
+around wall 5 rather than a style guide — the wording is pinned
 by a test instead of by whoever reviews the next edit.
 """
 
@@ -97,7 +97,7 @@ ENV_KEY = "ONEDOOR_PROPOSER_KEY"
 ENV_TIMEOUT = "ONEDOOR_PROPOSER_TIMEOUT"
 
 TOOL_NAME = "submit_policy_set"
-"""The tool's name, and it deliberately does not repeat its parameter's (R081 §2).
+"""The tool's name, and it deliberately does not repeat its parameter's.
 
 It was `propose_policies`, whose top-level parameter is also `policies`. **A parameter
 whose name collides with its tool's action verb is ambiguous by construction** — a
@@ -133,7 +133,7 @@ the point. A prompt is part of what produced the candidate, and an instrument th
 not include it would attest less than it appears to.
 
 **It no longer asks for a format, because the format is no longer requested — it is
-enforced** (R079 §1). The previous version said "Return ONLY a YAML document"; the model
+enforced**. The previous version said "Return ONLY a YAML document"; the model
 returned a markdown-fenced block on 11 of 11 calls and the loader refused every one at
 the first backtick. The prompt now carries only the JUDGEMENT to apply; the shape is the
 tool schema's job, and a schema described in prose was never a schema.
@@ -141,7 +141,7 @@ tool schema's job, and a schema described in prose was never a schema.
 
 
 MAX_COMPLETION_TOKENS = 2048
-"""The completion ceiling, pinned and sent on every request (R076 §2).
+"""The completion ceiling, pinned and sent on every request.
 
 **Before this, the request body carried no `max_tokens` at all**, so completion length was
 set entirely by whatever the provider's default happened to be — a constant nobody here
@@ -168,7 +168,7 @@ killed the markdown fence. It does not enforce ARGUMENTS: the endpoint passed th
 payload the schema forbade. This requests the missing half.
 
 **Whether the compatibility layer honours it is a fact to be probed, not assumed**, and
-the system is correctly enforced either way (R081 §4): emission is directed, the schema is
+the system is correctly enforced either way: emission is directed, the schema is
 unambiguous, argument validation is requested, and the loader catches whatever survives as
 a recorded miss. Layered, with a backstop that never launders malformed output into shape.
 """
@@ -254,7 +254,7 @@ class Instrument:
     and "the layer honoured it" are different facts: this field states the first, and only
     the first. What the layer actually did is a probe result, not a configuration value.
     """
-    """Pinned, sent on every request, and recorded in `identity()` (R076 §2).
+    """Pinned, sent on every request, and recorded in `identity()`.
 
     It is a field rather than a constant read at the call site so that a deployment which
     changes it **cannot change it quietly**: the value rides in the instrument block, the
@@ -273,8 +273,8 @@ class Instrument:
         """The instrument block. **The key is deliberately absent.**
 
         A credential in a record is a credential in a record, and a DIGEST of a
-        credential is still a function of the credential — R059 §3's ruling on
-        `actor_hash`, which binds here with full force. What is recorded is what was
+        credential is still a function of the credential — the same rule that governs
+        `actor_hash` binds here with full force. What is recorded is what was
         used, never what authorised it.
 
         `max_completion_tokens` is here for the opposite reason: it is a parameter that
@@ -289,7 +289,7 @@ class Instrument:
             "prompt_digest": prompt_digest(),
             "max_completion_tokens": self.max_completion_tokens,
             # How the shape was enforced, and the shape itself. Both are part of what
-            # produced the candidate, so both are part of the instrument (R079 section 3).
+            # produced the candidate, so both are part of the instrument.
             "output_enforcement": OUTPUT_ENFORCEMENT,
             "strict_arguments_requested": self.strict_arguments,
             "schema_digest": schema_digest(),
@@ -297,7 +297,7 @@ class Instrument:
 
 
 ProposalRefused = proposer.ProposalRefused
-"""Re-exported from `proposer`, where it now lives (R071 section 5).
+"""Re-exported from `proposer`, where it now lives.
 
 It moved so `benchmark` can catch a refused generation without importing this module: the
 benchmark scores ANY instrument, and a dependency from it to the model-backed proposer
@@ -357,11 +357,11 @@ class HttpProposer:
             {
                 "model": self.instrument.model,
                 "messages": [{"role": "user", "content": prompt}],
-                # Pinned, never the provider's default (R076 §2). Read from the
+                # Pinned, never the provider's default. Read from the
                 # instrument rather than the module constant so the value that shaped
                 # the output is the same value the record carries.
                 "max_tokens": self.instrument.max_completion_tokens,
-                # The schema is ENFORCED at emission, not requested in prose (R079 §1).
+                # The schema is ENFORCED at emission, not requested in prose.
                 # `tool_choice` names the function rather than leaving the model free to
                 # answer in text: a tool the model may decline is a request again.
                 "tools": [
@@ -371,7 +371,7 @@ class HttpProposer:
                             "name": TOOL_NAME,
                             "description": "Submit the proposed policy set.",
                             "parameters": output_schema(),
-                            # The argument-level half of the enforcement (R081 §2).
+                            # The argument-level half of the enforcement.
                             # Requested rather than assumed; if the layer ignores it the
                             # loader is still the backstop and nothing is laundered.
                             "strict": self.instrument.strict_arguments,
@@ -526,8 +526,8 @@ def _singular(word: str) -> str:
     Without this, a description saying "refunds" against a declared `payments.refund`
     reported the refunds as UNCOVERED -- a false gap, which is worse than a missed one:
     a list that cries wolf is a list an operator learns to skim. A declared, one-line
-    transformation is admissible where a similarity score is not (Core Note, 2026-08-30:
-    *never a score, always a declared transform*).
+    transformation is admissible where a similarity score is not — never a score,
+    always a declared transform.
     """
     return word[:-1] if len(word) > 3 and word.endswith("s") else word
 

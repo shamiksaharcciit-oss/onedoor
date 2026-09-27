@@ -12,7 +12,7 @@ this module adds an entry point, never a second set of rules.
 **Ratification stays the human ceremony**, and the reason is exact: *an approval
 without a named approver is testimony.* The engine records
 `ratified_by_session` — declared, never authenticated — and until actor identity exists
-(Q7's `key_id`, ruled in R059 §3 and frozen until the freeze lifts), an API that
+(the `key_id` work, currently frozen), an API that
 ratified would be writing an approval nobody can be held to.
 
 So `submit` sets a flag meaning **a human has been asked**. It moves no version pointer,
@@ -22,7 +22,7 @@ person loads.
 ### One legacy route exists and this API is not it
 
 `POST /draft/{id}/ratify` has served since `ND-052`/S3-T2 and shipped in `0.6.2`. It
-ratifies over HTTP with a declared session string. R066 §1 ruled it stays through this
+ratifies over HTTP with a declared session string. It stays through this
 release — launch week is the wrong week to break a published surface — documented
 truthfully, pinned by a witness test, and carrying a deprecation field in its own
 response so a caller is told what it is by the thing itself. It retires with the
@@ -33,7 +33,7 @@ true, which is the only reason it is shippable.
 
 ## Refusals are typed, and honest as a whole
 
-R059 §2: **a response is honest as a whole — status, media type, body — or not at all.**
+**A response is honest as a whole — status, media type, body — or not at all.**
 Every refusal here answers with a JSON body carrying a `reason` from `REASONS`, and the
 status is chosen for what actually happened:
 
@@ -58,7 +58,7 @@ from onedoor.studio import forecast, staging
 
 API_ROOT = "/api/v1"
 OPENAPI_PATH = f"{API_ROOT}/openapi.json"
-"""Published deliberately (Q12, R066 §5).
+"""Published deliberately.
 
 V8 turned `openapi_url` off because `/openapi.json` *published an API surface nobody
 chose to publish*, and because `/docs` and `/redoc` pulled Swagger, ReDoc, fonts and a
@@ -73,7 +73,7 @@ NO_APPROVAL_NOTE = (
     "serves; it records its approver as declared, never authenticated, and is retired "
     "with the key_id work."
 )
-"""R066 §1, verbatim. It is TRUE, which is the only reason it can ship.
+"""The note above is quoted exactly. It is TRUE, which is the only reason it can ship.
 
 The version of this sentence that said the API has no approval route full stop would
 have been false while the legacy route serves — and delivery's R2 was that a false
@@ -90,7 +90,7 @@ LEGACY_DEPRECATION = {
     "retired_with": "the actor-identity work (key_id)",
     "instead": "ratify through the ceremony page at /drafts/{draft_id}/ratify",
 }
-"""Carried in the legacy route's own JSON response (R066 §1).
+"""Carried in the legacy route's own JSON response.
 
 A caller who uses it is told what it is **by the thing itself**, rather than by
 documentation they were never obliged to read.
@@ -198,7 +198,7 @@ def validation_object(
         "loads": result.loads,
         **result.to_object(),
         "forecasts": [f.to_object() for f in forecasts],
-        # R092 F-D1: the notice must be true of THIS candidate. "The loader accepts
+        # The notice must be true of THIS candidate. "The loader accepts
         # every rule below" is false the moment `result.refusals` is not empty --
         # witnessed on this exact object, `payments.transfer` sitting in `forecasts`
         # while `refusals` two keys up refused it.

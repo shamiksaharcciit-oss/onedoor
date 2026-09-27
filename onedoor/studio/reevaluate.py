@@ -5,7 +5,7 @@ retrieve, with the original verdict beside it.
 
 ## The premise, verified rather than assumed
 
-R055 V6 says to check first whether ratified policy sets are retrievable by version.
+This was checked, not assumed: whether ratified policy sets are retrievable by version.
 They are: `policy_loader.record_snapshot` writes the whole set into `policy_versions`
 keyed by its hash, `snapshot_for` returns it, and `ratify._policies_at` rebuilds
 `Policy` objects from it. V4 leaned on the same path for its budget limits and a test
@@ -17,8 +17,8 @@ still. No escalation was needed.
 a store restored from a partial backup, a row written before snapshots, a hash from
 another deployment. That renders as *not retrievable*, **never as absent and never as an
 empty policy set**: an empty set would replay as default-deny and produce a confident
-`denied` that means nothing. R055 V6's own words: *three-outcome honesty applies to our
-own feature.*
+`denied` that means nothing. *Three-outcome honesty applies to our
+own feature* here too.
 
 ## The engine decides, not this module
 
@@ -32,7 +32,7 @@ anything subtle changed.
 Nothing here touches the enforcer store. The scratch database is deleted when the
 temporary directory closes.
 
-## What the screen must say (R061 §5)
+## What the screen must say
 
 **Both versions in the same breath** — the one that decided then, the one replaying now
 — and the *would-have* limit sentence the backtest panel carries. A counterfactual that
@@ -59,7 +59,7 @@ WOULD_HAVE = (
     "what would have been decided, not what will be. Nothing was re-executed and "
     "nothing in the ledger changed."
 )
-"""R061 §5, and the same limit the backtest panel wears.
+"""The same limit the backtest panel wears.
 
 Two clauses, and both are load-bearing. *Would have, not will* keeps the counterfactual
 from reading as a prediction. *Nothing was re-executed* keeps it from reading as an
@@ -125,8 +125,8 @@ def retrievable_versions(ledger: sqlite3.Connection) -> tuple[str, ...]:
 
     Read from `policy_versions` rather than from the audit log's distinct
     `policy_version` values, and the difference is the whole point: the dropdown must
-    offer what `snapshot_for` **can serve**, not what some row once named. R056 ruled
-    the screen copy for exactly this — *the version dropdown lists what `snapshot_for`
+    offer what `snapshot_for` **can serve**, not what some row once named.
+    *The version dropdown lists what `snapshot_for`
     can honestly serve; anything it cannot serve renders "not retrievable", never as
     absent.*
     """
