@@ -132,7 +132,7 @@ def evaluate_and_execute(
     External enforcement points (an MCP proxy, a gateway filter) compose the
     same two phases around their own act.
 
-    `resumes_audit_id` (WO-D6 part 2): passed through unchanged to
+    `resumes_audit_id` is passed through unchanged to
     :func:`onedoor.guardrail.decision.decide_and_reserve`, which is where it is
     actually documented -- see there.
     """

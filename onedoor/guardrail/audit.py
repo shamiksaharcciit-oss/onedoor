@@ -529,9 +529,9 @@ def _row_values(
             "opaque_class": opaque_class,
             "approval_ref_status": approval_ref_status,
             "evaluation_trace_json": evaluation_trace_json,
-            # WO-D6 part 2: the audit id of the proposal this row resumes, if this
-            # row is a resumption's own re-evaluation -- `None` for an ordinary
-            # decision and for every row written before this column existed.
+            # The audit id of the proposal this row resumes, if this row is a
+            # resumption's own re-evaluation -- `None` for an ordinary decision
+            # and for every row written before this column existed.
             "resumes_audit_id": resumes_audit_id,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how

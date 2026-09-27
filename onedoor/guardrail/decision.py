@@ -150,8 +150,8 @@ def decide_and_reserve(
     enforce), or a :class:`PermittedIntent` when the action may proceed and the
     caller owns execution + :func:`report_result`.
 
-    `resumes_audit_id` (WO-D6 part 2): set by a resumption (an approval or a
-    mandate ratification resuming through :func:`evaluate_and_execute`) to the
+    `resumes_audit_id`: set by a resumption (an approval or a mandate
+    ratification resuming through :func:`evaluate_and_execute`) to the
     audit id of the proposal it resumes -- the row this call's own audit row
     names as what it resumes, so an evidence reader is not left assuming a
     link that no row actually carries. `None` for an ordinary, non-resumed
@@ -1111,8 +1111,8 @@ def report_result(
             # Only a held reservation is released; one already reclaimed stays
             # reclaimed.
             #
-            # Neither disposition ever releases the rate dimension (WO-D6 addendum
-            # 1, item 1; AADP -03 §4.1): a call happened either way -- an attempt
+            # Neither disposition ever releases the rate dimension (AADP -03
+            # §4.1): a call happened either way -- an attempt
             # was made for `no_effect` by definition, and even `not_attempted`
             # would let a caller cycle decide and not_attempted without bound if
             # its call-count slot came back too. Only the value-dimension deltas

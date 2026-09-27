@@ -25,8 +25,8 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     already-canonical decimal string inside a JSON-text column, so a float here
     is a bug in the row, not a formatting choice).
 
-    One deliberate exception: `resumes_audit_id` (migration `0025`, WO-D6 part 2)
-    is omitted when it is `None`. Every other column already existed when this
+    One deliberate exception: `resumes_audit_id` (migration `0025`) is omitted
+    when it is `None`. Every other column already existed when this
     function was written, so a row that predates it was never digested without
     that column present. `resumes_audit_id` is different: a row written and
     digested BEFORE migration `0025` ran gets read back afterwards with this

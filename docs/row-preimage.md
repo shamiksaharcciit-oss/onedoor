@@ -204,7 +204,7 @@ and **not** "failed". It is both, stated per region.
 | `onedoor/row-preimage/1` | §3 rows 1–29 | the original (`ND-001`) |
 | `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`, R035 §1) |
 | `onedoor/row-preimage/3` | §3 rows 1–31 | `evaluation_trace_json` (see the design note for this version) |
-| `onedoor/row-preimage/4` | §3 rows 1–32 | `resumes_audit_id` (WO-D6 part 2, migration `0025`) |
+| `onedoor/row-preimage/4` | §3 rows 1–32 | `resumes_audit_id` (migration `0025`) |
 
 **A version is chosen per row, recorded in the row, and stated inside the hash.** The
 `preimage_version` column is a hint that lets a verifier pick the right field order

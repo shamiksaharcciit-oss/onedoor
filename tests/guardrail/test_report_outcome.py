@@ -317,9 +317,9 @@ def test_a_plain_failure_still_settles(spend: Database) -> None:
 
 
 def test_no_effect_on_a_timeout_is_accepted_and_ignored(spend: Database) -> None:
-    """WO-D6 addendum 1, item 2: AADP -03 §4.1 requires a PDP to IGNORE no_effect
-    on any outcome but failure, never refuse the report over it -- the 0.8.0
-    behaviour (a stated `ReportError`) was itself the divergence."""
+    """AADP -03 §4.1 requires a PDP to IGNORE no_effect on any outcome but
+    failure, never refuse the report over it -- the 0.8.0 behaviour (a stated
+    `ReportError`) was itself the divergence."""
     conn = spend.connect()
     try:
         intent = _permit(conn, "10.00")
@@ -366,9 +366,8 @@ def test_no_effect_on_success_or_not_attempted_is_accepted_and_ignored(
 
 
 def test_no_effect_ignored_is_recorded_in_the_exec_result_rows_own_detail(spend: Database) -> None:
-    """ "the entry shows the ignored flag" (WO-D6 addendum 1, item 2): a `no_effect`
-    asserted where it does not apply is not silently dropped -- it is recorded,
-    once, on the row it was asserted against."""
+    """A `no_effect` asserted where it does not apply is not silently dropped --
+    it is recorded, once, on the row it was asserted against."""
     conn = spend.connect()
     try:
         intent = _permit(conn, "10.00")
@@ -541,7 +540,7 @@ def test_no_effect_on_an_already_reclaimed_reservation_does_not_double_release(
         conn.close()
 
 
-# --- not_attempted never releases the rate dimension (WO-D6 addendum 1, item 1) ---
+# --- not_attempted never releases the rate dimension ------------------------------
 
 
 @pytest.fixture
@@ -585,9 +584,9 @@ def _second_decide(conn: object) -> ActionResult | PermittedIntent:
 
 
 def test_not_attempted_repeated_past_the_rate_limit_still_denies(rate_capped: Database) -> None:
-    """WO-D6 addendum 1, item 1's own test: decide, then `not_attempted`, repeated
-    past the rate limit, must still deny with `rate_exhausted` -- proving the
-    rate counter was never given back, unlike the value dimension."""
+    """Decide, then `not_attempted`, repeated past the rate limit, must still
+    deny with `rate_exhausted` -- proving the rate counter was never given
+    back, unlike the value dimension."""
     conn = rate_capped.connect()
     try:
         first = _permit(conn, "1.00")

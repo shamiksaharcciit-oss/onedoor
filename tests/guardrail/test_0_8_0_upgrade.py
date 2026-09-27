@@ -1,12 +1,12 @@
-"""A database written by the real, released 0.8.0 (WO-D6 part 2's own condition
-for merging): upgraded to this branch (migration 0025), every `decision_ref`
-issued under 0.8.0 must still check `matches`, and every old `row_hash` must
-still verify.
+"""A database written by the real, released 0.8.0: upgraded forward (migration
+0025), every `decision_ref` issued under 0.8.0 must still check `matches`, and
+every old `row_hash` must still verify.
 
 `tests/fixtures/upgrade_0.8.0.db` and its `_refs.json` sidecar are not generated
 by this test suite -- built once by installing the actual released
-`onedoor-0.8.0-py3-none-any.whl` (sha256 `e7adeb09…9b00`, the one core verified
-on PyPI) into an isolated venv and running a small script against it: one
+`onedoor-0.8.0-py3-none-any.whl` (sha256 `e7adeb09…9b00`, confirmed against the
+published PyPI package) into an isolated venv and running a small script
+against it: one
 permitted, reported-success decision (issuing a `permit` decision_ref) and one
 rate-denied decision (issuing a `deny` decision_ref), chaining enabled. A
 regenerated fixture cannot show this -- it would be the new code testing

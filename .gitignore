@@ -19,7 +19,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-# The delivery agent's own instruction file (WO-D6 part 1). Stays on disk here,
-# untracked; the tracked-history copy lives in the private channel repository
-# alongside from_core/ and to_core/.
+# The delivery agent's own instruction file. Stays on disk here, untracked;
+# the tracked-history copy lives in the private channel repository alongside
+# from_core/ and to_core/.
 CLAUDE.md

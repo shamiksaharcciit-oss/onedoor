@@ -13,9 +13,9 @@ number invented to make it look like the ones around it.
 
 This file used to audit `CONFORMANCE.md`'s own citations directly (no duplicate response
 number, and a minimum count so an empty search space couldn't pass for the wrong reason).
-That document has since moved out of this repository entirely (WO-D6 part 1): a public
-tree with zero internal-process citations has nothing left in it for that specific audit
-to run against. The MATCHING LOGIC itself (a cited number and date must agree with the
+That document has since moved out of this repository entirely, along with every other
+document whose subject was the internal delivery-process itself: a public tree with zero
+internal-process citations has nothing left in it for that specific audit to run against. The MATCHING LOGIC itself (a cited number and date must agree with the
 memo's own filename) still matters wherever a citation like this could recur, so
 `test_the_matcher_catches_a_real_mismatch` below keeps proving it against a synthetic
 fixture built in this file: invented response numbers, invented dates, no real

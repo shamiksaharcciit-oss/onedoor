@@ -58,7 +58,7 @@ class of edit `approval_ref_status` guards against. Left dark when the trace col
 itself was added (migration `0019`) deliberately, because a version bump was not a
 call to make in that same change; this is that bump, made on its own.
 
-`/4` adds `resumes_audit_id` (WO-D6 part 2, migration `0025`): the audit id of the
+`/4` adds `resumes_audit_id` (migration `0025`): the audit id of the
 proposal a resumption's own row resumes is exactly the kind of fact this chain
 exists to protect once it is written -- an attacker rewriting which proposal a
 resumption claims to resume is the same class of edit as flipping a reason code.

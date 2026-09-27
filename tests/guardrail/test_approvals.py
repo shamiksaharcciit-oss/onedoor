@@ -111,15 +111,15 @@ def test_resume_rechecks_kill_switch(
     assert result.executed is False
 
 
-# --- resumes_audit_id (WO-D6 part 2): the link 26z assumed but no row carried ----
+# --- resumes_audit_id: the link a resumption's own row previously lacked ---------
 
 
 def test_resumption_names_the_proposals_audit_id(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    """Canary showed, with real fixtures, that a resumption's audit row carries no
-    field linking it to the proposal it resumes; ruling 26z had assumed one
-    existed. This is that link, checked directly against the row it names."""
+    """Measured against real fixtures: a resumption's audit row carried no field
+    linking it to the proposal it resumes, though it had been assumed to. This
+    is that link, checked directly against the row it names."""
     now = make_request("demo.unlisted").created_at
     req = make_request("demo.unlisted", now=now)
     proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)

@@ -69,7 +69,7 @@ def test_the_stored_chain_continues_into_3_and_the_mixed_chain_verifies(
     """Not simulated: the fixture's real /2 rows, followed by REAL rows written by
     decide_and_reserve as it stands today, sealed under today's `CURRENT_VERSION`
     -- whichever version that is; this test does not pin a specific one, since a
-    later bump moving it (as WO-D6 part 2's `/3` -> `/4` did) is not what this
+    later bump moving it (as the `/3` -> `/4` bump did) is not what this
     test exists to catch."""
     database = _copy(tmp_path)
     conn = database.connect()

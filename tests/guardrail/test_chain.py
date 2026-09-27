@@ -670,7 +670,7 @@ def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(
 
     Both rows are force-sealed: row 1 as if written before `evaluation_trace_json`
     was hashed in, row 2 as `/3` -- one version behind today's `CURRENT_VERSION`
-    (`/4`, WO-D6 part 2's `resumes_audit_id`), the same way row 1 is one version
+    (`/4`, which added `resumes_audit_id`), the same way row 1 is one version
     behind row 2 here. Row 2's hash is recomputed under `/3` over row 1's
     re-sealed hash, the identical shape as the `/1 -> /2` fixture.
     """

@@ -193,9 +193,9 @@ def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datet
 def proposed_audit_id(conn: sqlite3.Connection, approval_id: int) -> int | None:
     """The audit id of the row that proposed this approval (`kind='decision'`,
     the Tier-3 `PROPOSED` verdict written when the approval was created) --
-    the link a resumption's own new audit row needs to name what it resumes
-    (WO-D6 part 2). `None` if somehow no such row exists (defensive; every
-    approval this module creates is immediately followed by exactly one).
+    the link a resumption's own new audit row needs to name what it resumes.
+    `None` if somehow no such row exists (defensive; every approval this
+    module creates is immediately followed by exactly one).
 
     A read against `actions_audit`, not a new column on `approvals`: the
     audit row already carries `approval_id` (set by the same `decide_and_reserve`
