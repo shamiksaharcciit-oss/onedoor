@@ -274,7 +274,8 @@ wrapper — composes them around its own act.
 **The first external enforcement point ships with it: an MCP proxy.**
 `onedoor.mcp.proxy` speaks MCP's stdio transport on both sides: an agent host
 connects to it as if it were the tool server; it spawns the real server as a
-subprocess and forwards everything except `tools/call`, which becomes an
+subprocess and forwards everything except `tools/call` (and `onedoor/*`, which it
+refuses), and each `tools/call` becomes an
 `ActionRequest` (`mcp.<tool>`) through the full pipeline — unknown tools
 are denied by default, bounds are checked before the tool ever sees the
 call, money waits for approval, and the kill switch clamps everything at once.

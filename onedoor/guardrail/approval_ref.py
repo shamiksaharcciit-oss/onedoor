@@ -178,6 +178,10 @@ def resolve(
     """
     if approval_ref is None:
         return RefResolution(False, ApprovalRefStatus.ABSENT)
+    if not -(2**63) <= approval_ref < 2**63:
+        # No approval id can be this large: the store's integers are 64-bit. Evaluated
+        # as a reference to nothing, never raised out of the decision.
+        return RefResolution(False, ApprovalRefStatus.UNKNOWN)
 
     row = conn.execute(
         "SELECT id, state, expires_at, request_json FROM approvals WHERE id=?",

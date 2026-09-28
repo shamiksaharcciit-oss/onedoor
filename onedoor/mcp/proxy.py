@@ -3,7 +3,7 @@
 The proxy speaks MCP's stdio transport (newline-delimited JSON-RPC) on both
 sides: an MCP host connects to the proxy as if it were the tool server; the
 proxy spawns the real downstream server as a subprocess. Everything except
-`tools/call` is forwarded verbatim. Every `tools/call` becomes an
+`tools/call` and `onedoor/*` is forwarded verbatim. Every `tools/call` becomes an
 `ActionRequest` (`mcp.<tool>`) and runs the full decision pipeline:
 
 - permitted  -> forwarded downstream, result reported to the audit log (Tx B)
@@ -13,16 +13,19 @@ proxy spawns the real downstream server as a subprocess. Everything except
 - dry-run    -> a tool result saying "would have executed", nothing forwarded
 
 The host side of this proxy is the agent, so no operator act is reachable from it.
-Approving a proposal and operating the kill switch happen outside the agent's
-channel -- through the decision service's admin routes, or an operator's own
-connection to the store. Every `onedoor/*` method an agent sends is refused by the
-proxy itself, as a request or as a notification, and never forwarded.
+An operator approves a parked call on their own connection to the proxy's store
+(`approvals.cas_approve`); the kill switch is operated there too, or through the
+decision service's admin route when it shares the store. Every `onedoor/*` method
+an agent sends is refused by the proxy itself, as a request or as a notification,
+and never forwarded.
 
 An approved call is released when the agent sends it again with the approval
-reference in the request's `_meta`: `{"onedoor/approval_ref": N}`. The engine
-honours the reference only if a principal other than this proxy approved exactly
-that action and nobody has used the approval yet; anything else evaluates as if
-the reference were absent.
+reference in the request's `_meta`: `{"onedoor/approval_ref": N}`. When the
+reference names an approved call equivalent to this one, the proxy evaluates and
+forwards the arguments the operator approved -- never the retry's own bytes. The
+engine honours the reference once, and the store has refused any approval by this
+proxy's own identity. A reference to a call still waiting for approval is answered
+as such and parks nothing new; any other reference evaluates as if it were absent.
 
 The proxy is a Policy Enforcement Point: `decide_and_reserve` (Tx A) is the
 judgment, the downstream forward is the act, `report_result` (Tx B) is the
@@ -49,7 +52,8 @@ from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from onedoor.guardrail import policy_loader
+from onedoor.guardrail import approval_ref as approval_ref_mod
+from onedoor.guardrail import approvals, policy_loader
 from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
@@ -71,6 +75,7 @@ PRINCIPAL = "mcp-proxy"
 store refuses an approval made under this identity."""
 OPERATOR_METHOD_PREFIX = "onedoor/"
 APPROVAL_REF_META = "onedoor/approval_ref"
+_STORE_INTEGERS = range(-(2**63), 2**63)
 
 
 def _tool_error(text: str) -> dict[str, Any]:
@@ -195,9 +200,10 @@ class Proxy:
         args = params.get("arguments", {}) or {}
         meta = params.get("_meta") or {}
         ref = meta.get(APPROVAL_REF_META) if isinstance(meta, dict) else None
-        # Only a plain integer is a reference; anything else evaluates as absent,
-        # exactly as an invalid reference does inside the engine.
-        approval_ref = ref if isinstance(ref, int) and not isinstance(ref, bool) else None
+        # Only a plain integer the store can hold is a reference; anything else
+        # evaluates as absent, exactly as an invalid reference does inside the engine.
+        is_int = isinstance(ref, int) and not isinstance(ref, bool)
+        approval_ref = ref if is_int and ref in _STORE_INTEGERS else None
         now = now_utc()
         # Freeze the arguments exactly as the host sent them (E10). They sit at
         # params.arguments, so the extractor composes: the top-level member first,
@@ -218,6 +224,28 @@ class Proxy:
             approval_ref=approval_ref,
             created_at=now,
         )
+        forward = msg
+        if approval_ref is not None:
+            presented = self._presented_approval(approval_ref, request)
+            if presented is not None:
+                state, proposed_by, approved = presented
+                if state == "pending" and proposed_by == PRINCIPAL:
+                    result = _tool_error(
+                        f"onedoor: '{tool}' is still waiting for approval {approval_ref}, "
+                        f"which has not been given yet; the call has not been forwarded."
+                    )
+                    return {"jsonrpc": "2.0", "id": msg.get("id"), "result": result}
+                if state == "approved":
+                    # Evaluate and forward what the operator approved, not the retry.
+                    request = request.model_copy(
+                        update={"params": approved.params, "params_raw": approved.params_raw}
+                    )
+                    forward = {
+                        "jsonrpc": "2.0",
+                        "id": msg.get("id"),
+                        "method": "tools/call",
+                        "params": {"name": tool, "arguments": approved.params},
+                    }
         outcome = decide_and_reserve(
             request, conn=self.conn, config=self.config, now=now, principal=PRINCIPAL
         )
@@ -245,7 +273,7 @@ class Proxy:
                     f"and cannot be forwarded by this proxy; not attempted."
                 )
                 return {"jsonrpc": "2.0", "id": msg.get("id"), "result": result}
-            return self._forward_and_report(msg, outcome, now)
+            return self._forward_and_report(forward, outcome, now)
 
         d = outcome.decision
         if d.decision == Decision.PROPOSED:
@@ -266,6 +294,21 @@ class Proxy:
                 + "). The call was not forwarded."
             )
         return {"jsonrpc": "2.0", "id": msg.get("id"), "result": result}
+
+    def _presented_approval(
+        self, approval_id: int, presented: ActionRequest
+    ) -> tuple[str, str | None, ActionRequest] | None:
+        """(state, proposer, approved request) of the approval a retry presents, when
+        that approval is for a call equivalent to this one; otherwise None."""
+        row = self.conn.execute(
+            "SELECT state, proposed_by, request_json FROM approvals WHERE id=?", (approval_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        approved = approvals.loads_request(row["request_json"])
+        if not approval_ref_mod.equivalent(approved, presented):
+            return None
+        return str(row["state"]), row["proposed_by"], approved
 
     # --- operator acts are not on this side --------------------------------
 

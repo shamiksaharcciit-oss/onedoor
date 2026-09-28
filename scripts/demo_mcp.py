@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from onedoor.guardrail import approvals, killswitch
 from onedoor.store.clock import now_utc
@@ -51,16 +52,17 @@ class Client:
         )
         self._id = 0
 
-    def request(self, method: str, params: dict | None = None) -> dict:
+    def request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         self._id += 1
         msg = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
         assert self.proc.stdin and self.proc.stdout
         self.proc.stdin.write(json.dumps(msg) + "\n")
         self.proc.stdin.flush()
-        return json.loads(self.proc.stdout.readline())
+        reply: dict[str, Any] = json.loads(self.proc.stdout.readline())
+        return reply
 
-    def call(self, tool: str, meta: dict | None = None, **args: object) -> str:
-        params: dict = {"name": tool, "arguments": args}
+    def call(self, tool: str, meta: dict[str, Any] | None = None, **args: object) -> str:
+        params: dict[str, Any] = {"name": tool, "arguments": args}
         if meta is not None:
             params["_meta"] = meta
         resp = self.request("tools/call", params)

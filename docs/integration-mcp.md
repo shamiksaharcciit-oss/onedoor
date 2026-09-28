@@ -13,7 +13,7 @@ python -m onedoor.mcp.proxy \
 ```
 
 The proxy speaks MCP's stdio transport (newline-delimited JSON-RPC) on both
-sides. Everything except `tools/call` is forwarded verbatim; every
+sides. Everything except `tools/call` and `onedoor/*` is forwarded verbatim; every
 `tools/call` becomes an `ActionRequest` with action type `mcp.<tool_name>`
 and the tool arguments as params.
 
@@ -76,9 +76,11 @@ request's `_meta`:
   "_meta": {"onedoor/approval_ref": 1}}}
 ```
 
-The reference is honoured once, for exactly the approved action, and only if
-someone other than the proxy approved it; anything else is evaluated as if no
-reference were sent. The kill switch is operated the same way, from the
+The proxy then evaluates and forwards the arguments the operator approved,
+never the retry's own bytes. The reference is honoured once, and the store has
+refused any approval made under the proxy's own identity. A reference to a call
+still waiting for approval is answered as such and parks nothing new; anything
+else is evaluated as if no reference were sent. The kill switch is operated the same way, from the
 operator's side: `killswitch.set_engaged(conn, True)`.
 
 ## Notes

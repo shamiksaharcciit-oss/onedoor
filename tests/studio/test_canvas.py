@@ -160,16 +160,17 @@ def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> 
     writes and reads) was since claimed the same way too, and so was `0025`
     (`actions_audit.resumes_audit_id`, the same kind of enforcer-owned column).
     `0026` (`approvals.proposed_by`, the principal that proposed an approval) was
-    claimed the same way, and so was `0027` (erasing stored approver key prefixes).
-    The live boundary is `0028`.
+    claimed the same way, and so were `0027` (erasing stored approver key prefixes)
+    and `0028` (retiring approvals the agent granted itself). The live boundary is
+    `0029`.
     """
     version = studio.execute("SELECT version FROM studio_schema").fetchone()["version"]
     assert int(version) == store.SCHEMA_VERSION
     from onedoor.store import db as db_module
 
     migrations = Path(db_module.__file__).parent / "migrations"
-    assert not list(migrations.glob("0028*")), (
-        "migration 0028 exists — if it belongs to a Studio table, the boundary "
+    assert not list(migrations.glob("0029*")), (
+        "migration 0029 exists — if it belongs to a Studio table, the boundary "
         "(a table in the Studio's own file must not be written into the enforcer's "
         "history) was crossed"
     )

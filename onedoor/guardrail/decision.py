@@ -167,8 +167,10 @@ def decide_and_reserve(
     `consumes_approval`: the approval a resumption resumes. It is consumed first,
     inside this decision's own transaction, so the decision uses it up whatever the
     verdict; an approval that is no longer `approved` raises `ApprovalError` before
-    anything is evaluated. The approval is then linked to this decision's audit row.
+    anything is evaluated. The approval is then linked to this decision's audit row --
+    as is an approval a presented `request.approval_ref` resumes.
     """
+    consumed: list[int] = []
     outcome = _decide_and_reserve(
         request,
         conn=conn,
@@ -179,12 +181,11 @@ def decide_and_reserve(
         resumes_audit_id=resumes_audit_id,
         principal=principal,
         consumes_approval=consumes_approval,
+        consumed=consumed,
     )
-    if consumes_approval is not None:
-        audit_id = (
-            outcome.intent_audit_id if isinstance(outcome, PermittedIntent) else outcome.audit_id
-        )
-        approvals.record_result(conn, consumes_approval, audit_id)
+    audit_id = outcome.intent_audit_id if isinstance(outcome, PermittedIntent) else outcome.audit_id
+    for approval_id in consumed:
+        approvals.record_result(conn, approval_id, audit_id)
     return outcome
 
 
@@ -199,8 +200,11 @@ def _decide_and_reserve(
     resumes_audit_id: int | None,
     principal: str | None,
     consumes_approval: int | None,
+    consumed: list[int],
 ) -> ActionResult | PermittedIntent:
-    """The body of :func:`decide_and_reserve`, which documents every parameter."""
+    """The body of :func:`decide_and_reserve`, which documents every parameter.
+
+    `consumed` collects the approvals this decision uses up, for the caller to link."""
     store = policy_store or PolicyStore()
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
 
@@ -239,11 +243,18 @@ def _decide_and_reserve(
         ref_status = resolution.status.value
         if resolution.authorised:
             approved_override = True
+            # A presented approval resumes a proposal exactly as a PDP-driven
+            # resumption does, so the evidence names the proposal it resumes.
+            assert request.approval_ref is not None
+            if resumes_audit_id is None:
+                resumes_audit_id = approvals.proposed_audit_id(conn, request.approval_ref)
+            consumed.append(request.approval_ref)
 
         # 1c. CONSUME the approval a resumption resumes, first and in this same
         #     transaction: whatever the verdict below, this decision has used it up.
         if consumes_approval is not None:
             approvals.consume(conn, consumes_approval)
+            consumed.append(consumes_approval)
 
         # 2. POLICY LOOKUP / DEFAULT-DENY.
         policy = store.get(conn, request.action_type)

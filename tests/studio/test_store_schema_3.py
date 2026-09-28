@@ -153,7 +153,7 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
     rather than a register file -- a table in `studio.db` that a different
     process owns does not belong in the enforcer's numbered sequence, and the
     directory listing is the ground truth for what that sequence has spent.
-    The live boundary is `0028`+ (`0026` and `0027` are the enforcer's own);
+    The live boundary is `0029`+ (`0026` to `0028` are the enforcer's own);
     if a future change spends one of those on a Studio table, this test is where that
     decision has to be argued.
 
@@ -166,10 +166,10 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
 
     migrations = Path(db_module.__file__).parent / "migrations"
     claimed = sorted(
-        p.name for p in migrations.glob("[0-9][0-9][0-9][0-9]_*.sql") if int(p.name[:4]) >= 28
+        p.name for p in migrations.glob("[0-9][0-9][0-9][0-9]_*.sql") if int(p.name[:4]) >= 29
     )
     assert not claimed, (
-        f"a migration numbered 0028 or above exists ({claimed}); if it belongs to a "
+        f"a migration numbered 0029 or above exists ({claimed}); if it belongs to a "
         f"Studio table, the boundary (a table in the Studio's own file must not be "
         f"written into the enforcer's history) was crossed"
     )
