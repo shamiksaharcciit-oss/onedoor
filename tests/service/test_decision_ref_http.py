@@ -100,7 +100,7 @@ def test_a_denial_over_http_carries_a_deny_reference(client: TestClient) -> None
 def test_a_resumed_approval_over_http_names_its_own_decision(client: TestClient) -> None:
     r = client.post(
         "/v1/decide",
-        json={"action_type": "demo.unlisted", "params": {}},
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
         headers=_h("dkey"),
     )
     body = r.json()

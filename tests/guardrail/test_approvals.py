@@ -22,7 +22,7 @@ from tests.conftest import make_request
 
 
 def _propose(conn, registry, config, now):  # type: ignore[no-untyped-def]
-    req = make_request("demo.unlisted", now=now)
+    req = make_request("demo.confirm", now=now)
     result = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
     assert result.approval_id is not None
     return result.approval_id
@@ -31,7 +31,7 @@ def _propose(conn, registry, config, now):  # type: ignore[no-untyped-def]
 def test_create_sets_expiry(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     approval = approvals.get(conn, aid)
     assert approval is not None
@@ -42,7 +42,7 @@ def test_create_sets_expiry(
 def test_approve_before_ttl_executes(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     result = resume_approval(aid, "sess-1", conn=conn, registry=registry, config=config, now=now)
     assert result.executed is True
@@ -55,7 +55,7 @@ def test_approve_before_ttl_executes(
 def test_approve_after_ttl_rejected(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     late = now + timedelta(seconds=config.approval_ttl_seconds + 1)
     with pytest.raises(ApprovalError):
@@ -63,7 +63,7 @@ def test_approve_after_ttl_rejected(
 
 
 def test_deny(conn: Connection, registry: ConnectorRegistry, config: EngineConfig) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     deny_approval(aid, "sess-1", conn=conn, now=now)
     approval = approvals.get(conn, aid)
@@ -74,7 +74,7 @@ def test_deny(conn: Connection, registry: ConnectorRegistry, config: EngineConfi
 def test_sweep_then_approve_is_rejected(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     late = now + timedelta(seconds=config.approval_ttl_seconds + 1)
     with tx(conn):
@@ -89,7 +89,7 @@ def test_a_second_resumption_of_the_same_approval_does_not_execute_again(
     """An approved action executes once. Resuming the same approval id again --
     under whatever fresh request_id `resume_approval` itself mints -- must find it
     no longer pending and refuse, never execute a second time."""
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     first = resume_approval(aid, "sess-1", conn=conn, registry=registry, config=config, now=now)
     assert first.executed is True
@@ -101,7 +101,7 @@ def test_a_second_resumption_of_the_same_approval_does_not_execute_again(
 def test_resume_rechecks_kill_switch(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
+    now = make_request("demo.confirm").created_at
     aid = _propose(conn, registry, config, now)
     with tx(conn):
         killswitch.set_engaged(conn, True)
@@ -120,8 +120,8 @@ def test_resumption_names_the_proposals_audit_id(
     """Measured against real fixtures: a resumption's audit row carried no field
     linking it to the proposal it resumes, though it had been assumed to. This
     is that link, checked directly against the row it names."""
-    now = make_request("demo.unlisted").created_at
-    req = make_request("demo.unlisted", now=now)
+    now = make_request("demo.confirm").created_at
+    req = make_request("demo.confirm", now=now)
     proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
     assert proposed.approval_id is not None
     proposal_audit_id = proposed.audit_id
@@ -142,8 +142,8 @@ def test_a_replayed_resumption_does_not_add_a_second_link(
     """The idempotency guard returns the recorded result for a repeated
     request_id (test_decision_split.py's own `test_replay_guard_runs_before_decide`,
     applied here): a replayed resumption must not write a second linked row."""
-    now = make_request("demo.unlisted").created_at
-    req = make_request("demo.unlisted", now=now)
+    now = make_request("demo.confirm").created_at
+    req = make_request("demo.confirm", now=now)
     proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
     approval_id = proposed.approval_id
     assert approval_id is not None
@@ -186,8 +186,8 @@ def test_a_replayed_resumption_does_not_add_a_second_link(
 def test_export_carries_the_resumption_link(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    now = make_request("demo.unlisted").created_at
-    req = make_request("demo.unlisted", now=now)
+    now = make_request("demo.confirm").created_at
+    req = make_request("demo.confirm", now=now)
     proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
     assert proposed.approval_id is not None
     proposal_audit_id = proposed.audit_id
@@ -207,8 +207,8 @@ def test_sabotage_omitting_resumes_audit_id_leaves_no_link(
     `resumes_audit_id` at all -- the pre-0.8.1 call shape -- to prove the link
     genuinely depends on threading it through, not on some other mechanism that
     would populate it regardless."""
-    now = make_request("demo.unlisted").created_at
-    req = make_request("demo.unlisted", now=now)
+    now = make_request("demo.confirm").created_at
+    req = make_request("demo.confirm", now=now)
     proposed = evaluate_and_execute(req, conn=conn, registry=registry, config=config, now=now)
     approval_id = proposed.approval_id
     assert approval_id is not None

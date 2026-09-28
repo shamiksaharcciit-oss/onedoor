@@ -9,7 +9,7 @@ proxy spawns the real downstream server as a subprocess. Everything except
 - permitted  -> forwarded downstream, result reported to the audit log (Tx B)
 - denied     -> a tool error result naming the reason (bounds, caps, ...)
 - proposed   -> a tool error result carrying the approval id; the call is
-                waiting for a human (default-deny covers unknown tools)
+                waiting for a human (unknown tools are denied, not proposed)
 - dry-run    -> a tool result saying "would have executed", nothing forwarded
 
 The host side of this proxy is the agent, so no operator act is reachable from it.

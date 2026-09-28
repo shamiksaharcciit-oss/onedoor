@@ -43,5 +43,5 @@ policies:
     bounds:
       strict_params: false
 
-  # NOTE: any tool NOT listed here (e.g. delete_everything) default-denies to
-  # Tier 3 — unknown tools are escalated to a human, never trusted.
+  # NOTE: any tool NOT listed here (e.g. delete_everything) is denied by default,
+  # with reason default_deny — unknown tools are never trusted, and never proposed.

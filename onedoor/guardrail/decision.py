@@ -313,6 +313,54 @@ def decide_and_reserve(
                 kill,
                 "fail" if kill else "pass",
             )
+        # 3a. DEFAULT-DENY: an action type no policy declares is refused. Absence of
+        #     policy is a denial, never a permission and never a question for a human,
+        #     so it creates no approval. The rule text is the one the pass entry below
+        #     has always carried.
+        if policy.is_default_deny and not approved_override:
+            trace.add(
+                "default_deny",
+                "an action type must be declared to a policy to auto-execute or be proposed",
+                "policy.is_default_deny == false",
+                request.action_type,
+                "fail",
+            )
+            decision = PolicyDecision(
+                decision=Decision.DENIED,
+                effective_tier=Tier.CONFIRM,
+                nominal_tier=nominal_tier,
+                reason_code=CheckId.DEFAULT_DENY,
+                detail=(
+                    f"action type {request.action_type!r} is declared by no policy, so it "
+                    f"is refused; declare it in the policy set (at tier 3 to require a "
+                    f"human's approval) to allow it"
+                ),
+            )
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                approval_ref_status=ref_status,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
+            )
+            bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
         if approved_override:
             if kill:
                 decision = PolicyDecision(
@@ -355,8 +403,6 @@ def decide_and_reserve(
             reason_confirm = CheckId.KILL_SWITCH
         else:
             effective_tier = policy.tier
-            if policy.is_default_deny:
-                reason_confirm = CheckId.DEFAULT_DENY
             trace.add(
                 "default_deny",
                 "an action type must be declared to a policy to auto-execute or be proposed",

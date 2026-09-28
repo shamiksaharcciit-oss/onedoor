@@ -396,7 +396,7 @@ def test_an_undeclared_action_is_refused_by_default_deny(
     """The pack does not silently widen the world it governs."""
     outcome = _decide(adopted, config, "payments.wire_anywhere", {"amount_eur": Decimal("1")})
     verdict, tier = _verdict(outcome)
-    assert (verdict, tier) == ("proposed", int(Tier.CONFIRM))
+    assert (verdict, tier) == ("denied", int(Tier.CONFIRM))
     assert outcome.decision.reason_code.value == "default_deny"
 
 

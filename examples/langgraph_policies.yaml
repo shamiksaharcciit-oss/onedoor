@@ -32,4 +32,4 @@ policies:
     compensating_command: onedoor.noop
     bounds:
       strict_params: false
-  # Any tool NOT listed here default-denies to Tier 3.
+  # Any tool NOT listed here is denied by default.

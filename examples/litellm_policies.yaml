@@ -36,4 +36,4 @@ policies:
     compensating_command: onedoor.noop
     bounds:
       strict_params: false
-  # Any tool NOT listed (e.g. delete_everything) default-denies to Tier 3.
+  # Any tool NOT listed (e.g. delete_everything) is denied by default.

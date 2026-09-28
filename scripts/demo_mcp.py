@@ -103,7 +103,7 @@ def main() -> None:
     meta = {"onedoor/approval_ref": approval_id}
     print("  ", c.call("send_payment", meta=meta, payee="webshop", amount_eur=49.99))
 
-    print("6) An unknown tool default-denies to a human:")
+    print("6) An unknown tool is denied by default, and nothing is parked:")
     print("  ", c.call("delete_everything", really=True))
 
     print("7) The operator engages the kill switch — even the in-policy read needs a human:")

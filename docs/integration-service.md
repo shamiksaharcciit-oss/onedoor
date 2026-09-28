@@ -48,7 +48,7 @@ Responses by outcome:
 {"decision": "denied", "reason": "bounds", "detail": "param 'amount_eur'=9000 above max 500.0", ...}
 
 // proposed — waiting for a human; poll or subscribe:
-{"decision": "proposed", "reason": "default_deny", "approval_id": 7, ...}
+{"decision": "proposed", "reason": "tier_confirm", "approval_id": 7, ...}
 
 // dry_run — log-only rehearsal, nothing to enforce
 {"decision": "dry_run", ...}

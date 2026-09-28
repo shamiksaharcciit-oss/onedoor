@@ -21,8 +21,8 @@ Then write your policies: [Policy reference](policy-reference.md).
 
 1. **One door.** Callers never execute; they submit an `ActionRequest`
    (action type + params + rationale) to the engine.
-2. **Ordered checks.** Kill switch → policy lookup (default-deny for unknown
-   action types) → tier-1 integrity (no undo → no autonomy) → bounds →
+2. **Ordered checks.** Kill switch → policy lookup (unknown action types are
+   denied) → tier-1 integrity (no undo → no autonomy) → bounds →
    dry-run → caps (reserved race-free) → intent recorded.
 3. **Four outcomes.** *Permitted* (an obligation: you enforce, then report),
    *denied* (with a typed reason), *proposed* (waiting for a human approval),
@@ -37,12 +37,12 @@ Then write your policies: [Policy reference](policy-reference.md).
 | 0 | Observe only (reads; exempt from the kill switch) |
 | 1 | Auto-execute — reversible, in-bounds, with an undo window |
 | 2 | Auto-execute under caps (rate + €/day + €/month) |
-| 3 | Propose-and-confirm — approvals with TTL; where unknown actions land |
+| 3 | Propose-and-confirm — approvals with TTL |
 
 ## Design guarantees you can rely on
 
-- An action type absent from the policy table **cannot** auto-execute
-  (default-deny → Tier 3).
+- An action type absent from the policy table **cannot** execute: it is
+  denied with reason `default_deny`, and never proposed.
 - A Tier-1 policy without a `compensating_command` **cannot** load (boot
   failure) and cannot execute (runtime demotion to Tier 3).
 - Bounds are validated before a proposal is created, so approvers only ever

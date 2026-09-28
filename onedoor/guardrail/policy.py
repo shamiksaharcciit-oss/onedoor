@@ -1,7 +1,8 @@
 """PolicyStore — read/lookup policies and effect policies, with default-deny synthesis.
 
-An action type absent from the table resolves to a synthesized Tier-3 policy
-(``is_default_deny=True``): default-deny (invariant 2). Nothing self-promotes.
+An action type absent from the table resolves to a synthesized policy marked
+``is_default_deny=True``, which the decision engine denies with reason
+``default_deny`` (invariant 2): never proposed, never executed.
 """
 
 from __future__ import annotations
@@ -111,9 +112,9 @@ class PolicyStore:
         policy = _snapshot(conn).policies.get(action_type)
         if policy is not None:
             return policy
-        # Default-deny: unlisted action types are Tier 3, never auto-executing.
-        # No declared schema exists, so bounds cannot check params — the human
-        # approval is the check; disable strict_params so approval can proceed.
+        # Default-deny: the engine refuses anything marked is_default_deny before any
+        # other policy field matters. Tier 3 and non-strict bounds only describe
+        # the synthesized policy to readers such as the Studio's coverage map.
         return Policy(
             action_type=action_type,
             tier=Tier.CONFIRM,

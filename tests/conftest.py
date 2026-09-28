@@ -59,6 +59,15 @@ def _seed_test_policies(conn: Connection) -> None:
             compensating_command="demo.restore",
             bounds=Bounds(strict_params=False),
         ),
+        # A declared tier-3 action with a connector: the approval tests' way to get a
+        # proposal that really executes once approved. An unlisted action no longer
+        # serves, since it is denied rather than proposed.
+        Policy(
+            action_type="demo.confirm",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            bounds=Bounds(strict_params=False),
+        ),
     ]
     for policy in extras:
         policy_loader.upsert(conn, policy)
@@ -106,6 +115,7 @@ def registry() -> ConnectorRegistry:
     reg.register("demo.tier2", mock.act_ok)
     reg.register("demo.flaky", mock.act_flaky)
     reg.register("demo.slow", mock.act_slow)
+    reg.register("demo.confirm", mock.act_ok)
     return reg
 
 

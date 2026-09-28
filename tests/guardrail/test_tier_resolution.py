@@ -70,7 +70,7 @@ def test_tier2_capped_executes(
 def test_tier3_proposes(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    req = make_request("demo.unlisted")
+    req = make_request("demo.confirm")
     result = evaluate_and_execute(
         req, conn=conn, registry=registry, config=config, now=req.created_at
     )

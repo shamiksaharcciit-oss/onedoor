@@ -1,7 +1,8 @@
 """End-to-end demo of the onedoor guardrail engine — zero external dependencies.
 
 Walks one of everything through the executor: an auto-executed reversible action
-and its undo, an unlisted action falling to default-deny and needing approval,
+and its undo, an unlisted action denied by default, a declared tier-3 action
+approved by a human and then executed,
 a cap exhausting, a bounds rejection, dry-run, and the kill switch clamping an
 auto action to propose-and-confirm.
 
@@ -20,7 +21,7 @@ from onedoor.connectors import mock
 from onedoor.guardrail import killswitch, policy_loader
 from onedoor.guardrail import undo as undo_mod
 from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute, resume_approval
-from onedoor.guardrail.models import ActionRequest, Source
+from onedoor.guardrail.models import ActionRequest, Bounds, Policy, Source, Tier
 from onedoor.store.db import Database
 
 NOW = datetime(2026, 8, 11, 12, 0, 0, tzinfo=UTC)
@@ -55,7 +56,19 @@ def main() -> None:
     db.init()
     conn = db.connect()
     policy_loader.load_file(conn, Path(__file__).parent.parent / "config" / "policies.yaml")
+    # A tier-3 action declared for this demo, with a simulated connector, so an approval
+    # has something real to release.
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="demo.confirm",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            bounds=Bounds(strict_params=False),
+        ),
+    )
     registry = mock.build_registry()
+    registry.register("demo.confirm", mock.act_ok)
 
     print("1) Reversible Tier-1 action auto-executes (and registers a 15-min undo):")
     r1 = evaluate_and_execute(
@@ -78,22 +91,27 @@ def main() -> None:
     )
     show("undo of (1)", r2)
 
-    print("3) Unlisted action type: default-deny -> Tier 3 proposal:")
+    print("3) Unlisted action type: denied by default, and nothing is proposed:")
     r3 = evaluate_and_execute(
         req("demo.unlisted", anything="goes"), conn=conn, registry=registry, config=CONFIG, now=NOW
     )
     show("demo.unlisted", r3)
 
-    print("4) A human approves it — only then does it execute:")
+    print("4) A declared tier-3 action is proposed; a human approves, only then it runs:")
+    proposed = evaluate_and_execute(
+        req("demo.confirm", ref="demo-1"), conn=conn, registry=registry, config=CONFIG, now=NOW
+    )
+    show("demo.confirm", proposed)
+    assert proposed.approval_id is not None
     r4 = resume_approval(
-        r3.approval_id,
+        proposed.approval_id,
         "demo-session",
         conn=conn,
         registry=registry,
         config=CONFIG,
         now=NOW + timedelta(minutes=1),
     )
-    show("demo.unlisted (approved)", r4)
+    show("demo.confirm (approved)", r4)
 
     print("5) Bounds: an out-of-range parameter is denied before any human sees it:")
     r5 = evaluate_and_execute(

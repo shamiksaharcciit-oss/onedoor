@@ -63,7 +63,7 @@ policies:
       strict_params: false
 
   # NOTE: demo.unlisted is deliberately NOT listed here. It has a mock connector,
-  # so it resolves to default-deny -> Tier 3, and approving it actually executes.
+  # and is still denied by default: the connector is never reached.
 
   # ---------------- M1 energy / Home Assistant ----------------
   # New action types START IN DRY-RUN (invariant 7) — logged as "would have

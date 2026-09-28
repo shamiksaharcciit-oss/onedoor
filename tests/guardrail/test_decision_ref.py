@@ -67,11 +67,10 @@ def test_a_denied_decision_carries_a_deny_verdict_matching_the_export(
 def test_a_proposed_decision_carries_a_propose_verdict_matching_the_export(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """An action type absent from the policy table synthesizes as Tier-3
-    default-deny -- it proposes, per onedoor's own default-deny invariant."""
+    """A declared tier-3 action proposes."""
     cfg = _with_issuer(config)
     result = decide_and_reserve(
-        make_request("demo.unlisted", {}), conn=conn, config=cfg, now=FROZEN_NOW
+        make_request("demo.confirm", {}), conn=conn, config=cfg, now=FROZEN_NOW
     )
     assert isinstance(result, ActionResult)
     assert result.decision.decision.value == "proposed"
@@ -180,7 +179,7 @@ def test_a_resumed_approval_names_the_resumptions_own_decision(
 ) -> None:
     cfg = _with_issuer(config)
     proposed = evaluate_and_execute(
-        make_request("demo.unlisted", {}), conn=conn, registry=registry, config=cfg, now=FROZEN_NOW
+        make_request("demo.confirm", {}), conn=conn, registry=registry, config=cfg, now=FROZEN_NOW
     )
     assert proposed.approval_id is not None
     propose_ref = proposed.decision_ref

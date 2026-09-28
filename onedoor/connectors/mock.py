@@ -40,7 +40,7 @@ def build_registry() -> ConnectorRegistry:
     registry.register("demo.dry", act_toggle)
     registry.register("demo.capped", act_ok)
     registry.register("demo.restore", act_restore)
-    # An unlisted action type (default-deny -> Tier 3) that still has a connector,
-    # so approving it actually executes — demonstrating the full approval loop.
+    # An unlisted action type that still has a connector: the default-deny tests
+    # prove that this connector is never reached.
     registry.register("demo.unlisted", act_ok)
     return registry

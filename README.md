@@ -24,7 +24,7 @@ Most "guardrails" govern what a model may *say*. This engine governs what an
 agent may *do* — and it takes positions most frameworks leave as wishes:
 
 - **Default-deny.** An unlisted action type is not an error and not a pass:
-  it resolves to propose-and-confirm, with the reason recorded.
+  it is refused, with reason `default_deny` and a refusal that says what would allow it.
 - **Reversibility is a precondition for autonomy.** An auto-tier action whose
   policy declares no compensating command is demoted to human approval at
   runtime — and the policy loader refuses to boot if a Tier-1 entry lacks one.
@@ -62,7 +62,7 @@ agent may *do* — and it takes positions most frameworks leave as wishes:
 | 0 | observe only | reads (exempt from the kill switch) |
 | 1 | auto-execute, reversible, in-bounds | toggle with `compensating_command` + 15-min undo |
 | 2 | auto-execute under cumulative caps | rate + €/day + €/month budgets |
-| 3 | propose-and-confirm (TTL'd approval) | anything irreversible, unlisted, or over cap |
+| 3 | propose-and-confirm (TTL'd approval) | anything irreversible or over cap |
 
 ## Documentation
 
@@ -110,12 +110,12 @@ What you should see — the three outputs that tell you it works:
 ```
 {"status":"ok","kill_switch":false,"pending_intents":0}
 {"decision":"permitted","reason":"passed","effective_tier":2,...,"intent_audit_id":1,...}
-{"decision":"proposed","reason":"default_deny","effective_tier":3,...,"approval_id":1,...}
+{"decision":"denied","reason":"default_deny","detail":"action type 'wire.anywhere' is declared by no policy, ...",...}
 ```
 
 The second is a **permit** — capped, reversible, and you now owe a `/v1/report`. The
-third is **default-deny**: `wire.anywhere` is in no policy, so it is not refused outright
-but escalated to a human, with an approval waiting. Nothing self-promotes.
+third is **default-deny**: `wire.anywhere` is in no policy, so it is refused, and the refusal
+says what would allow it. Nothing is proposed and nothing self-promotes.
 
 **Numbers in `params` are JSON numbers** (`120.00`), not strings — see *Known
 limitations* for the decimal-string asymmetry.
@@ -236,8 +236,8 @@ finds `ruff` (if one happens to be on `PATH` from elsewhere) but not `mypy` or
 `pytest`, and reports `GATE FAIL (tool not installed: ...)` for a tool that is
 in fact installed — just not on this process's `PATH`.
 
-The demo walks the whole surface: auto-execution and undo, default-deny into a
-real approval that then executes, a bounds rejection, cap exhaustion, dry-run,
+The demo walks the whole surface: auto-execution and undo, an unlisted action denied
+by default, a declared tier-3 action approved and then executed, a bounds rejection, cap exhaustion, dry-run,
 and the kill switch clamping an auto action to propose-and-confirm.
 
 ## A policy, concretely
@@ -276,7 +276,7 @@ wrapper — composes them around its own act.
 connects to it as if it were the tool server; it spawns the real server as a
 subprocess and forwards everything except `tools/call`, which becomes an
 `ActionRequest` (`mcp.<tool>`) through the full pipeline — unknown tools
-default-deny to a human, bounds are checked before the tool ever sees the
+are denied by default, bounds are checked before the tool ever sees the
 call, money waits for approval, and the kill switch clamps everything at once.
 
 ```bash

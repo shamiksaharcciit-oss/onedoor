@@ -94,5 +94,5 @@ effects:
       eur_day: "500.00"
       eur_month: "5000.00"
 
-# Anything not listed above default-denies to Tier 3. A tool the policy author
-# never anticipated is not a tool the agent may use unsupervised.
+# Anything not listed above is denied by default. A tool the policy author
+# never anticipated is not a tool the agent may use at all.

@@ -1,7 +1,7 @@
 # MCP proxy integration
 
 Put the engine between any MCP host and any stdio MCP tool server. Neither
-side needs modification; unknown tools default-deny to a human.
+side needs modification; unknown tools are denied by default.
 
 ## Run
 

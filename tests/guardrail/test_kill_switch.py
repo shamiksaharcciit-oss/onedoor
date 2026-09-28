@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from sqlite3 import Connection
 
 from onedoor.guardrail import killswitch
@@ -53,11 +54,19 @@ def test_reads_exempt_from_kill_switch(
 def test_checked_before_policy_lookup(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    # Unknown type + kill engaged is still PROPOSED (kill switch reason wins over default-deny).
+    # Unknown type + kill engaged: the kill switch is evaluated first -- its trace entry
+    # comes before the policy's default-deny entry -- and an unlisted action is refused,
+    # never proposed.
     _engage(conn)
     result = _run(conn, registry, config, "totally.unknown")
-    assert result.decision.decision == Decision.PROPOSED
-    assert result.decision.reason_code == CheckId.KILL_SWITCH
+    assert result.decision.decision == Decision.DENIED
+    trace = json.loads(
+        conn.execute(
+            "SELECT evaluation_trace_json FROM actions_audit WHERE id=?", (result.audit_id,)
+        ).fetchone()[0]
+    )
+    checks = [entry["check"] for entry in trace]
+    assert checks.index("kill_switch") < checks.index("default_deny")
 
 
 def test_disengage_restores_execution(

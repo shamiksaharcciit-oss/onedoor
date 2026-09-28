@@ -18,7 +18,7 @@ the code already does.
 
 Policies are data, not code: a YAML file loaded at startup (and re-loadable).
 Numeric limits, tiers, undo windows — all live here. Unknown action types are
-not configurable: they default-deny to Tier 3 by design.
+not configurable: they are denied, with reason `default_deny`, by design.
 
 ## Full schema
 
