@@ -1,6 +1,6 @@
 -- ND-052 / S1-B2. The Studio's own table. It is not the ledger, and that is the point.
 --
--- R042 §3: a backtest writes NOTHING to the decision ledger -- not a decision row, not
+-- A backtest writes NOTHING to the decision ledger -- not a decision row, not
 -- a marker, not a "backtest ran" breadcrumb. `actions_audit` is the enforcer's record;
 -- the Studio is a proposer, and constitution principle 1 does not bend for evidence's
 -- sake. The evidence question has a better answer, and the crypto epic already built it:
@@ -11,7 +11,7 @@
 --                         requires forging the chain -- the thing ND-001 through ND-017
 --                         made hard. A receipt whose citation is null would be the store
 --                         vouching for itself, so the engine REFUSES to run against an
---                         unchained store rather than writing one (R043 §2).
+--                         unchained store rather than writing one.
 --
 --   ledger_provenance     `live` | `fixture`, and there is no third value. It describes
 --                         the CITED RANGE, not the store: a sealed chain with an

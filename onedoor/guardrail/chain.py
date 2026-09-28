@@ -9,7 +9,7 @@ Why the chain cannot simply be retro-fitted
 `actions_audit` has an `actions_audit_no_update` trigger. Existing rows cannot be
 given a hash, ever, by design — the table that would need editing is the one whose
 whole value is that it cannot be edited. So the chain begins at a **genesis** row
-carrying `prev_hash` = 64 ASCII zeros (R016's ruled sentinel: an affirmative in-band
+carrying `prev_hash` = 64 ASCII zeros (an affirmative in-band
 statement that no predecessor exists, which leaves NULL exactly one meaning), and
 every row before it stays unchained forever.
 
@@ -17,8 +17,8 @@ That is not a defect to apologise for. It is a boundary, and the honest thing is
 record where it falls and report it — which is what makes a mixed archive readable
 rather than suspicious.
 
-Four outcomes, and R031 §2 asked for them by name
--------------------------------------------------
+Four outcomes, named separately rather than merged
+--------------------------------------------------
 *"a broken link, an absent chain, and an unverifiable row are three verdicts, not
 one"* — plus `verified`. A log with an unchained prefix and an intact chain after
 genesis is **not** "verified" and **not** "failed". It is both, stated per region, and
@@ -117,9 +117,9 @@ def enable(conn: sqlite3.Connection, *, signing_key_path: str | None = None) -> 
     reaching the second one could not tell a fresh start from a break — which is
     precisely the shape of damage a chain exists to detect.
 
-    **X-6 at enable time (R038 §2).** `signing_key_path` turns on Ed25519 signing, and
+    **Required when enabled.** `signing_key_path` turns on Ed25519 signing, and
     if the `cryptography` package is missing this **raises and the process does not
-    start**. X-6 says alarm dependencies are hard requirements; the precise reading is
+    start**. An alarm's dependencies are hard requirements; the precise reading is
     *hard at enable, not hard at install* — a hard install dependency guarantees nothing
     about config, and the deployment that believes it signs and does not believes it
     because of its config. The cure is refusing loudly at the moment the alarm becomes

@@ -250,7 +250,7 @@ def decide_and_reserve(
                     # A target this cannot interpret at least as strictly as the
                     # networking stack will is refused, so a parse differential is a
                     # denial and never a bypass (scopegate). Reason code is the
-                    # EXISTING `malformed` -- no new wire vocabulary (R013) -- with
+                    # EXISTING `malformed` -- no new wire vocabulary -- with
                     # the failure recorded distinctly in evidence so an operator can
                     # tell a probe of the effect matcher from a broken client.
                     decision = PolicyDecision(
@@ -376,7 +376,7 @@ def decide_and_reserve(
                 "fail" if effect_floor_fired else "pass",
             )
 
-        # OPAQUE-HOST INVARIANT (R027 §1). Stated as an invariant, never left to
+        # OPAQUE-HOST INVARIANT. Stated as an invariant, never left to
         # emerge from tier arithmetic: **a host in a declared opaque class can never
         # resolve to auto-execution.** A human decides, or policy denies.
         #
@@ -388,7 +388,7 @@ def decide_and_reserve(
         # declaration, and nothing escalated. The whole mechanism was one YAML line
         # away from being decorative.
         #
-        # The reasoning core settled it on: the founding rule is that an action whose
+        # The founding rule is that an action whose
         # consequences cannot be VERIFIED must not be auto-executed -- not that it can
         # never happen. A redirector's true destination is unknowable without the
         # network call determinism forbids, and the honest answer to *unknowable* is
@@ -406,7 +406,7 @@ def decide_and_reserve(
             reason_confirm = CheckId.EFFECT_FLOOR
             # The class is in `opaque_class`; the REASON rides here, so an operator
             # reading the row can tell this escalation from an ordinary tier floor
-            # without knowing what the class means (R027 §1, second condition).
+            # without knowing what the class means.
             confirm_detail = (
                 f"destination unverifiable without a network call; host is in the "
                 f"declared opaque class {opaque_class}"
@@ -1048,7 +1048,7 @@ def report_result(
     never edits it.
 
     `outcome` is the four-value vocabulary, not a boolean (ND-039). The disposition
-    of the budget reservation depends on it, per R005 -- see :class:`Outcome`.
+    of the budget reservation depends on it -- see :class:`Outcome`.
 
     Neither `not_attempted` nor a `failure` reported with `no_effect=True` ever
     releases the rate-dimension delta (AADP -03 §4.1). A rate budget tracks calls
@@ -1073,7 +1073,7 @@ def report_result(
     reservation is already held -- and it carries the intent row's frozen bytes and
     provenance rather than re-serialising them.
 
-    **The result row's `created_at` is `now`, in both cases, and that is R033 §3**: the
+    **The result row's `created_at` is `now`, in both cases**: the
     ledger records when it LEARNED the outcome. A rebuilt report arriving after a
     restart is learned now, however long ago the action was requested. Backdating it
     would be the ledger testifying to a moment it did not witness.
@@ -1132,7 +1132,7 @@ def report_result(
                     "UPDATE cap_reservations SET status='released' WHERE intent_audit_id=?",
                     (intent.intent_audit_id,),
                 )
-                # R005: the release is an AUDITED event, symmetric with reclamation
+                # The release is an AUDITED event, symmetric with reclamation
                 # expiry -- never a silent adjustment. Same shape, different kind, so
                 # an evidence reader can tell "deadline passed unreported" from "the
                 # PEP said it never happened".

@@ -8,9 +8,9 @@
 --
 --   from_version          NULL is the first ratification on a fresh store -- ABSENT,
 --                         not empty, and distinguishable from a store whose previous
---                         version happened to go unrecorded. R015 in a column.
+--                         version happened to go unrecorded.
 --
---   backtest_digest       NULLABLE, and its absence is INFORMATIVE (R045 §4). Ratifying
+--   backtest_digest       NULLABLE, and its absence is INFORMATIVE. Ratifying
 --                         without a backtest is allowed -- refusing would block the
 --                         first policy on a fresh store, where there is nothing to
 --                         backtest against. Where a digest IS present, the ceremony has
@@ -19,7 +19,7 @@
 --                         checks is decoration, and citing someone else's homework is
 --                         made structurally impossible rather than discouraged.
 --
---   kill_switch_engaged   R045 §5. The switch does NOT block ratification -- it wins
+--   kill_switch_engaged   The switch does NOT block ratification -- it wins
 --                         over every action, so nothing ratified can move while it
 --                         holds, and the moment of risk is the LIFT, not the
 --                         ratification. So the state is recorded instead of enforced,
@@ -30,7 +30,7 @@
 --                         identity, so this is a DECLARED session string, and the
 --                         longer name carries its own caveat where the shorter one
 --                         would read as an identity claim to every future reader of an
---                         export. A field's name is part of its honesty (R045 §3). An
+--                         export. A field's name is part of its honesty. An
 --                         authenticated principal is `onedoor/ratification/2`.
 --
 --   ratification_digest   the receipt's own content address, over the canonical body

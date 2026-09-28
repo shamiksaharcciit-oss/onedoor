@@ -113,7 +113,7 @@ class Panels:
     """Every computed number, produced from ONE base and carried as one object.
 
     One object rather than three fields, deliberately: *two fields that must agree are
-    a bug waiting* (X-14), and three panels that must all describe the same base are
+    a bug waiting*, and three panels that must all describe the same base are
     three chances to show a number from a world the diff has left.
     """
 

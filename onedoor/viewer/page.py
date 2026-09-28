@@ -90,7 +90,7 @@ _STATUS_CLASS = {
     Status.VERIFIED: "ok",
     # Its own class, and deliberately NOT `ok`. A signature that matches the store's own
     # keyring is real information and is not verification -- rendering it green would be
-    # the page doing exactly what R038 §1 forbids the system to do: witness itself.
+    # the page doing exactly what this system must never do: witness itself.
     Status.SELF_CONSISTENT: "partial",
     # Also its own class, not `ok`: an honest record under a vocabulary this build no
     # longer speaks is not a plain pass, even though nothing is wrong with the row.

@@ -14,7 +14,7 @@ module does not implement). It serves the same purpose §8.1 needs -- a ratifica
 names the exact record it resolves, and cannot be moved to another one -- using
 onedoor's own, already-vendored canonical form (`onedoor._vendor.canonical`) instead of
 introducing a second canonicalization scheme into a codebase that has spent real effort
-keeping to one (X-14). Disclosed rather than implied: a ratification built to this
+keeping to one. Disclosed rather than implied: a ratification built to this
 digest is not an AAE-interoperable artifact.
 """
 
@@ -111,9 +111,9 @@ class RatificationStatus(StrEnum):
 
     RATIFIED = "ratified"
     UNKNOWN_DIGEST = "unknown_digest"
-    """No pending mandate approval carries this core digest -- never distinguished
+    """No pending mandate approval carries this digest -- never distinguished
     from a wrong-key attempt in behaviour, only in evidence, for the same reason
-    approval_ref's failure modes all look alike from outside (R035 §1's precedent)."""
+    approval_ref's failure modes all look alike from outside."""
     WRONG_KEY = "wrong_key"
     ALREADY_RESOLVED = "already_resolved"
     """The digest names a real record, but it was already ratified or is no longer

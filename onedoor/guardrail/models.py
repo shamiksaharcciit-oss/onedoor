@@ -34,7 +34,7 @@ from onedoor._vendor.canonical import canon_decimal
 # binding, whose callers hand Python objects directly rather than bytes; a float
 # param now compares exactly against a Decimal bound, which is strictly better than
 # the float-versus-float comparison it replaces. Whether the in-process boundary
-# should refuse floats outright is a live question with core, not assumed here.
+# should refuse floats outright is a live open question, not assumed here.
 type JsonValue = (
     str | int | float | Decimal | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 )
@@ -80,7 +80,7 @@ class Outcome(StrEnum):
     action that never occurred**. That was a live conformance defect against `-00`,
     disclosed against `<=0.3.6`.
 
-    Disposition, ruled by R005 and enforced in `report_result`:
+    Disposition, enforced in `report_result`:
 
         success        -> SETTLE   the action happened
         failure        -> SETTLE   it was attempted and did not succeed
@@ -149,7 +149,7 @@ class CheckId(StrEnum):
     # AADP -03 §8.1: a mandate-layer authority denied or deferred the
     # action. One code for both a mandate DENY and a mandate PENDING escalation --
     # the verdict (`denied` vs `proposed`) already distinguishes them; a second code
-    # per outcome would be two answers to "why did the mandate layer act" (X-14).
+    # per outcome would be two answers to "why did the mandate layer act".
     EXTERNAL_AUTHORIZATION = "external_authorization"
     # AADP -03 §6: the request's presented_audience does not match
     # the action type's declared present_bound.

@@ -7,12 +7,12 @@
 -- `0.4.1` (ND-001) and P3 (ND-017) would each need a migration against a table whose
 -- past rows can never be updated. Migrate once, fill progressively.
 --
--- DARK SURFACE, NOT UNUSED COLUMNS (E11, restated in R015). The receipt fields below
+-- DARK SURFACE, NOT UNUSED COLUMNS (E11). The receipt fields below
 -- are declared and governed from the day they exist; ND-038's enforcement-before-
 -- emission rule covers anything read from them. Nothing may emit or rely on a value
 -- these columns do not yet carry.
 --
--- NULL VERSUS EMPTY (R015, ruled in R016 section 1). A NULL meaning "not yet
+-- NULL VERSUS EMPTY. A NULL meaning "not yet
 -- produced" must be distinguishable from one meaning "produced empty":
 --   * digest columns -- free, because a produced-but-empty digest is sha256("") =
 --     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, a real value
@@ -20,7 +20,7 @@
 --   * prev_hash -- NOT free, and ruled: the genesis row carries SIXTY-FOUR ASCII '0'
 --     characters, an affirmative in-band statement that no predecessor exists. NULL
 --     then retains exactly one meaning: not yet chained. A `chain_state` column was
---     refused as a second answer to a question prev_hash already answers (X-14), and
+--     refused as a second answer to a question prev_hash already answers, and
 --     putting the last unchained row's id here was refused as a kind violation -- a
 --     hash-typed field must not carry an identifier.
 
@@ -36,7 +36,7 @@ ALTER TABLE actions_audit ADD COLUMN budget_json TEXT;
 ALTER TABLE actions_audit ADD COLUMN outcome TEXT;
 -- ND-039. success | failure | timeout | not_attempted, on exec_result rows.
 -- Settlement is outcome-dependent: settle on the first three, RELEASE on
--- not_attempted as an audited event (R005). Settle-on-doubt -- release requires a
+-- not_attempted as an audited event. Settle-on-doubt -- release requires a
 -- positive assertion of non-occurrence, never an absence of information.
 
 -- ND-001 (0.4.1): the chain. Dark until then.

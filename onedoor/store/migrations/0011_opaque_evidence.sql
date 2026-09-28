@@ -1,6 +1,6 @@
 -- ND-040 / U4. Which declared opaque class made this rule fire.
 --
--- R025 ruled that the shortener is caught by a declared, versioned class of hosts
+-- The shortener is caught by a declared, versioned class of hosts
 -- whose target cannot be determined without a network call -- fails closed for
 -- members only, and **no new wire vocabulary**: the reason code stays `effect_floor`,
 -- which already exists and already means what happened, with the class named in
@@ -18,11 +18,11 @@
 -- on **which version of the list said so**. Adding a host to the shipped list changes
 -- what some policy matches -- a visible instrument change -- and a verdict that
 -- changes after an upgrade has to be attributable to the list rather than to the
--- rules. Same argument as `canon_schema` (R013), `snapshot_schema` (R019) and the
+-- rules. Same argument as `canon_schema`, `snapshot_schema` and the
 -- manifest's `unicode_version` (E14): once a verdict depends on a declaration, the
 -- declaration's identity is part of what the verdict means.
 --
--- NULL is not "unknown" (R015). It is "this verdict did not depend on an opaque-host
+-- NULL is not "unknown". It is "this verdict did not depend on an opaque-host
 -- declaration", which for a pre-ND-040 row is simply true.
 
 ALTER TABLE actions_audit ADD COLUMN opaque_class TEXT;

@@ -47,7 +47,7 @@ def _day_resets_at(now: datetime, tz: ZoneInfo) -> str:
     Computed from the SAME clock and timezone that produced the window key, so the
     budget object can never name a reset instant that disagrees with the counter it
     describes -- two answers to one question is a disagreement waiting for its first
-    bug (X-14).
+    bug.
     """
     local = now.astimezone(tz)
     start_of_next = (local + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)

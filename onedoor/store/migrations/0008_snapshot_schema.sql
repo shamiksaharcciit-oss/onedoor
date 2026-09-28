@@ -1,4 +1,4 @@
--- ND-002 / R019. Make a policy content-hash change ATTRIBUTABLE.
+-- ND-002. Make a policy content-hash change ATTRIBUTABLE.
 --
 -- `version_hash` is a digest over the normalised policy snapshot. From 0.4.0 that
 -- snapshot renders decimals through the canonical renderer, so `100`, `100.00` and

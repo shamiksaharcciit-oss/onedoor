@@ -1,4 +1,4 @@
-"""Freezing received bytes verbatim, and knowing when you cannot (E10 / R004).
+"""Freezing received bytes verbatim, and knowing when you cannot (E10).
 
 The rule has two halves and they are not symmetric:
 

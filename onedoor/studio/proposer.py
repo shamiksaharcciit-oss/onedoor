@@ -350,7 +350,7 @@ def _sentence_containing(text: str, keyword: str) -> str:
 def live_proposer(*_args: Any, **_kwargs: Any) -> Proposer:
     """The real client. Not built yet, and it refuses rather than pretending.
 
-    X-6's shape: hard at the point of use, refused with a message naming the remedy. A
+    Hard at the point of use, refused with a message naming the remedy. A
     stub that quietly returned the fixture would be the worst possible outcome — a demo
     that looks like a model and is not, which is exactly what `proposer_provenance` exists
     to make impossible.

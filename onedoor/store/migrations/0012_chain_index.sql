@@ -6,7 +6,7 @@
 --
 -- `seq` is the chain's ordinal because `id` cannot be: the append-only triggers forbid
 -- UPDATE, so row_hash must be computed BEFORE the INSERT that assigns `id`. That
--- leaves two orderings over one table, which X-14 warns is a disagreement waiting for
+-- leaves two orderings over one table, which is a disagreement waiting for
 -- its first bug. The resolution is declared rather than hoped for -- seq is
 -- authoritative for the chain, id is a storage detail -- and this index makes the
 -- database refuse the ambiguity instead of leaving a walker to discover it.

@@ -21,7 +21,7 @@ Consumption is the **first** write, and its `rowcount` is the gate. The trap is
 read-then-decide-then-mark: between the read and the mark a second resumption reads the
 same `approved` row and both proceed. Consuming first, inside the `BEGIN IMMEDIATE`
 that `decide_and_reserve` already holds, makes the race decide itself — and
-**a lost race never denies and never errors; it just does not grant** (R035 §4).
+**a lost race never denies and never errors; it just does not grant**.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ class ApprovalRefStatus(StrEnum):
     `tests/guardrail/test_approval_ref.py`, exactly as `sender_mismatch` is held in the
     reason-code vocabulary.
 
-    R035 §2 adopted delivery's proposal whole. onedoor has no authenticated per-caller
+    Delivery's proposal was adopted whole. onedoor has no authenticated per-caller
     identity: `session_id` is caller-supplied and arrives in the same untrusted body as
     the ref, `decided_by_session` is who *approved*, and the API key is
     deployment-wide. Scoping a ref to `session_id` would be a check the attacker
@@ -97,7 +97,7 @@ would have refused the string never runs, because the ref already granted.
 def canonical_params(params: dict[str, JsonValue]) -> bytes:
     """The canonical rendering of a params mapping — identity up to spelling.
 
-    R035 §3 ruled action-equivalence as *same `action_type` and params equal under the
+    Action-equivalence is *same `action_type` and params equal under the
     canonical rendering, evaluated on the frozen received bytes' parse*. Both halves
     matter, and the second half is why this function normalises numbers rather than
     comparing whatever Python types it was handed:
@@ -138,7 +138,7 @@ def _canon(value: object) -> object:
 def equivalent(approved: ActionRequest, presented: ActionRequest) -> bool:
     """Does the presented action match what the human approved?
 
-    Identity up to spelling (R035 §3): same `action_type`, and params equal under the
+    Identity up to spelling: same `action_type`, and params equal under the
     canonical rendering. Key order, `250.00` versus `250`, and whitespace are spelling.
     A different amount is not.
 
@@ -155,7 +155,7 @@ def equivalent(approved: ActionRequest, presented: ActionRequest) -> bool:
 def effects_consistent(approved: ActionRequest, presented: ActionRequest) -> bool:
     """A derived consistency check, asserted — never the equivalence test itself.
 
-    R035 §3 is explicit that effect-set equality *follows* from canonical-params
+    Effect-set equality *follows* from canonical-params
     identity rather than standing in for it. Kept as a check so a divergence would
     surface as the contradiction it is: two requests with identical canonical params
     resolving to different effects would mean effect resolution had become

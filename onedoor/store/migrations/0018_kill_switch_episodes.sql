@@ -1,4 +1,4 @@
--- ND-052 / S2, R045 §5's second requirement. The kill switch does not block
+-- ND-052. The kill switch does not block
 -- ratification -- so the LIFT is where the pen's work must be shown.
 --
 -- The reasoning, recorded because the table makes no sense without it: the switch wins

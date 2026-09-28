@@ -7,7 +7,7 @@ implementation written from the document rather than from this code — because 
 implementation that agrees with itself has proved nothing, and the only way to find
 out whether a definition is a definition is to have someone else build from it.
 
-Ruled by R031 §1, and **frozen from the first chained row**. An append-only table
+**Frozen from the first chained row**. An append-only table
 cannot be re-hashed: the triggers forbid `UPDATE`, so there is no migration that fixes
 a defect here. That is why the encoding is adversarial rather than convenient —
 `params_json` is *received* data, and a caller may be actively trying to make two
@@ -18,19 +18,18 @@ The shape, in one paragraph
 A magic string for domain separation, then every field in a fixed order, each written
 as either a single ABSENT tag (SQL NULL — no statement was made) or a PRESENT tag
 followed by an 8-byte big-endian length and the bytes themselves. **NULL and the empty
-string differ in their first byte**, which is the clause R031 §1.1 pinned and the one
-this whole file exists to protect: `budget_json` NULL means *no budget was owed* and
-`""` would mean *a budget was produced and it was empty*, and R015 makes those
-different facts.
+string differ in their first byte**, which is the one this whole file exists to
+protect: `budget_json` NULL means *no budget was owed* and `""` would mean *a budget
+was produced and it was empty* — two different facts, never collapsed.
 
 On "follow the vendored artifact's convention"
 ----------------------------------------------
-R031 §1.2 says to follow the vendored `rederivable-manifest`'s uid-preimage convention
-and to extend it explicitly where the row's field set needs more. **The artifact
+Follow the vendored `rederivable-manifest`'s uid-preimage convention
+and extend it explicitly where the row's field set needs more. **The artifact
 carries no length-prefix dialect at all** — checked, not assumed: no `struct`, no
 `to_bytes`, no packing anywhere in it. Its six frozen rules cover decimals, datetimes,
 strings, JSON, digests and the RFC 6962 Merkle construction. So the extension here is
-the entire encoding, written down in `docs/row-preimage.md` §1 as R031 requires, and
+the entire encoding, written down in `docs/row-preimage.md` §1, and
 built on the one byte-level discipline the artifact *does* ratify: rule 6's
 domain-separation tag bytes. Saying so beats quietly implying a dialect was followed.
 """
@@ -47,11 +46,11 @@ VERSION_4 = "onedoor/row-preimage/4"
 CURRENT_VERSION = VERSION_4
 """What new rows are sealed under.
 
-`/2` adds `approval_ref_status` to the hash (ND-009, R035 §1): the field records *why*
+`/2` adds `approval_ref_status` to the hash (ND-009): the field records *why*
 an approval did or did not authorise an action, so flipping `expired` to `honored` is
 exactly the edit a chain exists to catch. It could not be excluded.
 
-`/3` adds `evaluation_trace_json` (the design note for this version walks R035 §1's
+`/3` adds `evaluation_trace_json` (the design note for this version walks the
 consequence chain in full): the trace is the stated justification for a verdict's
 reason code, so editing a `fail` entry to `pass` after the fact is exactly the same
 class of edit `approval_ref_status` guards against. Left dark when the trace column
@@ -84,7 +83,7 @@ LENGTH_BYTES = 8
 Eight bytes exceeds anything SQLite can store, so this never has to change."""
 
 GENESIS_PREV_HASH = "0" * 64
-"""R016's ruled sentinel: an affirmative in-band statement that no predecessor exists,
+"""An affirmative in-band statement that no predecessor exists,
 which leaves NULL exactly one meaning."""
 
 FIELD_ORDER_V1: tuple[str, ...] = (
@@ -127,7 +126,7 @@ FIELD_ORDER_V2: tuple[str, ...] = (*FIELD_ORDER_V1, "approval_ref_status")
 """`/2` appends rather than inserts, so a reader diffing the two sees one addition.
 
 `approval_ref_status` is hashed because it is the evidence for *why* an approval did or
-did not authorise this action (R035 §1).
+did not authorise this action.
 """
 
 FIELD_ORDER_V3: tuple[str, ...] = (*FIELD_ORDER_V2, "evaluation_trace_json")
@@ -159,7 +158,7 @@ FIELD_ORDERS: dict[str, tuple[str, ...]] = {
 rows transition `/2` to `/3` at a recorded point re-derives end to end. `prev_hash`
 links are unaffected by a version change -- each row hashes the previous row's
 `row_hash`, whatever produced it -- which is what removes the "impossible after the
-first deployer enables chaining" cliff permanently (R035 §1). Today's bump is the last
+first deployer enables chaining" cliff permanently. Today's bump is the last
 that needed the everything-off window.
 """
 
@@ -184,7 +183,7 @@ EXCLUDED: dict[str, str] = {
         "hashes it"
     ),
     "anchor_ref": (
-        "assigned after anchoring, which under X-8 happens only after verification, "
+        "assigned after anchoring, which happens only after verification, "
         "so it is later than the hash by construction"
     ),
 }
@@ -200,7 +199,7 @@ attacker could edit without breaking the chain, and it would look complete in re
 def _field_bytes(value: object) -> bytes | None:
     """The octets a column contributes, or None for SQL NULL.
 
-    No normalisation happens here, and that is R031 §1.4 rather than laziness: a
+    No normalisation happens here, and that is deliberate rather than laziness: a
     generated column was canonicalised when it was WRITTEN -- `budget_json` through
     the canonical renderer, decimals through `canon_decimal` -- and a received column
     was frozen verbatim at ingress under E10. The preimage seals what the row holds,

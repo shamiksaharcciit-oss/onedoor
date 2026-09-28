@@ -1,4 +1,4 @@
--- ND-009 + R035 §1. The approval evidence field, and the version hint that ends the
+-- ND-009. The approval evidence field, and the version hint that ends the
 -- one-shot window for preimage changes.
 --
 --   approval_ref_status  -- the seven-value evidence field (CONFORMANCE.md §6):
@@ -24,7 +24,7 @@
 -- row's row_hash, whatever produced it. Before this, a new hashed column was possible
 -- only while chaining was off EVERYWHERE, and impossible for any deployer who had
 -- switched it on, since the table forbids UPDATE and sealed rows can never be
--- re-hashed. R035 §1: today's bump is the last that needed that window.
+-- re-hashed. Today's bump is the last that needed that window.
 --
 -- Both NULL on every existing row. Absent `preimage_version` means /1, by the same
 -- absent-means-the-earlier-thing rule as an unstamped `protocol` column meaning

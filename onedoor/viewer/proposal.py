@@ -1,6 +1,6 @@
 """The proposal surface (ND-052 / S6-T5): one page, two sections, never one table.
 
-R053 §3. The coverage map's rows are **measurements** — facts about the engine and the
+The coverage map's rows are **measurements** — facts about the engine and the
 ledger. The proposal's mentioned-but-unruled rows are **a model's reading of a sentence**.
 Both belong in front of the operator; neither belongs in the other's table.
 
@@ -118,7 +118,7 @@ padding:1rem 1.25rem;margin:1rem 0;}
 /* The two sections are visibly different KINDS, not two lists that happen to be apart:
    the asserted one is inset and marked, so a reader cannot mistake a claim for a
    measurement by scrolling past a heading. Marked by POSITION and SURFACE, not by the
-   brand accent (R056 §4): asserted-vs-measured is a classification a reader must not
+   brand accent: asserted-vs-measured is a classification a reader must not
    confuse, which is precisely the job gold must not be given. */
 section.asserted{border-left:3px solid var(--ink);background:var(--surface);}
 .warrant{color:var(--muted);font-size:.8rem;border-bottom:1px solid var(--border-soft);
@@ -152,7 +152,7 @@ def render_page(
     """One surface: the derivation's face, the measured rows, then the asserted rows.
 
     No `--ok`/`--bad` anywhere — this page carries no verdicts, and the pair is spent
-    everywhere or nowhere (R049 §3).
+    everywhere or nowhere.
     """
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"

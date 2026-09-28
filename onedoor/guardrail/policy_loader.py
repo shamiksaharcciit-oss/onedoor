@@ -225,7 +225,7 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
 
 
 SNAPSHOT_SCHEMA = "onedoor/policy-snapshot/2"
-"""Which canonicalisation produced a `version_hash` (R019).
+"""Which canonicalisation produced a `version_hash`.
 
 From 0.4.0 the snapshot renders decimals through the canonical renderer, so `100`,
 `100.00` and `1E+2` all record as `100` and hash identically. The consequence is that

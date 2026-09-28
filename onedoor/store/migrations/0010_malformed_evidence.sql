@@ -1,6 +1,6 @@
 -- ND-040 / U3. Tell malformed-URL from malformed-JSON, without a new wire code.
 --
--- R013 ruled that a URL the canonicalizer cannot interpret denies with the EXISTING
+-- A URL the canonicalizer cannot interpret denies with the EXISTING
 -- reason `malformed` -- no new vocabulary, because `sender_mismatch` remains the only
 -- code added in aadp/0.2 -- on one condition: **the denial's evidence records the
 -- canonicalization failure distinctly**. An evidence field, not a wire code.
@@ -29,7 +29,7 @@
 --   canon_schema    -- which canonicalization produced the verdict, when one did.
 --                      A verdict that depends on a normalisation depends on WHICH
 --                      normalisation, so the instrument's identity rides with the
---                      evidence -- the same argument as `snapshot_schema` (R019) and
+--                      evidence -- the same argument as `snapshot_schema` and
 --                      the manifest's `unicode_version` (E14), arriving a third time.
 --                      It names the interpreter minor version too, because the IDNA
 --                      codec ships with Python.

@@ -433,7 +433,7 @@ def verify(
 
     # --- 13. (iss, jti) consumed atomically ---
     # A consume-store failure is a dependency the recipient cannot reach, not a
-    # policy denial -- it must not collapse into a refusal (R010's three outcomes,
+    # policy denial -- it must not collapse into a refusal (three distinct outcomes,
     # this package's own version of it), and a permit refused by an unavailable
     # store must not read as "the recipient looked and said no".
     try:

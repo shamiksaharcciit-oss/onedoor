@@ -1,6 +1,6 @@
 """Merkle anchoring, and the two artifacts that leave the store (ND-017 / M2–M4).
 
-**An anchor is worth exactly the independence of where it lives** (R038 §4). A root
+**An anchor is worth exactly the independence of where it lives.** A root
 stored beside its leaves proves internal consistency and nothing more — the same shape
 as the keyring one level down, and `self_consistent` is the word already waiting for it.
 
@@ -8,8 +8,8 @@ So the deployer publishes a small, self-contained **anchor object** somewhere th
 does not control, and a third party holding **only that root and one receipt export**
 verifies membership with nothing else of ours.
 
-X-8 fixes the order
--------------------
+The order is fixed
+------------------
 *Anchor only what you have re-verified.* Sealing is: **verify the chain over the range →
 compute the root → write the anchor → publish**. The verification is not decorative. An
 anchor over a broken chain would publish a root that certifies damage, permanently and
@@ -24,7 +24,7 @@ at its anchor; the **anchor points at a range of rows**, and membership is resol
 looking up which anchor covers a row's `seq`.
 
 That is the better shape anyway: a back-reference would have been a second answer to a
-question the range already answers (X-14), and it would have needed a writable column on
+question the range already answers, and it would have needed a writable column on
 the one table whose value is that it cannot be written.
 """
 
@@ -43,7 +43,7 @@ from onedoor.store.clock import to_iso
 ANCHOR_SCHEMA = "onedoor/anchor/1"
 RECEIPT_SCHEMA = "onedoor/receipt/1"
 CADENCE_KEY = "anchor.cadence"
-"""Where cadence declares (R040 §2): the ANCHORING configuration, never the deciding
+"""Where cadence declares: the ANCHORING configuration, never the deciding
 instrument. Cadence schedules anchoring, not deciding, and putting it in `I` would
 re-identify the deciding instrument for every row after an ops-schedule tweak."""
 
@@ -51,7 +51,7 @@ DEFAULT_CADENCE = "manual"
 
 
 class AnchorError(RuntimeError):
-    """Sealing was refused. X-8: never anchor what has not been re-verified."""
+    """Sealing was refused: never anchor what has not been re-verified."""
 
 
 @dataclass(frozen=True)
@@ -102,7 +102,7 @@ def _leaves(conn: sqlite3.Connection, first_seq: int, last_seq: int) -> list[str
 def seal(conn: sqlite3.Connection, now: datetime) -> Anchor | None:
     """Anchor every chained row not yet covered. Returns None when there is nothing new.
 
-    **X-8, and the order is the point.** The chain is verified first, over the whole
+    **Verify, then anchor: the order is the point.** The chain is verified first, over the whole
     ledger, and a fault anywhere refuses the seal — because a root computed over a
     damaged chain would certify the damage, and once published there is no taking it
     back.
@@ -113,7 +113,7 @@ def seal(conn: sqlite3.Connection, now: datetime) -> Anchor | None:
     if not report.sound:
         raise AnchorError(
             "refusing to anchor: the chain does not verify "
-            f"({'; '.join(r.detail for r in report.broken)}). X-8 — an anchor over a "
+            f"({'; '.join(r.detail for r in report.broken)}). Never anchor what has not been re-verified: an anchor over a "
             f"broken chain publishes a root that certifies damage, permanently."
         )
 
@@ -213,14 +213,14 @@ def receipt_export(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]
 
 
 def _degenerate_path_refusal(inclusion: dict[str, Any]) -> str | None:
-    """Refuse the empty-path degeneracy **before any Merkle computation** (R041, F1).
+    """Refuse the empty-path degeneracy **before any Merkle computation**.
 
     An RFC 6962 inclusion proof with an empty audit path degenerates to the claim *the
     leaf is the root*. That is legitimately true in exactly one tree — size 1, index 0 —
     and presented with any other `tree_size` it is a forgery that "checks" without a
     single hash computation.
 
-    The law R041 states, and the reason this runs first:
+    Stated plainly, and the reason this runs first:
     **a verifier must refuse the degenerate case before it computes, because the
     degenerate case is the one that computes to true.**
 
@@ -279,15 +279,15 @@ def check_membership(receipt: dict[str, Any], published_root: str | None) -> tup
     """Does this receipt belong to that root? Returns `(outcome, detail)`.
 
     **Takes only the two artifacts.** No database, no connection, no import of anything
-    that reads a store — which is the acceptance shape R039 named, and the reason this
-    function's signature is what it is.
+    that reads a store — which is the shape this acceptance check requires, and the
+    reason this function's signature is what it is.
 
     `published_root` is the trust anchor: a root the caller obtained from **outside** the
     store. Without one, a proof that checks against the root carried *inside* the receipt
     is `self_consistent` — real, and not independence.
 
     **onedoor never vouches for itself: at the key layer and the anchor layer alike,
-    `verified` requires something the store does not hold** (R040 §3).
+    `verified` requires something the store does not hold**.
     """
     anchor = receipt.get("anchor")
     inclusion = receipt.get("inclusion")
@@ -334,7 +334,7 @@ def verify_files(receipt_path: str, anchor_path: str | None) -> tuple[str, str]:
 
     Deliberately a thin wrapper over `check_membership`, so the acceptance test can run
     it in a directory containing exactly those two files. If this ever needs the
-    database, the design has failed R038 §4's independence metric.
+    database, the design has failed the independence metric.
     """
     with open(receipt_path, encoding="utf-8") as handle:
         receipt = json.load(handle)

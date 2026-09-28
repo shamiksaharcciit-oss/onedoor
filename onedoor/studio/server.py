@@ -16,7 +16,7 @@ and it is honest **only while it is true**. A config drift that binds `0.0.0.0` 
 converts possession-of-the-box into possession-of-the-network, and nothing about the
 running process would look different.
 
-So the boundary is X-6's shape: a hard requirement of the surface, refused at bind time
+So the boundary is a hard requirement of the surface, refused at bind time
 with a stated reason, never a default the process degrades past. `serve` raises before
 a socket exists; there is no flag that turns it off, because a flag that turns it off is
 the config drift.
@@ -72,7 +72,7 @@ else:  # pragma: no cover - which branch runs depends on whether the extra is in
         # function is invisible at resolution time, so FastAPI read `request: Request`
         # as an unresolvable QUERY parameter and every browser form POST returned 422.
         #
-        # So the name lives at module scope. The X-6 property is unchanged: importing
+        # So the name lives at module scope. The hard-at-use property is unchanged: importing
         # this module still works without FastAPI, and `create_app` still refuses with a
         # remedy -- and if it did not refuse, this import already succeeded.
         Request = object
@@ -417,7 +417,7 @@ def validation_for_rule(state: StudioState, text: str) -> tuple[Any, Any]:
 def create_app(state: StudioState) -> Any:
     """Build the ASGI app. Imports FastAPI here so the library never requires it.
 
-    The same shape as signing's X-6 reading: the dependency is hard **at the
+    The same shape as signing's: the dependency is hard **at the
     point of use**, refused with a message naming the remedy, rather than carried by
     every reader who only ever used the engine as a library.
     """

@@ -15,11 +15,11 @@ default that looks like a fact**. Any later code reading it off a rebuilt permit
 read zero and be wrong, and nothing in the type system would object.
 
 So a rebuilt permit is its own type. It carries what the store holds, **provenance
-references to the rows it derives from**, and no `ActionRequest` at all — R032 §3's
+references to the rows it derives from**, and no `ActionRequest` at all —
 *surface the gap, do not synthesise*, made structural rather than remembered.
 
-Timestamps (R033 §3)
---------------------
+Timestamps
+----------
 **A rebuilt row's `created_at` is its own write time, never backdated.** The
 append-only ledger records when the ledger *learned* a thing; a rebuilt row carrying the
 original's timestamp would be the ledger testifying to a moment it did not witness. So
@@ -114,8 +114,8 @@ class RebuiltIntent:
     requested_at: datetime
     """When the ACTION WAS ASKED FOR, from the intent row.
 
-    Named `requested_at` rather than `created_at` on purpose (R033 §3). Two timestamps
-    under one name is X-14's shape, and the ledger is permanent: a result row's
+    Named `requested_at` rather than `created_at` on purpose. Two timestamps
+    under one name will be confused, and the ledger is permanent: a result row's
     `created_at` is when the ledger learned the outcome, which after a restart is not
     when the request was made. This object deliberately has no `created_at` at all, so
     a caller cannot reach for the wrong one.

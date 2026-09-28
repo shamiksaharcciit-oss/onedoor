@@ -3,8 +3,8 @@
 Renders `studio.coverage.CoverageMap` and computes nothing — the split that keeps every
 renderer in this package from growing a second opinion.
 
-No semantic pair, and the reason is not squeamishness (R049 §3)
------------------------------------------------------------------
+No semantic pair, and the reason is not squeamishness
+-------------------------------------------------------
 `--ok`/`--bad` are **verdicts' alone**, and the argument that nearly overturned that here
 is the argument that settles it. *Uncovered genuinely is default-denied* — true. But a
 verdict colour on a receipt means **this action was denied**, a fact about one past
@@ -13,9 +13,9 @@ be denied**, a prediction about a class. Teach an operator that red is a predict
 one surface and they will read the receipt's red as a prediction too. **A colour that
 means two things means neither**, and the pair is spent everywhere or nowhere.
 
-So prominence comes from **size, position and weight** — and, since R056 §4, from
-those three alone. The brand accent was the fourth mechanism here until core
-superseded R049 §3's `--seal` clause: the rule that gold never signals state binds
+So prominence comes from **size, position and weight** — from
+those three alone. The brand accent was the fourth mechanism here until the `--seal`
+clause was superseded: the rule that gold never signals state binds
 everywhere, with no grandfathered screens, and *three mechanisms are enough*. If
 prominence ever genuinely fails with three, that is a design escalation and not a
 reason to readmit gold. The order comes from `coverage.PROMINENCE`, which ranks by
@@ -95,7 +95,7 @@ ul{list-style:none;padding:0;}
 /* Prominence by SIZE, WEIGHT and POSITION -- three mechanisms, and no colour that
    signals anything. Never the semantic pair, which belongs to verdicts: a coverage
    cell is a prediction about a class, a verdict is a fact about one event, and one
-   colour cannot mean both. And never the brand accent either (R056 §4) -- gold is
+   colour cannot mean both. And never the brand accent either -- gold is
    who we are, not what happened. `--ink` here is the page's own foreground: it makes
    the border PRESENT without making it MEAN. */
 .row.declared_inert{border-left:3px solid var(--ink);background:var(--card-hi);

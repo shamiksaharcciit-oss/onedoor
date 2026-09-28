@@ -382,7 +382,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
     def kill(body: KillBody, _key: str = Depends(require_admin)) -> dict[str, Any]:
         with state.lock:
             report = killswitch.set_engaged(state.conn, body.engaged, origin=body.origin)
-        # R045 §5: the lift is where a policy change made behind a shut door becomes
+        # The lift is where a policy change made behind a shut door becomes
         # visible. Surfaced, never blocking -- an operator lifting the switch is told
         # that the rules moved while it was held, and lifts anyway if that is the call.
         # `null` while engaging, because there is no lift to report on.

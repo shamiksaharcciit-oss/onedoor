@@ -86,7 +86,7 @@ def build_decision_ref(
 
 
 def frozen_params(request: ActionRequest) -> tuple[str, str]:
-    """The bytes to store for `params`, and how they came to be (E10 / R004).
+    """The bytes to store for `params`, and how they came to be (E10).
 
     Received bytes are stored EXACTLY as sent -- not parsed, not re-serialized, not
     canonicalised. `250.00` stays `250.00`, because the record must show what the
@@ -150,7 +150,7 @@ CHAIN_ENABLED_KEY = "chain.enabled"
 """The one key that says whether rows are chained.
 
 Declared here and re-exported by `chain.py` rather than spelled in both -- two string
-constants that must agree is X-14's shape, and a chain that writes under one key while
+constants that must agree will eventually disagree, and a chain that writes under one key while
 a verifier reads another would report every row as unchained while the store was full
 of hashes.
 
@@ -169,7 +169,7 @@ SIGNING_KEY = "chain.signing_key_path"
 """Where the deployer's private key lives, recorded in `config` when signing is enabled.
 
 The PATH, never the key. No private key material enters this database, this repository
-or any receipt (R037 §2).
+or any receipt.
 """
 
 
@@ -191,7 +191,7 @@ def _signing_key(conn: sqlite3.Connection) -> object | None:
 def _sign(conn: sqlite3.Connection, values: dict[str, object]) -> None:
     """Attach a signature over the row's hash, if this store signs.
 
-    Per-row over `row_hash` (R037 §2): the signature attests the sealed bytes and
+    Per-row over `row_hash`: the signature attests the sealed bytes and
     nothing else, which is also why `sig`/`key_id`/`alg` are excluded from the preimage
     -- a signature cannot precede the hash it attests.
     """
@@ -228,7 +228,7 @@ def _stamp_chain(conn: sqlite3.Connection, values: dict[str, object], tip: _Tip)
     # the chain tests all run inside one frozen instant, where no deadline passes.
     #
     # The hint being self-authenticating is what turned a silent forgery into a loud
-    # failure -- "a lying hint produces detection, not confusion" (R035 §1), working
+    # failure -- "a lying hint produces detection, not confusion", working
     # exactly as ruled, with us as the liar.
     values["preimage_version"] = preimage_module.CURRENT_VERSION
     digest = preimage_module.row_hash(values)
@@ -339,7 +339,7 @@ Named columns and named placeholders, deliberately. The positional form this rep
 carried a 27-item column list beside a 27-item value tuple, and getting them out of
 step is not a hypothetical: it happened twice while building `0.4.x` -- once producing
 `sqlite3.ProgrammingError: statement uses 26, 24 supplied`, once silently shifting a
-value into the wrong column. Two lists that must agree, which X-14 has a name for.
+value into the wrong column. Two lists that must agree will, sooner or later, disagree.
 """
 
 _INSERT_SQL = (
@@ -535,7 +535,7 @@ def _row_values(
             "resumes_audit_id": resumes_audit_id,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
-            # the two came apart (X-14, and see `_stamp_chain`).
+            # the two came apart (see `_stamp_chain`).
         }
     )
     return values
@@ -557,7 +557,7 @@ def append_expiry(
     Three callers, one shape, on purpose. Reclamation writes
     ``reservation_expired`` when a deadline passes unreported; a ``not_attempted``
     report writes ``reservation_released`` when the enforcement point positively
-    asserts the action did not happen (R005); a mandate ratification attempt writes
+    asserts the action did not happen; a mandate ratification attempt writes
     ``mandate_ratification``. All three are lifecycle events *about*
     an earlier row rather than facts with nowhere to live, and all three are
     **audited, never silent** -- the audit's job is to make a false report or a

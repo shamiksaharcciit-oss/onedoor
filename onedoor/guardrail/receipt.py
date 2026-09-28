@@ -14,7 +14,7 @@ opinion.
 
 Four outcomes, never two
 ------------------------
-The programme rule (R010) says *absent*, *unverifiable* and *failed* are distinct and
+The rule here says *absent*, *unverifiable* and *failed* are distinct and
 must never collapse. In a viewer that distinction is the whole product:
 
 ``verified``
@@ -24,7 +24,7 @@ must never collapse. In a viewer that distinction is the whole product:
     `0.4.1` because `ND-001` has not run. That is a fact about the roadmap, not a
     fault, and it renders as a quiet line naming the ticket.
 
-    The wording matters and R030 §3 sharpened it: *"not yet in operation"*, never
+    The wording matters here: *"not yet in operation"*, never
     *"not yet produced"*. The second reads like something that should have happened
     and did not — absent-by-schedule wearing the face of broken. A placeholder for a
     future feature has to say which of the two it is, in the words a reader meets, or
@@ -38,7 +38,7 @@ must never collapse. In a viewer that distinction is the whole product:
     Checked, and it does not hold.
 
 The difference between ``absent`` and ``unverifiable`` is the difference between "not
-yet produced" and "produced and then lost", which is R015's null-versus-empty rule
+yet produced" and "produced and then lost" — the null-versus-empty distinction
 arriving in a user interface.
 """
 
@@ -96,7 +96,7 @@ row distinguishes them, and the reason-code string itself cannot be used as
 its own marker: that is exactly what `reason_vocabulary` is checking, so
 using it as evidence for itself would let a forged row excuse itself just by
 using an old word. Absent a real marker, a `cap_value`/`cap_rate` row still
-reads `failed` here -- unresolved, reported to core rather than guessed at."""
+reads `failed` here -- unresolved, surfaced for review rather than guessed at."""
 
 REQUIRED_AUDIT_TRIGGERS = ("actions_audit_no_update", "actions_audit_no_delete")
 
@@ -104,7 +104,7 @@ REQUIRED_AUDIT_TRIGGERS = ("actions_audit_no_update", "actions_audit_no_delete")
 class Status(StrEnum):
     VERIFIED = "verified"
     SELF_CONSISTENT = "self_consistent"
-    """Real information, named for exactly what it is (R038 §1).
+    """Real information, named for exactly what it is.
 
     A signature that matches a public key found in THIS STORE'S OWN KEYRING. That is not
     nothing -- the bytes do check out -- and it is not verification either, because an
@@ -193,7 +193,7 @@ class ReceiptVerification:
 
 
 def _check_params_byte_form(row: sqlite3.Row) -> Check:
-    """Byte form BEFORE any digest (R028).
+    """Byte form BEFORE any digest.
 
     A digest computed over bytes nobody looked at is a number about a mystery. If the
     frozen params are not even UTF-8 JSON, say *that* — do not proceed to hash them
@@ -426,7 +426,7 @@ def _check_signature(
     `trusted_key_id` the CALLER supplies from outside — and the in-store match, which is
     real information, gets its own honest name rather than being discarded or promoted.
 
-    **A receipt system must not be its own witness** (R038 §1).
+    **A receipt system must not be its own witness.**
     """
     keys = row.keys()
     signature = row["sig"] if "sig" in keys else None
@@ -452,8 +452,9 @@ def _check_signature(
     ring = signing.keyring(conn)
     public = ring.get(str(key_id))
     if public is None:
-        # R037 §2's ruled case. The signature may be perfectly good; nothing here
-        # vouches for the key, and guessing either way would be inventing an answer.
+        # The key isn't in this store's keyring. The signature may be perfectly good;
+        # nothing here vouches for the key, and guessing either way would be inventing
+        # an answer.
         return Check(
             "signature",
             Status.UNVERIFIABLE,
@@ -483,7 +484,7 @@ def _check_signature(
 def _check_anchor(conn: sqlite3.Connection, row: sqlite3.Row, published_root: str | None) -> Check:
     """Membership in a published Merkle tree (ND-017 / M5).
 
-    R038 §4's law one more time: **an anchor is worth exactly the independence of where
+    Restated here: **an anchor is worth exactly the independence of where
     it lives.** A proof that checks against a root found in this store is
     `self_consistent`, and `verified` needs the root the caller obtained from outside —
     the same shape as the signature check, which is now the second place this product
@@ -522,7 +523,7 @@ def verify_decision(
 ) -> ReceiptVerification:
     """Verify one audit row. THE implementation; callers render its output.
 
-    Ordered deliberately: byte-form checks run before anything hashes (R028), and the
+    Ordered deliberately: byte-form checks run before anything hashes, and the
     store-level check runs last because it is about the ledger rather than the row.
     """
     return ReceiptVerification(

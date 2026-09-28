@@ -4,7 +4,7 @@ Before this module two paths answered that question separately: ``bounds.validat
 ``caps.resolve_cost``. They disagreed about the decimal-string form, so **declaring a
 numeric bound changed which wire types an action accepted** — the draft's own worked
 example (`"amount_eur": "40.00"`) was read as money by one path and refused by the
-other. Two implementations of one question is X-14, and here it sat on the
+other. Two implementations of one question will drift apart, and here it sat on the
 arithmetical entrance to the evaluation path.
 
 The fix (ND-054, §4): **one ``numeric_value(raw)``, called by both**, with a test
@@ -82,7 +82,7 @@ def parse_numeric(raw: object) -> NumericParse:
     """Decide whether ``raw`` is a number, and say why not when it is not.
 
     The single implementation. :func:`numeric_value` and :func:`numeric_refusal` are its
-    two faces, so neither can drift from the other (X-14).
+    two faces, so neither can drift from the other.
     """
     if isinstance(raw, bool):  # before int: bool IS an int subclass
         return NumericParse(None, NOT_NUMERIC)

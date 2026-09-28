@@ -2,7 +2,7 @@
 
 A receipt system must not be its own witness
 --------------------------------------------
-That sentence (R038 §1) is the whole reason this module has five outcomes rather than
+That sentence is the whole reason this module has five outcomes rather than
 three. A signature checked against a public key found in **the same store as the data
 it signs** proves internal consistency and nothing else: an attacker who can write the
 database adds their own public key, re-signs what they altered, and hands you a store
@@ -21,8 +21,8 @@ would be dishonest in the other direction, so it gets its own name:
 ``failed``          the bytes do not verify
 ``absent``          no signature; signing was not in operation
 
-Custody (R037 §2), none of it negotiable here
----------------------------------------------
+Custody, none of it negotiable here
+------------------------------------
 The **private key is deployer-supplied** and never enters the repo, the database, or any
 receipt. `key_id` is **derived** — a fingerprint of the public key bytes — never
 assigned, because a label someone chooses can drift from what it names and a digest
@@ -30,8 +30,8 @@ cannot. Rotation is **append-only**: a new key gets a new derived id and old rec
 verify forever under the old public key, because public keys are evidence and evidence
 is not deleted.
 
-X-6 at enable time (R038 §2)
-----------------------------
+Required when enabled
+---------------------
 `cryptography` is a `[signed]` extra, not a hard install requirement — a library-only
 user who never signs should not carry it. The failure mode that matters is a deployment
 that *believes* it signs and does not, and a hard install dependency does nothing about
@@ -50,7 +50,7 @@ from typing import Any
 from onedoor.store.clock import to_iso
 
 ALGORITHM = "ed25519"
-"""What goes in the `alg` column: the ALGORITHM, never the library (R038 §3).
+"""What goes in the `alg` column: the ALGORITHM, never the library.
 
 Ed25519 is output-deterministic per RFC 8032 — a correct implementation produces
 identical bytes forever — so a library version in per-row evidence would assert an
@@ -70,7 +70,7 @@ never a value this repository or this database has seen."""
 class SigningUnavailable(RuntimeError):
     """Signing is configured and the library is not installed.
 
-    Raised at startup, deliberately fatal (R038 §2). The alternative -- carrying on and
+    Raised at startup, deliberately fatal. The alternative -- carrying on and
     writing unsigned rows -- is the failure this whole ticket is defending against: a
     deployment that believes it is signing and is not.
     """

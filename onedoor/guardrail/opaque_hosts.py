@@ -5,7 +5,7 @@
 is not a canonicalization problem at all** — the host genuinely *is* `t.co`, and the
 bank is reachable only by following a redirect. Following it is a network call:
 non-deterministic, forbidden by the PDP's offline evaluation model, and forbidden by
-R024's determinism constraint on this very instrument.
+the determinism constraint on this very instrument.
 
 So the mechanism cannot be "resolve it". It has to be **"declare that you cannot"**:
 a versioned class of hosts whose target is unknowable, matched by exact host after
@@ -17,11 +17,11 @@ A member host is handled **exactly as the declared target would be**: the rule's
 `add_effects` apply, and the effect's tier floor and caps decide the verdict. That is
 the whole semantics, and it is the conservative direction by construction — an effect
 can only raise a floor or add a cap, never lower one — so an opaque host can never be
-*more* permitted than a known one. It also needs **no new wire vocabulary** (R025):
+*more* permitted than a known one. It also needs **no new wire vocabulary**:
 the reason code is `effect_floor`, which already exists and already means what
 happened. A separate deny path would have had to invent a code for "we could not tell
 where this goes", and inventing wire vocabulary to describe an evidence fact is
-exactly what R013 declined to do for malformed URLs.
+exactly the same refusal already made for malformed URLs.
 
 Why the class fails closed for members ONLY
 -------------------------------------------
@@ -114,7 +114,7 @@ def classify(canonical_host: str, *, builtin: bool, extra: frozenset[str]) -> st
     """Which declared opaque class does this host belong to, if any?
 
     Returns the class identity for the evidence row, or None for a host whose target
-    the policy has not declared unknowable. Exact host match only (R025): a subdomain
+    the policy has not declared unknowable. Exact host match only: a subdomain
     of a shortener is a different service, and suffix matching without a label
     boundary is the classic bypass in the opposite direction.
     """

@@ -6,7 +6,7 @@ that document rather than from this code — the P2-06 pattern `docs/row-preimag
 already carries, because a definition nobody else has built from is a description of one
 function's behaviour.
 
-Signed off by R040 §1 with two amendments, both in the direction delivery's flags
+Adopted with two amendments, both in the direction delivery's flags
 pointed. **Frozen from the first sealed row.**
 
 What the four mean
@@ -29,12 +29,12 @@ Two amendments worth their own paragraph
 **`T` does not carry `policy_source`.** The policy hash already lives in `E` as
 `policy_version`, where it is an *input identity* — what was in force. Carrying the same
 hash in two preimages would be two answers to one question at the exact layer where
-drift becomes undetectable: X-14, inside the seal itself. What `T` owes a verifier is
+drift becomes undetectable: a disagreement inside the seal itself. What `T` owes a verifier is
 what must be **trusted**, and `closure` says it.
 
 **`I` does not carry the anchor cadence.** Delivery flagged the consequence — a cadence
-change would re-identify the deciding instrument for every row after it — and R040 §2
-ruled the consequence was the defect rather than the point: cadence schedules
+change would re-identify the deciding instrument for every row after it — and the
+consequence was treated as the defect rather than the point: cadence schedules
 *anchoring*, not *deciding*, so it declares in the anchoring configuration and is
 recorded on the **anchor object**, where a change is visible in exactly the artifact
 stream it governs. `I` keeps only what did the deciding.
@@ -43,7 +43,7 @@ No `len8` anywhere
 ------------------
 Every digest is SHA-256 over `canonical_bytes` of a canonical object, so **no
 concatenation appears and the length-prefix dialect is not reached**. Said plainly
-rather than decorated with an unused framing: R039 asked for `len8` *where concatenation
+rather than decorated with an unused framing: `len8` belongs *where concatenation
 appears*, and a canonical object needs none.
 """
 
@@ -123,7 +123,7 @@ def instrument(row: RowLike, *, snapshot_schema: str | None = None) -> dict[str,
     when one ran, the opaque-host class when one matched, and the policy-snapshot
     renderer.
 
-    **No anchor cadence** (R040 §2). Cadence schedules anchoring, not deciding.
+    **No anchor cadence.** Cadence schedules anchoring, not deciding.
     """
     return {
         "kind": INSTRUMENT_KIND,
@@ -144,8 +144,7 @@ def trust(row: RowLike, *, closure: str) -> dict[str, Any]:
     `anchor-closed` means a published root vouches.
 
     Nothing else. `policy_version` is deliberately **absent** — it is an input identity
-    and `E` already seals it, and the same hash in two preimages is X-14 inside the seal
-    (R040 §1).
+    and `E` already seals it, and the same hash in two preimages is two answers to one question inside the seal.
     """
     key_id = _field(row, "key_id")
     return {

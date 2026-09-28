@@ -6,8 +6,8 @@ backtest, and `studio.ratify.verify_files` decides whether a receipt checks out.
 implementations of "is this sound?" eventually disagree, and the one the user sees is
 the one that is wrong.
 
-Two disciplines, both from R045 §4, and both held by a test rather than by care
----------------------------------------------------------------------------------
+Two disciplines, both held by a test rather than by care
+-------------------------------------------------------------
 **Absence is rendered, not merely null.** A ratification with no backtest says so on its
 face, in every view. Not by omitting a line — an omitted line reads as "nothing to
 report", and the whole point is that there *is* something to report.
@@ -33,7 +33,7 @@ NO_BACKTEST_SENTENCE = "No backtest informed this ratification."
 """The exact words, referenced by both renderers and by the tests that hold them.
 
 One constant rather than two strings that happen to agree: *a regression must compare
-against the fact itself, never against a second name for the fact* (R045 §1), and two
+against the fact itself, never against a second name for the fact*, and two
 copies of a sentence are exactly two names for one fact.
 """
 

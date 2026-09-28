@@ -149,8 +149,8 @@ def evaluate_and_execute(
         return outcome
 
     # --- CONNECTOR CALL (outside any DB lock), fail-soft. ---
-    # All four outcomes are reachable here, and the distinctions are not cosmetic
-    # (R005). `no connector registered` means the action was NEVER ATTEMPTED -- the
+    # All four outcomes are reachable here, and the distinctions are not cosmetic.
+    # `no connector registered` means the action was NEVER ATTEMPTED -- the
     # dispatch found nothing to call -- so its reservation is released rather than
     # settled. Reporting that as `failure`, as this did before ND-039, charged budget
     # for an action that never occurred: the A4b defect, in the in-process binding.

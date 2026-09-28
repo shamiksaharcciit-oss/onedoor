@@ -17,7 +17,7 @@ Determinism
 No I/O. No DNS. No network. No clock. The same string canonicalizes to the same
 result on every host, forever, or the instrument is not an instrument.
 
-**No new runtime dependency**, which is the strongest available reading of R024's
+**No new runtime dependency**, which is the strongest available reading of
 "deterministic and dependency-pinned": a canonicalization that changes under a
 library upgrade is an instrument change wearing a patch release, and the surest way
 to prevent that is to have no library to upgrade. Host encoding uses the standard
@@ -26,7 +26,7 @@ library's IDNA codec; IP parsing is implemented here rather than delegated to
 cannot be part of a deterministic instrument.
 
 `CANON_SCHEMA` names this algorithm, and belongs in evidence beside a verdict that
-depends on it -- the same argument as `snapshot_schema` (R019) and `unicode_version`
+depends on it -- the same argument as `snapshot_schema` and `unicode_version`
 (E14). Once a verdict depends on a normalisation, the normalisation's identity is
 part of what the verdict means.
 
@@ -64,7 +64,7 @@ _HOST_FORBIDDEN = set("/?#@:\\ \t\n\r\x00[]")
 class CanonicalizationError(ValueError):
     """The target could not be interpreted, so it is refused rather than guessed.
 
-    Callers translate this into a denial with reason `malformed` (R013), recording
+    Callers translate this into a denial with reason `malformed`, recording
     the failure distinctly in evidence so audit can tell malformed-URL from
     malformed-JSON without expanding the wire vocabulary.
     """

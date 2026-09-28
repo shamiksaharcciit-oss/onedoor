@@ -5,8 +5,8 @@ check is first). When engaged, every acting tier is clamped to propose-only.
 M1 will mirror this flag to a Home Assistant ``input_boolean``; the executor keeps
 reading exactly one source of truth here regardless.
 
-What the switch does *not* stop, and what follows from that (R045 §5)
-----------------------------------------------------------------------
+What the switch does *not* stop, and what follows from that
+-----------------------------------------------------------
 It does not stop **policy-making**. That is not an omission; it is a consequence of
 how completely it stops everything else. Nothing ratified can move while the switch
 holds, so a mid-incident ratification cannot cause an effect — and blocking it would
@@ -36,7 +36,7 @@ NO_EPISODE = "no_episode"
 UNCHANGED = "unchanged"
 CHANGED = "changed"
 UNDETERMINABLE = "undeterminable"
-"""Four states, and none of them collapses into another (R010).
+"""Four states, and none of them collapses into another.
 
 `NO_EPISODE` — nothing was recorded for this engagement, so there is no comparison to
 make. A store upgraded while the switch was already held has this, and it is **not** a
@@ -114,8 +114,8 @@ def set_engaged(
     """Set the flag. ``origin`` (ui/ha) is recorded for provenance.
 
     Returns a `LiftReport` when this call **releases** the switch, and None when it
-    engages one. The report is the whole of R045 §5's second requirement: the lift is
-    where a policy change made behind a shut door has to become visible.
+    engages one. The report exists so the lift is where a policy change made behind a
+    shut door has to become visible.
     """
     was_engaged = is_engaged(conn)
     stamp = to_iso(now_utc())

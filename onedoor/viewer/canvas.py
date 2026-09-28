@@ -11,10 +11,10 @@ so itself**: §1's status line puts *"Product GUIs (onedoor ND-018/ND-020 and
 successors)"* explicitly out of its scope. Checked against the vendored bytes rather
 than remembered, which is why it dissolved instead of becoming an escalation.
 
-What the canvas inherits is what R046 §3's fence post named: **§4's tokens, §5's
+What the canvas inherits is what the fence post named: **§4's tokens, §5's
 anatomy, §2's law**. The visual language, not the delivery fence. And it inherits
 `tokens.css_block()`'s behaviour with them — that function **raises** rather than
-falling back to a bundled palette, which is X-6's shape: the design system is a hard
+falling back to a bundled palette: the design system is a hard
 requirement of this surface, never a default it degrades past.
 
 The two-zone colour rule (S3 §3)
@@ -73,7 +73,7 @@ def _hash(value: str | None) -> str:
 def _pin_block(view: canvas_module.CanvasView) -> str:
     """The moved-beneath state, naming **both** hashes.
 
-    R047 §3: a warning that names no versions is a mood, not a fact. The sentence comes
+    A warning that names no versions is a mood, not a fact. The sentence comes
     from `canvas.Pin`, which is where the comparison happened — this module does not
     decide whether the world moved, it renders the answer.
     """
@@ -190,7 +190,7 @@ STORE_WARNING_NAMED = (
     "file with `policy_loader.load_file`. Until something loads rules, a draft ratified "
     "here would apply to a store nothing enforces."
 )
-"""When `--db` was **named**. Finding 3, R086 §2D: the old single message asked *"Did
+"""When `--db` was **named**. The old single message asked *"Did
 you point --db at the service's database?"* of an operator who had just answered that
 question in their own argv, and offered a defaults mismatch that their command line had
 already excluded. **One condition, at least two causes, and the message named the one
@@ -320,8 +320,8 @@ def render_page(
     failure as an instrument that drifts quietly.
     """
     # The zone class is interpolated rather than typed into the stylesheet: the CSS
-    # selector and the markup's class must be the same fact, and R045 §1 ruled on what
-    # happens to two names for one fact.
+    # selector and the markup's class must be the same fact -- two names for one fact
+    # is exactly the kind of drift this guards against.
     css = root_css() + _PAGE_CSS.replace("__VERDICT__", VERDICT_ZONE)
     warning = _store_warning(active_policies)
     if view is None:

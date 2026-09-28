@@ -8,13 +8,13 @@
 -- covers a row's `seq`, and `anchor_ref` stays dark.
 --
 -- It is also the better shape: a back-reference would be a second answer to a question
--- the range already answers (X-14), and it would need a writable column on the one
+-- the range already answers, and it would need a writable column on the one
 -- table whose entire value is that it cannot be written.
 --
 --   root       the RFC 6962 Merkle root over the range's row_hash leaves.
 --   tree_size  leaf count -- an inclusion proof needs it, and it is not derivable from
 --              the range alone once rows can be absent.
---   cadence    DECLARED HERE, not in the decision instrument (R040 §2). Cadence
+--   cadence    DECLARED HERE, not in the decision instrument. Cadence
 --              schedules anchoring, not deciding: inside `I` an ops-schedule tweak would
 --              re-identify the DECIDING instrument for every row after it, splitting
 --              i_digest cohorts for a reason no instrument comparison should care about.

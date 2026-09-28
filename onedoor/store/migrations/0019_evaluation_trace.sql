@@ -7,10 +7,10 @@
 --
 -- Deliberately DARK (unhashed): not in FIELD_ORDER (docs/row-preimage.md). Hashing a
 -- brand-new evidence field in means a preimage version bump (/2 -> /3) and every
--- consequence R035 §1 catalogued for that -- a decision this ticket does not make on
+-- consequence that follows from that -- a decision this ticket does not make on
 -- delivery's own authority, since it changes wire-observable chain behaviour. Left
 -- dark for now and disclosed as such; whether the trace should be tamper-evident is
--- an open question for core, not a code decision.
+-- an open question, not a code decision.
 --
 -- NULL on every row written before this column existed, and on any row this build
 -- writes for a kind other than 'decision'/'exec_intent' (report_result never sets it
