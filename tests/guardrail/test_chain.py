@@ -101,7 +101,7 @@ def test_chaining_is_off_until_it_is_switched_on(conn: Connection, config: Engin
 def test_the_first_chained_row_carries_the_ruled_sentinel(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R016: 64 ASCII zeros, an affirmative statement that no predecessor exists."""
+    """64 ASCII zeros, an affirmative statement that no predecessor exists."""
     _policies(conn)
     _enable(conn)
     _decide(conn, config)
@@ -330,7 +330,7 @@ def test_the_seq_index_refuses_a_duplicate_ordinal(conn: Connection, config: Eng
 
 
 def test_the_append_only_triggers_survive_migration_0012(conn: Connection) -> None:
-    """R031's standing constraint: re-verify the triggers after any migration here."""
+    """A standing constraint: re-verify the triggers after any migration here."""
     names = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
     assert {"actions_audit_no_update", "actions_audit_no_delete"} <= names
 
@@ -379,7 +379,7 @@ def test_an_empty_store_reports_nothing_rather_than_verified(tmp_path: Path) -> 
 
 
 def test_a_half_written_chain_is_unverifiable(conn: Connection, config: EngineConfig) -> None:
-    """Ran and did not finish is a different fact from never ran (R015)."""
+    """Ran and did not finish is a different fact from never ran."""
     _policies(conn)
     _decide(conn, config)
     _force(conn, 1, "seq", 99)
@@ -464,7 +464,7 @@ def test_verification_never_raises_on_damage(conn: Connection, config: EngineCon
     assert not report.sound
 
 
-# --- R035 §1: a chain that crosses a preimage version boundary --------------------
+# --- A chain that crosses a preimage version boundary -----------------------------
 
 
 def test_a_chain_verifies_across_a_preimage_version_boundary(
@@ -579,7 +579,7 @@ def test_a_reclamation_row_is_sealed_and_hinted_under_the_same_version(
     days were the first thing to reclaim anything — 23 rows, all unverifiable.
 
     The fix puts the hint where the version is chosen, so the two cannot come apart:
-    two places setting one fact is X-14, and this is what it looks like when it lands
+    two places setting one fact will disagree, and this is what it looks like when it lands
     inside a seal.
     """
     from datetime import timedelta
@@ -613,7 +613,7 @@ def test_a_reclamation_row_is_sealed_and_hinted_under_the_same_version(
 
 
 def test_every_audit_write_path_stamps_the_chain() -> None:
-    """R044 §2's sibling audit, made structural instead of done once by eye.
+    """The sibling audit, made structural instead of done once by eye.
 
     Three paths insert into `actions_audit` — `append`, `append_expiry` and `flush` —
     and exactly one of them, `append_expiry`, bypasses `_row_values`. That is where the
@@ -665,7 +665,7 @@ def test_every_audit_write_path_stamps_the_chain() -> None:
 def test_a_chain_verifies_across_the_2_to_3_preimage_version_boundary(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """The `/2 -> /3` sibling of the `/1 -> /2` test above -- the exact seam R035 §1's
+    """The `/2 -> /3` sibling of the `/1 -> /2` test above -- the exact seam the version bump's
     `preimage_version` hint was built to survive, now actually crossed.
 
     Both rows are force-sealed: row 1 as if written before `evaluation_trace_json`

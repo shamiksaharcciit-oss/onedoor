@@ -1,9 +1,9 @@
 """The preimage, checked against a second implementation and four golden vectors.
 
-R031 §1.3 asks for the spec in one place with test vectors. This file supplies the
+The spec lives in one place with test vectors. This file supplies the
 harder half of P2-06: **a second implementation written from `docs/row-preimage.md`
 rather than from `onedoor/guardrail/preimage.py`.** An implementation that agrees with
-itself has proved nothing. The forensics channel put it best and core adopted the
+itself has proved nothing. In one
 sentence: *an implementation that verifies because it was fitted to the artifact is not
 independent of it.*
 
@@ -179,7 +179,7 @@ def test_the_second_implementation_agrees_on_generated_rows() -> None:
         assert _from_the_document(values) == preimage(values)
 
 
-# --- Golden vectors (R031 §1.3), each named for the attack it refuses ------------
+# --- Golden vectors, each named for the attack it refuses -------------------------
 
 
 def test_vector_shift_collision() -> None:
@@ -196,7 +196,7 @@ def test_vector_shift_collision() -> None:
 
 
 def test_vector_absent_versus_empty() -> None:
-    """R031 §1.1. NULL is not a zero-length string, and the bytes must say so."""
+    """NULL is not a zero-length string, and the bytes must say so."""
     absent = _sample(detail=None)
     empty = _sample(detail="")
     assert row_hash(absent) != row_hash(empty)
@@ -331,15 +331,15 @@ def test_the_preimage_reads_a_real_audit_row(conn: Connection, config: EngineCon
     assert len(row_hash(values)) == 64
 
 
-# --- R032 §2: one normative source, guarded rather than promised ------------------
+# --- One normative source, guarded rather than promised --------------------------
 
 PREIMAGE_BUILDERS = {"preimage.py"}
 """The only module in `onedoor/` permitted to construct row-preimage bytes.
 
-R032 §2 ratified `docs/row-preimage.md` as the single normative source that `ND-015`
+`docs/row-preimage.md` is the single normative source that `ND-015`
 and `ND-017` **cite and never re-derive**. A promise in a document is not a guard, and
 the whole reason the rule exists is that two derivations of one preimage disagree
-eventually — at the exact spot an attacker would shop for a disagreement (X-14).
+eventually — at the exact spot an attacker would shop for a disagreement.
 """
 
 
@@ -379,7 +379,7 @@ def test_only_one_module_builds_preimage_bytes() -> None:
             offenders[path.name] = sorted(set(found))
     assert not offenders, (
         f"modules building preimage bytes outside preimage.py: {offenders}. "
-        f"docs/row-preimage.md is the single normative source (R032 §2): cite it, "
+        f"docs/row-preimage.md is the single normative source: cite it, "
         f"call `row_hash`, never re-derive."
     )
 
@@ -410,7 +410,7 @@ def test_the_spec_carries_no_control_bytes() -> None:
 
 
 def test_the_length_prefix_is_len8_as_the_programme_spec_defines_it() -> None:
-    """R033 §2: `len8` — the byte length as an 8-byte big-endian integer.
+    """`len8` — the byte length as an 8-byte big-endian integer.
 
     Quoted in `docs/row-preimage.md` §1 from the Provenance Primitives Spec v1.1 §1
     (Q-11) rather than referenced, so the citation carries its own checkable content.

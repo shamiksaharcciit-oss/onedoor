@@ -133,7 +133,7 @@ def test_vector_the_empty_trust_set_matches_the_vendored_artifact() -> None:
     The shipped manifests in `reference/rederivable-manifest/manifests/` carry
     `t_digest = 4f53cda1…b945`, and that is SHA-256 of canonical `[]`. Computing it is
     how the decomposition established that `T` is a *declared closure* rather than a bag
-    of facts — which is also what made R040's amendment (drop `policy_source`) land as a
+    of facts — which is also what made the amendment (drop `policy_source`) land as a
     correction rather than a preference.
     """
     assert digest_obj([]) == "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
@@ -146,7 +146,7 @@ def test_vector_key_order_is_erased() -> None:
 
 
 def test_vector_absent_is_not_empty() -> None:
-    """R015 at the digest layer: `null` and `""` are different facts."""
+    """At the digest layer: `null` and `""` are different facts."""
     for field in ("params_provenance", "policy_version", "snapshot_schema"):
         base = {"kind": digests.EVIDENCE_KIND, field: None}
         empty = {"kind": digests.EVIDENCE_KIND, field: ""}
@@ -169,11 +169,11 @@ def test_vector_one_byte_perturbation(conn: Connection, config: EngineConfig) ->
 def test_vector_policy_version_is_in_evidence_and_not_in_trust(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R040 §1's amendment, asserted so it cannot be quietly undone.
+    """The amendment, asserted so it cannot be quietly undone.
 
     The policy hash is an INPUT IDENTITY and `E` seals it. Carrying it in `T` as well
     would be two answers to one question at the exact layer where drift becomes
-    undetectable — X-14, inside the seal itself.
+    undetectable — a disagreement inside the seal itself.
     """
     row = _row(_seeded(conn, config))
     assert "policy_version" in digests.evidence(row)
@@ -187,7 +187,7 @@ def test_vector_policy_version_is_in_evidence_and_not_in_trust(
 
 
 def test_vector_the_instrument_carries_no_cadence(conn: Connection, config: EngineConfig) -> None:
-    """R040 §2's amendment, and the reason it was a defect rather than a choice.
+    """The second amendment, and the reason it was a defect rather than a choice.
 
     Cadence schedules anchoring, not deciding. Inside `I`, an ops-schedule tweak would
     re-identify the DECIDING instrument for every row after it — splitting `i_digest`

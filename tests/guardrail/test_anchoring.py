@@ -1,10 +1,10 @@
 """Merkle anchoring, and the third-party check run on two files (ND-017 / M2–M5).
 
 The test this ticket is really about is
-`test_a_third_party_verifies_membership_from_two_files_and_nothing_else`. R039 named it
-as the acceptance shape and R040 §4 called it *the nothing-else-of-ours test made
+`test_a_third_party_verifies_membership_from_two_files_and_nothing_else`. It is the
+acceptance shape: *the nothing-else-of-ours test made
 unfakeable*: the verifier runs in a directory containing exactly the published root and
-one receipt export. If it ever needs the database, the design has failed R038 §4's
+one receipt export. If it ever needs the database, the design has failed its
 independence metric — and the test would say so by failing, not by looking wrong.
 """
 
@@ -72,7 +72,7 @@ def _force(conn: Connection, audit_id: int, column: str, value: object) -> None:
 def test_a_third_party_verifies_membership_from_two_files_and_nothing_else(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R039's acceptance, R040 §4's *unfakeable*. Two files, a fresh process, no store.
+    """The acceptance, and what makes it *unfakeable*. Two files, a fresh process, no store.
 
     Run in a subprocess whose working directory holds exactly the anchor and the
     receipt: no database, no repository, nothing of ours but the two artifacts. A
@@ -111,7 +111,7 @@ def test_a_third_party_verifies_membership_from_two_files_and_nothing_else(
 def test_without_the_published_root_it_is_self_consistent_not_verified(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R040 §3, and the sentence it settles.
+    """The sentence this settles.
 
     *onedoor never vouches for itself: at the key layer and the anchor layer alike,
     `verified` requires something the store does not hold.* The proof checks against the
@@ -176,11 +176,11 @@ def test_half_a_membership_claim_is_unverifiable(conn: Connection, config: Engin
     assert anchoring.check_membership(export, None)[0] == anchoring.MEMBERSHIP_UNVERIFIABLE
 
 
-# --- X-8 ---------------------------------------------------------------------------
+# --- Verify, then anchor ------------------------------------------------------------
 
 
 def test_anchoring_refuses_over_a_broken_chain(conn: Connection, config: EngineConfig) -> None:
-    """X-8, and the reason stated where it is enforced.
+    """Never anchor what has not been re-verified, and the reason stated where it is enforced.
 
     An anchor over a broken chain would publish a root that certifies damage,
     permanently and in public. So the verification runs first and a fault anywhere
@@ -230,7 +230,7 @@ def test_anchor_ref_is_never_written_and_membership_is_by_range(
     `anchor_ref` is a column on `actions_audit`; anchoring happens after a row is
     sealed; the no-update trigger forbids `UPDATE`. So the anchor points at the rows,
     not the rows at the anchor — which is also the better shape, since a back-reference
-    would be a second answer to a question the range already answers (X-14).
+    would be a second answer to a question the range already answers.
     """
     _chained(conn, config)
     with tx(conn):
@@ -251,7 +251,7 @@ def test_anchor_ref_is_never_written_and_membership_is_by_range(
 def test_cadence_is_recorded_on_the_anchor_and_not_in_the_instrument(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R040 §2. Cadence schedules anchoring, not deciding.
+    """Cadence schedules anchoring, not deciding.
 
     Recorded here, where a change is visible in exactly the artifact stream it governs.
     Inside `I` it would have re-identified the DECIDING instrument for every row after
@@ -347,7 +347,7 @@ def test_the_receipt_export_carries_no_request_body(conn: Connection, config: En
     )
 
 
-# --- F1 (R041): the degenerate empty-path forgery, refused at the front door -------
+# --- The degenerate empty-path forgery, refused at the front door -------------------
 
 
 def _size_one_receipt(conn: Connection, config: EngineConfig) -> dict:
@@ -362,7 +362,7 @@ def _size_one_receipt(conn: Connection, config: EngineConfig) -> dict:
 
 
 def test_the_honest_single_row_tree_verifies(conn: Connection, config: EngineConfig) -> None:
-    """R041's positive vector. The degenerate shape is legitimate in exactly one tree."""
+    """The positive vector. The degenerate shape is legitimate in exactly one tree."""
     export = _size_one_receipt(conn, config)
     outcome, _ = anchoring.check_membership(export, published_root=export["anchor"]["root"])
     assert outcome == anchoring.MEMBERSHIP_VERIFIED
@@ -400,7 +400,7 @@ def test_sabotage_ep2_empty_path_at_a_nonzero_index(conn: Connection, config: En
 def test_an_empty_path_with_an_unusable_tree_size_fails(
     conn: Connection, config: EngineConfig, size: object
 ) -> None:
-    """Missing, non-integer and non-positive all land in the same place (R041 §1).
+    """Missing, non-integer and non-positive all land in the same place.
 
     `True` is in the set on purpose: `bool` subclasses `int`, so a naive
     `isinstance(size, int)` would accept it as the number 1 and let the degenerate claim
@@ -416,7 +416,7 @@ def test_an_empty_path_with_an_unusable_tree_size_fails(
 def test_the_refusal_runs_before_any_merkle_computation(
     conn: Connection, config: EngineConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """R041's law, asserted structurally rather than by reading the source.
+    """The path-length law, asserted structurally rather than by reading the source.
 
     *A verifier must refuse the degenerate case before it computes, because the
     degenerate case is the one that computes to true.* If `verify_inclusion` is ever
@@ -454,7 +454,7 @@ def test_the_vendored_construction_already_refused_both_vectors(
 ) -> None:
     """What delivery measured before adopting the guard — recorded, not assumed.
 
-    Reported to core rather than left implicit: R041 reads as though the path-length
+    Stated rather than left implicit: the rule reads as though the path-length
     zero case were open here. Against the vendored RFC 6962 construction it was not,
     for two independent reasons — `verify_inclusion` rejects an `index` outside
     `[0, tree_size)`, and its terminal `sn == 0` check fails an empty path whenever

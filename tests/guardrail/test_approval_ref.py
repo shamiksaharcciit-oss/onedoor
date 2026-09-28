@@ -172,7 +172,7 @@ def test_a_bad_ref_never_raises(conn: Connection, config: EngineConfig) -> None:
 
 
 def test_equivalence_ignores_spelling_and_catches_substance() -> None:
-    """R035 §3. The canonical renderer draws the line, not a per-field judgment."""
+    """The canonical renderer draws the line, not a per-field judgment."""
     base = _request()
     assert equivalent(base, base.model_copy(update={"request_id": make_request("x").request_id}))
 
@@ -297,11 +297,11 @@ def test_the_kill_switch_beats_a_valid_ref(conn: Connection, config: EngineConfi
     )
 
 
-# --- Q2: the reserved status ------------------------------------------------------
+# --- The reserved status ----------------------------------------------------------
 
 
 def test_principal_mismatch_is_reserved_and_never_emitted() -> None:
-    """R035 §2. A status for a check that cannot hold is a gate that never fired.
+    """A status for a check that cannot hold is a gate that never fired.
 
     onedoor has no authenticated per-caller identity: `session_id` is caller-supplied
     and arrives in the same untrusted body as the ref. Scoping to it would be a control
@@ -389,7 +389,7 @@ def test_a_sealed_row_carries_the_version_that_sealed_it(
 
 
 def test_the_status_is_inside_the_hash(conn: Connection, config: EngineConfig) -> None:
-    """R035 §1: flipping `expired` to `honored` is the edit a chain exists to catch."""
+    """Flipping `expired` to `honored` is the edit a chain exists to catch."""
     from onedoor.guardrail import chain
     from onedoor.guardrail.preimage import row_hash_of
 
@@ -415,7 +415,7 @@ def test_the_status_is_inside_the_hash(conn: Connection, config: EngineConfig) -
 def test_a_resumed_request_keeps_its_received_provenance(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R034/R035: the E10 label survives the approval hop."""
+    """The E10 label survives the approval hop."""
     _tier3(conn)
     raw = '{"amount_eur": 250, "to": "acme"}'
     request = _request().model_copy(update={"params_raw": raw})

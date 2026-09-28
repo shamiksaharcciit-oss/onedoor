@@ -195,7 +195,7 @@ def test_a_non_string_url_is_denied_rather_than_stringified(
 
 
 def test_the_denial_records_which_malformed_it_was(conn: Connection, config: EngineConfig) -> None:
-    """R013's condition: the evidence separates malformed-URL from malformed-JSON.
+    """The condition: the evidence separates malformed-URL from malformed-JSON.
 
     Without this the reason code is one bucket holding a broken client and someone
     probing the effect matcher, and an operator reading a spike cannot tell them
@@ -218,7 +218,7 @@ def test_the_denial_records_which_malformed_it_was(conn: Connection, config: Eng
 def test_ordinary_verdicts_carry_no_canonicalization_evidence(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Absent means "no canonicalization was involved" -- not "unknown" (R015)."""
+    """Absent means "no canonicalization was involved" -- not "unknown"."""
     _seed(conn)
     result = _verdict(conn, config, "https://weather.example.com/today")
     assert isinstance(result, PermittedIntent)

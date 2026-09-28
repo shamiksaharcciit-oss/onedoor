@@ -1,10 +1,10 @@
-"""Signed receipts, and the five outcomes that keep them honest (ND-015, K1–K5).
+"""Signed receipts, and the five outcomes that keep them honest (ND-015).
 
 The test this file is really about is
 `test_a_store_never_reports_verified_on_its_own`. Everything else is scaffolding for
 it.
 
-**A receipt system must not be its own witness** (R038 §1). A signature checked against
+**A receipt system must not be its own witness.** A signature checked against
 a public key found in the same store as the row it signs proves internal consistency:
 an attacker with write access supplies both the altered row and the key that vouches
 for it. So the in-store match is `self_consistent` — named, real, and not verification
@@ -83,7 +83,7 @@ def _latest(conn: Connection):  # type: ignore[no-untyped-def]
 def test_a_store_never_reports_verified_on_its_own(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R038 §1. The in-store match is real, named, and not verification.
+    """The in-store match is real, named, and not verification.
 
     Most systems would call this verified. That is exactly the instinct the rule
     refuses: an attacker who can write the database adds their own public key,
@@ -138,7 +138,7 @@ def test_an_unsigned_row_is_absent_not_a_failure(conn: Connection, config: Engin
 def test_an_unknown_key_is_unverifiable_never_failed(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R037 §2's ruled case: the signature may be perfectly good."""
+    """The settled case: the signature may be perfectly good."""
     _signed_store(conn, config, tmp_path)
     with tx(conn):
         conn.execute("DROP TRIGGER signing_keys_no_delete")
@@ -180,7 +180,7 @@ def test_a_half_written_signature_is_unverifiable(
     assert "half written" in check.detail
 
 
-# --- K5: the adversarial set ------------------------------------------------------
+# --- The adversarial set ----------------------------------------------------------
 
 
 def test_a_signature_cannot_be_lifted_from_one_row_onto_another(
@@ -265,7 +265,7 @@ def test_an_attacker_who_adds_a_key_still_cannot_reach_verified(
     )
 
 
-# --- K4: rotation -----------------------------------------------------------------
+# --- Rotation ---------------------------------------------------------------------
 
 
 def test_rotation_grows_the_keyring_and_old_receipts_still_verify(
@@ -306,7 +306,7 @@ def test_registering_the_same_key_twice_is_one_fact(
 def test_no_private_key_material_reaches_the_store(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R037 §2, checked against the bytes rather than trusted.
+    """Checked against the bytes rather than trusted.
 
     The config records a PATH; the keyring records a PUBLIC key; the row records a
     derived id and a signature. A private key appears nowhere.
@@ -343,7 +343,7 @@ def test_the_key_id_is_derived_not_assigned(tmp_path: Path) -> None:
 def test_alg_records_the_algorithm_and_not_the_library(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R038 §3. Ed25519 is deterministic per RFC 8032, so a library version in per-row
+    """Ed25519 is deterministic per RFC 8032, so a library version in per-row
     evidence would assert an output dependence that does not exist — and a misleading
     identity in a receipt is worse than none."""
     _signed_store(conn, config, tmp_path)
@@ -354,13 +354,13 @@ def test_alg_records_the_algorithm_and_not_the_library(
     assert cryptography.__version__ not in str(row["alg"])
 
 
-# --- X-6 at enable time -----------------------------------------------------------
+# --- Required when enabled --------------------------------------------------------
 
 
 def test_signing_configured_with_the_library_missing_refuses_to_start(
     conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """R038 §2, as a stated invariant rather than an emergent property.
+    """Required when enabled, as a stated invariant rather than an emergent property.
 
     A hard install dependency would not have cured this: belief comes from config. The
     cure is refusing loudly at the moment the alarm becomes real, so there is never a

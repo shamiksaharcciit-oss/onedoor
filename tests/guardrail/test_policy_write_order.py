@@ -1,6 +1,6 @@
 """The two policy-set write orders, pinned because a ruling now rests on them.
 
-**This is load-bearing knowledge, not trivia** (R054 acknowledgment, on `ND-053` §6a).
+**This is load-bearing knowledge, not trivia** (`ND-053`).
 
 The two paths that write a whole policy set write it in **opposite orders**:
 

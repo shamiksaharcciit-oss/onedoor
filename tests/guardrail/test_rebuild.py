@@ -75,7 +75,7 @@ def _counters(conn: Connection) -> list[tuple[object, ...]]:
 def test_a_restart_between_decide_and_report_loses_nothing(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Decide, lose the process, report anyway. The core's binding constraint.
+    """Decide, lose the process, report anyway. The binding constraint.
 
     Reconstructed intents are **the same durable rows**, never new ones: no new evidence
     identity and no budget re-reservation (§invariants #9, §idem). Both asserted by
@@ -125,7 +125,7 @@ def test_a_rebuilt_permit_has_no_field_it_would_have_to_invent() -> None:
     A rebuild that reconstructed an `ActionRequest` would pass `cost_eur=Decimal(0)` —
     a default that looks like a fact, which any later reader would take at face value.
     The type simply has no such field, so the mistake is unavailable rather than
-    avoided: R032 §3's *surface the gap, do not synthesise*, made structural.
+    avoided: *surface the gap, do not synthesise*, made structural.
     """
     names = {f.name for f in fields(rebuild.RebuiltIntent)}
     for unstored in ("cost_eur", "rationale", "session_id", "request", "params"):
@@ -134,12 +134,12 @@ def test_a_rebuilt_permit_has_no_field_it_would_have_to_invent() -> None:
             f"its value can only have been invented"
         )
     assert {"intent_audit_id", "params_provenance", "reservation_deltas"} <= names, (
-        "a rebuilt permit must carry provenance to the rows it derives from (R032 §3)"
+        "a rebuilt permit must carry provenance to the rows it derives from"
     )
 
 
 def test_a_rebuilt_permit_names_the_request_time_apart_from_a_row_time() -> None:
-    """R033 §3, at the field level. Two timestamps under one name is X-14's shape."""
+    """At the field level: two timestamps under one name will be confused."""
     names = {f.name for f in fields(rebuild.RebuiltIntent)}
     assert "requested_at" in names
     assert "created_at" not in names, (
@@ -151,7 +151,7 @@ def test_a_rebuilt_permit_names_the_request_time_apart_from_a_row_time() -> None
 def test_a_rebuilt_report_is_stamped_now_not_backdated(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """The ledger never testifies to a moment it did not witness (R033 §3)."""
+    """The ledger never testifies to a moment it did not witness."""
     from datetime import timedelta
 
     _permit(conn, config)
@@ -298,7 +298,7 @@ def test_pending_is_read_from_the_ledger(conn: Connection, config: EngineConfig)
 def test_a_rebuilt_not_attempted_releases_the_budget(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R005 through the rebuilt path: release on a positive assertion of non-occurrence."""
+    """Through the rebuilt path: release on a positive assertion of non-occurrence."""
     permit = _permit(conn, config, amount="7")
     rebuilt = rebuild.rebuild(conn, permit.intent_audit_id)
     assert rebuilt.intent is not None

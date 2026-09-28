@@ -114,7 +114,7 @@ def test_wire_storage_and_preimage_are_the_same_bytes() -> None:
     ],
 )
 def test_the_rulings_worked_examples(literal: str, expected: str) -> None:
-    """E8 and R002 gave worked examples by hand; hold them as stated.
+    """E8 gave worked examples by hand; hold them as stated.
 
     These are the ruled cases, kept alongside the generated space rather than
     instead of it -- the generator proves the property, these prove delivery read
@@ -155,7 +155,7 @@ def test_datetimes_render_rfc3339_utc_shortest_exact() -> None:
 def test_the_vendored_renderer_is_byte_identical_to_the_reference_artifact() -> None:
     """The vendoring guarantee, held by a test rather than by intent.
 
-    onedoor never reimplements the canonical form; it copies core's. That is only
+    onedoor never reimplements the canonical form; it copies the reference one. That is only
     true while the copy matches, and a copy nothing checks is a copy that drifts.
     """
     from pathlib import Path

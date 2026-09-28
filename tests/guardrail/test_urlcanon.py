@@ -124,7 +124,7 @@ def test_uninterpretable_targets_are_refused_not_guessed(spelling: str, why: str
     """scopegate's sentence: interpret at least as strictly as the networking stack.
 
     Where that is impossible, refuse. The caller turns this into a `malformed`
-    denial (R013), so a parse differential is a denial rather than a bypass.
+    denial, so a parse differential is a denial rather than a bypass.
     """
     with pytest.raises(CanonicalizationError):
         canonicalize(spelling)

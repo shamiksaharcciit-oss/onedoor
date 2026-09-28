@@ -1,6 +1,6 @@
 """ND-040's acceptance, measured by the instrument that disclosed the gap (U5).
 
-R024 fixed the acceptance before the code was written: the benchmark's three
+The acceptance was fixed before the code was written: the benchmark's three
 URL-shaped evasive cases go **0/3 -> 3/3**, with **ND-048's shell case asserted still
 failing** in the same test. A negative acceptance criterion is the honest counterpart
 to a positive one -- without it, "evasive improved" reads as "evasion closed", which
@@ -58,7 +58,7 @@ def _evasive_by_shape() -> tuple[list[Case], list[Case]]:
 
 
 def test_the_three_url_shaped_evasions_went_from_none_to_all() -> None:
-    """R024's acceptance, in one assertion each way."""
+    """The acceptance, in one assertion each way."""
     url_cases, _ = _evasive_by_shape()
     assert len(url_cases) == 3, "the benchmark's URL-shaped evasive set changed size"
 
@@ -106,7 +106,7 @@ def test_the_innocents_column_did_not_move() -> None:
     assert _score("L2")["innocent"] == "3/3"
     assert _score("L3")["innocent"] == "3/3", (
         "ND-040 governed an innocent host -- over-blocking, and precisely the "
-        "failure the opaque class was constrained to avoid (R025)"
+        "failure the opaque class was constrained to avoid"
     )
 
 

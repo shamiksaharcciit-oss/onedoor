@@ -211,7 +211,7 @@ def entry(ledger: sqlite3.Connection, row_id: int) -> sqlite3.Row | None:
 #: The digest columns, with what each one actually covers. Labels checked against
 #: `guardrail/digests.py` rather than guessed from the letter: E/I/T/V are evidence,
 #: instrument, trust and verdict, and a screen that captioned `t_digest` as "target"
-#: because canary uses T that way would be confidently wrong in a compliance product.
+#: because a neighbouring tool uses T that way would be confidently wrong in a compliance product.
 DIGEST_LABELS = (
     ("e_digest", "Evidence", "what was asked: the request as the decision saw it"),
     ("i_digest", "Instrument", "the policy and configuration that decided"),

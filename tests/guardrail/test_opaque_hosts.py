@@ -168,7 +168,7 @@ def test_membership_is_by_exact_host_not_by_suffix(conn: Connection, config: Eng
 
 
 def test_a_member_is_recognised_through_its_aliases(conn: Connection, config: EngineConfig) -> None:
-    """Membership is checked AFTER canonicalization (R025), so the shortener's own
+    """Membership is checked AFTER canonicalization, so the shortener's own
     spelling tricks do not evade the class the way they evade a raw string list."""
     _seed(conn, WITH_OPAQUE)
     assert _governed(conn, config, "https://T.CO/x9k2")
@@ -216,7 +216,7 @@ def test_the_evidence_distinguishes_a_deployers_own_entry(
 def test_a_match_on_the_declared_host_records_no_opaque_class(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Absent means "this verdict did not depend on an opaque declaration" (R015)."""
+    """Absent means "this verdict did not depend on an opaque declaration"."""
     _seed(conn, WITH_OPAQUE)
     assert _evidence(conn, config, "https://bank.example.com/transfer") is None
     assert _evidence(conn, config, "https://weather.example.com/today") is None
@@ -306,7 +306,7 @@ def test_an_unusable_declaration_is_rejected_at_load(
 def test_the_verdict_on_a_declared_shortener_uses_no_new_reason_code(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R025: no new wire vocabulary. The member is handled as the target would be.
+    """No new wire vocabulary. The member is handled as the target would be.
 
     So the code is `effect_floor`, which already exists and already means exactly
     what happened -- an effect raised the floor. "We could not tell where this goes"
@@ -343,7 +343,7 @@ def test_governing_an_opaque_host_can_only_be_more_restrictive(
         )
 
 
-# --- The invariant (R027 §1) ------------------------------------------------------
+# --- The invariant ----------------------------------------------------------------
 
 INVARIANT_POLICIES = [
     # (label, policy tier, effect min_tier, has compensating command, dry_run)
@@ -421,7 +421,7 @@ def test_the_invariant_holds_where_the_effect_floor_alone_would_not(
 ) -> None:
     """The precise hole, kept as its own named test so a refactor cannot lose it.
 
-    An effect with no declared floor escalates nothing. Before R027 §1 this exact
+    An effect with no declared floor escalates nothing. Before this invariant, this exact
     policy let `t.co` through.
     """
     policy_loader.upsert_effect(conn, EffectPolicy(effect="money.egress.url", min_tier=None))
@@ -461,13 +461,13 @@ def test_an_approved_opaque_host_executes(conn: Connection, config: EngineConfig
 def test_the_escalation_is_distinguishable_from_an_ordinary_tier_floor(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R027 §1, second condition: evidence names the class AND the reason.
+    """The invariant's second condition: evidence names the class AND the reason.
 
     `opaque_class` is the structured discriminator -- one predicate finds every such
     row. The reason rides in the persisted `detail`, so an operator who does not know
     what `onedoor/opaque-hosts/1` means still reads why the action was escalated. Two
     facts, one place each; a second column repeating what `opaque_class IS NOT NULL`
-    already says would be a field that must agree with another field (X-14).
+    already says would be a field that must agree with another field.
     """
     _seed(conn, WITH_OPAQUE)
     result = _verdict(conn, config, "https://t.co/x9k2")

@@ -1,7 +1,7 @@
 """The four-value report outcome and its settlement dispositions (ND-039 / W6).
 
-Core asked (R021) that these tests make the §implstatus disclosure sentence
-*checkable*. That sentence, locked in R013, says:
+These tests make the §implstatus disclosure sentence
+*checkable*. That sentence says:
 
     the report path cannot express `not_attempted` or `timeout`; both collapse to
     `failed`, and because the reservation settles before the outcome is examined, a
@@ -20,7 +20,7 @@ the draft against the suite rather than against a promise:
     "releasing the reservation"                -> test_not_attempted_releases_the_reservation
     "as an audited event"                      -> test_the_release_is_audited_not_silent
 
-The disposition itself is R005's, and the invariant behind it is **settle on doubt**:
+The invariant behind the disposition is **settle on doubt**:
 release requires a positive assertion of non-occurrence, never an absence of
 information. A timeout is doubt -- the action may well have happened -- so it settles.
 """

@@ -1,6 +1,6 @@
 """Decimal survives ingress → bounds → cost → settlement, end to end (W3).
 
-Written **before** the fix, on core's instruction (R017 §1), so the implementation is
+Written **before** the fix, deliberately, so the implementation is
 fitted to the requirement rather than the requirement to the implementation.
 
 The hazard it exists for: `parse_float=Decimal` at ingress and the `isinstance` check

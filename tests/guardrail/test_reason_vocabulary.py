@@ -160,7 +160,7 @@ def protocol_of(row: sqlite3.Row) -> str:
 
 
 def test_the_snapshot_schema_is_recorded_beside_the_policy_hash(tmp_path) -> None:  # noqa: ANN001
-    """R019: a hash diff on upgrade must be attributable from the record.
+    """A hash diff on upgrade must be attributable from the record.
 
     `100`, `100.00` and `1E+2` hashing identically is the point of the renderer; the
     cost is that an unchanged policy set gets a new hash once. Recording which
@@ -204,7 +204,7 @@ def test_the_operator_documentation_lists_exactly_the_live_vocabulary() -> None:
     vocabulary did not, so the two drifted the moment the code changed. This closes
     that by deriving the expected list from `CheckId` rather than from a second
     hand-maintained copy -- two lists that must agree is a disagreement waiting for
-    its first bug (X-14).
+    its first bug.
     """
     doc = (Path(__file__).resolve().parents[2] / "docs" / "policy-reference.md").read_text(
         encoding="utf-8"

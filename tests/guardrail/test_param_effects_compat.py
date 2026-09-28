@@ -1,6 +1,6 @@
 """No deployed policy changes meaning because the engine was upgraded (ND-040 / U2).
 
-R026 made this the acceptance for U2: **every existing policy's matches and
+The acceptance: **every existing policy's matches and
 non-matches are byte-for-byte unchanged with the feature present but unused.** Opt-in
 semantics, never a silent reinterpretation.
 
@@ -168,7 +168,7 @@ def _engine(tmp_path: Path, rule: ParamEffectRule, name: str) -> Iterator[Matche
 
 @pytest.mark.parametrize("pattern", CORPUS_PATTERNS)
 def test_the_regex_branch_answers_exactly_as_it_always_did(tmp_path: Path, pattern: str) -> None:
-    """The corpus assertion (R026), against the original expression as oracle."""
+    """The corpus assertion, against the original expression as oracle."""
     rule = ParamEffectRule(param="p", pattern=pattern, add_effects=["e"])
     with _engine(tmp_path, rule, "corpus") as matched:
         for value in CORPUS_VALUES:
