@@ -153,17 +153,23 @@ def test_no_enforcer_migration_number_was_claimed_for_this() -> None:
     rather than a register file -- a table in `studio.db` that a different
     process owns does not belong in the enforcer's numbered sequence, and the
     directory listing is the ground truth for what that sequence has spent.
-    The live boundary is `0026`+; if a future change spends one of those on a
-    Studio table, this test is where that decision has to be argued.
+    The live boundary is `0027`+ (`0026` is the enforcer's own `approvals.proposed_by`);
+    if a future change spends one of those on a Studio table, this test is where that
+    decision has to be argued.
+
+    The glob matches every four-digit migration: an earlier `00[3-9][0-9]*` pattern
+    could only ever see `0030` and above, so it was blind to the next four numbers.
     """
     from pathlib import Path
 
     from onedoor.store import db as db_module
 
     migrations = Path(db_module.__file__).parent / "migrations"
-    claimed = sorted(p.name for p in migrations.glob("00[3-9][0-9]*.sql") if int(p.name[:4]) >= 26)
+    claimed = sorted(
+        p.name for p in migrations.glob("[0-9][0-9][0-9][0-9]_*.sql") if int(p.name[:4]) >= 27
+    )
     assert not claimed, (
-        f"a migration numbered 0026 or above exists ({claimed}); if it belongs to a "
+        f"a migration numbered 0027 or above exists ({claimed}); if it belongs to a "
         f"Studio table, the boundary (a table in the Studio's own file must not be "
         f"written into the enforcer's history) was crossed"
     )

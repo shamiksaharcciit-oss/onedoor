@@ -12,9 +12,17 @@ proxy spawns the real downstream server as a subprocess. Everything except
                 waiting for a human (default-deny covers unknown tools)
 - dry-run    -> a tool result saying "would have executed", nothing forwarded
 
-Demo conveniences (clearly non-standard, prefixed `onedoor/`):
-- `onedoor/approve` {"approval_id": N}  — approve + execute a pending proposal
-- `onedoor/kill`    {"engaged": bool}   — flip the kill switch
+The host side of this proxy is the agent, so no operator act is reachable from it.
+Approving a proposal and operating the kill switch happen outside the agent's
+channel -- through the decision service's admin routes, or an operator's own
+connection to the store. Every `onedoor/*` method an agent sends is refused by the
+proxy itself, as a request or as a notification, and never forwarded.
+
+An approved call is released when the agent sends it again with the approval
+reference in the request's `_meta`: `{"onedoor/approval_ref": N}`. The engine
+honours the reference only if a principal other than this proxy approved exactly
+that action and nobody has used the approval yet; anything else evaluates as if
+the reference were absent.
 
 The proxy is a Policy Enforcement Point: `decide_and_reserve` (Tx A) is the
 judgment, the downstream forward is the act, `report_result` (Tx B) is the
@@ -41,7 +49,7 @@ from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail import policy_loader
 from onedoor.guardrail.audit import dumps_json_value
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
 from onedoor.guardrail.executor import EngineConfig
@@ -58,6 +66,11 @@ from onedoor.store.clock import now_utc
 from onedoor.store.db import Database
 
 ACTION_PREFIX = "mcp."
+PRINCIPAL = "mcp-proxy"
+"""Who this proxy is when it asks. Recorded on every approval it proposes, so the
+store refuses an approval made under this identity."""
+OPERATOR_METHOD_PREFIX = "onedoor/"
+APPROVAL_REF_META = "onedoor/approval_ref"
 
 
 def _tool_error(text: str) -> dict[str, Any]:
@@ -180,6 +193,11 @@ class Proxy:
         params = msg.get("params", {})
         tool = params.get("name", "")
         args = params.get("arguments", {}) or {}
+        meta = params.get("_meta") or {}
+        ref = meta.get(APPROVAL_REF_META) if isinstance(meta, dict) else None
+        # Only a plain integer is a reference; anything else evaluates as absent,
+        # exactly as an invalid reference does inside the engine.
+        approval_ref = ref if isinstance(ref, int) and not isinstance(ref, bool) else None
         now = now_utc()
         # Freeze the arguments exactly as the host sent them (E10). They sit at
         # params.arguments, so the extractor composes: the top-level member first,
@@ -197,9 +215,12 @@ class Proxy:
             params_raw=raw_args,
             source=Source.LLM,
             rationale=f"mcp tools/call {tool}",
+            approval_ref=approval_ref,
             created_at=now,
         )
-        outcome = decide_and_reserve(request, conn=self.conn, config=self.config, now=now)
+        outcome = decide_and_reserve(
+            request, conn=self.conn, config=self.config, now=now, principal=PRINCIPAL
+        )
         self.last_decision_ref = outcome.decision_ref
 
         if isinstance(outcome, PermittedIntent):
@@ -231,7 +252,8 @@ class Proxy:
             result = _tool_error(
                 f"onedoor: '{tool}' requires approval "
                 f"(tier 3, reason: {d.reason_code.value}; approval_id={outcome.approval_id}). "
-                f"A human can release it; the call has not been forwarded."
+                f"The call has not been forwarded. Once an operator approves it, send it "
+                f'again with _meta {{"{APPROVAL_REF_META}": {outcome.approval_id}}}.'
             )
         elif d.decision == Decision.DRY_RUN:
             result = _tool_text(
@@ -245,58 +267,20 @@ class Proxy:
             )
         return {"jsonrpc": "2.0", "id": msg.get("id"), "result": result}
 
-    # --- demo conveniences --------------------------------------------------
+    # --- operator acts are not on this side --------------------------------
 
-    def handle_approve(self, msg: dict[str, Any]) -> dict[str, Any]:
-        approval_id = int(msg.get("params", {}).get("approval_id"))
-        now = now_utc()
-        approved_req = approvals.cas_approve(self.conn, approval_id, "mcp-proxy-demo", now)
-        proposal_audit_id = approvals.proposed_audit_id(self.conn, approval_id)
-        # Fresh request id: the approval resumes as a new pipeline entry, so the
-        # idempotency guard doesn't return the original PROPOSED decision.
-        approved_req = approved_req.model_copy(update={"request_id": uuid4(), "created_at": now})
-        outcome = decide_and_reserve(
-            approved_req,
-            conn=self.conn,
-            config=self.config,
-            now=now,
-            approved_override=True,
-            resumes_audit_id=proposal_audit_id,
-        )
-        self.last_decision_ref = outcome.decision_ref
-        if not isinstance(outcome, PermittedIntent):
-            return {
-                "jsonrpc": "2.0",
-                "id": msg.get("id"),
-                "result": _tool_error(
-                    f"onedoor: approved action did not execute "
-                    f"(reason: {outcome.decision.reason_code.value})"
-                ),
-            }
-        tool = approved_req.action_type.removeprefix(ACTION_PREFIX)
-        forward = {
-            "jsonrpc": "2.0",
-            "id": msg.get("id"),
-            "method": "tools/call",
-            "params": {"name": tool, "arguments": approved_req.params},
-        }
-        resp = self._forward_and_report(forward, outcome, now)
-        approvals.mark_executed(self.conn, approval_id, outcome.intent_audit_id)
-        return resp
-
-    def handle_kill(self, msg: dict[str, Any]) -> dict[str, Any]:
-        engaged = bool(msg.get("params", {}).get("engaged"))
-        report = killswitch.set_engaged(self.conn, engaged, origin="mcp-proxy")
-        text = f"onedoor: kill switch {'ENGAGED' if engaged else 'released'}"
-        if report is not None and report.state != killswitch.UNCHANGED:
-            # The lift is the loud moment, and it is loud in every surface that
-            # can lift -- an operator who releases through the proxy learns the same
-            # thing as one who releases through the API.
-            text = f"{text}. {report.sentence()}"
+    @staticmethod
+    def refuse_operator_method(msg: dict[str, Any]) -> dict[str, Any]:
         return {
             "jsonrpc": "2.0",
             "id": msg.get("id"),
-            "result": _tool_text(text),
+            "error": {
+                "code": -32601,
+                "message": (
+                    f"onedoor: '{msg.get('method')}' is an operator act; it is not "
+                    f"available on the agent side of this proxy"
+                ),
+            },
         }
 
     # --- main loop ----------------------------------------------------------
@@ -308,12 +292,13 @@ class Proxy:
                 continue
             msg = json.loads(line, parse_float=Decimal)
             method = msg.get("method")
-            if method == "tools/call":
+            if isinstance(method, str) and method.startswith(OPERATOR_METHOD_PREFIX):
+                # Refused here whatever its form; a notification gets no reply at all.
+                if "id" not in msg:
+                    continue
+                resp = self.refuse_operator_method(msg)
+            elif method == "tools/call":
                 resp = self.handle_tools_call(msg, raw_line=line)
-            elif method == "onedoor/approve":
-                resp = self.handle_approve(msg)
-            elif method == "onedoor/kill":
-                resp = self.handle_kill(msg)
             elif method and "id" not in msg:
                 self.down.notify(msg)  # forward notifications
                 continue

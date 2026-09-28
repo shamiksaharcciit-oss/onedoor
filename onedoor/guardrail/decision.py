@@ -143,6 +143,7 @@ def decide_and_reserve(
     policy_store: PolicyStore | None = None,
     approved_override: bool = False,
     resumes_audit_id: int | None = None,
+    principal: str | None = None,
 ) -> ActionResult | PermittedIntent:
     """Phase A: evaluate the ordered checks; reserve caps; record intent.
 
@@ -156,6 +157,11 @@ def decide_and_reserve(
     names as what it resumes, so an evidence reader is not left assuming a
     link that no row actually carries. `None` for an ordinary, non-resumed
     evaluation, and for every row written before this parameter existed.
+
+    `principal`: who is asking, as authenticated by the caller of this function --
+    never read from `request`, which the asker writes. Recorded on any approval this
+    decision creates, so that principal can never approve it. `None` when the caller
+    authenticates nobody.
     """
     store = policy_store or PolicyStore()
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
@@ -725,6 +731,7 @@ def decide_and_reserve(
                 config.approval_ttl_seconds,
                 now,
                 mandate_core_digest=mandate_core_digest_value,
+                proposed_by=principal,
             )
             decision = PolicyDecision(
                 decision=Decision.PROPOSED,

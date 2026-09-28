@@ -285,8 +285,9 @@ python -m scripts.demo_mcp   # an agent's-eye view: 7 calls, every mechanism
 
 This makes the engine usable with agents you don't control: point any MCP
 host at the proxy instead of the tool server, write a policy file, done.
-(The proxy's `onedoor/approve` and `onedoor/kill` JSON-RPC methods are demo
-conveniences, not part of MCP.)
+Approving and the kill switch are operator acts and are not reachable from the
+agent's side of the proxy; `docs/integration-mcp.md` shows how an operator
+releases a parked call.
 
 ## Using it from an AI gateway (LiteLLM example)
 

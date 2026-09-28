@@ -123,6 +123,7 @@ def evaluate_and_execute(
     policy_store: PolicyStore | None = None,
     approved_override: bool = False,
     resumes_audit_id: int | None = None,
+    principal: str | None = None,
 ) -> ActionResult:
     """Evaluate a request against policy and, if permitted, execute it.
 
@@ -132,8 +133,8 @@ def evaluate_and_execute(
     External enforcement points (an MCP proxy, a gateway filter) compose the
     same two phases around their own act.
 
-    `resumes_audit_id` is passed through unchanged to
-    :func:`onedoor.guardrail.decision.decide_and_reserve`, which is where it is
+    `resumes_audit_id` and `principal` are passed through unchanged to
+    :func:`onedoor.guardrail.decision.decide_and_reserve`, which is where they are
     actually documented -- see there.
     """
     outcome = decision_mod.decide_and_reserve(
@@ -144,6 +145,7 @@ def evaluate_and_execute(
         policy_store=policy_store,
         approved_override=approved_override,
         resumes_audit_id=resumes_audit_id,
+        principal=principal,
     )
     if not isinstance(outcome, decision_mod.PermittedIntent):
         return outcome
@@ -239,7 +241,12 @@ def resume_approval(
     now: datetime | None = None,
     policy_store: PolicyStore | None = None,
 ) -> ActionResult:
-    """Approve a Tier-3 request (auth-gated) and resume it through the full pipeline."""
+    """Approve a Tier-3 request as `session_id` and resume it through the full pipeline.
+
+    This function authenticates nobody: `session_id` is whatever its caller
+    established. The store refuses the approval when `session_id` is the principal
+    recorded as having proposed the action.
+    """
     when = now or now_utc()
     with tx(conn):
         original = approvals.cas_approve(conn, approval_id, session_id, when)

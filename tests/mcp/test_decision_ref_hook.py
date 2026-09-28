@@ -11,9 +11,14 @@ import io
 import json
 import sys
 import tempfile
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
+from onedoor.guardrail import approvals
 from onedoor.mcp.proxy import Proxy
+from onedoor.store.clock import now_utc
+from onedoor.store.db import tx
 
 ROOT = Path(__file__).parent.parent.parent
 ISSUER = "https://onedoor.example/mcp-deployment"
@@ -68,23 +73,27 @@ def test_a_proposed_call_is_obtainable_through_the_hook() -> None:
 
 def test_a_resumed_approval_is_obtainable_through_the_hook() -> None:
     proxy = _proxy()
-    proxy.handle_tools_call(
-        {
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "send_payment",
-                "arguments": {"payee": "webshop", "amount_eur": 49.99},
-            },
-        }
-    )
+    # Decimal, as `serve` would hand it over: JSON numbers are parsed as Decimal there.
+    call: dict[str, Any] = {
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "send_payment",
+            "arguments": {"payee": "webshop", "amount_eur": Decimal("49.99")},
+        },
+    }
+    proxy.handle_tools_call(call)
     propose_ref = proxy.last_decision_ref
     assert propose_ref is not None
 
     approval_id = int(
         proxy.conn.execute("SELECT id FROM approvals WHERE state='pending'").fetchone()[0]
     )
-    proxy.handle_approve({"id": 2, "params": {"approval_id": approval_id}})
+    # The operator approves outside the agent's channel; the agent then presents it.
+    with tx(proxy.conn):
+        approvals.cas_approve(proxy.conn, approval_id, "operator", now_utc())
+    call["params"]["_meta"] = {"onedoor/approval_ref": approval_id}
+    proxy.handle_tools_call({**call, "id": 2})
     resume_ref = proxy.last_decision_ref
     assert resume_ref is not None
     assert resume_ref.verdict == "permit"

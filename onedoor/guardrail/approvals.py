@@ -64,18 +64,22 @@ def create(
     now: datetime,
     *,
     mandate_core_digest: str | None = None,
+    proposed_by: str | None = None,
 ) -> int:
     """Create a pending approval.
 
     `mandate_core_digest` set marks it mandate-gated: `cas_approve`/
     `deny` refuse it structurally, and only `onedoor.guardrail.mandate.ratify` can
     resolve it, against exactly this digest.
+
+    `proposed_by` is the principal that asked, as authenticated by the caller of the
+    engine; `cas_approve` refuses an approval by that same principal.
     """
     cur = conn.execute(
         "INSERT INTO approvals "
         "(request_json, action_type, state, created_at, expires_at, "
-        "mandate_authority, mandate_core_digest) "
-        "VALUES (?, ?, 'pending', ?, ?, ?, ?)",
+        "mandate_authority, mandate_core_digest, proposed_by) "
+        "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)",
         (
             dumps_request(request),
             request.action_type,
@@ -83,6 +87,7 @@ def create(
             to_iso(now + timedelta(seconds=ttl_seconds)),
             1 if mandate_core_digest is not None else None,
             mandate_core_digest,
+            proposed_by,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -143,12 +148,26 @@ def _refuse_if_mandate_gated(
 def cas_approve(
     conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime
 ) -> ActionRequest:
-    """Flip pending -> approved iff still pending and unexpired. Returns the request."""
+    """Flip pending -> approved iff still pending and unexpired. Returns the request.
+
+    The principal that proposed the action can never approve it: refused here, in the
+    store, so the rule holds for every caller rather than only for the enforcement
+    points that choose not to offer an approve method.
+    """
     _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
+    proposer = conn.execute(
+        "SELECT proposed_by FROM approvals WHERE id=?", (approval_id,)
+    ).fetchone()
+    if proposer is not None and proposer["proposed_by"] == session_id:
+        raise ApprovalError(
+            f"approval {approval_id} was proposed by {session_id!r}; the principal that "
+            f"proposed an action cannot approve it"
+        )
     cur = conn.execute(
         "UPDATE approvals SET state='approved', decided_at=?, decided_by_session=? "
-        "WHERE id=? AND state='pending' AND expires_at > ?",
-        (to_iso(now), session_id, approval_id, to_iso(now)),
+        "WHERE id=? AND state='pending' AND expires_at > ? "
+        "AND (proposed_by IS NULL OR proposed_by != ?)",
+        (to_iso(now), session_id, approval_id, to_iso(now), session_id),
     )
     if cur.rowcount == 0:
         raise ApprovalError(f"approval {approval_id} not pending or already expired")

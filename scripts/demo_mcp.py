@@ -5,6 +5,10 @@ stdio JSON-RPC to it, exactly as an agent host would. Shows: a permitted read,
 a bounded actuation, a bounds denial, money waiting for approval, the approval
 releasing it, an unknown tool default-denying, and the kill switch.
 
+Approving and the kill switch are operator acts, so this script takes them the way
+an operator would: through its own connection to the store, never through the
+agent's channel, which the proxy refuses them on.
+
 Run:  python -m scripts.demo_mcp
 """
 
@@ -16,12 +20,17 @@ import sys
 import tempfile
 from pathlib import Path
 
+from onedoor.guardrail import approvals, killswitch
+from onedoor.store.clock import now_utc
+from onedoor.store.db import Database, tx
+
 ROOT = Path(__file__).parent.parent
 
 
 class Client:
     def __init__(self) -> None:
         db = tempfile.mktemp(suffix=".db")
+        self.db = db
         self.proc = subprocess.Popen(
             [
                 sys.executable,
@@ -50,8 +59,11 @@ class Client:
         self.proc.stdin.flush()
         return json.loads(self.proc.stdout.readline())
 
-    def call(self, tool: str, **args: object) -> str:
-        resp = self.request("tools/call", {"name": tool, "arguments": args})
+    def call(self, tool: str, meta: dict | None = None, **args: object) -> str:
+        params: dict = {"name": tool, "arguments": args}
+        if meta is not None:
+            params["_meta"] = meta
+        resp = self.request("tools/call", params)
         content = resp["result"]["content"][0]["text"]
         flag = "ERR " if resp["result"].get("isError") else "ok  "
         return f"{flag} {content}"
@@ -84,15 +96,19 @@ def main() -> None:
     print("  ", out)
     approval_id = int(out.rsplit("approval_id=", 1)[1].split(")")[0])
 
-    print("5) A human approves — only then is the call forwarded:")
-    resp = c.request("onedoor/approve", {"approval_id": approval_id})
-    print("   ok  ", resp["result"]["content"][0]["text"])
+    print("5) An operator approves, outside the agent's channel; the agent retries:")
+    operator = Database(c.db).connect()
+    with tx(operator):
+        approvals.cas_approve(operator, approval_id, "operator", now_utc())
+    meta = {"onedoor/approval_ref": approval_id}
+    print("  ", c.call("send_payment", meta=meta, payee="webshop", amount_eur=49.99))
 
     print("6) An unknown tool default-denies to a human:")
     print("  ", c.call("delete_everything", really=True))
 
-    print("7) Kill switch engaged — even the in-policy read now needs a human:")
-    c.request("onedoor/kill", {"engaged": True})
+    print("7) The operator engages the kill switch — even the in-policy read needs a human:")
+    with tx(operator):
+        killswitch.set_engaged(operator, True, origin="operator")
     print("  ", c.call("get_weather", city="Utrecht"))
 
     print("\nOne door — installed on someone else's doorway.")
