@@ -4,6 +4,8 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+# The service's key-fingerprint secret, kept beside its database: never commit it.
+*.key-fingerprint
 # Exception: a real /2-era chain, committed as evidence that
 # the CURRENT code still verifies rows the OLD code sealed. Not generated data --
 # see tests/guardrail/test_stored_v2_chain.py's module docstring.

@@ -52,6 +52,7 @@ from onedoor.guardrail.errors import ApprovalError, ReportError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Budget, Decision, DecisionRef, Outcome, Source
 from onedoor.guardrail.received import extract_raw_member
+from onedoor.service import keys
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
 from onedoor.store.clock import now_utc
@@ -199,6 +200,11 @@ class EngineState:
         )
         self.lock = threading.Lock()
         self.notifier: Notifier = build_notifier()
+        self.key_secret = keys.load_secret(db_path)
+
+    def principal(self, key: str) -> str:
+        """How a key is recorded: a keyed fingerprint, never any part of the key."""
+        return keys.fingerprint(key, self.key_secret)
 
     @property
     def pending(self) -> list[int]:
@@ -297,7 +303,13 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:
-            outcome = decide_and_reserve(request, conn=state.conn, config=state.config, now=now)
+            outcome = decide_and_reserve(
+                request,
+                conn=state.conn,
+                config=state.config,
+                now=now,
+                principal=state.principal(_key),
+            )
         reply = _decide_reply(outcome, state)
         record_decision(body.action_type, reply.decision, reply.reason, reply.effective_tier)
         if reply.decision == Decision.PROPOSED.value and reply.approval_id is not None:
@@ -365,7 +377,9 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         now = now_utc()
         with state.lock:
             try:
-                original = approvals.cas_approve(state.conn, approval_id, f"key:{_key[:6]}", now)
+                original = approvals.cas_approve(
+                    state.conn, approval_id, state.principal(_key), now
+                )
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             proposal_audit_id = approvals.proposed_audit_id(state.conn, approval_id)
@@ -386,7 +400,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
     def deny(approval_id: int, _key: str = Depends(require_admin)) -> dict[str, str]:
         with state.lock:
             try:
-                approvals.deny(state.conn, approval_id, f"key:{_key[:6]}", now_utc())
+                approvals.deny(state.conn, approval_id, state.principal(_key), now_utc())
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"status": "denied"}

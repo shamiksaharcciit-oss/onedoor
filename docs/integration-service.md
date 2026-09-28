@@ -108,3 +108,9 @@ clean no-op.
   rebuilds intents from the audit log instead of memory.
 - Keys are static in v0.3; OIDC/JWT is a v0.4 item. Terminate TLS in front
   of the service (reverse proxy) — it serves plain HTTP.
+- Keys are recorded only as keyed fingerprints (`key-hmac:` and 16 hex
+  characters): the approver of each approval and the proposer of each
+  proposal made over HTTP. The fingerprint secret is
+  `ONEDOOR_KEY_FINGERPRINT_SECRET` when set; otherwise it is generated once
+  into `<database>.key-fingerprint`, beside the database. Keep that file out
+  of version control; lose it and the same key gets a new fingerprint.
