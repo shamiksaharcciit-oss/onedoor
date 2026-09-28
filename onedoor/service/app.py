@@ -10,12 +10,12 @@ Any enforcement point in any language can now consult the engine:
     POST /v1/killswitch        engage/release the kill switch      (admin)
     GET  /v1/health            liveness + engine state
 
-Authentication: static API keys with a two-role split from day one —
-*decide* keys may decide and report; *admin* keys may additionally approve,
-deny, and operate the kill switch. Set ``ONEDOOR_DECIDE_KEYS`` and
-``ONEDOOR_ADMIN_KEYS`` (comma-separated) and send ``Authorization: Bearer <key>``.
-Separation of duties is a governance property: the process that asks for
-permission should not be the process that grants it.
+Authentication: static API keys with a two-role split —
+*decide* keys may decide and report; *admin* keys may list, approve and deny
+approvals and operate the kill switch, and nothing else. Set
+``ONEDOOR_DECIDE_KEYS`` and ``ONEDOOR_ADMIN_KEYS`` (comma-separated) and send
+``Authorization: Bearer <key>``. A key in both sets stops the service from
+starting: the process that asks for permission is never the one that grants it.
 
 Obligations across the wire: a permitted decision returns an
 ``intent_audit_id``; the caller enforces, then reports. The service keeps the
@@ -72,9 +72,21 @@ def _extract_bearer(authorization: str | None) -> str:
 
 def require_decide(authorization: str | None = Header(default=None)) -> str:
     token = _extract_bearer(authorization)
-    if token in _keys("ONEDOOR_DECIDE_KEYS") or token in _keys("ONEDOOR_ADMIN_KEYS"):
+    if token in _keys("ONEDOOR_DECIDE_KEYS"):
         return token
     raise HTTPException(status_code=403, detail="key lacks decide role")
+
+
+def _refuse_overlapping_roles() -> None:
+    """Each key holds exactly one role. A key in both sets would let one credential
+    propose an action and approve it, so the service does not start. The message names
+    no key: it is the kind of line that ends up in a startup log."""
+    shared = _keys("ONEDOOR_DECIDE_KEYS") & _keys("ONEDOOR_ADMIN_KEYS")
+    if shared:
+        raise RuntimeError(
+            f"{len(shared)} key(s) appear in both ONEDOOR_DECIDE_KEYS and "
+            f"ONEDOOR_ADMIN_KEYS; each key must hold exactly one role"
+        )
 
 
 def require_admin(authorization: str | None = Header(default=None)) -> str:
@@ -252,6 +264,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
 
 
 def create_app(db_path: str | None = None, policies: str | None = None) -> FastAPI:
+    _refuse_overlapping_roles()
     state = EngineState(
         db_path or os.environ.get("ONEDOOR_DB", "onedoor-service.db"),
         Path(policies or os.environ.get("ONEDOOR_POLICIES", "config/policies.yaml")),

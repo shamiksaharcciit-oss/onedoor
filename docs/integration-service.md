@@ -23,10 +23,10 @@ Or Docker: `docker build -t onedoor . && docker run -p 8470:8470 -v onedoor-data
 | Role | Env var | May call |
 |---|---|---|
 | decide | `ONEDOOR_DECIDE_KEYS` | `/v1/decide`, `/v1/report` |
-| admin | `ONEDOOR_ADMIN_KEYS` | everything, incl. approvals + kill switch |
+| admin | `ONEDOOR_ADMIN_KEYS` | `/v1/approvals` (list, approve, deny), `/v1/killswitch` |
 
-Give your gateway a *decide* key only. The process that asks for permission
-should not be the process that grants it.
+Each key holds exactly one role; a key in both sets stops the service from
+starting. The process that asks for permission never grants it.
 
 ## The decide → enforce → report loop
 
@@ -71,7 +71,7 @@ alert on those.
 ```bash
 curl -s localhost:8470/v1/approvals -H "Authorization: Bearer admin-key-1"
 curl -s -X POST localhost:8470/v1/approvals/7/approve -H "Authorization: Bearer admin-key-1"
-# -> {"decision": "permitted", "intent_audit_id": 44, ...}  — now enforce + report as usual
+# -> {"decision": "permitted", "intent_audit_id": 44, ...}  — give it to the proposing PEP, which enforces and reports
 curl -s -X POST localhost:8470/v1/approvals/7/deny -H "Authorization: Bearer admin-key-1"
 ```
 
