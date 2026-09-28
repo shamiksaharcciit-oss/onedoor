@@ -101,6 +101,7 @@ def _seed(conn: Connection) -> None:
         Policy(
             action_type="tool.send_wire",
             tier=Tier.CONFIRM,
+            dry_run=False,  # live: an approval releases it; a dry-run policy would rehearse
             bounds=Bounds(
                 numeric={"amount_eur": NumericBound(min=0.01, max=100000)},
                 required=["beneficiary", "amount_eur"],

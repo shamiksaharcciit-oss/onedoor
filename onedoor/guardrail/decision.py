@@ -369,9 +369,9 @@ def _decide_and_reserve(
             )
         # 3a. DEFAULT-DENY: an action type no policy declares is refused. Absence of
         #     policy is a denial, never a permission and never a question for a human,
-        #     so it creates no approval. The rule text is the one the pass entry below
-        #     has always carried.
-        if policy.is_default_deny and not approved_override:
+        #     so it creates no approval, and an approval cannot resume it either. The
+        #     rule text is the one the pass entry below has always carried.
+        if policy.is_default_deny:
             trace.add(
                 "default_deny",
                 "an action type must be declared to a policy to auto-execute or be proposed",
@@ -416,6 +416,14 @@ def _decide_and_reserve(
                 ),
             )
         if approved_override:
+            # Default-deny was evaluated above for this resumption too, and passed.
+            trace.add(
+                "default_deny",
+                "an action type must be declared to a policy to auto-execute or be proposed",
+                "policy.is_default_deny == false",
+                request.action_type,
+                "pass",
+            )
             if kill:
                 decision = PolicyDecision(
                     decision=Decision.DENIED,
@@ -517,13 +525,16 @@ def _decide_and_reserve(
                 f"destination unverifiable without a network call; host is in the "
                 f"declared opaque class {opaque_class}"
             )
-        trace.add(
-            "opaque_host",
-            "a declared opaque host class can never resolve to auto-execution; a human decides",
-            "opaque_class is None, already overridden, or the request is exempt",
-            opaque_class,
-            "fail" if opaque_fired else "pass",
-        )
+        # An approval is the human this escalation asks for, so a resumption does not
+        # evaluate it -- and a check that was not evaluated is not in the trace.
+        if not approved_override:
+            trace.add(
+                "opaque_host",
+                "a declared opaque host class can never resolve to auto-execution; a human decides",
+                "opaque_class is None, already overridden, or the request is exempt",
+                opaque_class,
+                "fail" if opaque_fired else "pass",
+            )
 
         # Reversibility precondition: ANY tier that may execute without a human
         # (auto and auto_capped alike) requires a registered means of reversal.
@@ -537,13 +548,15 @@ def _decide_and_reserve(
         if no_compensation_fired:
             effective_tier = Tier.CONFIRM
             reason_confirm = CheckId.NO_COMPENSATION
-        trace.add(
-            "reversibility",
-            "an auto-executing tier requires a registered compensating command",
-            "effective_tier not in (auto, auto_capped) or a compensating_command is set",
-            policy.compensating_command,
-            "fail" if no_compensation_fired else "pass",
-        )
+        # Likewise not evaluated on resumption: the approval is the human it asks for.
+        if not approved_override:
+            trace.add(
+                "reversibility",
+                "an auto-executing tier requires a registered compensating command",
+                "effective_tier not in (auto, auto_capped) or a compensating_command is set",
+                policy.compensating_command,
+                "fail" if no_compensation_fired else "pass",
+            )
 
         # 4b. EXTERNAL AUTHORIZATION -- mandate-layer deferral (AADP -03 §8.1).
         #     Consulted only for a policy that declares it, and only when
@@ -876,10 +889,9 @@ def _decide_and_reserve(
 
         # --- Auto path (Tier 1, Tier 2, or approved override) ---
 
-        # 8. DRY-RUN — before caps (a rehearsal must not spend a real budget).
-        is_dry = not approved_override and (
-            policy.dry_run or (policy.dry_run_until is not None and now < policy.dry_run_until)
-        )
+        # 8. DRY-RUN — before caps (a rehearsal must not spend a real budget). An
+        #    approval does not turn a rehearsal into an execution.
+        is_dry = policy.dry_run or (policy.dry_run_until is not None and now < policy.dry_run_until)
         trace.add(
             "dry_run",
             "a policy in dry-run rehearses rather than executes",

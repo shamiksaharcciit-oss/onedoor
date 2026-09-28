@@ -54,11 +54,10 @@ policies:
   ships in dry-run for two weeks. **The two fields are ORed**: `dry_run: true`
   rehearses indefinitely and a `dry_run_until` date will never switch it live.
   To rehearse until a date and then go live, set `dry_run: false` and give the
-  date. **Dry-run governs the automatic path only.** A Tier-3 action in dry-run
-  still creates a real approval request, and approving it executes for real —
-  the approved resumption bypasses the rehearsal, because a human said yes to
-  this specific action. Rehearsing a Tier-3 action type means watching what gets
-  proposed, not watching nothing happen.
+  date. **An approval does not end a rehearsal.** A Tier-3 action in dry-run
+  still creates a real approval request, but approving it rehearses: the resumed
+  decision is `dry_run`, no connector runs, no budget is reserved, and the
+  approval is used up. To have approved actions execute, set `dry_run: false`.
 - **compensating_command** — the reversibility rule. A non-empty value is
   required for tiers 1 and 2; **the named action type is not checked to exist,
   at load time or at decision time** — the loader stores the string and

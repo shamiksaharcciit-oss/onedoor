@@ -75,8 +75,8 @@ agent.invoke(Command(resume="approved"), cfg)
 ```
 
 Resuming does not trust the approval blindly. The approval is consumed
-atomically and the request is evaluated again -- the kill switch, the caps and
-the bounds all still apply. An approval is permission to ask a second time, not
+atomically and the request is evaluated again -- the kill switch, default-deny,
+dry-run, the caps and the bounds all still apply. An approval is permission to ask a second time, not
 a permit.
 
 ## Why `open_engine` exists

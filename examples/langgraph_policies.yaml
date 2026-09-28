@@ -20,6 +20,7 @@ policies:
 
   - action_type: tool.send_payment        # money: propose-and-confirm, always
     tier: 3
+    dry_run: false                        # live: an approval releases the payment
     bounds:
       numeric:
         amount_eur: { min: 0.01, max: 500 }
