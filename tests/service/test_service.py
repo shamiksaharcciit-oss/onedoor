@@ -41,6 +41,18 @@ def test_auth_is_required_and_roles_split(client: TestClient) -> None:
     )  # decide key lacks admin
 
 
+def test_a_decide_key_can_neither_approve_nor_move_the_kill_switch(client: TestClient) -> None:
+    """The credential an enforcement point holds reaches no operator route: not
+    approve, not deny, not the approvals list, and not the kill switch in either
+    direction -- releasing it is the dangerous one."""
+    for path in ("/v1/approvals/1/approve", "/v1/approvals/1/deny"):
+        assert client.post(path, headers=_h("dkey")).status_code == 403
+    assert client.get("/v1/approvals", headers=_h("dkey")).status_code == 403
+    for engaged in (True, False):
+        r = client.post("/v1/killswitch", json={"engaged": engaged}, headers=_h("dkey"))
+        assert r.status_code == 403
+
+
 def test_decide_permit_then_report(client: TestClient) -> None:
     r = client.post(
         "/v1/decide",
