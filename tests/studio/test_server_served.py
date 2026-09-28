@@ -5,8 +5,8 @@ the entire point of the file. `tests/studio/test_canvas.py` exercises the same c
 calling `server.view(...)` directly and passes — while `GET /` returned *Internal Server
 Error* deterministically for the first operator who ran it.
 
-The gap between those two facts is R048's law one layer up: **a gate is a command and the
-world it runs in**, and here *the route function* and *the route under uvicorn's
+The gap between those two facts is a standing law one layer up: **a gate is a command
+and the world it runs in**, and here *the route function* and *the route under uvicorn's
 threadpool* are different worlds. A library call happens on the calling thread; a sync
 `def` route is run by FastAPI in a **threadpool**, a different thread per request — and
 `sqlite3`'s default `check_same_thread=True` raises the moment a connection built at
@@ -123,7 +123,7 @@ def test_the_studio_app_reports_the_installed_version(studio_client: TestClient)
 
 # --- V1: the shell's routes, held to exactly the same standard ------------------------
 #
-# R055's V1 asks for the F-A regression rerun "against every new route". The reason is
+# V1 asks for the F-A regression rerun "against every new route". The reason is
 # not ceremony: F-A was a *threading* fault, so it appears once a route is reached from
 # a threadpool thread and never when the same code is called directly. A new route added
 # without this check is a new route that has never been served.
@@ -269,10 +269,10 @@ def test_a_policy_detail_page_renders_over_http(studio_client: TestClient) -> No
 
 
 def test_an_unknown_action_answers_404_in_every_channel(studio_client: TestClient) -> None:
-    """R058 §6, correcting V2.
+    """Correcting V2.
 
     V2 answered 200 with an honest body, reasoning that the route is valid and the
-    absence is a fact about the deployed system. Core ruled that a defect: **the status
+    absence is a fact about the deployed system. That was ruled a defect: **the status
     code is the machine-readable verdict, and a 200 whose body says "not found" is the
     right-typed lie for machines.** Every crawler, cache, monitor and script reads the
     type and believes the page exists — the prose being honest is what makes the
@@ -476,7 +476,7 @@ def test_ratifying_without_a_session_note_is_refused(studio_client: TestClient) 
 
 
 def test_a_refused_ratification_answers_409_and_says_why(studio_client: TestClient) -> None:
-    """R059 §2: status, media type and body are one statement. A refusal is not a server
+    """Status, media type and body are one statement. A refusal is not a server
     error and not a success -- the request was well-formed and the engine declined it.
     """
     from onedoor.guardrail import policy_loader
@@ -593,7 +593,7 @@ def _one_decision(client: TestClient) -> tuple[int, str, str]:
 
 
 def test_the_flagship_appears_on_the_history_detail_page(studio_client: TestClient) -> None:
-    """R055 V6: *put it where nobody can miss it.*"""
+    """V6: *put it where nobody can miss it.*"""
     row_id, _tight, _loose = _one_decision(studio_client)
     response = studio_client.get(f"/history/{row_id}")
     assert response.status_code == 200
@@ -616,7 +616,7 @@ def test_re_evaluating_under_the_deciding_version_agrees(studio_client: TestClie
 
 
 def test_the_served_page_names_both_versions(studio_client: TestClient) -> None:
-    """R061 §5, checked on the bytes a browser receives."""
+    """Both versions named, checked on the bytes a browser receives."""
     from onedoor.studio import shell as shell_module
 
     row_id, tight, loose = _one_decision(studio_client)

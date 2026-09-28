@@ -6,13 +6,13 @@ Three kinds of check live here.
 so a changed block fails loudly instead of being absorbed. *A design system that drifts
 quietly is the same failure mode as an instrument that drifts quietly.*
 
-**Correction** — core's approved mockup carried a measured accessibility defect (R057
-§5). The fix is recorded *beside* the received data rather than edited *into* it, so the
-palette the Studio renders can still be diffed against the palette core approved.
+**Correction** — the approved mockup carried a measured accessibility defect. The fix is
+recorded *beside* the received data rather than edited *into* it, so the palette the
+Studio renders can still be diffed against the palette that was approved.
 
 **Measurement** — "seal gold never signals state" and "muted, colorblind-checked" are
 claims about perception, not about a stylesheet, so they are measured and the numbers
-are printed. R057 §6: *a passing check whose numbers nobody sees cannot be audited.*
+are printed. The rule: *a passing check whose numbers nobody sees cannot be audited.*
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def test_the_emitted_css_carries_every_declaration() -> None:
         assert f"{name}:{value};" in css
 
 
-# --- The corrections layer (R057 §5) --------------------------------------------------
+# --- The corrections layer ------------------------------------------------------------
 
 
 def test_the_vendored_block_still_holds_the_mockups_own_failing_values() -> None:
@@ -91,7 +91,7 @@ def test_the_vendored_block_still_holds_the_mockups_own_failing_values() -> None
     E10's two-discipline arriving at a design system: **a correction to received data is
     a new artifact that cites it.** Editing the block would have been quicker and would
     have destroyed the only thing that makes the palette auditable — that it can still
-    be compared with what core approved.
+    be compared with what was approved.
     """
     mockup = tokens.mockup_declarations()
     assert mockup["--refuse"] == "#c05548"
@@ -108,7 +108,7 @@ def test_every_correction_says_which_measurement_forced_it() -> None:
 
 
 def test_corrections_move_lightness_only() -> None:
-    """R057 §5 approved lightening with hue preserved.
+    """Lightening with hue preserved was approved.
 
     Saturation is held too: the correction should be the smallest thing that makes the
     text readable, and a saturation change is a different design decision wearing an
@@ -124,7 +124,7 @@ def test_corrections_move_lightness_only() -> None:
             # Held for the state triple only, and scoped deliberately: a saturation
             # change there would be a different design decision wearing an accessibility
             # hat. `--faint` is a near-neutral where 8-bit rounding trades hue against
-            # saturation, and core's stated constraint is hue.
+            # saturation, and the stated constraint is hue.
             assert abs(now_s - was_s) < 0.02, f"{token} saturation moved"
 
 
@@ -141,7 +141,7 @@ def test_faint_stays_the_dimmest_token_after_its_correction() -> None:
 
 
 def test_brand_and_background_tokens_are_untouched() -> None:
-    """The correction is surgical. Everything core got right stays exactly as approved."""
+    """The correction is surgical. Everything the mockup got right stays exactly as approved."""
     mockup = tokens.mockup_declarations()
     for token, value in tokens.declarations().items():
         if token in tokens.CORRECTIONS:
@@ -149,9 +149,9 @@ def test_brand_and_background_tokens_are_untouched() -> None:
         assert value == mockup[token], f"{token} changed and is not a declared correction"
 
 
-# --- WCAG contrast: core's ruling, measured in CI with its numbers printed -------------
+# --- WCAG contrast: the ruling, measured in CI with its numbers printed ----------------
 
-#: R057 §5, recorded as token law: *state text at chip size clears WCAG AA 4.5:1,
+#: Recorded as token law: *state text at chip size clears WCAG AA 4.5:1,
 #: measured in CI, or the token does not ship.* The chip is .72rem/600 — about 11.5px
 #: bold, which is NOT WCAG "large text" (18.66px bold), so 4.5:1 applies and not 3:1.
 WCAG_AA_NORMAL_TEXT = 4.5
@@ -160,7 +160,7 @@ WCAG_AA_NORMAL_TEXT = 4.5
 def test_state_text_clears_wcag_aa_on_its_own_chip() -> None:
     """The ruling, enforced.
 
-    The measurement is printed by `pytest_terminal_summary`, not here (R062 §4):
+    The measurement is printed by `pytest_terminal_summary`, not here:
     disclosure belongs in the reporting phase, and **a test that both measures and
     announces hides which half failed.** This half is the one that can fail a build.
     """
@@ -180,7 +180,7 @@ def test_the_contrast_check_can_actually_fail() -> None:
 
 
 def test_all_chrome_text_clears_aa() -> None:
-    """R058 §4 granted the scope Q1 withheld, and the gap is closed.
+    """The scope once withheld was later granted, and the gap is closed.
 
     This test previously asserted `--faint` FAILING, in the deliberately unexpected
     direction, so that whoever fixed it would be forced to delete the exception rather
@@ -212,7 +212,7 @@ def test_no_two_signalling_colours_collapse_for_normal_vision() -> None:
 
 
 def test_the_dichromat_matrix_is_disclosed_rather_than_asserted() -> None:
-    """**The disclosure R057 §6 requires, and the honest part of this stage.**
+    """**The required disclosure, and the honest part of this stage.**
 
     The 15.0 floor this file carried in V1 does not survive the contrast fix, and no
     choice of hex would have saved it: `--refuse` failed AA *because* it was dark, and
@@ -233,8 +233,8 @@ def test_the_dichromat_matrix_is_disclosed_rather_than_asserted() -> None:
 
     So there is **no dichromat floor to assert**. What this test guards is that the
     matrix is still produced and still carries the mockup's numbers beside the current
-    ones — R057 §6's binding condition, since *a shrunk baseline nobody sees cannot be
-    audited*. The printing itself is `pytest_terminal_summary`'s job (R062 §4).
+    ones — the binding condition, since *a shrunk baseline nobody sees cannot be
+    audited*. The printing itself is `pytest_terminal_summary`'s job.
     """
     from tests.studio.palette_report import _dichromat_separation
 
@@ -280,7 +280,7 @@ def test_every_declared_colour_exception_is_actually_used() -> None:
 
 
 def test_gold_is_never_used_where_a_state_word_is_used() -> None:
-    """oneview §4, and R056 §2's boundary: gold may stand near information, never carry
+    """oneview §4, and its boundary: gold may stand near information, never carry
     state. The seal region is hunted for verdict vocabulary rather than for gold itself,
     because a check that outlawed gold anywhere dynamic would teach people to route
     around it."""

@@ -1,4 +1,4 @@
-"""P0 — Shamik's F-G and F-H, from the 0.6.1 Studio hands-on (R055 §2).
+"""P0 — Shamik's F-G and F-H, from the 0.6.1 Studio hands-on.
 
 Both are reached **through the served app**, because both are things an operator meets in
 a browser and neither would have been visible from a library call. That is the F-A lesson
@@ -118,7 +118,7 @@ def test_the_json_api_is_unchanged(seeded_client: TestClient) -> None:
 
 
 def test_the_empty_state_also_gives_the_command_line(seeded_client: TestClient) -> None:
-    """R055 §2: the equivalent one-liner, for the automation-minded."""
+    """The equivalent one-liner, for the automation-minded."""
     html = seeded_client.get("/").text
     assert "curl" in html
     assert "/draft" in html
@@ -183,7 +183,7 @@ def test_the_warning_is_not_a_verdict_colour(empty_client: TestClient) -> None:
 
 @pytest.mark.parametrize("path", ["/"])
 def test_studio_pages_reference_no_external_origin(seeded_client: TestClient, path: str) -> None:
-    """R055 §3: loopback-only is a product claim, so pages fetch nothing from anywhere.
+    """Loopback-only is a product claim, so pages fetch nothing from anywhere.
 
     *"Nothing leaves this machine"* is false the moment a page pulls a font from a CDN,
     and it is false in a way the operator cannot see.

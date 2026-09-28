@@ -1,14 +1,14 @@
 """Every command in `docs/DOGFOODING.md`, executed before a person types it.
 
-R064 §5: *the walkthrough is a served artifact — every command in it is executed by a test
+The rule: *the walkthrough is a served artifact — every command in it is executed by a test
 before a person ever types it. An untested walkthrough command has bitten this programme
 before; it does not get a second chance.*
 
 **The commands are read out of the document**, not copied here. A test that ran
 *similar* commands would drift from the file the moment either changed, and the drift
 would be invisible: the test would pass, the walkthrough would be wrong, and the person
-following it would find out. Same reasoning as X-11 — the artifact and the check share one
-source.
+following it would find out. Same reasoning as generating a value from its source rather
+than typing it by hand — the artifact and the check share one source.
 
 Seven commands cannot run offline. They are named in `CHECKED_NOT_RUN` with the reason,
 the document says so at the top, and what *is* checkable about them is checked: the extra
@@ -164,7 +164,7 @@ def test_the_studio_extra_exists_and_everything_it_names_imports() -> None:
 def _run(command: str, cwd: Path, timeout: int = 120) -> subprocess.CompletedProcess[str]:
     """Run a walkthrough command with THIS interpreter, never a bare `python`.
 
-    R010's own trap: on Windows a bare `python3` prints "Python was not found" and exits
+    A known trap: on Windows a bare `python3` prints "Python was not found" and exits
     0, so a gate can pass while running nothing. The document says `python` meaning the
     virtualenv's interpreter; here that is `sys.executable`, stated rather than assumed.
     """
@@ -265,7 +265,7 @@ def test_step_7_the_decision_command_runs_and_writes_one_audit_row(tmp_path) -> 
 def test_step_8_the_verify_command_runs_on_a_receipt_this_walkthrough_produced(
     tmp_path,
 ) -> None:
-    """**The walkthrough end to end**, exactly as R064 §5 asks: the last command runs
+    """**The walkthrough end to end**, exactly as the rule asks: the last command runs
     against a receipt the walkthrough itself produced, not against a fixture.
 
     Ratify → export the two files the Verify page shows → run the printed command → `0`.
@@ -346,7 +346,7 @@ def test_the_screens_the_walkthrough_names_are_the_tabs_that_exist() -> None:
 def _app_paths(methods: set[str]) -> set[str]:
     """Route templates the app actually serves for those methods.
 
-    Read off the running app, never from a list this test remembers (R064 §2). A
+    Read off the running app, never from a list this test remembers. A
     walkthrough line checked against a remembered route is checked against nothing.
     """
     import tempfile

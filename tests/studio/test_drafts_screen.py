@@ -1,6 +1,6 @@
 """V5 / S3 — drafts and the ceremony: what the page says, and what it refuses to say.
 
-The ratify page is the only screen in this Studio with ceremony in it, and R060 §5 is
+The ratify page is the only screen in this Studio with ceremony in it, and one rule is
 the constraint most of these tests enforce: **its gravity must come from what is true.**
 So the tests are largely about claims *not* made — no reversibility the engine cannot
 back, no forecast from a replay of the past, no drama the engine does not do.
@@ -59,7 +59,7 @@ def _view(st, draft_id, **kw):
 
 
 def test_the_diff_shows_was_and_would_become_per_rule(state) -> None:
-    """R055 V5. A count of changed rules is not a diff."""
+    """V5. A count of changed rules is not a diff."""
     view = _view(state, _draft_with_a_new_rule(state))
     assert [d.action_type for d in view.diffs] == ["payments.transfer"]
     assert view.diffs[0].kind == "added"
@@ -90,7 +90,7 @@ def test_a_draft_identical_to_what_is_in_force_says_so(state) -> None:
 
 
 def test_the_validator_honesty_notice_appears_verbatim(state) -> None:
-    """R055 V5: *VERBATIM*. Interpolated from the constant, never retyped, so the page
+    """V5: *VERBATIM*. Interpolated from the constant, never retyped, so the page
     and the validator cannot drift apart."""
     from html import escape, unescape
 
@@ -158,7 +158,7 @@ def test_an_unknown_flip_direction_is_not_paraphrased() -> None:
 
 
 def test_the_ceremony_shows_the_digest_the_diff_and_the_irreversibility(state) -> None:
-    """R060 §5: the three true things, and the confirm."""
+    """The three true things, and the confirm."""
     view = _view(state, _draft_with_a_new_rule(state))
     html = screens.ceremony_body(view)
     assert view.view.panels.preview.to_version in html
@@ -197,7 +197,7 @@ def test_the_session_note_is_described_as_what_it_is(state) -> None:
 
 def test_a_stale_draft_shows_no_numbers_and_offers_a_repin(state) -> None:
     """Every number on the page was computed from a base that is no longer in force, so
-    none is shown — R047 §3's rule that they go stale together."""
+    none is shown — the rule that they go stale together."""
     draft_id = _draft_with_a_new_rule(state)
     policy_loader.upsert(
         state.enforcer,
@@ -234,7 +234,7 @@ def test_a_receipt_renders_what_was_sealed(state) -> None:
 
 
 def test_a_refusal_keeps_the_ceremonys_own_words(state) -> None:
-    """R047 §S2-T5: the lost race and the citation failures are distinct facts with
+    """S2-T5: the lost race and the citation failures are distinct facts with
     distinct remedies, and collapsing them hands back the ambiguity the ceremony refused
     to have."""
     draft_id = _draft_with_a_new_rule(state)
@@ -255,7 +255,7 @@ def test_a_refusal_keeps_the_ceremonys_own_words(state) -> None:
     assert "Nothing was applied" in html
 
 
-# --- Q5: two voices, never merged ---------------------------------------------------------
+# --- Two voices, never merged -------------------------------------------------------------
 
 
 def test_the_operators_words_are_omitted_when_nothing_links(state) -> None:
@@ -269,7 +269,7 @@ def test_the_operators_words_are_omitted_when_nothing_links(state) -> None:
 
 
 def test_the_two_voices_are_rendered_apart_and_labelled(state) -> None:
-    """R058 §6: **show BOTH voices, never merged.** The page must make disagreement
+    """**Show BOTH voices, never merged.** The page must make disagreement
     visible, not smooth."""
     from onedoor.studio import library
 

@@ -1,6 +1,6 @@
 """The backtest engine (ND-052 / S1, B1–B5).
 
-Four tests carry this ticket, and R043 §5 named three of them:
+Four tests carry this ticket, and the design named three of them:
 
 - **no rows, no caps** — the real ledger gains nothing and no counter moves;
 - **determinism** — the same run twice gives the same receipt digest;
@@ -93,7 +93,7 @@ def _snapshot(conn: Connection) -> tuple[int, list[tuple[object, ...]]]:
 
 
 def test_a_backtest_adds_no_rows_and_moves_no_caps(conn: Connection, config: EngineConfig) -> None:
-    """R042 §3, as a test rather than a promise.
+    """As a test rather than a promise.
 
     The obvious implementation writes an audit row per replayed action *and reserves
     budget*, because `decide_and_reserve` is check-and-reserve — a replay of yesterday's
@@ -144,7 +144,7 @@ def test_the_receipt_cites_the_chain_head(conn: Connection, config: EngineConfig
 
 
 def test_the_same_run_twice_gives_the_same_digest(conn: Connection, config: EngineConfig) -> None:
-    """R043 §5's determinism requirement. Re-runs are comparable for free."""
+    """The determinism requirement. Re-runs are comparable for free."""
     _live(conn, config)
     first = backtest.run(conn, CANDIDATE, config=config, provenance=backtest.LIVE)
     second = backtest.run(conn, CANDIDATE, config=config, provenance=backtest.LIVE)
@@ -188,13 +188,13 @@ def test_the_receipt_is_stored_in_the_studios_own_table(
         conn.execute("UPDATE backtest_receipts SET ledger_provenance='fixture'")
 
 
-# --- Q2: the refusal, and the counted prefix --------------------------------------
+# --- The refusal, and the counted prefix ------------------------------------------
 
 
 def test_an_unchained_store_is_refused_not_receipted(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R043 §2's unasked ruling. A citation-free receipt is the store vouching for itself.
+    """An unasked ruling. A citation-free receipt is the store vouching for itself.
 
     Chaining is opt-in and off by default, so this is the common case rather than an
     exotic one — and the message names the remedy rather than just refusing.
@@ -212,7 +212,7 @@ def test_an_unchained_store_is_refused_not_receipted(
 def test_an_unchained_prefix_is_counted_not_labelled(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Two labels plus a counted skip beats three labels (R043 §2).
+    """Two labels plus a counted skip beats three labels.
 
     `ledger_provenance` describes the CITED RANGE, not the store: a range that cannot be
     cited is not replayed, and saying so with a number is clearer than a third word.
@@ -232,13 +232,13 @@ def test_an_unknown_provenance_is_refused() -> None:
         backtest.run(None, CANDIDATE, config=None, provenance="probably")  # type: ignore[arg-type]
 
 
-# --- Q1: measured zero and declared zero never share a representation -------------
+# --- Measured zero and declared zero never share a representation -----------------
 
 
 def test_a_measured_zero_and_a_missing_cost_param_produce_different_receipts(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R043 §1's law, asserted as the receipts it governs.
+    """The law, asserted as the receipts it governs.
 
     A cost of `0.00` resolved through the candidate's `cost_param` is a MEASUREMENT and
     participates in cap accounting. An action whose candidate declares no `cost_param` is
@@ -267,7 +267,7 @@ def test_a_measured_zero_and_a_missing_cost_param_produce_different_receipts(
 def test_the_candidates_cost_param_applies_not_the_sealed_policys(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R043 §1's boundary: the backtest asks what the CANDIDATE would have done.
+    """The boundary: the backtest asks what the CANDIDATE would have done.
 
     The candidate includes its own cost declaration, even where it differs from the
     policy in force when the row was sealed. Not a bug — the question being answered.
@@ -363,7 +363,7 @@ def test_a_backtest_over_the_fixture_is_labelled_fixture(config: EngineConfig) -
 
 
 def test_sabotage_the_stripped_label_changes_the_digest(config: EngineConfig) -> None:
-    """R043 §5's first sabotage. The label is hashed, so removing it is detectable.
+    """The first sabotage. The label is hashed, so removing it is detectable.
 
     *A fixture-backed number presented without its label is the overclaim this programme
     exists to make impossible.* Because `ledger_provenance` is inside the digest, a
@@ -389,7 +389,7 @@ def test_sabotage_the_stripped_label_changes_the_digest(config: EngineConfig) ->
 
 
 def test_sabotage_a_fixture_receipt_claiming_live_is_detected(config: EngineConfig) -> None:
-    """R043 §3's masquerade check, and the property the pinning buys.
+    """The masquerade check, and the property the pinning buys.
 
     The fixture's chain head is a **published constant** — every install ships the same
     generator and the same HEAD — so a receipt citing it while claiming `live` is
@@ -460,7 +460,7 @@ def test_the_pinned_head_file_has_no_carriage_return() -> None:
     assert raw.decode("ascii").strip() == fixture.published_head()
 
 
-# --- R044 §3: the condition that makes "identity instead of bytes" equivalent -----
+# --- The condition that makes "identity instead of bytes" equivalent --------------
 
 
 def test_first_use_generates_the_fixture_without_a_manual_step(
@@ -500,7 +500,7 @@ def test_a_built_fixture_is_reused_rather_than_rebuilt(
 def test_a_generator_that_drifts_from_its_pin_fails_loudly(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """R044 §3: refuse on mismatch. A drifted generator is not a quieter fixture.
+    """Refuse on mismatch. A drifted generator is not a quieter fixture.
 
     The pinned HEAD is what the anti-masquerade check compares a citation against, so a
     generator that no longer reproduces it has silently invalidated that check. Loud

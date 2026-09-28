@@ -1,12 +1,12 @@
 """The canvas: store, validator, pin and panels (ND-052 / S3, T1–T5).
 
-R047 §4 named the standing this suite has to produce, and four of the six items live
-here: the **bind refusal**, the wrapper reporting *problems found* **in those words**,
+The design named the standing this suite has to produce, and four of the six items
+live here: the **bind refusal**, the wrapper reporting *problems found* **in those words**,
 the **stale surfacing with both hashes**, and T5's **verbatim refusals**. The
 colour-rights test is next door in `tests/viewer/test_canvas.py`, because it is a
 property of the skin rather than of the model.
 
-The fifth thing this suite holds is the line R047 §2 drew and called the one that
+The fifth thing this suite holds is the line the design drew and called the one that
 survives the ticket: **the enforcer's database contains no row the Studio can edit.**
 """
 
@@ -72,7 +72,7 @@ def test_a_loopback_host_is_accepted(host: str) -> None:
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "::", "10.0.0.1", "studio.local"])
 def test_a_non_loopback_host_is_refused_before_any_socket_exists(host: str) -> None:
-    """R047 §1's hard edge. A test, not a default.
+    """The hard edge. A test, not a default.
 
     Possession of the box is an honest credential only while the binding makes it true;
     a drift to a routable address converts it into possession of the network with
@@ -135,7 +135,7 @@ def test_there_is_no_flag_that_turns_the_refusal_off() -> None:
 
 
 def test_the_enforcer_store_gains_no_draft_table(conn: Connection, studio: Connection) -> None:
-    """R047 §2's line: the enforcer's database contains no row the Studio can edit."""
+    """The line: the enforcer's database contains no row the Studio can edit."""
     tables = {
         row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
@@ -147,7 +147,7 @@ def test_the_enforcer_store_gains_no_draft_table(conn: Connection, studio: Conne
 
 
 def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> None:
-    """Not a number from the enforcer's migration sequence (R047 §2).
+    """Not a number from the enforcer's migration sequence.
 
     `0019` through `0022` were since claimed by other, genuine ENFORCER migrations
     (`actions_audit.evaluation_trace_json`;
@@ -257,7 +257,7 @@ def test_the_validator_is_the_engines_own_and_not_a_second_one() -> None:
 
 
 def test_the_summary_says_problems_found_in_those_words() -> None:
-    """R047 §4 asked for the exact wording, and it is one constant, not two strings."""
+    """The exact wording was asked for, and it is one constant, not two strings."""
     assert validate.FOUND_WORDING == "problems found"
     assert validate.FOUND_WORDING in validate.summary([])
     assert validate.summary([]) == "problems found: 0"
@@ -291,7 +291,7 @@ def test_a_pinned_draft_is_current_and_its_panels_are_computed(
 def test_a_moved_active_set_surfaces_and_names_both_hashes(
     conn: Connection, studio: Connection, config: EngineConfig
 ) -> None:
-    """R047 §3: a warning that names no versions is a mood, not a fact."""
+    """A warning that names no versions is a mood, not a fact."""
     draft = canvas.open_draft_from_active(conn, studio, title="d", now=FROZEN_NOW)
     was = draft.base_version
     policy_loader.upsert(conn, _policy(cap="9999"))  # another operator moves the rules

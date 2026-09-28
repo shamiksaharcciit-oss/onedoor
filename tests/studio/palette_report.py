@@ -1,10 +1,10 @@
 """The palette's measurements, rendered for the run's report rather than by a test.
 
-R057 §5 and §6 require these numbers **printed in CI where a reader sees them** — a
-passing check whose numbers nobody sees cannot be audited. Until R062 they were printed
-from inside test bodies with `capsys.disabled()`.
+These numbers must be **printed in CI where a reader sees them** — a passing check
+whose numbers nobody sees cannot be audited. They used to be printed from inside test
+bodies with `capsys.disabled()`.
 
-**R062 §4 approved moving them here, on design grounds and explicitly not as a fix.**
+**They were moved here on design grounds, explicitly not as a fix.**
 The matrices are *disclosure*, not assertion: nothing here can fail a build, and the
 thresholds that can are still asserted in `test_tokens.py`. Reporting belongs in the
 reporting phase, and `capsys.disabled()` mid-test was always borrowing the capture
@@ -21,7 +21,7 @@ from onedoor.studio import tokens
 from tests.viewer import colour
 
 WCAG_AA_NORMAL_TEXT = 4.5
-"""R057 §5's token law: state text at chip size clears 4.5:1, measured in CI."""
+"""The token law: state text at chip size clears 4.5:1, measured in CI."""
 
 MINIMUM_DELTA_E_NORMAL = 24.0
 """The floor that still binds after the contrast correction; measured minimum floored."""
@@ -62,7 +62,7 @@ def _normal_separation() -> list[str]:
 
 
 def _dichromat_separation() -> list[str]:
-    """R057 §6's binding condition: the full matrix beside the mockup's own numbers.
+    """The binding condition: the full matrix beside the mockup's own numbers.
 
     A shrunk baseline nobody sees cannot be audited, and the contrast correction shrank
     two of these badly — see `test_tokens.test_no_state_is_signalled_by_colour_alone`

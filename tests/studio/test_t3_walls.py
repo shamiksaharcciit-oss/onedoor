@@ -1,7 +1,7 @@
 """`ND-056` / T3 — natural-language authoring: one test per wall, each able to fail.
 
-Forward 006 gave five binding conditions; R066 §4 confirmed the constitution's principle
-4 as a sixth, which the directive had simply failed to transcribe. All six are here, and
+The design gave five binding conditions; the constitution's principle 4 was confirmed
+as a sixth, which the directive had simply failed to transcribe. All six are here, and
 each is written so that removing the thing it guards breaks it.
 
 The walls ARE the feature. A model that proposes policy is unremarkable; a model that
@@ -161,7 +161,7 @@ def test_a_changed_prompt_is_a_changed_instrument(configured) -> None:
 
 def test_the_instrument_never_records_the_key(configured) -> None:
     """A credential in a record is a credential in a record — and a DIGEST of one is
-    still a function of the credential (R059 §3). What is recorded is what was used."""
+    still a function of the credential. What is recorded is what was used."""
     proposer_with_key = _StubEndpoint(GOOD_YAML, api_key="sk-super-secret")
     identity = proposer_with_key.identity()
     blob = json.dumps(identity)
@@ -395,7 +395,7 @@ def test_the_capability_fence_can_fail() -> None:
     assert len(caught) >= 2, "the forbidden list would have walked past an overclaim"
 
 
-# --- wall 6: the dark-surface list (constitution principle 4, R066 §4) --------------------
+# --- wall 6: the dark-surface list (constitution principle 4) -----------------------------
 
 
 def test_a_mention_with_no_rule_is_stated(configured) -> None:
@@ -464,7 +464,7 @@ def test_the_record_states_what_it_does_not_attest(configured) -> None:
     client = TestClient(server.create_app(configured))
     body = client.get("/propose").text
     # Both constants carry apostrophes, so they reach the page escaped. Asserting the raw
-    # constant would make a correctly-escaped page look like a paraphrase (R061 section 3).
+    # constant would make a correctly-escaped page look like a paraphrase.
     assert_reader_sees(body, proposer.NOT_REDERIVABLE)
     assert_reader_sees(body, proposer.AUTHORITY_FROM_CHECKS)
 
@@ -507,8 +507,8 @@ def test_a_response_shape_this_build_cannot_read_is_unavailable_not_empty(state)
     """An unreadable answer must not render as "the model suggested no rules"."""
     with pytest.raises(proposer.ProposerUnavailable, match="cannot read"):
         live_proposer._content_of({"unexpected": "shape"})
-    # Since R079 the readable content is the TOOL CALL's arguments, so the
-    # not-a-string case moved there with it.
+    # Now that the schema is enforced, the readable content is the TOOL CALL's
+    # arguments, so the not-a-string case moved there with it.
     with pytest.raises(proposer.ProposerUnavailable, match="not text"):
         live_proposer._content_of(
             {
@@ -586,13 +586,13 @@ def test_staged_output_is_what_the_proposal_carries(configured) -> None:
     assert [p.action_type for p in proposal.policies] == [p.action_type for p in parsed.policies]
 
 
-# --- R071 §5: malformed model output, the shape from the forensic channel ----------------
+# --- Malformed model output, the shape seen in a real generation -------------------------
 
 
 MALFORMED = 'policies:\n  - action_type: "payments.refund\n'
 """A generation that abandons the format mid-structure.
 
-The shape the forensic channel closed: a model given a described-but-unenforced schema
+The shape seen in a real generation: a model given a described-but-unenforced schema
 opened a structure, filled it, and stopped without closing the string. Nothing was
 truncated by a limit; the format was simply abandoned. **A schema that is described but
 not enforced is a hope with a type signature** — which is why T3 never relies on the model
@@ -651,7 +651,7 @@ def test_the_artifact_is_built_by_the_parser_and_never_by_the_model(state) -> No
     assert "Policy(" not in code, "a policy constructed outside the loader's own path"
 
 
-# --- R076 §2: the completion ceiling, pinned and recorded --------------------------------
+# --- The completion ceiling, pinned and recorded -----------------------------------------
 
 
 def test_the_request_body_pins_a_completion_ceiling(configured) -> None:
@@ -672,7 +672,7 @@ def test_the_request_body_pins_a_completion_ceiling(configured) -> None:
 
     class _Resp:
         def read(self):
-            # The enforced shape since R079: the answer arrives as a tool call's
+            # The enforced shape: the answer arrives as a tool call's
             # arguments, not as free text.
             return _json.dumps(
                 {
@@ -746,7 +746,7 @@ def test_a_different_ceiling_is_a_different_instrument(configured) -> None:
 
 
 def test_the_ceiling_leaves_room_for_every_correct_answer() -> None:
-    """2048's basis, checked rather than asserted (R076 §2).
+    """2048's basis, checked rather than asserted.
 
     The number was justified by the fixture's largest correct answer being ~1,406
     characters. If the pack grows a rule that makes a correct answer approach the ceiling,
@@ -766,7 +766,7 @@ def test_the_ceiling_leaves_room_for_every_correct_answer() -> None:
     )
 
 
-# --- R079: the schema is ENFORCED at emission, not requested in prose --------------------
+# --- The schema is ENFORCED at emission, not requested in prose --------------------------
 
 
 def _tool_response(arguments: str) -> dict:
@@ -785,7 +785,7 @@ def _tool_response(arguments: str) -> dict:
 
 
 def test_the_request_enforces_the_schema_rather_than_asking_for_it() -> None:
-    """**The fix, stated as the law it discharges** (R079 §1).
+    """**The fix, stated as the law it discharges**.
 
     A schema described but not enforced is a defect regardless of any benchmark. The
     request pins `tool_choice` to the function, because a tool the model may decline is a
@@ -848,7 +848,7 @@ def test_the_schema_is_generated_from_the_engines_own_model() -> None:
 
 
 def test_the_enforcement_and_the_schema_are_recorded_in_the_instrument(configured) -> None:
-    """A new instrument, recorded as one (R079 §3)."""
+    """A new instrument, recorded as one."""
     identity = configured.proposer.identity()
     assert identity["output_enforcement"] == "tool_call"
     assert identity["schema_digest"] == live_proposer.schema_digest()
@@ -923,11 +923,11 @@ def test_the_enforcement_fix_added_no_repair_path() -> None:
         assert smell not in path, f"{smell!r} appeared on the model-text-to-candidate path"
 
 
-# --- R081 §2: the flatten, and strict argument validation --------------------------------
+# --- The flatten, and strict argument validation -----------------------------------------
 
 
 def test_the_tool_name_does_not_repeat_its_parameter() -> None:
-    """R081 §2. **A parameter whose name collides with its tool's action verb is ambiguous
+    """**A parameter whose name collides with its tool's action verb is ambiguous
     by construction** — a reviewer would flag it without ever seeing a benchmark.
 
     The parameter could not move: the arguments ARE the policy document, and `staging`

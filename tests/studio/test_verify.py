@@ -1,7 +1,7 @@
 """V8 / S6 — the deposition page and the verifier's own three-outcome vocabulary.
 
-R089 F-V1: core searched `tests/studio/` for a test asserting the verifier's
-verified/failed/unreadable triad and found none — not because the outcomes were never
+F-V1: a search of `tests/studio/` for a test asserting the verifier's
+verified/failed/unreadable triad found none — not because the outcomes were never
 exercised (`tests/studio/test_dogfooding.py::test_step_8_the_verify_command_runs_on_a_
 receipt_this_walkthrough_produced` and
 `test_the_verify_commands_other_two_outcomes_are_what_the_document_says` between them
@@ -99,7 +99,7 @@ def test_the_exit_codes_are_distinct_for_all_three() -> None:
     assert verify.EXIT[verify.UNREADABLE] == 2
 
 
-# --- R089 F-V1: the download routes -----------------------------------------------------
+# --- F-V1: the download routes ----------------------------------------------------------
 
 
 def test_the_download_routes_serve_the_identical_bytes_the_page_renders(state) -> None:
@@ -120,7 +120,7 @@ def test_the_download_routes_serve_the_identical_bytes_the_page_renders(state) -
 
 
 def test_a_downloaded_pair_verifies_through_the_real_cli(state, tmp_path) -> None:
-    """The reproduction R089 asks for: not the view model, the actual command a
+    """The requested reproduction: not the view model, the actual command a
     stranger runs, over files downloaded through the actual route -- the path that was
     unfollowable before this fix. G2's corruption sub-test needs exactly this: a
     known-good downloaded file to corrupt, which the page could not previously supply."""

@@ -1,4 +1,4 @@
-"""The proposer benchmark and its published misses (S6-T6, R053 §4).
+"""The proposer benchmark and its published misses (S6-T6).
 
 The gate is **disclosure-shaped**: no score threshold, but the published document must be
 current, must lead with the misses, and must include the security-shaped ones. These tests
@@ -28,7 +28,7 @@ def report() -> dict:
 
 
 def test_the_corpus_contains_adversarial_descriptions() -> None:
-    """R053 §4 requires them by name: text crafted to talk a proposer into permissive rules."""
+    """Required by name: text crafted to talk a proposer into permissive rules."""
     adversarial = [c for c in benchmark.CORPUS if c.adversarial]
     assert len(adversarial) >= 3, "too few adversarial cases to call this a security corpus"
     for case in adversarial:
@@ -51,7 +51,7 @@ def test_the_corpus_contains_security_shaped_cases_the_fixture_actually_fails() 
         "everything is measuring the corpus, not the instrument."
     )
     assert any(r.case.kind == benchmark.SECURITY for r in misses), (
-        "no security-shaped miss. R053 §4 requires the published misses to include the "
+        "no security-shaped miss. The published misses are required to include the "
         "security-shaped ones, and a corpus that only catches quality failures cannot."
     )
 
@@ -144,7 +144,7 @@ def test_no_case_produces_a_candidate_the_engine_would_refuse() -> None:
 
 
 def test_no_case_produces_an_undeclared_effect_label() -> None:
-    """Q3's law against every description in the corpus, adversarial ones included."""
+    """The no-silent-permit law against every description in the corpus, adversarial ones included."""
     instrument = proposer.FixtureProposer()
     for case in benchmark.CORPUS:
         proposal = instrument.propose(case.description)
@@ -156,7 +156,7 @@ def test_no_case_produces_an_undeclared_effect_label() -> None:
         )
 
 
-# --- R071 §5: a malformed generation is a published miss, never an aborted run -----------
+# --- A malformed generation is a published miss, never an aborted run --------------------
 
 
 class _AlwaysMalformed:
@@ -202,7 +202,7 @@ def test_a_malformed_generation_is_recorded_as_a_miss_not_raised() -> None:
 
     Before this, `run` let `ProposalRefused` escape: one malformed response ended the run,
     and the published report would have been the exception's absence rather than the
-    miss's presence. On a live instrument — the only kind Q11's bar accepts — that is the
+    miss's presence. On a live instrument — the only kind the benchmark's bar accepts — that is the
     likeliest failure of all.
     """
     results = benchmark.run(_AlwaysMalformed())

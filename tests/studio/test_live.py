@@ -141,7 +141,7 @@ def test_a_declared_cap_with_no_counter_yet_is_shown_at_zero(ledger, config) -> 
 
 
 def test_limits_come_from_the_pinned_version_not_the_live_tables(ledger, config) -> None:
-    """R058 §1's law applied here: the caps a bar is measured against must come from the
+    """The pinned-version law applied here: the caps a bar is measured against must come from the
     snapshot the header's digest names, or the page draws a limit the engine is not
     enforcing."""
     _capped(ledger, eur_day="2000.00")
@@ -214,7 +214,7 @@ def test_only_held_reservations_are_shown(ledger, config) -> None:
 
 
 def test_the_switch_state_is_shown_with_its_rank_in_words(ledger, config) -> None:
-    """R055 V4: *"its rank stated plainly"*, checked against `decision.py` where the
+    """V4: *"its rank stated plainly"*, checked against `decision.py` where the
     switch is step 1 and the clamp is unconditional."""
     html = screens.live_body(live.build(ledger, config, NOW))
     assert live.RANK in html
@@ -240,12 +240,12 @@ def test_an_engaged_switch_reads_as_engaged_with_its_episode(ledger, config) -> 
 
 
 def test_no_control_is_rendered_for_the_switch(ledger, config) -> None:
-    """**R059 §5: a control that renders as operable and is not would be the right-typed
+    """**A control that renders as operable and is not would be the right-typed
     lie as a button.**
 
     An admin API exists — `POST /v1/killswitch` on the PDP — and it is not one the Studio
     may use: reaching it needs either a second write path into the enforcer's database
-    (R047 §2) or the PDP's admin credential inside a policy editor (R047 §1).
+    or the PDP's admin credential inside a policy editor.
     """
     html = screens.live_body(live.build(ledger, config, NOW))
     assert "<button" not in html
@@ -261,7 +261,7 @@ def test_no_control_is_rendered_for_the_switch(ledger, config) -> None:
 
 
 def test_the_live_module_contains_no_write(ledger) -> None:
-    """The same structural fence the register carries. R055 V4 is a read-only screen,
+    """The same structural fence the register carries. V4 is a read-only screen,
     and the property is that no write path *exists*."""
     import inspect
 
@@ -271,7 +271,7 @@ def test_the_live_module_contains_no_write(ledger) -> None:
 
 
 def test_reading_the_page_does_not_change_the_switch(ledger, config) -> None:
-    """Behaviour beside the fence, as R059 §1 asks: structural assertion as the fence,
+    """Behaviour beside the fence: structural assertion as the fence,
     behaviour as the smoke."""
     killswitch.set_engaged(ledger, True, origin="operator")
     before = killswitch.is_engaged(ledger)
@@ -284,7 +284,7 @@ def test_reading_the_page_does_not_change_the_switch(ledger, config) -> None:
 
 
 def test_every_list_has_a_designed_empty_state(ledger, config) -> None:
-    """R055 V4: *"every list has a designed empty state"* — absent is a state to render."""
+    """V4: *"every list has a designed empty state"* — absent is a state to render."""
     html = screens.live_body(live.build(ledger, config, NOW))
     assert "Nothing is being metered" in html
     assert "Nothing is held" in html

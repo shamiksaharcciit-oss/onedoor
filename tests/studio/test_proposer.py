@@ -1,9 +1,9 @@
 """The proposer, its record, and the law it must not be able to dodge (S6, T1–T3, T7).
 
-R053's expected standing lives here and next door in `tests/viewer/test_proposal.py`:
+The expected standing lives here and next door in `tests/viewer/test_proposal.py`:
 `proposer_provenance` hashed and rendering-surviving, the derivation record's face
 statements in place, the E10 description discipline, and **T7's no-privileged-path law** —
-a proposed candidate passes every check a hand-written one passes, and R027's rule about
+a proposed candidate passes every check a hand-written one passes, and the rule about
 the generator finally has a generator to bind.
 """
 
@@ -51,7 +51,7 @@ def test_the_same_description_gives_the_same_candidate() -> None:
 
 
 def test_the_instrument_block_is_never_empty(_unused: None = None) -> None:
-    """R053 §2: a fixture records its identity as a model records its id."""
+    """A fixture records its identity as a model records its id."""
     identity = proposer.FixtureProposer().identity()
     assert identity
     for key in ("kind", "name", "version", "rules_digest", "pack_digest"):
@@ -109,7 +109,7 @@ def test_the_record_says_it_is_not_re_derivable() -> None:
 
 
 def test_the_record_is_not_called_a_receipt() -> None:
-    """R053 §1: principle 5 was amended rather than stretched, and the noun changed."""
+    """Principle 5 was amended rather than stretched, and the noun changed."""
     assert proposer.SCHEMA == "onedoor/derivation-record/1"
     assert "receipt" not in proposer.SCHEMA
 
@@ -128,7 +128,7 @@ def test_proposer_provenance_is_inside_the_records_digest() -> None:
 
 
 def test_the_value_pair_is_the_same_one_the_ledger_label_uses() -> None:
-    """R053 §2: a renderer must not learn a second dialect for one distinction."""
+    """A renderer must not learn a second dialect for one distinction."""
     assert (proposer.LIVE, proposer.FIXTURE) == (backtest.LIVE, backtest.FIXTURE)
 
 
@@ -214,7 +214,7 @@ def test_lineage_resolves_by_recomputation_not_by_a_pointer(
 
 
 def test_a_proposed_candidate_passes_the_engines_own_validator() -> None:
-    """R027's rule finally binds a generator: the generated set gets no exemption."""
+    """The generator rule finally binds a generator: the generated set gets no exemption."""
     proposal, _ = _derive()
     assert proposal.policies, "the fixture proposed nothing; the test would be vacuous"
     assert validate_module.problems(proposal.policies, proposal.effects) == []
@@ -223,7 +223,7 @@ def test_a_proposed_candidate_passes_the_engines_own_validator() -> None:
 def test_a_proposed_candidate_names_no_effect_it_does_not_declare(
     fresh: sqlite3.Connection,
 ) -> None:
-    """Q3's law, asserted against generated policy through `coverage.build`'s detector.
+    """The no-silent-permit law, asserted against generated policy through `coverage.build`'s detector.
 
     This is the one that matters most: a generator that emits a bare effect label is
     emitting a silent permit at scale.

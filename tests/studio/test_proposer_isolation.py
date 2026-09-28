@@ -1,4 +1,4 @@
-"""T4 — the decision path cannot reach a proposer (ND-052 / S6, R053 §5).
+"""T4 — the decision path cannot reach a proposer (ND-052 / S6).
 
 **Built first, deliberately.** It is the test that keeps constitution principle 1 true
 while everything else in S6 lands: *the proposer is never the enforcer.* A model must not

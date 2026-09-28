@@ -112,7 +112,7 @@ def test_uploading_does_not_touch_the_rules_in_force(client, state) -> None:
 def test_a_refused_file_still_becomes_a_draft_that_shows_the_refusals(client, state) -> None:
     """The on-save refusal is exactly what this ticket replaces.
 
-    Handing the operator their file back with a message is the behaviour Forward 006
+    Handing the operator their file back with a message is the behaviour the design
     called short of the bar. The draft is created, and the refusals are on its page.
     """
     response = _upload(client, REFUSED_FILE.encode("utf-8"))
@@ -125,7 +125,7 @@ def test_a_refused_file_still_becomes_a_draft_that_shows_the_refusals(client, st
     assert "compensating_command" in result.refusals[0].message
 
 
-# --- R088 §1/§2/§5.2 (F-U1/F-U2/F-U3): the draft-detail page for an unloadable draft --
+# --- F-U1/F-U2/F-U3: the draft-detail page for an unloadable draft --------------------
 #
 # The re-walk's own finding: the 8-shape sweep behind the paragraph above asserted the
 # STORE, never the PAGE — `store.load(...)`, not `client.get(...)`. A human clicking
@@ -135,7 +135,7 @@ def test_a_refused_file_still_becomes_a_draft_that_shows_the_refusals(client, st
 
 
 def test_a_refused_upload_renders_the_draft_detail_page_without_crashing(client) -> None:
-    """The exact reproduction from R088 §1's traceback: `payments.transfer` at Tier 2
+    """The exact reproduction from the reported traceback: `payments.transfer` at Tier 2
     with no `compensating_command`, uploaded, then the resulting draft page opened.
 
     Before the fix this raised `ValueError` out of `ratify.preview` -> `canvas.build` ->
@@ -157,7 +157,7 @@ def test_a_refused_upload_renders_the_draft_detail_page_without_crashing(client)
 def test_the_ceremony_page_defers_too_and_offers_no_ratify_button(client) -> None:
     """The one page where showing a button would be worse than the crash it replaces:
     submitting it would still hit `ratify.ratify`'s own `_apply` call, refused for the
-    identical reason (`_apply` is shared and untouched — R088 §2)."""
+    identical reason (`_apply` is shared and untouched)."""
     response = _upload(client, REFUSED_FILE.encode("utf-8"))
     draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
 
@@ -170,7 +170,7 @@ def test_the_ceremony_page_defers_too_and_offers_no_ratify_button(client) -> Non
 def test_submitting_ratification_for_a_refused_draft_answers_rather_than_500s(
     client,
 ) -> None:
-    """Self-found while completing the same boundary fix, not one of R088's four
+    """Self-found while completing the same boundary fix, not one of the four
     enumerated findings: nothing stops a stale link, a replayed form, or a direct POST
     from reaching the ratify route even with no button pointing at it, and it must
     answer rather than crash — the same class of defect, one page further."""
@@ -184,11 +184,11 @@ def test_submitting_ratification_for_a_refused_draft_answers_rather_than_500s(
 
 
 def test_an_unparseable_uploads_draft_page_also_renders_without_crashing(client) -> None:
-    """C2b, named in R088 §5.2. Checked empirically rather than assumed: an unparseable
+    """C2b, named in the fix. Checked empirically rather than assumed: an unparseable
     file stops at the loading stage and the resulting draft holds ZERO policies, so
     `_apply` has nothing to validate and this shape was never independently reproducing
     F-U1's crash — the empty-candidate path was already safe. Covered anyway, because
-    R088 asks for the whole draft-detail path exercised for every unloadable shape, and
+    The fix asks for the whole draft-detail path exercised for every unloadable shape, and
     a page that renders correctly for the wrong reason is still worth locking in."""
     response = _upload(client, b"policies:\n  - [unclosed\n", "broken.yaml")
     draft_id = response.headers["location"].split("/drafts/")[1].split("?")[0]
@@ -200,7 +200,7 @@ def test_an_unparseable_uploads_draft_page_also_renders_without_crashing(client)
 
 
 def test_a_two_lists_shape_draft_also_renders_without_crashing(client, state) -> None:
-    """Section D, named in R088 §5.2. Also checked empirically: a cap with no
+    """Section D, named in the fix. Also checked empirically: a cap with no
     `cost_param` loads clean — `validate_policy`'s cost_param check only fires when
     `cost_param` IS set and unlisted, never on its absence — so this shape was never
     independently reproducing F-U1's crash either; it is the load-clean, decide-time-only
@@ -287,7 +287,7 @@ def test_the_fragment_separates_refusals_from_forecasts(client, state) -> None:
 
 
 def test_the_forecast_notice_is_true_when_the_rule_it_forecasts_is_refused(client, state) -> None:
-    """R092 F-D1, the exact reproduction: `payments.transfer` at Tier 2 with no
+    """The reported defect, exactly reproduced: `payments.transfer` at Tier 2 with no
     reversal is refused above and still forecast below (its default `strict_params`
     gives it a BOUNDS forecast) — the notice above the forecast list must stop
     claiming "the loader accepts every rule below" the moment that is false."""
@@ -351,7 +351,7 @@ def test_the_drafts_page_offers_the_upload_form(client) -> None:
     assert 'action="/drafts/upload"' in body
     assert 'enctype="multipart/form-data"' in body
     # Verbatim in the form the reader receives -- the note contains an apostrophe, and
-    # asserting the raw constant would make a correctly-escaped page look wrong (R061 §3).
+    # asserting the raw constant would make a correctly-escaped page look wrong.
     assert_reader_sees(body, screens.UPLOAD_NOTE)
 
 

@@ -1,6 +1,6 @@
 """The coverage map (ND-052 / S4, T1–T3).
 
-R049 §7's expected standing lives here: the four states computed, prominence ranked by
+The expected standing lives here: the four states computed, prominence ranked by
 **behaviour** rather than by how alarming a name sounds, the cited range on the face of
 the map, and the inert detector green.
 
@@ -113,7 +113,7 @@ def test_an_action_the_ledger_saw_and_no_policy_declares_is_uncovered_observed(
 def test_a_declared_effect_no_observed_traffic_reaches_is_unreached(
     fresh: Connection,
 ) -> None:
-    """R049 §4: a row only inside a bounded vocabulary, and rendered **absent**."""
+    """A row only inside a bounded vocabulary, and rendered **absent**."""
     policy_loader.upsert(fresh, _policy("demo.restore"))
     policy_loader.upsert(fresh, _policy("pay", effects=["money.egress"]))
     policy_loader.upsert_effect(
@@ -140,7 +140,7 @@ def test_the_unbounded_set_is_a_footer_and_never_a_row(fresh: Connection) -> Non
 
 
 def test_prominence_ranks_the_silent_permit_above_the_loud_denial() -> None:
-    """R049 §3's law: rank by what a state does, not by how alarming its name sounds."""
+    """The law: rank by what a state does, not by how alarming its name sounds."""
     assert coverage.PROMINENCE.index(coverage.DECLARED_INERT) < coverage.PROMINENCE.index(
         coverage.UNCOVERED_OBSERVED
     )
@@ -206,7 +206,7 @@ def test_an_empty_ledger_is_a_non_measurement_not_a_zero(fresh: Connection) -> N
 def test_the_citation_carries_only_what_a_third_party_re_derives_from(
     fresh: Connection, config: EngineConfig
 ) -> None:
-    """R049 §5: `(version_hash, range)` and nothing else — the map is a view that cites."""
+    """`(version_hash, range)` and nothing else — the map is a view that cites."""
     policy_loader.upsert(fresh, _policy("demo.restore"))
     with tx(fresh):
         chain.enable(fresh)
@@ -238,7 +238,7 @@ def test_every_note_the_map_carries_states_a_limit(fresh: Connection) -> None:
     assert coverage.PROJECTION_NOTE in m.notes
     assert "PROJECTS, it does not recall" in coverage.PROJECTION_NOTE
     assert "run a backtest over the range" in coverage.PROJECTION_NOTE, (
-        "the note must name what DOES answer the historical question (R050 §4)"
+        "the note must name what DOES answer the historical question"
     )
 
 

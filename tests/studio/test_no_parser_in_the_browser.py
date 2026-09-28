@@ -1,6 +1,6 @@
 """`ND-056` / T1 — live validation added a fetch, and this is the fence that keeps it dumb.
 
-R063 §1 is the design being protected: the panes sync through the server *because the
+This is the design being protected: the panes sync through the server *because the
 server owns the only parser*, and **they cannot drift because there is nothing to drift
 between**. Live validation is the first feature with an obvious temptation to break
 that — parse in the browser and skip the round trip — and the temptation gets stronger
@@ -92,7 +92,7 @@ def test_the_browser_displays_only_what_the_server_sent() -> None:
     The first version of this test banned verdict words anywhere in the script and failed
     on `box.dataset.validate` — `valid` inside the name of a ROUTE. The second scanned
     string literals and failed on `'validation'` — the id of a DIV. Two false positives of
-    the same class is the signal that the proxy is not the requirement (R058 §5), so the
+    the same class is the signal that the proxy is not the requirement, so the
     proxy is gone and the requirement is stated directly:
 
     **nothing but a value fetched from the server may be written into the page.** A

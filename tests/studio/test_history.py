@@ -139,7 +139,7 @@ def test_the_filter_choices_come_from_the_ledger_not_the_enum(ledger) -> None:
 
 
 def test_the_missing_api_key_filter_is_stated_on_the_page(ledger) -> None:
-    """**The fifth filter R055 V3 asks for cannot be built**: the service authenticates
+    """**The fifth filter V3 asks for cannot be built**: the service authenticates
     with bearer keys and no caller identity is written to the audit row.
 
     Silently omitting it would read as a filter that exists and found nothing. Absent
@@ -185,7 +185,7 @@ def test_an_untruncated_register_does_not_claim_to_be_truncated(ledger) -> None:
 
 
 def test_every_verdict_the_engine_can_record_has_a_chip(ledger) -> None:
-    """X-14: two lists that must agree are checked, not maintained."""
+    """Two lists that must agree are checked, not maintained."""
     from onedoor.guardrail.models import Decision
 
     assert set(history.DECISION_STATE) == {d.value for d in Decision}
@@ -232,7 +232,7 @@ def test_the_digest_labels_say_what_each_digest_actually_covers() -> None:
     """Checked against `guardrail/digests.py`, not guessed from the letter.
 
     E/I/T/V are evidence, instrument, trust and verdict. A screen that captioned
-    `t_digest` as "target" — because the canary pillar uses T that way — would be
+    `t_digest` as "target" — because another pillar uses T that way — would be
     confidently wrong in a compliance product.
     """
     labels = {column: label for column, label, _ in history.DIGEST_LABELS}
@@ -244,7 +244,7 @@ def test_the_digest_labels_say_what_each_digest_actually_covers() -> None:
     }
 
 
-# --- R089 F-H1: null digests are not a version statement -------------------------------
+# --- F-H1: null digests are not a version statement ------------------------------------
 
 
 def test_null_digests_say_not_recorded_never_no_version_in_force(ledger) -> None:
@@ -284,7 +284,8 @@ def test_an_unreported_outcome_is_not_shown_as_nothing_having_happened(ledger) -
 
 def test_the_detail_view_does_not_claim_to_have_verified_the_chain(ledger) -> None:
     """It renders what was recorded. Re-verification is the Verify page's job, against
-    the receipt rather than against this rendering — X-8's discipline in a UI."""
+    the receipt rather than against this rendering — never vouching for what has not
+    been re-verified, applied to a UI."""
     _decide(ledger, "reports.read", "executed")
     row = history.entry(ledger, history.page(ledger).entries[0].row_id)
     html = screens.entry_body(row)
@@ -316,7 +317,7 @@ def test_a_hostile_action_type_cannot_smuggle_markup_into_the_register(ledger) -
 
 
 def test_the_history_module_contains_no_write(ledger) -> None:
-    """R055 V3: *"no mutation of any kind on this screen."*
+    """V3: *"no mutation of any kind on this screen."*
 
     Asserted against the source rather than by behaviour, because the property is that
     no write path *exists* — a behavioural test only proves the paths it happened to

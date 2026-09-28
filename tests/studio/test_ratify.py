@@ -1,6 +1,6 @@
 """The ratification ceremony (ND-052 / S2, T1–T5).
 
-R045 §6 named the standing this suite has to produce:
+The design named the standing this suite has to produce:
 
 - **the equality test green, with its merged-set sabotage** — the previewed hash equals
   the hash ratification then produces, and seeding the scratch store with only the
@@ -100,7 +100,7 @@ def test_an_omitted_action_is_not_reported_as_removed() -> None:
 
 
 def test_the_previewed_hash_is_the_hash_ratification_produces(conn: Connection) -> None:
-    """R045 §6's first requirement. The number shown IS the number that lands."""
+    """The first requirement. The number shown IS the number that lands."""
     expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
     candidate = [_policy("demo.spend", cap="250")]
 
@@ -123,7 +123,7 @@ def test_the_previewed_hash_is_the_hash_ratification_produces(conn: Connection) 
 
 
 def test_sabotage_a_scratch_store_seeded_with_only_the_changed_rules(conn: Connection) -> None:
-    """R045 §2's sabotage. The trap, pinned permanently.
+    """The sabotage. The trap, pinned permanently.
 
     `_normalized_snapshot` renders the WHOLE policy table, so a scratch store holding
     only the changed rules yields the hash of a two-rule deployment — *a different
@@ -150,13 +150,13 @@ def test_sabotage_a_scratch_store_seeded_with_only_the_changed_rules(conn: Conne
     assert receipt.to_version != sabotaged.to_version
 
 
-# --- R088 §1/§2 (F-U1): a candidate the loader would refuse does not crash the preview -
+# --- F-U1: a candidate the loader would refuse does not crash the preview --------------
 
 
 def test_a_candidate_the_loader_would_refuse_returns_a_refusal_not_a_raise(
     conn: Connection,
 ) -> None:
-    """The traceback in R088 §1, reproduced directly against `ratify.preview`.
+    """The reported traceback, reproduced directly against `ratify.preview`.
 
     Tier 2 with no `compensating_command` is exactly what
     `policy_loader.validate_policy` raises `ValueError` over — previously that raise
@@ -181,7 +181,7 @@ def test_a_refused_previews_changes_and_digest_still_compute(conn: Connection) -
     """Only `to_version` needs `_apply` to succeed — `changes`, `effect_changes` and
     `candidate_digest` are pure comparisons against the candidate as given, so a refused
     draft still shows what it would have changed, even though it cannot say what it
-    would have become (R088 §2's own reasoning, held as a test rather than a comment)."""
+    would have become (the fix's own reasoning, held as a test rather than a comment)."""
     _in_force(conn, _restore())
     candidate = [Policy(action_type="payments.transfer", tier=Tier.AUTO_CAPPED, dry_run=False)]
 
@@ -203,7 +203,7 @@ def test_a_clean_candidate_carries_no_refusal(conn: Connection) -> None:
 def test_the_real_ratification_still_refuses_the_identical_candidate(
     conn: Connection,
 ) -> None:
-    """R088 §2's constraint, held as a test: preview and ratification must not diverge.
+    """The fix's constraint, held as a test: preview and ratification must not diverge.
     `_apply` is untouched and shared — `ratify.ratify` still raises on this candidate
     exactly as it always did; only `preview` learned to catch it. Confirms the fix did
     not make the ceremony permissive by accident."""
@@ -236,7 +236,7 @@ def test_the_preview_writes_nothing_to_the_real_store(conn: Connection) -> None:
 def test_the_first_ratification_on_a_fresh_store_has_an_absent_from_version(
     fresh: Connection,
 ) -> None:
-    """Absent, not empty (R015). And `expected_version=None` is a real answer."""
+    """Absent, not empty. And `expected_version=None` is a real answer."""
     shown = ratify.preview(fresh, [_policy("demo.spend"), _restore()])
     assert shown.from_version is None
 
@@ -256,7 +256,7 @@ def test_the_first_ratification_on_a_fresh_store_has_an_absent_from_version(
 
 
 def test_a_lost_race_refuses_loudly_and_writes_nothing(conn: Connection) -> None:
-    """R045 §6's second requirement. A UI has a gap between reading and clicking."""
+    """The second requirement. A UI has a gap between reading and clicking."""
     stale = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
 
     # Another operator ratifies in the gap.
@@ -322,7 +322,7 @@ def _stored_backtest(conn: Connection, config: EngineConfig, candidate: list[Pol
 
     `chain.enable` alone is not enough: a backtest cites the sealed chain, and a store
     with an enabled chain but no decisions has nothing to cite — which `backtest.run`
-    refuses rather than receipting (R043 §2).
+    refuses rather than receipting.
     """
     with tx(conn):
         chain.enable(conn)
@@ -338,7 +338,7 @@ def _stored_backtest(conn: Connection, config: EngineConfig, candidate: list[Pol
 
 
 def test_an_unresolvable_citation_is_refused_under_its_own_reason(conn: Connection) -> None:
-    """R010 in the ceremony: a citation this store cannot check is not evidence."""
+    """In the ceremony too: a citation this store cannot check is not evidence."""
     expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
     with pytest.raises(ratify.RatificationRefused) as caught:
         ratify.ratify(
@@ -356,7 +356,7 @@ def test_an_unresolvable_citation_is_refused_under_its_own_reason(conn: Connecti
 def test_a_citation_of_a_different_candidate_is_refused_under_a_different_reason(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R045 §4.1. Citing someone else's homework, made structurally impossible.
+    """Citing someone else's homework, made structurally impossible.
 
     The two backtest refusals are deliberately **not** one reason: a digest that
     resolves to nothing and a digest that resolves to a receipt about another candidate
@@ -407,7 +407,7 @@ def test_a_matching_citation_is_accepted_and_recorded(
 def test_ratifying_without_a_backtest_is_allowed_and_the_absence_is_in_the_receipt(
     fresh: Connection,
 ) -> None:
-    """R045 §4: refusing would block the first policy on a fresh store."""
+    """Refusing would block the first policy on a fresh store."""
     receipt = ratify.ratify(
         fresh,
         [_policy("demo.spend"), _restore()],
@@ -423,7 +423,7 @@ def test_ratifying_without_a_backtest_is_allowed_and_the_absence_is_in_the_recei
 
 
 def test_the_receipt_names_the_session_and_says_it_is_declared(fresh: Connection) -> None:
-    """R045 §3: `ratified_by_session`, never `ratified_by`."""
+    """`ratified_by_session`, never `ratified_by`."""
     receipt = ratify.ratify(
         fresh,
         [_policy("demo.spend"), _restore()],
@@ -539,11 +539,11 @@ def test_a_tampered_receipt_fails_the_two_file_check(fresh: Connection, tmp_path
     assert "own digest" in detail
 
 
-# --- Q3: the kill switch does not block, and the lift is loud ---------------------
+# --- The kill switch does not block, and the lift is loud -------------------------
 
 
 def test_ratification_proceeds_under_an_engaged_switch(fresh: Connection) -> None:
-    """R045 §5. The switch stops actions; the pen keeps working, and says so."""
+    """The switch stops actions; the pen keeps working, and says so."""
     with tx(fresh):
         killswitch.set_engaged(fresh, True, origin="test")
 
@@ -614,7 +614,7 @@ def test_the_lift_reports_no_change_when_nothing_moved(conn: Connection) -> None
 def test_an_engagement_with_no_recorded_version_is_undeterminable_not_unchanged(
     fresh: Connection,
 ) -> None:
-    """R010. "We cannot tell" is never rendered as "nothing happened"."""
+    """Never render "we cannot tell" as "nothing happened"."""
     with tx(fresh):
         killswitch.set_engaged(fresh, True, origin="test")
     assert policy_loader.current_version(fresh) is None

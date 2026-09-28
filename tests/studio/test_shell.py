@@ -57,7 +57,7 @@ def test_the_full_digest_is_available_on_hover_and_to_a_copy_control() -> None:
 
 
 def test_the_copy_cursor_is_granted_by_the_script_and_never_by_the_server() -> None:
-    """R057 §2: copy-on-click returns as progressive enhancement.
+    """Copy-on-click returns as progressive enhancement.
 
     The structural guarantee V8(f) actually needs — the cursor lives on
     `.digest.copyable`, and nothing the server emits carries `copyable`. With scripting
@@ -121,7 +121,7 @@ def test_the_declared_scripts_are_what_the_page_serves() -> None:
 
 
 def test_the_live_validation_fetch_can_only_reach_this_machine() -> None:
-    """The requirement, kept when the proxy and it parted ways (R058 §5).
+    """The requirement, kept when the proxy and it parted ways.
 
     The old check banned `fetch(` outright, as a proxy for *nothing leaves this machine*.
     Live validation needs one fetch, and a same-origin POST to the loopback server does
@@ -145,7 +145,7 @@ def test_the_live_validation_fetch_can_only_reach_this_machine() -> None:
 
 
 def test_no_state_is_signalled_by_colour_alone() -> None:
-    """**The property that replaces the delta-E floor** (R057 §5/§6).
+    """**The property that replaces the delta-E floor**.
 
     Lightening `--refuse` to clear WCAG AA pushed it toward `--review` under tritanopia
     (ΔE 15.1 → 2.5) and toward `--allow` under deuteranopia (18.0 → 6.5). No hex avoids
@@ -170,7 +170,7 @@ def test_a_chip_cannot_be_rendered_for_a_state_that_is_not_one() -> None:
 
 
 def test_every_state_token_has_a_chip_and_every_chip_has_a_token() -> None:
-    """Two lists that must agree, so they are checked rather than maintained (X-14)."""
+    """Two lists that must agree, so they are checked rather than maintained."""
     from onedoor.studio import tokens
 
     assert {f"--{s}" for s in shell.STATE_WORDS} == set(tokens.STATE_TOKENS)
@@ -262,8 +262,8 @@ def test_the_page_fetches_nothing_from_anywhere() -> None:
 
 
 def test_the_shell_carries_no_inline_event_handlers() -> None:
-    """V1 asserted the page ran NO JavaScript. R057 §2 overruled that — R055 §3 permits
-    minimal inline JS and copy-on-click is mandated — so what survives is the narrower
+    """V1 asserted the page ran NO JavaScript. That was later overruled — minimal
+    inline JS is permitted and copy-on-click is mandated — so what survives is the narrower
     rule that still holds: behaviour is attached by the one declared script, never
     sprinkled through the markup as `onclick=` attributes nobody audits as a whole.
     """

@@ -71,7 +71,7 @@ def _seed(conn) -> None:
 
 
 def test_the_library_reads_the_snapshot_behind_the_pinned_version(ledger) -> None:
-    """R055 V2: *"read the pinned active version."*
+    """V2: *"read the pinned active version."*
 
     Not the live tables. A page built from the tables would silently disagree with the
     digest in its own header the moment anyone wrote a policy, which is the one
@@ -181,7 +181,8 @@ def test_the_tier_column_carries_what_the_chip_approximates(ledger) -> None:
 
 def test_every_tier_the_engine_declares_has_a_sentence() -> None:
     """A tier added to the engine with no phrase here would render an empty sentence —
-    the screen going quiet exactly where it should be most specific (X-14)."""
+    the screen going quiet exactly where it should be most specific. Two lists that must agree
+    are checked, not maintained."""
     assert set(library.TIER_WORDS) == set(Tier)
 
 
@@ -235,7 +236,7 @@ def test_no_number_reaches_the_page_through_a_float(ledger) -> None:
 
 
 def test_an_undeclared_bound_does_not_appear_as_null(ledger) -> None:
-    """R015: null and empty differ, and *undeclared* is neither.
+    """Null and empty differ, and *undeclared* is neither.
 
     `NumericBound(max=...)` dumps a `min` of null. Rendering it would show an operator a
     bound they never wrote, on the page that exists to tell them what their rules say.
@@ -263,7 +264,7 @@ def test_the_rule_pane_shows_something_the_engine_would_load(ledger) -> None:
 
 
 def test_the_absence_is_denial_sentence_is_on_the_library_page(ledger) -> None:
-    """R055 V2 requires it, and the reason is the misreading the page invites: a reader
+    """V2 requires it, and the reason is the misreading the page invites: a reader
     who sees permissive-looking rows infers a permissive system."""
     _seed(ledger)
     html = screens.library_body(library.build(ledger))

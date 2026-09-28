@@ -1,11 +1,11 @@
 """`docs/DOGFOODING_SCRIPT.md` — the operator pass, held to the code it describes.
 
-R070 §1 asks the script to quote the surfaces' own text where it matters. A quotation is a
+The script is asked to quote the surfaces' own text where it matters. A quotation is a
 claim about what a screen says, and **a claim about code is a test** — otherwise the
 script drifts, the operator is told to expect a sentence that no longer exists, and the
 pass produces a finding about the script rather than about the product.
 
-Same law as the walkthrough (R065 §1): **test the document itself, or the test guards a
+Same law as the walkthrough: **test the document itself, or the test guards a
 copy while the person follows the original.** So every quoted sentence below is read out of
 the document and matched against the constant it came from, and every route the script
 tells Shamik to call is checked against the app's own route table.
@@ -115,7 +115,7 @@ def test_the_script_names_every_built_tab() -> None:
 
 
 def _app_paths(method: str) -> set[str]:
-    """Route templates the app actually serves. Read off the running app (R064 §2)."""
+    """Route templates the app actually serves. Read off the running app."""
     import tempfile
 
     from onedoor.studio import server
@@ -161,7 +161,7 @@ def test_the_shell_commands_the_script_gives_are_the_real_ones() -> None:
 
 
 def test_the_script_uses_a_purpose_made_store_not_ambient_state() -> None:
-    """R086 §4.1: a re-walk is deterministic only if it never touches what a previous
+    """A re-walk is deterministic only if it never touches what a previous
     pass, or the README quickstart, already left in `onedoor.db` / `studio.db`."""
     text = _text()
     assert "--db onedoor.db" not in text, "the script must not point at the ambient store"
@@ -172,7 +172,7 @@ def test_the_script_uses_a_purpose_made_store_not_ambient_state() -> None:
 def test_the_seed_step_loads_the_shipped_payments_pack_and_records_a_version(
     tmp_path,
 ) -> None:
-    """R086 §4.2: the seed commands actually work, against the real pack and the real
+    """The seed commands actually work, against the real pack and the real
     loader — not just described in prose. `record_snapshot` has to run too, or
     `current_version` stays `None` and A2's banner would show `no version in force`."""
     from onedoor.guardrail import policy_loader
@@ -237,7 +237,7 @@ def test_the_euro_cap_stop_lands_in_the_forecast_list_and_not_the_refusal_list()
 def test_the_time_budget_adds_up_to_the_fifty_minutes_it_claims() -> None:
     """A budget that does not sum is a promise about someone's afternoon, broken quietly.
 
-    R086 §4: the budget is RE-DERIVED, not retyped, because section A grew a seeding
+    The budget is RE-DERIVED, not retyped, because section A grew a seeding
     stop and section C grew a second beat in C1c and a rule switch in C1d. This test
     holds the arithmetic, not the number — it would catch a section growing in prose
     without the total following.
@@ -253,7 +253,7 @@ def test_the_time_budget_adds_up_to_the_fifty_minutes_it_claims() -> None:
 
 
 def test_the_script_marks_every_stop_as_gate_or_see() -> None:
-    """R070 §1.4: the stops that gate the tag are distinguished from the nice-to-see."""
+    """The stops that gate the tag are distinguished from the nice-to-see."""
     stops = re.findall(r"^\*\*([A-I]\d[a-z]?) \[(GATE|SEE)[^\]]*\]", _text(), re.M)
     assert stops, "no marked stops found"
     unmarked = re.findall(r"^\*\*([A-I]\d[a-z]?) —", _text(), re.M)
@@ -290,7 +290,7 @@ def test_the_script_states_where_its_estimate_is_a_guess() -> None:
 
 
 def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
-    """R071 §1.1: **a time budget that excludes the cost of what the activity produces is
+    """**A time budget that excludes the cost of what the activity produces is
     not a budget.**
 
     The pass exists to produce findings, so the time to record them is budgeted rather
@@ -308,9 +308,9 @@ def test_the_script_budgets_an_envelope_and_not_a_number() -> None:
 
 
 def test_the_script_tells_the_operator_which_variant_to_run_before_they_start() -> None:
-    """R071 §1.1: the T3 world is known at the top, not discovered at section I.
+    """The T3 world is known at the top, not discovered at section I.
 
-    The question is now **answered** rather than asked (R079 §6): T3 measured 0/11 and
+    The question is now **answered** rather than asked: T3 measured 0/11 and
     does not ship on that result, so the current script is the no-Propose one and the
     operator is told so. The answer can flip once if three gates are met; the front
     matter says which world is current and what a flip would look like.
@@ -330,8 +330,8 @@ def test_the_script_defaults_to_the_shipping_world_rather_than_a_pending_questio
 
     An operator who is handed nothing must still know what to walk. A front matter that
     said "ask someone" would leave the pass blocked at the door on a question its reader
-    cannot answer — and the whole point of stating it at the top (R072 §1) is that the
-    reader is standing there.
+    cannot answer — and the whole point of stating it at the top is that the reader is
+    standing there.
     """
     head = _normalised(_text()[: _text().index("## A · Arrival")])
     assert "If nobody hands you a different script, this one is the one to walk" in head
@@ -344,7 +344,7 @@ def test_the_cut_rule_is_in_the_prose_and_not_only_in_a_test() -> None:
     assert "cut [SEE] stops, never [GATE] stops" in head
 
 
-# --- R088 §3/§5.3: F-S1 -- A0 refuses/removes a leftover store, never reuses one -------
+# --- F-S1 -- A0 refuses/removes a leftover store, never reuses one ---------------------
 
 
 def test_a0_removes_leftover_pass_files_before_it_seeds_them() -> None:
@@ -369,7 +369,7 @@ def test_a0_removes_leftover_pass_files_before_it_seeds_them() -> None:
 
 
 def test_a0s_windows_removal_announces_and_stops_on_a_locked_file() -> None:
-    """R090 §5: on Windows, a file a running Studio server still has open cannot be
+    """On Windows, a file a running Studio server still has open cannot be
     removed. A0 used to swallow that with `-ErrorAction SilentlyContinue` and seed on
     top of whatever it failed to clear -- silent contamination, the exact defect F-S1
     exists to kill, one layer down. The PowerShell block must detect a removal failure
@@ -399,11 +399,11 @@ def test_the_lock_stop_is_explained_as_windows_only() -> None:
     assert "unlink" in a0
 
 
-# --- R089/R090 §3/§4: F-S2 (chain-number-or-unchained), F-S3 (C saves a real change) -----
+# --- F-S2 (chain-number-or-unchained), F-S3 (C saves a real change) ----------------------
 
 
 def test_f2_expects_a_chain_number_or_unchained() -> None:
-    """Core's own error, corrected: the newest row is legitimately `unchained` --
+    """An earlier error, corrected: the newest row is legitimately `unchained` --
     chaining is opt-in/periodic -- and F2 previously overstated a guaranteed number."""
     text = _text()
     f2 = text[text.index("**F2 [") : text.index("**F3 [")]
@@ -412,7 +412,7 @@ def test_f2_expects_a_chain_number_or_unchained() -> None:
 
 
 def test_g_points_at_the_download_links_not_hand_copying() -> None:
-    """R089 F-V1: the page used to make its own instruction unfollowable -- the only
+    """F-V1: the page used to make its own instruction unfollowable -- the only
     path to the bytes was select-and-paste, which risks a byte and a false `failed`.
     G2 now names the Download links and runs the corruption sub-test on the file that
     came from clicking one, never on hand-typed or pasted content."""
@@ -424,10 +424,10 @@ def test_g_points_at_the_download_links_not_hand_copying() -> None:
 
 
 def test_g2_corrupts_the_right_file_for_the_right_outcome() -> None:
-    """R092 §3: the verifier hashes the snapshot, never parses it, so truncating it
+    """The verifier hashes the snapshot, never parses it, so truncating it
     produces `failed` (readable, wrong hash) and only the RECEIPT'S own unreadability
-    reaches `unreadable`. R091's own prior prescription (delete the final `}` of
-    snapshot.json -> expect unreadable) was core's error, owned in R092 and corrected
+    reaches `unreadable`. An earlier prescription (delete the final `}` of
+    snapshot.json -> expect unreadable) was an error, owned and corrected
     here: this test pins the corrected pairing so it cannot drift back."""
     text = _text()
     g2 = text[text.index("**G2 [") : text.index("## H ·")]
@@ -444,7 +444,7 @@ def test_g2_corrupts_the_right_file_for_the_right_outcome() -> None:
 
 
 def test_g2_no_longer_expects_unreadable_from_a_snapshot_corruption() -> None:
-    """The specific old mistake -- both this script's original wording and R091's
+    """The specific old mistake -- both this script's original wording and a
     later "delete the final `}`" prescription -- expected `unreadable` from a
     corrupted snapshot. It never can be: the verifier hashes bytes it never parses."""
     text = _text()
@@ -458,7 +458,7 @@ def test_g2_no_longer_expects_unreadable_from_a_snapshot_corruption() -> None:
 
 
 def test_c1c_saves_the_one_real_change_e_ratifies_and_f3_replays() -> None:
-    """R089/R090 F-S3: C1's edits were unsaved by design, so E3-as-scripted ratified a
+    """F-S3: C1's edits were unsaved by design, so E3-as-scripted ratified a
     no-op and F3 had nothing to replay against -- reachable only because an earlier
     operator deviated from the script. C1c now saves one real, valid change, and says
     why: without it, E is a no-op and F3 is unreachable on a faithful walk."""
@@ -470,11 +470,11 @@ def test_c1c_saves_the_one_real_change_e_ratifies_and_f3_replays() -> None:
     assert "ratifies" in c1c.lower() or "replays" in c1c.lower()
 
 
-# --- R086 §4.10: every [GATE] stop states what to do when it is blocked -----------------
+# --- Every [GATE] stop states what to do when it is blocked -----------------------------
 
 
 def test_every_gate_stop_states_what_to_do_when_blocked() -> None:
-    """ "Today that question came upward three times" (R086 §0). Every [GATE] marker in
+    """A blocked stop's question used to travel upward. Every [GATE] marker in
     the 50-minute walking budget (sections A-H) now carries its own answer, so the
     question does not have to travel to whoever is running the pass — it is answered at
     the point it would be asked. Section I is out of the walking budget entirely (its own
@@ -503,7 +503,7 @@ def test_the_state_building_gates_are_the_ones_marked_to_skip_ahead() -> None:
     assert re.search(r"\*\*E3 \[GATE — if blocked, skip G", text)
 
 
-# --- R086 §4.4-4.7: the authoring stops name a specific rule, not "a rule" --------------
+# --- The authoring stops name a specific rule, not "a rule" -----------------------------
 
 
 def test_the_authoring_stops_name_the_specific_rule_each_one_needs() -> None:
@@ -517,7 +517,7 @@ def test_the_authoring_stops_name_the_specific_rule_each_one_needs() -> None:
 
 
 def test_c1c_demonstrates_the_referent_is_never_checked_and_cites_nd057() -> None:
-    """R086 §4.6: type a nonexistent action, watch the refusal clear; then type a real
+    """Type a nonexistent action, watch the refusal clear; then type a real
     one, watch it clear identically; then say why, citing the ND item filed for it."""
     text = _text()
     assert '"payments.refund"' in text and "names no action type in this pack" in text
@@ -525,13 +525,13 @@ def test_c1c_demonstrates_the_referent_is_never_checked_and_cites_nd057() -> Non
     assert "ND-057" in text
 
 
-# --- R086 §4.8: files the operator creates are written by exact command, never copied ---
+# --- Files the operator creates are written by exact command, never copied --------------
 
 
 def test_files_the_operator_must_create_are_written_by_exact_command() -> None:
     """Finding 1's actual cause: 'save this as bad.yaml' over a fenced block let a fence
     tag become the file's first line. Both files this script asks for are now written by
-    a command that produces the exact bytes, for both shells named in R086 §4.2."""
+    a command that produces the exact bytes, for both shells the script supports."""
     text = _text()
     assert "save this as" not in text, "the old copy-this-block phrasing must be gone"
     for filename in ("bad.yaml", "broken.yaml"):
@@ -539,7 +539,7 @@ def test_files_the_operator_must_create_are_written_by_exact_command() -> None:
         assert f"cat > {filename} <<'EOF'" in text, f"no POSIX writer for {filename}"
 
 
-# --- R086 §4.9: curl.exe on Windows ------------------------------------------------------
+# --- curl.exe on Windows -----------------------------------------------------------------
 
 
 def test_the_api_stops_offer_a_windows_curl_exe_variant() -> None:

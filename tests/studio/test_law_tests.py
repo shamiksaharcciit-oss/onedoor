@@ -1,15 +1,15 @@
 """V8 — the law tests, applied to EVERY screen at once.
 
-R055 V8 lists six properties this build owes across all screens. Each was enforced
+V8 lists six properties this build owes across all screens. Each was enforced
 per-screen as it was built; this file asks whether the discipline **generalises** or was
 per-screen habit wearing a law's clothes.
 
-R063 §6 set the expectation: *when a law test goes universal and fails on a screen that
+The expectation was set in advance: *when a law test goes universal and fails on a screen that
 "already enforced" it, that failure is a gift.* Anything caught here is recorded
 caught-then-cleared, by name, in `TICKETS-ND-055.md`.
 
 Every page is fetched **through the server**, because a served surface is tested through
-the server (R058 §4) — and because a law that holds on a rendering function and not on
+the server — and because a law that holds on a rendering function and not on
 the bytes a browser receives is a law about the wrong thing.
 """
 
@@ -161,7 +161,7 @@ def test_the_universe_of_this_file_is_the_app_itself(populated) -> None:
     EXCUSED = {
         "/": "redirects to /drafts",
         "/draft/{draft_id}": "redirects to /drafts/{draft_id}",
-        # R089 F-V1: file downloads, not pages -- no seal to check, no footnote to
+        # F-V1: file downloads, not pages -- no seal to check, no footnote to
         # render, the same reasoning that excuses the JSON surface below. Covered
         # instead by tests/studio/test_verify.py, which checks the bytes and headers a
         # page law has no vocabulary for.
@@ -187,7 +187,7 @@ def test_every_api_route_is_held_by_the_api_laws(populated) -> None:
     Enumerated off the **running app**, exactly like the page pass, so a route added to
     the API without a thought still meets these. Three laws apply to a JSON surface:
 
-    1. it answers JSON, and says so in the media type — R059 §2's whole-response honesty;
+    1. it answers JSON, and says so in the media type — whole-response honesty;
     2. it reaches no external origin, the same promise the header makes for pages;
     3. it never ratifies — the wall T2 exists inside.
     """
@@ -270,7 +270,7 @@ def test_the_empty_store_warning_survived_the_move_to_drafts(tmp_path) -> None:
 
 
 def test_no_emitted_page_routes_a_brand_token_by_state(populated) -> None:
-    """R055 V8(a), universal. The check itself landed in V1; this asks it of every page
+    """V8(a), universal. The check itself landed in V1; this asks it of every page
     a browser can actually receive, stylesheet included."""
     from tests.viewer.assertions import seal_state_violations
 
@@ -279,13 +279,13 @@ def test_no_emitted_page_routes_a_brand_token_by_state(populated) -> None:
 
 
 def test_anchor_status_is_never_rendered_in_the_brand_accent(populated) -> None:
-    """**The owed oneview §5.4 item** (R055 V8(a)).
+    """**The owed oneview §5.4 item** (V8(a)).
 
     The vendored spec contradicts itself: §4 says seal gold never signals state, and
     §5.4 says *"anchor status in seal color."* Anchor status **is** a state — anchored,
     not anchored, unverifiable — so §4 wins and §5.4's clause does not survive it.
 
-    The spec is core's received data and is digest-pinned, so it is **not edited**; the
+    The spec is received data and is digest-pinned, so it is **not edited**; the
     resolution is recorded here and enforced as a test, the same shape as the palette's
     corrections layer. Nothing shipped ever implemented the §5.4 clause, so this closes
     the item by proving the defect never reached a page rather than by removing it.
@@ -314,7 +314,7 @@ def test_anchor_status_is_never_rendered_in_the_brand_accent(populated) -> None:
     ],
 )
 def test_every_list_view_has_a_designed_empty_state(tmp_path, path, expected) -> None:
-    """R055 V8(b). Absent is a state to render, and a blank page reads as a failure.
+    """V8(b). Absent is a state to render, and a blank page reads as a failure.
 
     Run against a **fresh, empty store** — the only way to see an empty state is to have
     nothing, and a fixture with data would test the populated branch and call it done.
@@ -332,7 +332,7 @@ def test_every_list_view_has_a_designed_empty_state(tmp_path, path, expected) ->
 
 
 def test_no_emitted_page_references_an_external_origin(populated) -> None:
-    """R055 V8(c). The header promises nothing leaves this machine, on every page that
+    """V8(c). The header promises nothing leaves this machine, on every page that
     carries the header — which is all of them."""
     for path, html in _pages(populated).items():
         assert not re.findall(r"(?:href|src)\s*=\s*[\"'](?:https?:)?//", html), path
@@ -352,9 +352,9 @@ def test_the_only_script_any_page_runs_is_the_declared_one(populated) -> None:
 
 
 def test_the_honesty_notice_is_verbatim_wherever_the_validator_renders(populated) -> None:
-    """R055 V8(d). It follows the validator, and it is never paraphrased.
+    """V8(d). It follows the validator, and it is never paraphrased.
 
-    Checked in the form the reader receives (R061 §3): the page escapes the apostrophe
+    Checked in the form the reader receives: the page escapes the apostrophe
     in `engine's`, which is the page being correct.
     """
     from html import escape, unescape
@@ -375,7 +375,7 @@ _SHORT = re.compile(r"\b[0-9a-f]{8}…[0-9a-f]{4}\b")
 
 
 def test_every_rendered_digest_is_truncated_and_complete_on_hover(populated) -> None:
-    """R055 V8(e): 8…4, a copy handle, and the full value available.
+    """V8(e): 8…4, a copy handle, and the full value available.
 
     The rule is about *digests rendered for reading*. A 64-character value inside a
     `<pre>` is a **file** a stranger must hash — the deposition page's whole point — so
@@ -403,7 +403,7 @@ def test_the_digest_check_can_find_a_violation() -> None:
 
 
 def test_no_page_offers_a_control_it_cannot_honour(populated) -> None:
-    """R055 V8(f), universal.
+    """V8(f), universal.
 
     Every `<form>` must post somewhere the app actually routes, and every `<button>`
     must sit inside one. **A button with no form is a control with no backend**, which

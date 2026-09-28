@@ -1,4 +1,4 @@
-"""The living constitution and its pinned origin (R054 §2).
+"""The living constitution and its pinned origin.
 
 **The archive is immutable; the constitution is alive; the origin and the in-force text
 are different documents, and each says so on its face.** A constitution that could only be
@@ -21,8 +21,8 @@ PINNED = re.compile(r"sha256\(Policy_Studio_Design_Note_2026-08-22\.md\) = ([0-9
 
 
 def test_the_living_text_pins_its_origin_by_digest() -> None:
-    """The origin memo now lives outside this repository (correspondence with
-    core is process, not product), so this can only check that the pin is
+    """The origin memo now lives outside this repository (design correspondence
+    is process, not product), so this can only check that the pin is
     still present and well-formed -- recomputing it against the memo's bytes
     is a check for wherever those bytes are actually kept."""
     match = PINNED.search(LIVING.read_text(encoding="utf-8"))
@@ -58,8 +58,8 @@ def test_a_pin_that_drifts_from_its_origin_is_detectable(tmp_path: Path) -> None
 def test_the_pin_is_labelled_an_observation_and_not_an_integrity_hash() -> None:
     """The memo has no footer, so calling this its integrity hash would invent a claim.
 
-    R054 asked for "the memo's integrity hash". The design note carries none and is
-    recorded ABSENT under R030 §2. Pinning a delivery-computed file digest satisfies the
+    The instruction asked for "the memo's integrity hash". The design note carries none
+    and is recorded ABSENT. Pinning a delivery-computed file digest satisfies the
     instruction's purpose; calling it something it is not would be the exact failure a
     provenance document exists to prevent.
     """
@@ -82,7 +82,7 @@ def _flat(text: str) -> str:
 
 
 def test_both_documents_state_which_one_they_are() -> None:
-    """Each says so on its face — the standing law R054 §2 elevated it to."""
+    """Each says so on its face — the standing law it was elevated to."""
     text = _flat(LIVING.read_text(encoding="utf-8"))
     assert "the memo is the origin" in text
     assert "this document is what is in force" in text

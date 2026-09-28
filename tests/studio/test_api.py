@@ -82,7 +82,7 @@ def test_submit_is_not_approval(client, state) -> None:
 def test_the_api_offers_no_route_that_ratifies(client) -> None:
     """Structural: no path under /api/v1 mentions ratifying.
 
-    Read off the app's own route table, not off a list this test remembers — R064 §2:
+    Read off the app's own route table, not off a list this test remembers:
     *an app's surface is what the server serves, not what the project remembers writing.*
     """
     app = client.app
@@ -93,7 +93,7 @@ def test_the_api_offers_no_route_that_ratifies(client) -> None:
 
 
 def test_the_documented_sentence_is_the_ruled_one_and_is_true(client) -> None:
-    """R066 §1's wording, and the fact that makes it shippable.
+    """The ruled wording, and the fact that makes it shippable.
 
     The sentence says the v1 API adds no approval route AND that one legacy route still
     serves. Both halves are checked here, because a sentence that was true about only
@@ -116,7 +116,7 @@ def test_the_documented_sentence_is_the_ruled_one_and_is_true(client) -> None:
 
 
 def test_the_legacy_ratify_route_behaves_exactly_as_it_does_today(client, state) -> None:
-    """The WITNESS (R066 §1). Its retirement must be deliberate, never silent.
+    """The WITNESS. Its retirement must be deliberate, never silent.
 
     This pins the shape a caller depends on: the path, the query parameter, the sealed
     receipt's keys, and the recorded approver. When the actor-identity work retires this
@@ -201,7 +201,7 @@ def test_create_read_list_and_delete(client) -> None:
 
 
 def test_put_a_rule_keeps_every_other_rule(client) -> None:
-    """R063 §4 at the API: a partial write must not delete what it never named."""
+    """At the API: a partial write must not delete what it never named."""
     other = {**RULE, "action_type": "payments.refund", "compensating_command": "payments.transfer"}
     created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE, other]})
     draft_id = created.json()["draft_id"]
@@ -350,14 +350,14 @@ def test_the_validation_route_returns_both_lists_separately(client) -> None:
 
 
 def test_the_validation_route_notice_is_true_beside_a_refusal(client, state) -> None:
-    """R092 F-D1, witnessed exactly where core witnessed it: a refused rule still
+    """Witnessed exactly where the defect was first seen: a refused rule still
     forecast, and the notice must stop claiming universal acceptance the moment the
     refusals list is not empty.
 
     `POST /drafts` refuses an invalid candidate outright (422, no draft made) — the
     guard T2's own test above already covers — so a draft that HOLDS a refused rule is
-    built directly, the shape fix B's upload path produces, and the shape core actually
-    witnessed this on."""
+    built directly, the shape fix B's upload path produces, and the shape the defect was actually
+    witnessed on."""
     draft = server.new_draft(state, title="refused")
     server.save_draft(
         state,
@@ -389,7 +389,7 @@ def test_the_validation_route_names_the_reason_codes(client) -> None:
 
 
 def test_policies_are_read_from_the_snapshot_the_version_names(client, state) -> None:
-    """R058 §1, sabotaged: a divergent live row must not move the answer."""
+    """Sabotaged: a divergent live row must not move the answer."""
     before = client.get(api.API_ROOT + "/policies").json()
     assert [p["action_type"] for p in before["policies"]] == ["seed.action"]
     assert before["retrievable"] is True

@@ -1,6 +1,6 @@
 """`ND-056` / T1 — the forecast list, and the fence that keeps it out of the refusal list.
 
-The load-bearing test in this file is `test_the_two_lists_never_merge`. Forward 006 named
+The load-bearing test in this file is `test_the_two_lists_never_merge`. The design named
 five checks as one inline list; two of them are not loader refusals, and a Studio that
 presented them as refusals would tell an operator the engine refuses something it
 accepts. That is not a cosmetic error: it teaches a false schema, and the operator who
@@ -32,7 +32,7 @@ def _priced_cap_no_cost_param() -> Policy:
 def test_the_two_lists_never_merge() -> None:
     """A euro cap with no cost_param forecasts, and is NOT refused.
 
-    Sabotage on the premise (R058 §3): the candidate is first proven to load cleanly
+    Sabotage on the premise: the candidate is first proven to load cleanly
     through the engine's own `validate_policy`, so this cannot pass by accident on a
     candidate that was refused for some other reason. Without that assertion the test
     would still be green if the policy were invalid — and would then be proving nothing.
@@ -76,13 +76,13 @@ def test_strict_params_is_forecast_and_never_refused() -> None:
     assert "property of requests" in bounds[0].message
 
 
-# --- R092 F-D2: the empty-declared-params sentence must not fill a list slot -----------
+# --- The empty-declared-params sentence must not fill a list slot ----------------------
 
 
 def test_a_rule_with_no_declared_params_gets_its_own_sentence() -> None:
     """`Bounds.strict_params` defaults `True`, and the fixture above declares no
-    params — this is F-D2's exact reproduction, which the old assertions above never
-    pinned down: `", ".join(named) if named else "no parameters at all"` substituted
+    params — this is the reported defect's exact reproduction, which the old
+    assertions above never pinned down: `", ".join(named) if named else "no parameters at all"` substituted
     the words for absence into a slot written for a list, producing "any parameter
     other than no parameters at all is refused"."""
     text = "policies:\n  - action_type: a.b\n    tier: 3\n"
@@ -109,7 +109,7 @@ def test_a_rule_with_declared_params_still_lists_them() -> None:
     assert "no parameters at all" not in message
 
 
-# --- every forecast names the code that will speak (R066 §3) -------------------------
+# --- every forecast names the code that will speak -----------------------------------
 
 
 def test_every_forecast_names_a_real_reason_code() -> None:
@@ -235,7 +235,7 @@ def test_an_effect_added_by_a_param_rule_is_reached_and_checked() -> None:
     assert [f.message for f in inert if "net.egress" in f.message]
 
 
-# --- the note describes today (R063 §3 pattern) --------------------------------------
+# --- the note describes today --------------------------------------------------------
 
 
 def test_the_inert_forecast_describes_today_and_never_nd_053() -> None:
@@ -263,7 +263,7 @@ def test_the_forecast_notice_says_these_are_not_refusals() -> None:
     assert "reason code" in forecast.FORECAST_NOTICE
 
 
-# --- R092 F-D1: the notice must be true beside a non-empty refusals list ---------------
+# --- The notice must be true beside a non-empty refusals list --------------------------
 
 
 def test_the_clean_notice_claims_universal_acceptance() -> None:

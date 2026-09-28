@@ -71,7 +71,7 @@ def test_both_panes_are_rendered_from_one_object() -> None:
 
     Syncing client-side would need a second implementation of the policy parser, in
     another language, and the two would disagree on exactly the inputs this engine cares
-    about — decimal strings, unicode, key order, null against absent. R062 §1's law.
+    about — decimal strings, unicode, key order, null against absent. The sync law.
     """
     policy = _rule()
     fields = {f.name: f.value for f in editor.fields_for(policy)}
@@ -81,11 +81,11 @@ def test_both_panes_are_rendered_from_one_object() -> None:
     assert fields["caps.eur_day"] == raw["caps"]["eur_day"]
 
 
-# --- R089 F-E1: a rule with both bounds must show both, not one -----------------------
+# --- F-E1: a rule with both bounds must show both, not one ----------------------------
 
 
 def _both_bounds_rule() -> Policy:
-    """`payments.transfer`'s own `amount_eur`: min AND max, exactly R089's reproduction."""
+    """`payments.transfer`'s own `amount_eur`: min AND max, exactly the reported reproduction."""
     return _rule(
         bounds=Bounds(
             numeric={"amount_eur": NumericBound(min=Decimal("0.01"), max=Decimal("2000"))},
@@ -117,7 +117,7 @@ def test_the_guided_and_raw_panes_agree_on_both_bounds() -> None:
 
 
 def test_a_both_bounds_form_round_trip_is_stable() -> None:
-    """R062 §1's sync law, on the shape F-E1 broke it for: saving from the guided pane
+    """The sync law, on the shape F-E1 broke it for: saving from the guided pane
     over a both-bounds rule must not silently drop the min a moment ago."""
     policy = _both_bounds_rule()
     fields = {f.name: [f.value] for f in editor.fields_for(policy)}
@@ -206,13 +206,13 @@ def test_a_value_that_is_not_a_decimal_is_refused_by_name() -> None:
 
 
 def test_the_nd054_note_appears_at_every_decimal_field() -> None:
-    """R055 V7: the divergence is NOTED at the decimal fields."""
+    """V7: the divergence is NOTED at the decimal fields."""
     noted = {f.name for f in editor.fields_for(_rule()) if f.note}
     assert noted == set(editor.DECIMAL_FIELDS)
 
 
 def test_the_note_describes_what_the_engine_does_today(draft) -> None:
-    """R062 §5, and the sharpest constraint on this stage.
+    """The sharpest constraint on this stage.
 
     **A note that describes tomorrow's behaviour is aspiration dressed as capability,
     one field at a time.** So the note says what happens now, and says nothing about a
@@ -278,7 +278,7 @@ def test_the_editor_module_never_touches_the_enforcer_store() -> None:
     Checked over the **parsed module**, not its text. The first version scanned the
     source and failed on the docstring sentence *"`policy_loader.upsert` is never
     called"* — condemning the module for documenting the very fence it keeps. That is
-    R058 §4's law arriving a second time: **a checker must parse the language it checks,
+    a known law arriving a second time: **a checker must parse the language it checks,
     not the prose around it.**
     """
     import ast
@@ -329,7 +329,7 @@ def test_the_page_says_the_rules_in_force_are_untouched(draft) -> None:
 
 
 def test_the_honesty_footnote_rides_the_editors_validation(draft) -> None:
-    """R055 V5's requirement follows the validator wherever it renders."""
+    """V5's requirement follows the validator wherever it renders."""
     from onedoor.studio import validate
     from tests.viewer.assertions import assert_reader_sees
 

@@ -63,7 +63,7 @@ def scene(tmp_path):
 
 
 def test_policy_sets_are_retrievable_by_version(scene) -> None:
-    """R055 V6 asks this be verified first. It is — and this test is the verification,
+    """V6 asks this be verified first. It is — and this test is the verification,
     kept as a test rather than as a sentence in a report."""
     st, _row, tight, loose = scene
     versions = reevaluate.retrievable_versions(st.enforcer)
@@ -73,7 +73,7 @@ def test_policy_sets_are_retrievable_by_version(scene) -> None:
 
 
 def test_the_dropdown_offers_only_what_the_store_can_serve(scene) -> None:
-    """R056: *the version dropdown lists what `snapshot_for` can honestly serve.*
+    """*The version dropdown lists what `snapshot_for` can honestly serve.*
 
     Read from `policy_versions`, not from the audit log's distinct version values — a
     version some row once named is not necessarily one this store can rebuild.
@@ -200,11 +200,11 @@ def test_changed_is_none_and_never_false_when_nothing_ran(scene) -> None:
     assert comparison.changed is None
 
 
-# --- What the screen must say (R061 §5) -------------------------------------------------------
+# --- What the screen must say -----------------------------------------------------------------
 
 
 def test_the_screen_names_both_versions_in_the_same_breath(scene) -> None:
-    """R061 §5. The version that decided then, and the version replaying now."""
+    """The version that decided then, and the version replaying now."""
     st, row, tight, loose = scene
     comparison = reevaluate.compare(st.enforcer, row, loose, config=st.config)
     html = screens.reevaluate_block(row, (tight, loose), comparison)
