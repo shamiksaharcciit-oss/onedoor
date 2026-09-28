@@ -22,7 +22,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 
-from onedoor.guardrail import policy_loader
+from onedoor.guardrail import killswitch, policy_loader
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import (
     Bounds,
@@ -32,7 +32,7 @@ from onedoor.guardrail.models import (
     Tier,
 )
 from onedoor.integrations.langchain_middleware import OneDoorMiddleware
-from onedoor.store.db import Connection, Database
+from onedoor.store.db import Connection, Database, tx
 
 PAID: list[float] = []
 
@@ -251,6 +251,41 @@ def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connec
 
     agent.invoke(Command(resume="approved"), cfg)
     assert PAID == [2400.0], "approval releases exactly that action"
+
+
+def test_a_resumption_denied_after_approval_leaves_no_approval_approved(
+    agent_conn: Connection,
+) -> None:
+    """The human approves, but the kill switch was engaged in between: the tool does
+    not run, and no approval is left sitting at `approved` for a later caller."""
+    from langgraph.types import Command
+
+    _seed(agent_conn)
+    agent = create_agent(
+        model=_model(
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("send_wire", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
+                ],
+            ),
+            AIMessage(content="blocked"),
+        ),
+        tools=[send_wire],
+        middleware=[OneDoorMiddleware(agent_conn, _config(), on_proposed="interrupt")],
+        checkpointer=MemorySaver(),
+    )
+    cfg = {"configurable": {"thread_id": "t-denied"}}
+    paused = agent.invoke({"messages": [("user", "wire acme")]}, cfg)
+    assert "__interrupt__" in paused
+
+    with tx(agent_conn):
+        killswitch.set_engaged(agent_conn, True, origin="operator")
+    agent.invoke(Command(resume="approved"), cfg)
+
+    assert PAID == [], "a resumption the engine denies runs nothing"
+    states = [r[0] for r in agent_conn.execute("SELECT state FROM approvals")]
+    assert "approved" not in states, states
 
 
 def test_interrupt_declined_does_not_execute(agent_conn: Connection) -> None:

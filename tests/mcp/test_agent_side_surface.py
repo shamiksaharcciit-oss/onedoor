@@ -158,3 +158,28 @@ def test_the_proxy_cannot_approve_what_it_proposed_even_through_the_store(
         approvals.cas_approve(operator, approval_id, proposer, now_utc())
     state = operator.execute("SELECT state FROM approvals WHERE id=?", (approval_id,)).fetchone()
     assert state[0] == "pending"
+
+
+def test_a_presented_approval_is_consumed_even_when_the_retry_is_denied(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "proxy.db"
+    proxy = _proxy(db_path)
+    _serve(proxy, PAY)
+    approval_id = _pending_approval(proxy)
+    operator = _operator(db_path)
+    with tx(operator):
+        approvals.cas_approve(operator, approval_id, "operator", now_utc())
+        killswitch.set_engaged(operator, True, origin="operator")
+
+    retried = json.loads(json.dumps(PAY))
+    retried["params"]["_meta"] = {"onedoor/approval_ref": approval_id}
+    denied = _serve(proxy, retried)
+    assert denied[0]["result"]["isError"] is True
+    state = proxy.conn.execute("SELECT state FROM approvals WHERE id=?", (approval_id,))
+    assert state.fetchone()[0] == "consumed"
+
+    with tx(operator):
+        killswitch.set_engaged(operator, False, origin="operator")
+    again = _serve(proxy, retried)
+    assert "Sent" not in _text(again[0]), "a consumed approval releases nothing"

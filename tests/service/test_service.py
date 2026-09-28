@@ -181,6 +181,35 @@ def test_a_tier3_proposal_is_approved_by_an_admin_key(client: TestClient) -> Non
     assert ok.json()["decision"] == "permitted"  # obligation handed back for enforcement
 
 
+def test_an_approval_is_consumed_even_when_its_resumption_is_denied(client: TestClient) -> None:
+    proposed = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("dkey"),
+    ).json()
+    approval_id = proposed["approval_id"]
+    client.post("/v1/killswitch", json={"engaged": True}, headers=_h("akey"))
+
+    resumed = client.post(f"/v1/approvals/{approval_id}/approve", headers=_h("akey"))
+    assert resumed.json()["decision"] == "denied"
+    assert resumed.json()["reason"] == "kill_switch"
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    state = engine.conn.execute("SELECT state FROM approvals WHERE id=?", (approval_id,))
+    assert state.fetchone()[0] == "consumed"
+
+    client.post("/v1/killswitch", json={"engaged": False}, headers=_h("akey"))
+    later = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "money.transfer",
+            "params": {"amount_eur": 5},
+            "approval_ref": approval_id,
+        },
+        headers=_h("dkey"),
+    ).json()
+    assert later["decision"] != "permitted", "a consumed approval grants nothing"
+
+
 def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:
     client.post("/v1/killswitch", json={"engaged": True}, headers=_h("akey"))
     r = client.post(

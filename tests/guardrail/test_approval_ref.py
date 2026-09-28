@@ -259,7 +259,7 @@ def test_the_consume_is_the_first_write(conn: Connection, config: EngineConfig) 
     """Read-then-decide-then-mark would let two resumptions through.
 
     Asserted structurally: after a resolution that authorises, the approval row is
-    already `executed` — before any decision row exists.
+    already `consumed` — before any decision row exists.
     """
     _tier3(conn)
     request = _request()
@@ -268,7 +268,7 @@ def test_the_consume_is_the_first_write(conn: Connection, config: EngineConfig) 
         resolution = resolve(conn, approval_ref=ref, presented=request, now=FROZEN_NOW)
         assert resolution.authorised
         state = conn.execute("SELECT state FROM approvals WHERE id=?", (ref,)).fetchone()["state"]
-    assert state == "executed", "the ref must be consumed before anything else happens"
+    assert state == "consumed", "the ref must be consumed before anything else happens"
 
 
 # --- A6: the kill switch still wins ----------------------------------------------
