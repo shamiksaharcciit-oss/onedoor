@@ -1,4 +1,4 @@
-"""Every third-party module `onedoor` imports must be installed by `[dev]` (R010's shape).
+"""Every third-party module `onedoor` imports must be installed by `[dev]`.
 
 Why this test exists, and the defect that produced it
 -------------------------------------------------------
@@ -8,7 +8,7 @@ module named uvicorn"*. The gate's own command had been run verbatim — the fai
 one layer under that: the local virtualenv happened to have uvicorn, and `[dev]`, which
 is all CI installs, did not.
 
-So this is R010's rule with a new edge. *A verification claim about a gate must come
+So this is the unverifiable-is-not-passing rule with a new edge. *A verification claim about a gate must come
 from the gate's own commands* — and the command is only half of a gate. **The other half
 is the environment it runs in, and a local environment drifts richer than CI's simply by
 being used.** Running the right command in the wrong world is a green answer about a
@@ -115,7 +115,7 @@ def test_every_third_party_import_is_declared_in_dev() -> None:
 
 
 def test_the_studio_extra_exists_and_is_separate_from_service() -> None:
-    """R047 §1 made them separate PROCESSES; sharing an extra would re-couple them.
+    """They are separate PROCESSES; sharing an extra would re-couple them.
 
     Not cosmetic: `onedoor.service` is the PDP, and the reason the Studio is its own
     process is that one credential must not both answer decisions and rewrite the rules.

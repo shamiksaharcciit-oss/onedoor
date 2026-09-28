@@ -1,6 +1,6 @@
 """The emitted page, and the sabotage that proves the tests would catch a lie.
 
-R028's two mandatory tests are here, and both are **sabotage-verified**: the breakage
+The page's two mandatory tests are here, and both are **sabotage-verified**: the breakage
 is applied in-process, the properties are re-checked one at a time, and the assertion
 is that **exactly the intended property fails and the rest still hold**. A test that
 has only ever seen correct input is a test with an unknown catch radius.
@@ -100,7 +100,7 @@ def test_the_chain_block_says_absent_rather_than_showing_a_digest(
 def test_an_unsound_receipt_shows_the_failure_state_and_no_values(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """R028's first mandatory test. The store is damaged; the page must refuse."""
+    """The first mandatory test. The store is damaged; the page must refuse."""
     _seed(conn, config)
     with tx(conn):
         conn.execute("DROP TRIGGER policy_versions_no_delete")
@@ -125,7 +125,7 @@ def test_an_unverifiable_check_is_as_loud_as_a_failed_one(
     assert_failure_state_shown(render(model))
 
 
-# --- Sabotage (R028): the right tests fail, and no others ------------------------
+# --- Sabotage: the right tests fail, and no others -------------------------------
 
 
 def _properties_that_fail(html: str, conn: Connection) -> set[str]:
@@ -186,7 +186,7 @@ def test_sabotage_a_fabricated_digest_fails_exactly_the_digest_test(
     """Sabotage B. Put a digest on the page that the store does not carry.
 
     The intended catch is `assert_every_displayed_digest_is_in_the_store` and nothing
-    else. This is the X-11 test for a UI, and the failure it models is the most
+    else. This is the generated-never-typed test for a UI, and the failure it models is the most
     seductive one available: a digest that *looks* right, taken from a mockup or
     computed for display, sitting on a page that is otherwise perfect.
     """
@@ -214,7 +214,7 @@ def test_sabotage_a_fabricated_digest_fails_exactly_the_digest_test(
     sabotaged = _properties_that_fail(build_page(conn), conn)
 
     assert "assert_every_displayed_digest_is_in_the_store" in sabotaged, (
-        "a digest the store does not carry must be caught by the X-11 test"
+        "a digest the store does not carry must be caught by the generated-never-typed test"
     )
     expected_noise = {"assert_failure_state_shown"}  # unchanged: this page is sound
     assert sabotaged - expected_noise == {"assert_every_displayed_digest_is_in_the_store"}, (
@@ -388,7 +388,7 @@ def test_a_tampered_row_makes_the_viewer_refuse_to_show_it(
 def test_a_self_consistent_signature_is_loud_and_is_not_green(
     conn: Connection, config: EngineConfig, tmp_path: Path
 ) -> None:
-    """R038 §1 reaching the person who reads the page.
+    """A receipt system is not its own witness, reaching the person who reads the page.
 
     The page must not render `self_consistent` as a pass. A green tick beside "matches
     this store's own keyring" would be the viewer doing exactly what the rule forbids

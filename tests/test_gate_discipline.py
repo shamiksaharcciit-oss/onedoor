@@ -1,6 +1,6 @@
-"""The gate runner's companion (R049 §2). Three classes, held structurally.
+"""The gate runner's companion. Three classes, held structurally.
 
-R049 approved two layers and named two of the three instances that landed while `0.5.0`
+Two layers, covering two of the three instances that landed while `0.5.0`
 was being cut as **old classes wearing new clothes**. Both become tests here rather than
 cautionary notes, which is the whole point of the ticket:
 
@@ -132,7 +132,7 @@ def test_each_pattern_matches_its_own_gates_real_output(tmp_path: Path) -> None:
 
     **Three outcomes, not two.** If the gate itself is currently red, this test cannot
     tell a badly-written contract from a repository that simply does not pass — that is
-    *unverifiable*, and R010 says an unverifiable result is surfaced, never collapsed
+    *unverifiable*, and an unverifiable result is surfaced, never collapsed
     into the failure next to it. An earlier version reported "the gate can never pass"
     whenever `mypy` had an error, which sent the reader hunting for a contract bug that
     was not there.
@@ -240,7 +240,7 @@ def test_a_nonzero_exit_with_the_contract_present_is_also_a_failure() -> None:
 
 
 def test_the_runner_prints_what_it_ran_and_where(capsys: pytest.CaptureFixture[str]) -> None:
-    """R049 §2: a control indistinguishable from its own absence is not yet a control."""
+    """A control indistinguishable from its own absence is not yet a control."""
     ok = gate.Gate(
         name="ok",
         command=(sys.executable, "-c", "print('All checks passed!')"),

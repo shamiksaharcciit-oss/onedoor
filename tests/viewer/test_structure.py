@@ -1,6 +1,6 @@
 """Structural rules the viewer must not be able to break (ND-051 / V4).
 
-Three of R028's requirements are not properties of a rendered page — they are
+Three of the page's requirements are not properties of a rendered page — they are
 properties of the *code*, and a page test cannot see them. A viewer that grew its own
 digest arithmetic would still emit a page that passed every content assertion, right
 up until its answer disagreed with the checker's.
@@ -46,7 +46,7 @@ def _viewer_sources() -> list[Path]:
 def test_the_renderer_cannot_form_an_opinion_about_validity() -> None:
     """`page.py` renders the checker's answer and computes nothing of its own.
 
-    R028: *the generator calls the same verification the engine/CLI uses — never its
+    *The generator calls the same verification the engine/CLI uses — never its
     own copy.* The enforceable form of "never its own copy" is that the renderer has
     nothing to compute with: no hashing module, and from the engine only
     `guardrail.receipt`. Reaching into `policy_loader` or `decision` to re-derive
@@ -55,7 +55,7 @@ def test_the_renderer_cannot_form_an_opinion_about_validity() -> None:
     imported = _modules(VIEWER_DIR / "page.py")
     assert not (imported & HASHING_MODULES), (
         f"the renderer imports {sorted(imported & HASHING_MODULES)}: it is one step from "
-        f"computing a digest for display, which is the drift R028 forbids"
+        f"computing a digest for display, which is the drift this forbids"
     )
     guardrail = {m for m in imported if m.startswith("onedoor.guardrail")}
     assert guardrail == {"onedoor.guardrail.receipt"}, (
@@ -67,7 +67,7 @@ def test_only_the_vendoring_module_hashes_anything() -> None:
     """One declared exception, and it hashes the SPEC, never the store.
 
     `tokens.py` pins the vendored design spec, which is a `rederivable-manifest`-shaped
-    guarantee about a file core delivered — a different job from verifying a receipt,
+    guarantee about a delivered file — a different job from verifying a receipt,
     and it would be silly to route it through the engine. The exception is named here
     so it stays one exception rather than becoming a habit.
     """
@@ -140,9 +140,9 @@ def test_the_viewer_never_builds_a_status_from_a_string() -> None:
 
 
 def test_the_vendored_spec_is_byte_identical_to_the_delivery() -> None:
-    """Two copies of core's spec exist. They must be the same bytes, not similar files.
+    """Two copies of the design spec exist. They must be the same bytes, not similar files.
 
-    `docs/oneview/` is where core delivers; `onedoor/viewer/_vendor/` is what ships in
+    `docs/oneview/` is where it is delivered; `onedoor/viewer/_vendor/` is what ships in
     the wheel, because a docs directory does not travel in a package and an installed
     `onedoor` would otherwise have no spec to read. Both are fenced `-text` in
     `.gitattributes` for the reason the vendored manifest is: a CRLF rewrite would
@@ -150,7 +150,7 @@ def test_the_vendored_spec_is_byte_identical_to_the_delivery() -> None:
     """
     delivered = (REPO / "docs" / "oneview" / "ONEVIEW_DESIGN_SPEC.md").read_bytes()
     vendored = tokens.SPEC_PATH.read_bytes()
-    assert vendored == delivered, "the vendored spec has drifted from core's delivery"
+    assert vendored == delivered, "the vendored spec has drifted from its delivered copy"
     assert hashlib.sha256(vendored).hexdigest() == tokens.SPEC_DIGEST
 
 

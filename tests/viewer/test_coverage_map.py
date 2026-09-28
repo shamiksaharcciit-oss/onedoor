@@ -1,6 +1,6 @@
 """The coverage map's skin (ND-052 / S4-T5).
 
-Two things this suite holds, both from R049 §3: **no semantic pair anywhere on this
+Two things this suite holds: **no semantic pair anywhere on this
 surface**, and **prominence ordered by behaviour** — the silent permit above the loud
 denial, measured from the rendered document rather than trusted from the stylesheet's
 comments.
@@ -74,20 +74,20 @@ def test_the_map_still_distinguishes_its_states_visually(
     A rule checked one way forbids the wrong thing without requiring the right one, so
     prominence has to be *present* — size, position and weight — not merely not-red.
 
-    **Inverted by R056 §4**, in the same commit as the migration that made it true. This
-    test used to REQUIRE `var(--seal)` on the state row; when core superseded R049 §3's
+    **Inverted**, in the same commit as the migration that made it true. This
+    test used to REQUIRE `var(--seal)` on the state row; when the old
     fourth mechanism, that requirement became a test demanding a violation. *A test that
     requires a violation becomes a defect the moment the law strengthens, and it must not
     survive one commit longer than the violation it protects.*
 
-    The three mechanisms it now requires are the three R049 §3 kept.
+    The three mechanisms it now requires are the three that were kept.
     """
     html = skin.render_page(_map(fresh, config))
     styles = html.split("<style>")[1].split("</style>")[0]
     inert = [rule for rule in styles.split("}") if ".row.declared_inert" in rule]
     assert inert, "the most dangerous state has no distinguishing style at all"
     joined = " ".join(inert)
-    assert "var(--seal)" not in joined, "the brand accent must not carry this state (R056 §4)"
+    assert "var(--seal)" not in joined, "the brand accent must not carry this state"
     assert "font-weight:700" in joined, "weight"
     assert "font-size" in joined, "size"
     assert "border-left" in joined, "position"
@@ -99,7 +99,7 @@ def test_the_map_still_distinguishes_its_states_visually(
 def test_the_silent_permit_is_rendered_above_the_loud_denial(
     fresh: Connection, config: EngineConfig
 ) -> None:
-    """R049 §3, measured from the document's own ordering."""
+    """Measured from the document's own ordering."""
     m = _map(fresh, config)
     html = skin.render_page(m)
     inert_at = html.index("DECLARED, INERT")
@@ -131,7 +131,7 @@ def test_unreached_renders_as_absent_and_never_as_safe(
 
 
 def test_the_citation_is_on_the_face_of_the_map(fresh: Connection, config: EngineConfig) -> None:
-    """R049 §7: the cited range on the face of the map, not in a tooltip."""
+    """The cited range on the face of the map, not in a tooltip."""
     m = _map(fresh, config)
     html = skin.render_page(m)
     assert m.cited.row_hash_at_last_seq is not None

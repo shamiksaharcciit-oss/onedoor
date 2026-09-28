@@ -5,7 +5,7 @@ a second implementation of "what is the contrast ratio" is a second answer waiti
 disagree with the first.
 
 Nothing here is a policy. The thresholds live with the tests that assert them, and the
-numbers live in the CI output — R057 §6: *a passing check whose numbers nobody sees
+numbers live in the CI output: *a passing check whose numbers nobody sees
 cannot be audited.*
 """
 

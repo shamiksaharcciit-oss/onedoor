@@ -4,7 +4,7 @@ Each function below is one property of the emitted page. The real tests call the
 a healthy page and expect silence; the **sabotage** tests call them on a deliberately
 broken page and expect a specific one to raise.
 
-That is the whole reason they are functions rather than test bodies. R028 asks for
+That is the whole reason they are functions rather than test bodies. The page needs
 more than "the sabotage made something fail": *"render-as-if-verified must fail
 exactly the failure-state tests; a fabricated digest must fail exactly the digest
 tests."* Exactly — meaning the right property breaks and the others hold. Proving that
@@ -46,7 +46,7 @@ def content(html: str) -> str:
 
 
 def assert_every_displayed_digest_is_in_the_store(html: str, conn: sqlite3.Connection) -> None:
-    """X-11 for a UI: the page cannot show a digest the store does not carry.
+    """Generated, never typed, for a UI: the page cannot show a digest the store does not carry.
 
     Collects every 64-hex string on the page and looks for it in the columns that can
     hold one. A page that renders a digest from anywhere else -- computed for display,
@@ -148,7 +148,7 @@ def assert_no_foreign_hex_colour(html: str) -> None:
 BRAND_TOKENS = ("--seal", "--seal-dim", "--gold", "--gold-dim")
 """Every brand accent, across both palettes. oneview spells it `--seal`; the Studio's
 ledger-room palette spells it `--gold`. A check that knew only one name would pass the
-Studio by default, which is the failure R056 §4 removed the grandfather clause for."""
+Studio by default, which is the failure the grandfather clause was removed for."""
 
 VERDICT_WORDS = frozenset(
     {
@@ -200,7 +200,7 @@ def _state_words() -> frozenset[str]:
 def _classification_words() -> frozenset[str]:
     """Words that partition a list into KINDS a reader must not confuse.
 
-    Read from `studio.proposer.KINDS` since R057 §6 promoted them out of the skin. The
+    Read from `studio.proposer.KINDS` since they were promoted out of the skin. The
     seam this closes was real and was reported rather than papered over: the state words
     came from an enumeration and these two were typed, so half the vocabulary could go
     stale while the other half kept itself current -- and the stale half would still
@@ -219,11 +219,11 @@ _COMMENT = re.compile(r"/\*.*?\*/", re.S)
 def seal_state_violations(html: str) -> list[tuple[str, str]]:
     """Every rule where a brand accent is routed by a state or verdict selector.
 
-    **Positive form** (R055 V8(a)): rather than checking that `.verdict` rules avoid
+    **Positive form**: rather than checking that `.verdict` rules avoid
     gold, this enumerates every rule that *uses* gold and asks what routes it. A rule
     the old check never thought to look at is the rule that hid four violations.
 
-    R056 §2 draws the boundary this deliberately respects: **gold standing near
+    The boundary this deliberately respects: **gold standing near
     information is brand usage; gold carrying state is not.** So the test is the
     selector's vocabulary, not gold's presence — an advisory panel styled in gold does
     not fire, because `store-warning` is not a state. A check that outlawed gold
@@ -236,7 +236,7 @@ def seal_state_violations(html: str) -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     # Comments are stripped FIRST. Without this, a rule inherits every word from the
     # comment above it -- which is how the first run of this check reported
-    # `.store-warning` as a violation. It is not one: R056 §2 names it as the exact
+    # `.store-warning` as a violation. It is not one: it is named as the exact
     # thing that must NOT fire, and it fired only because the sentence above it
     # explains what a verdict is. A check that reads prose as selectors will condemn
     # the code that documents itself best.
@@ -252,8 +252,8 @@ def seal_state_violations(html: str) -> list[tuple[str, str]]:
 def assert_seal_never_signals_state(html: str) -> None:
     """oneview §4: the brand accent must never carry a state or a verdict.
 
-    R056 §4 **superseded R049 §3's `--seal` clause**: the rule binds everywhere, with no
-    grandfathered screens. R049 §3 otherwise stands minus its fourth mechanism —
+    The old `--seal` clause is **superseded**: the rule binds everywhere, with no
+    grandfathered screens. The prominence rule otherwise stands minus its fourth mechanism —
     prominence comes from size, position and weight, and *three are enough*. If
     prominence genuinely fails with three, that is a design escalation and not a reason
     to readmit gold.
@@ -329,7 +329,7 @@ def assert_reader_sees(html: str, text: str) -> None:
 
     So the check runs in both directions: the escaped form must appear in the markup, and
     stripping tags and unescaping must give the constant back character for character.
-    R061 §3's law: **prove verbatim in the form the reader receives.**
+    The law: **prove verbatim in the form the reader receives.**
     """
     from html import escape as _escape
     from html import unescape as _unescape

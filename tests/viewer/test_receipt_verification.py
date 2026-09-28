@@ -1,6 +1,6 @@
 """The four outcomes, held apart (ND-051 / V1).
 
-`absent`, `unverifiable` and `failed` are distinct and must never collapse (R010).
+`absent`, `unverifiable` and `failed` are distinct and must never collapse.
 In a viewer that is not a technicality, it is the product: a page that shows a value
 it could not confirm is the dashboard failure this whole design is built against.
 
@@ -82,7 +82,7 @@ def test_a_sound_receipt_reports_every_check(conn: Connection, config: EngineCon
         "signature",
         "anchor",
         "append_only",
-    ], "byte-form checks run before anything hashes (R028), and the order is the contract"
+    ], "byte-form checks run before anything hashes, and the order is the contract"
 
 
 def test_the_chain_is_absent_not_verified_and_not_failed(
@@ -102,7 +102,7 @@ def test_the_chain_is_absent_not_verified_and_not_failed(
 def test_a_half_written_chain_is_unverifiable_not_absent(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Produced and then lost is a different fact from not yet produced (R015).
+    """Produced and then lost is a different fact from not yet produced.
 
     A chain with `seq` set and `row_hash` NULL is not a feature that has not run; it
     is a feature that ran and did not finish, and calling that "absent" would file a
@@ -160,7 +160,7 @@ def test_a_tampered_snapshot_fails_rather_than_being_unverifiable(
 
 
 def test_the_snapshot_check_is_not_a_tautology(conn: Connection, config: EngineConfig) -> None:
-    """R028: a digest checked against a file's own bytes is a tautology dressed as a check.
+    """A digest checked against a file's own bytes is a tautology dressed as a check.
 
     This one compares two SEPARATELY STORED fields -- the snapshot text in
     `policy_versions` and the `policy_version` stamped on the audit row -- so changing
@@ -218,7 +218,7 @@ def test_params_byte_form_fails_before_anything_hashes(
 def test_an_undeclared_provenance_fails_but_an_absent_one_does_not(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """A pre-0.4.0 row has no provenance and that is a fact about its age (R015)."""
+    """A pre-0.4.0 row has no provenance and that is a fact about its age."""
     audit_id = _deny_with_budget(conn, config)
 
     _force_column(conn, audit_id, "params_provenance", None)

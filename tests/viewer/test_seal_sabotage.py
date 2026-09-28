@@ -1,6 +1,6 @@
-"""The sabotage pair for the strengthened seal check (Forward 005, R055 V8(a)).
+"""The sabotage pair for the strengthened seal check.
 
-Forward 005 pins the shape: **two sabotages, not one.** A literal injection proves the
+The shape: **two sabotages, not one.** A literal injection proves the
 check reads the declaration; a semantic-class route proves it reads the *selector*. A
 check that caught only the first would pass any violation written the way real ones are
 written — nobody types `--seal` into a rule called `.verdict`; they write a rule for a
@@ -10,7 +10,7 @@ And the pair must **fail against the check before the fix counts**. These are th
 that make the four S4 violations and three S6 violations reportable as *caught*, rather
 than as *believed to have been caught*.
 
-The third test is the one that keeps the check honest in the other direction: R056 §2
+The third test is the one that keeps the check honest in the other direction: the boundary
 says a conditionally-rendered advisory panel must NOT fire. It is not enough that the
 check catches violations — a check that also condemns the innocent teaches people to
 route around it, and *a name that outruns its check is false comfort; a check that
@@ -62,7 +62,7 @@ def test_every_spelling_of_the_brand_accent_is_caught(token: str) -> None:
     """oneview spells it `--seal`; the Studio's ledger-room palette spells it `--gold`.
 
     A check that knew only one name would pass the Studio by default — the exact shape
-    of the grandfather clause R056 §4 removed.
+    of the grandfather clause that was removed.
     """
     with pytest.raises(PropertyViolation):
         assert_seal_never_signals_state(f".row.uncovered_observed{{color:var({token});}}")
@@ -107,7 +107,7 @@ def test_the_state_vocabulary_comes_from_the_code_that_declares_the_states() -> 
 
 
 def test_an_advisory_panel_in_gold_does_not_fire() -> None:
-    """R056 §2, and the defect this test was written after.
+    """The boundary, and the defect this test was written after.
 
     The first run of this check reported `.store-warning` — F-H's empty-store advice —
     as a violation. It is not one: gold standing near information is brand usage, and
@@ -137,7 +137,7 @@ def test_the_wordmark_and_section_rules_keep_their_gold() -> None:
 
 
 def test_the_check_reports_violations_by_name() -> None:
-    """R056 §4 asks for them reported by name, so the message has to carry the name."""
+    """They are reported by name, so the message has to carry the name."""
     with pytest.raises(PropertyViolation) as caught:
         assert_seal_never_signals_state(".row.declared_inert .state{color:var(--seal);}")
     assert ".row.declared_inert .state" in str(caught.value)

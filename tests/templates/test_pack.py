@@ -1,6 +1,6 @@
 """The payments pack (ND-052 / S5, T1–T6).
 
-R051 §7's expected standing lives here. Three groups:
+The pack's expected standing lives here. Three groups:
 
 **The law family**, asserted through the engine's own checkers and never through a
 re-implementation of them — `validate_policy` refuses, `coverage.build` maps, and this
@@ -145,7 +145,7 @@ def value_positions(yaml_text: str) -> list[str]:
     Comment-stripped on purpose, and the reason is a law rather than a convenience. The
     first version of this check scanned the whole file and fired on the pack's own
     comment *explaining* that `{{daily_cap}}` is forbidden — a check outrunning its name,
-    which is a false alarm. R050's deciding principle: **narrow the check to what it
+    which is a false alarm. The deciding principle: **narrow the check to what it
     always claimed; never degrade the artifact to satisfy the check.** Deleting the
     explanation from the pack to appease this test would have let a guard erode the thing
     it guards.
@@ -194,7 +194,8 @@ def test_the_pack_contains_no_placeholders() -> None:
 
 
 def test_every_effect_the_pack_names_is_declared(fresh: Connection) -> None:
-    """Q3's law, asserted by `coverage.build` rather than by a checker written here."""
+    """No effect is left undeclared, asserted by `coverage.build` rather than by a
+    checker written here."""
     PAYMENTS.adopt(fresh, ratified_by_session="tests", now=FROZEN_NOW)
     inert = [r for r in coverage.build(fresh).effects if r.state == coverage.DECLARED_INERT]
     assert inert == [], (
@@ -405,7 +406,7 @@ def test_an_undeclared_action_is_refused_by_default_deny(
 def test_adoption_goes_through_the_ceremony_and_the_receipt_cites_the_pack(
     fresh: Connection,
 ) -> None:
-    """R051 §6: `candidate_digest` IS the pack's `policy_digest`, by construction.
+    """`candidate_digest` IS the pack's `policy_digest`, by construction.
 
     So pack lineage is recoverable by **recomputation** — anyone holding the pack can
     compute that value and match it against the receipt — rather than by a stored

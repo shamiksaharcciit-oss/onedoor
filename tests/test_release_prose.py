@@ -1,11 +1,11 @@
-"""The `0.7.0` release prose, held to the same fences the surfaces are (R070 §2.3).
+"""The `0.7.0` release prose, held to the same fences the surfaces are.
 
 The forbidden-phrase lists were built to guard rendered screens. Release notes are read by
 more people than any screen, are quoted onward, and outlive the release — so a claim that
 would fail on a page must fail here too. *The discipline you sell is the discipline your
 own pages keep*, and a release note is a page.
 
-Two things are checked, against the one document that ships (R094 §2): this file used to
+Two things are checked, against the one document that ships: this file used to
 hold two drafts apart while the T3 decision was still open — variant A assuming T3 shipped,
 variant B assuming it slipped — and the fence that mattered most was keeping them honestly
 partitioned. That decision is now made and recorded (T3 measured 0 of 11 and does not ship
@@ -40,14 +40,14 @@ def _text(path: Path) -> str:
 
 
 def _body_of(path: Path) -> str:
-    """The document with its OWN seal removed — by POSITION, never by pattern (R071 §3.1).
+    """The document with its OWN seal removed — by POSITION, never by pattern.
 
     The distinction being enforced: **a digest a document computes about itself is its
     address; a digest a document repeats about another artifact is a transcription, and
     transcriptions go stale in silence.** Only the second is forbidden.
 
     The first version of this exemption dropped *every* line beginning `Integrity: `,
-    anywhere in the file. That is pattern-based, and core was right that it had not been
+    anywhere in the file. That is pattern-based, and it had rightly been judged as not
     fixed but switched off: a draft quoting another memo's footer on its own line would
     have been exempted by the very fence meant to catch it.
 
@@ -114,7 +114,7 @@ def test_no_release_document_claims_the_studio_edits_live_rules(name: str) -> No
 
 def test_the_published_notes_omit_t3_rather_than_promising_it() -> None:
     """The capability rule's sharpest edge, carried over from variant B: **absent, not
-    announced.** T3 measured 0 of 11 (R094 §1) and does not ship, so the one document a
+    announced.** T3 measured 0 of 11 and does not ship, so the one document a
     reader takes as the record of what `0.7.0` IS does not mention the model track at
     all — a release note that promised a feature coming has made a claim it cannot keep,
     in the document people quote onward."""
@@ -127,7 +127,7 @@ def test_the_published_notes_omit_t3_rather_than_promising_it() -> None:
 
 
 def test_the_published_notes_exist_and_the_two_drafts_are_gone() -> None:
-    """R094 §2.3: the notes are core-written, sealed, and committed as delivered; the
+    """The notes are sealed and committed as delivered; the
     two forks that existed while the T3 decision was open are retired in the same
     commit — a draft left beside the published notes would be indistinguishable from
     them to a reader who does not already know which is which."""
@@ -160,7 +160,7 @@ def test_the_changelog_t3_entry_says_it_did_not_ship() -> None:
 
 
 def test_the_legacy_route_sentence_is_the_ruled_form_in_every_document() -> None:
-    """R066 §1 fixed this wording because an earlier form would have been FALSE.
+    """This wording is fixed because an earlier form would have been FALSE.
 
     It is quoted rather than paraphrased in each document, and matched here against the
     constant the API itself serves — so the notes, the changelog and the running app
@@ -176,19 +176,19 @@ def test_the_legacy_route_sentence_is_the_ruled_form_in_every_document() -> None
         ]
         folded = " ".join(" ".join(unquoted).split())
         assert " ".join(api.NO_APPROVAL_NOTE.split()) in folded, (
-            f"{name} does not carry R066 §1's ruled sentence about the legacy route"
+            f"{name} does not carry the fixed sentence about the legacy route"
         )
 
 
 def test_every_document_states_that_nothing_is_removed() -> None:
-    """R070 §2.1: this release removes nothing, and the notes say so."""
+    """This release removes nothing, and the notes say so."""
     for name, path in DOCUMENTS.items():
         folded = _folded(path)
         assert "removes nothing" in folded, f"{name} does not say the release removes nothing"
 
 
 def test_every_document_tells_the_version_number_story() -> None:
-    """R070 §2.2: why 0.7.0 — the content defines the number."""
+    """Why 0.7.0 — the content defines the number."""
     for name, path in DOCUMENTS.items():
         folded = _folded(path)
         assert "content defines the number" in folded or "number describes content" in folded, (
@@ -202,7 +202,7 @@ def test_no_document_carries_crlf() -> None:
 
 
 def test_the_notes_do_not_quote_a_test_count_they_cannot_hold() -> None:
-    """Release prose must not transcribe numbers that a run owns (R010, X-11).
+    """Release prose must not transcribe numbers that a run owns: generated, never typed.
 
     A test count in either document would be stale the moment anything changed, and the
     release's real build-artifact digests are recorded at build time, before upload — a
@@ -223,7 +223,7 @@ def test_the_notes_carry_exactly_one_integrity_footer() -> None:
 
 
 def test_the_digest_exemption_is_anchored_to_position_and_not_to_pattern() -> None:
-    """R071 §3.1's mechanism, proven in both directions on synthetic documents.
+    """The seal-by-position mechanism, proven in both directions on synthetic documents.
 
     A fence loosened until it stops complaining has been switched off. This proves the
     narrowing: the document's own final seal is exempt, and a digest anywhere else — even

@@ -138,11 +138,11 @@ def make_request(
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    """Print the palette's measurements once, at the end of the run (R062 §4).
+    """Print the palette's measurements once, at the end of the run.
 
-    R057 §5/§6 require these numbers visible in CI. They used to be printed from inside
-    test bodies with `capsys.disabled()`; core approved this move **on design grounds
-    and explicitly not as a fix** for the Q8 flake — the matrices are disclosure, not
+    These numbers must be visible in CI. They used to be printed from inside
+    test bodies with `capsys.disabled()`; they moved here **on design grounds
+    and explicitly not as a fix** for a flaky test — the matrices are disclosure, not
     assertion, and reporting belongs in the reporting phase.
 
     Nothing here can fail a build. The thresholds that can are asserted in
@@ -156,6 +156,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     except Exception as exc:  # pragma: no cover - the report must never break a run
         terminalreporter.write_line(f"palette report unavailable: {exc}")
         return
-    terminalreporter.section("palette measurements (R057 §5/§6)")
+    terminalreporter.section("palette measurements")
     for line in lines():
         terminalreporter.write_line(line)

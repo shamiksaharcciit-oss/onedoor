@@ -11,7 +11,7 @@ ROOT = Path(__file__).parent.parent.parent
 
 
 def test_mcp_demo_end_to_end() -> None:
-    # Both ends of the pipe state UTF-8 rather than inheriting a locale (R048: a green
+    # Both ends of the pipe state UTF-8 rather than inheriting a locale (a green
     # gate is a claim about an environment). `text=True` alone decodes with the PARENT's
     # locale -- cp1252 on Windows -- while the child writes UTF-8 whenever
     # PYTHONIOENCODING says so. The only non-ASCII assertion below then failed on the

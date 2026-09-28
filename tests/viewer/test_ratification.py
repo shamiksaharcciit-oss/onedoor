@@ -1,4 +1,4 @@
-"""The two rendering disciplines (ND-052 / S2-T5, R045 §4.2).
+"""The two rendering disciplines (ND-052).
 
 **Absence is rendered, not merely null**, and **a cited backtest surfaces its
 `ledger_provenance` by dereferencing** — in *every* view, which is the part that needs
@@ -133,7 +133,7 @@ def test_the_absence_statement_is_gone_when_a_backtest_is_cited(
 def test_a_fixture_informed_ratification_is_visible_as_one(
     conn: Connection, config: EngineConfig, render
 ) -> None:
-    """R045 §4.2. Legitimate, and it must not read as production-backed.
+    """Legitimate, and it must not read as production-backed.
 
     The backtest is run against the shipped fixture ledger and its receipt is copied
     into this store, which is exactly the day-one path: nothing to backtest against

@@ -1,6 +1,6 @@
-"""The vendored artifact must still be the bytes core shipped.
+"""The vendored artifact must still be the bytes it shipped as.
 
-`reference/rederivable-manifest/` is core's receipt artifact, pinned at v3. Its
+`reference/rederivable-manifest/` is the reference receipt artifact, pinned at v3. Its
 manifests are content-addressed: `validate.py --verify` recomputes four SHA-256
 digests and re-derives the verdict from the archived evidence, so any change to
 the bytes -- one byte -- makes it fail.

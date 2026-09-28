@@ -132,7 +132,7 @@ def test_the_zone_class_is_one_fact_not_two(
 ) -> None:
     """The stylesheet's selector and the markup's class are interpolated from one constant.
 
-    R045 §1 again: two names for one fact drift together, and a test asserting their
+    Again: two names for one fact drift together, and a test asserting their
     equality certifies the drift. So the CSS is written with a placeholder and the
     constant is substituted at render time — this test proves the placeholder is gone,
     which is the only way the substitution can be observed from outside.
@@ -148,7 +148,7 @@ def test_the_zone_class_is_one_fact_not_two(
 def test_the_moved_state_names_both_hashes_on_the_page(
     conn: Connection, studio: Connection, config: EngineConfig
 ) -> None:
-    """R047 §3, at the surface: a warning that names no versions is a mood, not a fact."""
+    """At the surface: a warning that names no versions is a mood, not a fact."""
     draft = canvas_model.open_draft_from_active(conn, studio, title="d", now=FROZEN_NOW)
     was = draft.base_version
     policy_loader.upsert(conn, _policy(cap="9999"))
@@ -207,7 +207,7 @@ def test_the_page_escapes_operator_authored_policy_text(
 def test_the_page_raises_rather_than_rendering_a_stale_palette(
     conn: Connection, studio: Connection, config: EngineConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """X-6's shape: the design system is a hard requirement of this surface.
+    """Required when enabled: the design system is a hard requirement of this surface.
 
     `tokens.css_block` raises when the vendored spec is missing or has drifted, and this
     page does not catch it. A canvas that silently used last week's palette is the same

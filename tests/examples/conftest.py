@@ -3,7 +3,7 @@
 `litellm` is a heavy dependency and is not in `[dev]`, so CI does not have it.
 The alternative to a stand-in is skipping these tests on CI — and a skipped test
 is the one thing this suite must not ship: a gate that never fires is
-indistinguishable from a gate that passes (R010 §1, and the whole reason
+indistinguishable from a gate that passes (and the whole reason
 `ND-025`'s Tests step hid a broken suite for weeks).
 
 What the stand-in costs, stated plainly: these tests exercise **onedoor's** half

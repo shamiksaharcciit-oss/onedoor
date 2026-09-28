@@ -1,6 +1,6 @@
 """The proposal surface (S6-T5): one page, two sections, never one table.
 
-R053 §3, held from the rendered document rather than from the stylesheet's comments:
+Held from the rendered document rather than from the stylesheet's comments:
 a measured row and an asserted row must never share a table, the asserted section must
 state its warrant on its face, and every asserted row must cite what it was checked
 against.
@@ -104,7 +104,7 @@ def test_every_asserted_row_cites_what_it_was_checked_against(rendered) -> None:
 
 
 def test_both_face_sentences_render(rendered) -> None:
-    """R053 §1: the record says what it does not claim, on its face, every time."""
+    """The record says what it does not claim, on its face, every time."""
     html, _, _ = rendered
     assert rendered_form(proposer_model.NOT_REDERIVABLE) in html
     assert rendered_form(proposer_model.AUTHORITY_FROM_CHECKS) in html
@@ -150,7 +150,7 @@ def test_the_proposal_page_uses_no_verdict_colours(rendered) -> None:
 def test_the_asserted_section_is_visibly_a_different_kind(rendered) -> None:
     """Separated by heading is not enough — a reader scrolls past headings.
 
-    **Inverted by R056 §4**, in the same commit as the migration. Asserted-vs-measured is
+    **Inverted**, in the same commit as the migration. Asserted-vs-measured is
     a classification a reader must not confuse, which is exactly the job the brand accent
     must not be given; the distinction now carries on position and surface instead.
     """
@@ -158,7 +158,7 @@ def test_the_asserted_section_is_visibly_a_different_kind(rendered) -> None:
     styles = html.split("<style>")[1].split("</style>")[0]
     rule = " ".join(r for r in styles.split("}") if "section.asserted" in r)
     assert rule, "the asserted section has no distinguishing style"
-    assert "var(--seal)" not in rule, "the brand accent must not mark this kind (R056 §4)"
+    assert "var(--seal)" not in rule, "the brand accent must not mark this kind"
     assert "border-left" in rule, "position"
     assert "background" in rule, "surface"
 
