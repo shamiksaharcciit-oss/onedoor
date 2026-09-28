@@ -148,6 +148,11 @@ exclude = [
     "**/.venv",
     "**/site-packages",
     "onedoor-trial",
+    # Git's own directory. `exclude` replaces ruff's default list rather than extending
+    # it, and that default list is where `.git` was excluded -- so a Python file under
+    # `.git/hooks` (local, never part of the repository) was linted and formatted as
+    # if it were source, and turned the format gate red.
+    ".git",
     # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
     # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
     # quote matches the file it indicts (reformatting ND-021's snippet would make it
