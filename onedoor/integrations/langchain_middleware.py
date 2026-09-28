@@ -193,9 +193,8 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                 now=now,
                 approved_override=True,
                 resumes_audit_id=proposal_audit_id,
+                consumes_approval=approval_id,
             )
-            if isinstance(outcome, PermittedIntent):
-                approvals.mark_executed(self._conn, approval_id, outcome.intent_audit_id)
         if not isinstance(outcome, PermittedIntent):
             return self._tool_message(
                 request,

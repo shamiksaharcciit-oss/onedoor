@@ -189,7 +189,7 @@ def resolve(
         return RefResolution(False, ApprovalRefStatus.UNKNOWN)
 
     state = str(row["state"])
-    if state in ("executed", "denied"):
+    if state in ("consumed", "executed", "denied"):
         return RefResolution(False, ApprovalRefStatus.CONSUMED, approval_ref)
     if state == "expired" or str(row["expires_at"]) <= to_iso(now):
         return RefResolution(False, ApprovalRefStatus.EXPIRED, approval_ref)
@@ -209,7 +209,7 @@ def resolve(
     # proceed. A lost race is not an error and not a denial: the ref evaluates as
     # absent and the action re-evaluates on its own merits.
     consumed = conn.execute(
-        "UPDATE approvals SET state='executed' WHERE id=? AND state='approved'",
+        "UPDATE approvals SET state='consumed' WHERE id=? AND state='approved'",
         (approval_ref,),
     )
     if consumed.rowcount == 0:

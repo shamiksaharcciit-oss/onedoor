@@ -221,7 +221,7 @@ def test_two_simultaneous_resumptions_yield_exactly_one_execution(tmp_path: Path
     """The DoD concurrency test, run against two real connections.
 
     `BEGIN IMMEDIATE` serialises the two transactions, and the consume is the FIRST
-    write inside it with `rowcount` as the gate — so the loser sees `state='executed'`
+    write inside it with `rowcount` as the gate — so the loser sees `state='consumed'`
     and resolves to `consumed`. **A lost race never denies and never errors; it just
     does not grant**, and the action re-evaluates on its own merits.
     """

@@ -184,7 +184,7 @@ def cas_resume_ratified(conn: sqlite3.Connection, approval_id: int, now: datetim
     of its own. This is that check, mirroring `cas_approve`'s pending -> approved
     gate exactly: 'approved' is reused rather than adding a new state, because it
     means the same thing here as it does for an admin approval -- cleared for the
-    one execution now in flight, not yet executed. A second resumption attempt,
+    one resumption now in flight, not yet consumed. A second resumption attempt,
     however it arrives or whatever request_id it mints, finds the row no longer
     'ratified' and is refused before anything executes twice.
     """
@@ -229,9 +229,27 @@ def proposed_audit_id(conn: sqlite3.Connection, approval_id: int) -> int | None:
     return int(row["id"]) if row is not None else None
 
 
-def mark_executed(conn: sqlite3.Connection, approval_id: int, audit_id: int | None) -> None:
+def consume(conn: sqlite3.Connection, approval_id: int) -> None:
+    """Flip approved -> consumed iff still approved; refuse otherwise.
+
+    Called first, inside the transaction of the decision that resumes the approval,
+    so the approval is used up by that decision whatever its verdict -- a denied
+    resumption consumes it exactly as a permitted one does. A row no longer
+    `approved` (used already, or lost to a concurrent resumption) is refused before
+    anything is evaluated.
+    """
+    cur = conn.execute(
+        "UPDATE approvals SET state='consumed' WHERE id=? AND state='approved'",
+        (approval_id,),
+    )
+    if cur.rowcount == 0:
+        raise ApprovalError(f"approval {approval_id} is not approved, or has already been used")
+
+
+def record_result(conn: sqlite3.Connection, approval_id: int, audit_id: int | None) -> None:
+    """Link a consumed approval to the audit row of the decision that consumed it."""
     conn.execute(
-        "UPDATE approvals SET state='executed', resulting_audit_id=? WHERE id=?",
+        "UPDATE approvals SET resulting_audit_id=? WHERE id=? AND state='consumed'",
         (audit_id, approval_id),
     )
 

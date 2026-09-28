@@ -124,6 +124,7 @@ def evaluate_and_execute(
     approved_override: bool = False,
     resumes_audit_id: int | None = None,
     principal: str | None = None,
+    consumes_approval: int | None = None,
 ) -> ActionResult:
     """Evaluate a request against policy and, if permitted, execute it.
 
@@ -133,7 +134,7 @@ def evaluate_and_execute(
     External enforcement points (an MCP proxy, a gateway filter) compose the
     same two phases around their own act.
 
-    `resumes_audit_id` and `principal` are passed through unchanged to
+    `resumes_audit_id`, `principal` and `consumes_approval` are passed through to
     :func:`onedoor.guardrail.decision.decide_and_reserve`, which is where they are
     actually documented -- see there.
     """
@@ -146,6 +147,7 @@ def evaluate_and_execute(
         approved_override=approved_override,
         resumes_audit_id=resumes_audit_id,
         principal=principal,
+        consumes_approval=consumes_approval,
     )
     if not isinstance(outcome, decision_mod.PermittedIntent):
         return outcome
@@ -261,9 +263,8 @@ def resume_approval(
         policy_store=policy_store,
         approved_override=True,
         resumes_audit_id=proposal_audit_id,
+        consumes_approval=approval_id,
     )
-    with tx(conn):
-        approvals.mark_executed(conn, approval_id, result.audit_id)
     return result
 
 
@@ -298,9 +299,8 @@ def resume_ratification(
         policy_store=policy_store,
         approved_override=True,
         resumes_audit_id=proposal_audit_id,
+        consumes_approval=approval_id,
     )
-    with tx(conn):
-        approvals.mark_executed(conn, approval_id, result.audit_id)
     return result
 
 

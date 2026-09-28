@@ -162,11 +162,15 @@ class ApprovalState(StrEnum):
     DENIED = "denied"
     EXPIRED = "expired"
     EXECUTED = "executed"
+    """Written before approvals were consumed on every verdict; read, never written."""
     RATIFIED = "ratified"
     """A mandate-pending approval resolved by the mandate authority's
     own ratification (AADP -03 §8.1). A distinct state from `approved` on purpose --
     the two paths must never be structurally confusable, since only the mandate
     authority may produce this one (`approvals.cas_approve` never writes it)."""
+    CONSUMED = "consumed"
+    """A resumption was decided against this approval, whatever the verdict. Terminal:
+    one human decision authorises one decision, never a standing permission."""
 
 
 class NumericBound(BaseModel):

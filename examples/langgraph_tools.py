@@ -159,11 +159,16 @@ def _execute_approved(
     with _LOCK:
         original = approvals.cas_approve(conn, approval_id, "langgraph-human", now)
         resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
+        # The resumed decision consumes the approval whatever its verdict.
         outcome = decide_and_reserve(
-            resumed, conn=conn, config=config, now=now, approved_override=True
+            resumed,
+            conn=conn,
+            config=config,
+            now=now,
+            approved_override=True,
+            resumes_audit_id=approvals.proposed_audit_id(conn, approval_id),
+            consumes_approval=approval_id,
         )
-        if isinstance(outcome, PermittedIntent):
-            approvals.mark_executed(conn, approval_id, outcome.intent_audit_id)
     if not isinstance(outcome, PermittedIntent):
         return f"onedoor: approved action blocked ({outcome.decision.reason_code.value})"
     return _enforce(outcome, fn, dict(resumed.params), conn)

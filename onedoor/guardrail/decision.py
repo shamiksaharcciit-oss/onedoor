@@ -144,6 +144,7 @@ def decide_and_reserve(
     approved_override: bool = False,
     resumes_audit_id: int | None = None,
     principal: str | None = None,
+    consumes_approval: int | None = None,
 ) -> ActionResult | PermittedIntent:
     """Phase A: evaluate the ordered checks; reserve caps; record intent.
 
@@ -162,7 +163,44 @@ def decide_and_reserve(
     never read from `request`, which the asker writes. Recorded on any approval this
     decision creates, so that principal can never approve it. `None` when the caller
     authenticates nobody.
+
+    `consumes_approval`: the approval a resumption resumes. It is consumed first,
+    inside this decision's own transaction, so the decision uses it up whatever the
+    verdict; an approval that is no longer `approved` raises `ApprovalError` before
+    anything is evaluated. The approval is then linked to this decision's audit row.
     """
+    outcome = _decide_and_reserve(
+        request,
+        conn=conn,
+        config=config,
+        now=now,
+        policy_store=policy_store,
+        approved_override=approved_override,
+        resumes_audit_id=resumes_audit_id,
+        principal=principal,
+        consumes_approval=consumes_approval,
+    )
+    if consumes_approval is not None:
+        audit_id = (
+            outcome.intent_audit_id if isinstance(outcome, PermittedIntent) else outcome.audit_id
+        )
+        approvals.record_result(conn, consumes_approval, audit_id)
+    return outcome
+
+
+def _decide_and_reserve(
+    request: ActionRequest,
+    *,
+    conn: Connection,
+    config: EngineConfigLike,
+    now: datetime,
+    policy_store: PolicyStore | None,
+    approved_override: bool,
+    resumes_audit_id: int | None,
+    principal: str | None,
+    consumes_approval: int | None,
+) -> ActionResult | PermittedIntent:
+    """The body of :func:`decide_and_reserve`, which documents every parameter."""
     store = policy_store or PolicyStore()
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
 
@@ -201,6 +239,11 @@ def decide_and_reserve(
         ref_status = resolution.status.value
         if resolution.authorised:
             approved_override = True
+
+        # 1c. CONSUME the approval a resumption resumes, first and in this same
+        #     transaction: whatever the verdict below, this decision has used it up.
+        if consumes_approval is not None:
+            approvals.consume(conn, consumes_approval)
 
         # 2. POLICY LOOKUP / DEFAULT-DENY.
         policy = store.get(conn, request.action_type)

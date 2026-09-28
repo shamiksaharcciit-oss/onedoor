@@ -48,7 +48,7 @@ def test_approve_before_ttl_executes(
     assert result.executed is True
     approval = approvals.get(conn, aid)
     assert approval is not None
-    assert approval.state == ApprovalState.EXECUTED
+    assert approval.state == ApprovalState.CONSUMED
     assert approval.resulting_audit_id is not None
 
 
