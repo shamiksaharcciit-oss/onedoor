@@ -149,12 +149,28 @@ def test_bounds_denial_over_the_wire(client: TestClient) -> None:
     assert r.json()["reason"] == "bounds"
 
 
-def test_default_deny_then_admin_approves(client: TestClient) -> None:
+def test_an_unlisted_action_is_refused_over_http_in_words_a_caller_can_act_on(
+    client: TestClient,
+) -> None:
     r = client.post(
         "/v1/decide", json={"action_type": "demo.unlisted", "params": {"x": 1}}, headers=_h("dkey")
     )
     body = r.json()
-    assert body["decision"] == "proposed" and body["reason"] == "default_deny"
+    assert r.status_code == 200
+    assert body["decision"] == "denied" and body["reason"] == "default_deny"
+    assert body["approval_id"] is None
+    assert "declare" in body["detail"]
+    assert client.get("/v1/approvals", headers=_h("akey")).json() == []
+
+
+def test_a_tier3_proposal_is_approved_by_an_admin_key(client: TestClient) -> None:
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("dkey"),
+    )
+    body = r.json()
+    assert body["decision"] == "proposed" and body["reason"] == "tier_confirm"
     aid = body["approval_id"]
 
     pending = client.get("/v1/approvals", headers=_h("akey")).json()
@@ -163,17 +179,6 @@ def test_default_deny_then_admin_approves(client: TestClient) -> None:
     ok = client.post(f"/v1/approvals/{aid}/approve", headers=_h("akey"))
     assert ok.status_code == 200
     assert ok.json()["decision"] == "permitted"  # obligation handed back for enforcement
-
-    # decide-key cannot approve
-    r2 = client.post(
-        "/v1/decide", json={"action_type": "demo.unlisted", "params": {"x": 2}}, headers=_h("dkey")
-    )
-    assert (
-        client.post(
-            f"/v1/approvals/{r2.json()['approval_id']}/approve", headers=_h("dkey")
-        ).status_code
-        == 403
-    )
 
 
 def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:
