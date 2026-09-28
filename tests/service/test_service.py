@@ -53,6 +53,62 @@ def test_a_decide_key_can_neither_approve_nor_move_the_kill_switch(client: TestC
         assert r.status_code == 403
 
 
+def _permit(client: TestClient) -> int:
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "demo.toggle", "params": {"target": "demo.lamp", "state": "on"}},
+        headers=_h("dkey"),
+    )
+    assert r.json()["decision"] == "permitted"
+    return int(r.json()["intent_audit_id"])
+
+
+def test_an_admin_key_is_refused_on_decide_and_report(client: TestClient) -> None:
+    """Each key holds one role. An admin key is not a decide key with extra rights."""
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "demo.toggle", "params": {"target": "demo.lamp", "state": "on"}},
+        headers=_h("akey"),
+    )
+    assert r.status_code == 403
+    intent = _permit(client)
+    report = {"intent_audit_id": intent, "outcome": "success"}
+    assert client.post("/v1/report", json=report, headers=_h("akey")).status_code == 403
+    assert client.post("/v1/report", json=report, headers=_h("dkey")).status_code == 200
+
+
+def test_one_credential_cannot_both_propose_and_approve(client: TestClient) -> None:
+    proposed = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("dkey"),
+    ).json()
+    assert proposed["decision"] == "proposed"
+    approve = f"/v1/approvals/{proposed['approval_id']}/approve"
+    assert client.post(approve, headers=_h("dkey")).status_code == 403
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("akey"),
+    )
+    assert r.status_code == 403
+
+
+def test_a_key_configured_for_both_roles_stops_the_service_from_starting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refused when the service is built, not on first use -- and without echoing the
+    key, which would put a secret in a startup log."""
+    monkeypatch.setenv("ONEDOOR_DECIDE_KEYS", "dkey,shared-secret-value")
+    monkeypatch.setenv("ONEDOOR_ADMIN_KEYS", "akey,shared-secret-value")
+    with pytest.raises(RuntimeError, match="both") as refused:
+        create_app(
+            db_path=tempfile.mktemp(suffix=".db"),
+            policies=str(ROOT / "config" / "policies.yaml"),
+        )
+    assert "shared-secret-value" not in str(refused.value)
+
+
 def test_decide_permit_then_report(client: TestClient) -> None:
     r = client.post(
         "/v1/decide",
