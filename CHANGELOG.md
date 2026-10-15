@@ -90,6 +90,44 @@ Under way; dated and completed once every part of this release has landed.
   ordinary (non-resumption) row's digest is unaffected by the column's mere
   existence.
 
+### Known limitations
+
+- **A combined mandate deferral resumes in one order only.** When the
+  mandate layer defers an action onedoor's own checks also escalate, the
+  resulting approval is released only once the mandate authority has
+  ratified it first and an approver has approved it second — not the
+  other order. Neither authority alone resumes the action regardless, so
+  this is a stated restriction on how the combined case completes, not a
+  gap in what it requires.
+- **A multi-threaded or multi-process deployment that bypasses the
+  documented single-writer model can see a window between checking a
+  condition and acting on it** — for example, two concurrent decisions
+  each reading a cap counter before either writes its own consumption.
+  The documented deployment (one process, one SQLite writer behind an
+  internal lock) does not have this window; a deployer who runs multiple
+  writers against the same store without that serialization can.
+- **Resuming a LangChain `"interrupt"`-mode proposal creates a second,
+  never-granted pending approval every time**, left behind regardless of
+  outcome. This follows from a LangGraph property (resuming re-executes
+  the wrapped call from the top, including the code that proposes), not
+  from anything specific to onedoor's own checks. Harmless — it is never
+  the row presented or consumed — but visible via `GET /v1/approvals`.
+- **No route withdraws an already-granted approval.** Once a human grants
+  a proposal through `POST /v1/approvals/{id}/grant`, there is no way to
+  deny or revoke it before it is resumed (`/v1/approvals/{id}/deny`
+  requires the row still be `pending`); it can only expire on its
+  original TTL. Most relevant to the LangChain integration, where a stop
+  does not use up a grant made for an interrupted action — see "Security"
+  above — so a grant an approver later reconsiders stays usable until its
+  TTL runs out or it is resumed.
+- **The LangChain middleware has no wiring that gives a real process
+  boundary between the agent and whoever approves.** It only ever holds a
+  direct database connection; talking to the decision service over HTTP
+  with nothing but a decide key, which would give that boundary, is not
+  built yet. `allow_same_process_approval` names this plainly and
+  defaults to refusing resume rather than silently trusting a same-process
+  deployment.
+
 ## 0.8.0 — 2026-09-27
 
 **One breaking increment: breaking for archives and readers, not for PEP enforcement.**
