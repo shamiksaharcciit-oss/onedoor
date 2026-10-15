@@ -332,6 +332,7 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "seq",
     "prev_hash",
     "row_hash",
+    "decide_principal",
 )
 """Every column an append writes.
 
@@ -385,6 +386,7 @@ def append(
     approval_ref_status: str | None = None,
     evaluation_trace_json: str | None = None,
     resumes_audit_id: int | None = None,
+    decide_principal: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -414,6 +416,7 @@ def append(
         approval_ref_status=approval_ref_status,
         evaluation_trace_json=evaluation_trace_json,
         resumes_audit_id=resumes_audit_id,
+        decide_principal=decide_principal,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -461,6 +464,7 @@ def _row_values(
     approval_ref_status: str | None = None,
     evaluation_trace_json: str | None = None,
     resumes_audit_id: int | None = None,
+    decide_principal: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -533,6 +537,13 @@ def _row_values(
             # resumption's own re-evaluation -- `None` for an ordinary decision
             # and for every row written before this column existed.
             "resumes_audit_id": resumes_audit_id,
+            # The decide key that received this permit, as a keyed fingerprint
+            # -- so `/v1/report` can refuse any OTHER key the same way it refuses an
+            # unknown handle. `None` for an in-process caller that authenticated no
+            # key at all, or for a row written before this column existed; either
+            # way, a report against it is refused too: there is no identity
+            # here to prove the reporting key is the one that received the permit.
+            "decide_principal": decide_principal,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (see `_stamp_chain`).

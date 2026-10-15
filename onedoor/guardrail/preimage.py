@@ -43,7 +43,8 @@ VERSION_1 = "onedoor/row-preimage/1"
 VERSION_2 = "onedoor/row-preimage/2"
 VERSION_3 = "onedoor/row-preimage/3"
 VERSION_4 = "onedoor/row-preimage/4"
-CURRENT_VERSION = VERSION_4
+VERSION_5 = "onedoor/row-preimage/5"
+CURRENT_VERSION = VERSION_5
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009): the field records *why*
@@ -61,6 +62,15 @@ call to make in that same change; this is that bump, made on its own.
 proposal a resumption's own row resumes is exactly the kind of fact this chain
 exists to protect once it is written -- an attacker rewriting which proposal a
 resumption claims to resume is the same class of edit as flipping a reason code.
+
+`/5` adds `decide_principal` (migration `0029`): the keyed fingerprint of
+the decide key that received a permit is the evidence `/v1/report` trusts to
+refuse every OTHER key -- an attacker who could edit it after the row was
+sealed could rewrite who is allowed to report the permit, the same class of
+edit `approval_ref_status` guards against for an approval. Not excluded: it
+is set in the same `INSERT` as every other column here, with nothing circular
+or chronologically later about it, which is what the `EXCLUDED` entries below
+all share and this does not.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -143,7 +153,15 @@ FIELD_ORDER_V4: tuple[str, ...] = (*FIELD_ORDER_V3, "resumes_audit_id")
 about itself -- which proposal it resumes (see the design note for this version).
 """
 
-FIELD_ORDER = FIELD_ORDER_V4
+FIELD_ORDER_V5: tuple[str, ...] = (*FIELD_ORDER_V4, "decide_principal")
+"""`/5` appends rather than inserts, same precedent as `/3` -> `/4`.
+
+`decide_principal` is hashed because it is the evidence `/v1/report` trusts to
+refuse a report from any decide key but the one that received the permit (see
+the design note for this version).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V5
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
@@ -151,6 +169,7 @@ FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_2: FIELD_ORDER_V2,
     VERSION_3: FIELD_ORDER_V3,
     VERSION_4: FIELD_ORDER_V4,
+    VERSION_5: FIELD_ORDER_V5,
 }
 """Every version this build can verify.
 

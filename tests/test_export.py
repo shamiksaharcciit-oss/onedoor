@@ -34,12 +34,15 @@ def test_export_round_trips_every_row(
 
     expected = [dict(row) for row in conn.execute("SELECT * FROM actions_audit ORDER BY id ASC")]
     assert len(expected) == 3
-    # `resumes_audit_id` (migration 0025) is the one deliberate exception: omitted
-    # by `canonical_row_record` whenever it is None, so an ordinary (non-resumption)
-    # row's export matches what it would be without the column existing at all --
-    # see that function's own docstring for why. None of these rows are resumptions.
+    # `resumes_audit_id` (migration 0025) and `decide_principal` (migration 0029)
+    # are the deliberate exceptions: each omitted by `canonical_row_record`
+    # whenever it is None, so an ordinary (non-resumption, no-decide-key) row's
+    # export matches what it would be without the column existing at all -- see
+    # that function's own docstring for why. None of these rows are resumptions,
+    # and none were decided through a key this in-process call could fingerprint.
     for row in expected:
         assert row.pop("resumes_audit_id") is None
+        assert row.pop("decide_principal") is None
 
     out = tmp_path / "export.jsonl"
     count = write_export(conn, out)

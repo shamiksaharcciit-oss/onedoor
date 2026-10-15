@@ -149,31 +149,19 @@ def test_the_enforcer_store_gains_no_draft_table(conn: Connection, studio: Conne
 def test_the_studio_store_carries_its_own_schema_version(studio: Connection) -> None:
     """Not a number from the enforcer's migration sequence.
 
-    `0019` through `0022` were since claimed by other, genuine ENFORCER migrations
-    (`actions_audit.evaluation_trace_json`;
-    `approvals.mandate_authority`/`mandate_core_digest`;
-    `policies.requires_external_authorization`; `policies.present_bound`) — the line
-    this test guards is that a **Studio** table never borrows one of the enforcer's
-    numbers, not that the enforcer's own sequence freezes forever. `0023`
-    (`policies.bound_permit_action_type`) was since claimed too, the same way. `0024`
-    (`vocabulary_epochs`, an `actions_audit`-adjacent table the enforcer itself
-    writes and reads) was since claimed the same way too, and so was `0025`
-    (`actions_audit.resumes_audit_id`, the same kind of enforcer-owned column).
-    `0026` (`approvals.proposed_by`, the principal that proposed an approval) was
-    claimed the same way, and so were `0027` (erasing stored approver key prefixes)
-    and `0028` (retiring approvals the agent granted itself). The live boundary is
-    `0029`.
+    The boundary itself -- that a Studio table never borrows one of the
+    enforcer's numbers -- is checked once, exhaustively, against every
+    numbered migration's actual SQL, in `tests/studio/test_store_schema_3.py
+    ::test_no_numbered_migration_touches_a_studio_table`. This test used to
+    carry its own, second copy of a "no file numbered N+ exists yet" snapshot,
+    bumped by hand alongside that one every time either was touched -- found
+    only by running both after the two had drifted the same way,
+    independently, for years of migrations. A second register that must agree
+    with the first is a disagreement waiting to happen, so it is
+    retired here rather than bumped again.
     """
     version = studio.execute("SELECT version FROM studio_schema").fetchone()["version"]
     assert int(version) == store.SCHEMA_VERSION
-    from onedoor.store import db as db_module
-
-    migrations = Path(db_module.__file__).parent / "migrations"
-    assert not list(migrations.glob("0029*")), (
-        "migration 0029 exists — if it belongs to a Studio table, the boundary "
-        "(a table in the Studio's own file must not be written into the enforcer's "
-        "history) was crossed"
-    )
 
 
 def test_a_newer_studio_store_is_refused_not_silently_downgraded(tmp_path: Path) -> None:

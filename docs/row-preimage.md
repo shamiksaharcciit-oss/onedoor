@@ -1,4 +1,4 @@
-# The onedoor row preimage — `onedoor/row-preimage/4`
+# The onedoor row preimage — `onedoor/row-preimage/5`
 
 **Normative.** This document defines the exact bytes that `actions_audit.row_hash`
 is computed over. It is written so an implementer with no access to the Python source
@@ -132,6 +132,7 @@ Order is fixed. **Reordering is a new preimage version, not a refactor.**
 | 30 | `approval_ref_status` | generated — UTF-8. **`/2` and later only** |
 | 31 | `evaluation_trace_json` | generated — UTF-8, the JSON text as stored (deterministic per entry, not re-rendered). **`/3` and later only** |
 | 32 | `resumes_audit_id` | generated — decimal integer, ASCII. **`/4` and later only** |
+| 33 | `decide_principal` | generated — UTF-8, the keyed fingerprint. **`/5` and later only** |
 
 **E10 at the boundary (R031 §1.4): the preimage performs no normalisation of its own.**
 It seals what the row holds, exactly. A "generated" field was already canonicalised
@@ -205,6 +206,7 @@ and **not** "failed". It is both, stated per region.
 | `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`, R035 §1) |
 | `onedoor/row-preimage/3` | §3 rows 1–31 | `evaluation_trace_json` (see the design note for this version) |
 | `onedoor/row-preimage/4` | §3 rows 1–32 | `resumes_audit_id` (migration `0025`) |
+| `onedoor/row-preimage/5` | §3 rows 1–33 | `decide_principal` (migration `0029`) |
 
 **A version is chosen per row, recorded in the row, and stated inside the hash.** The
 `preimage_version` column is a hint that lets a verifier pick the right field order

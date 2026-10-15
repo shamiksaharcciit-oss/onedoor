@@ -1087,6 +1087,7 @@ def _decide_and_reserve(
             opaque_class=opaque_class,
             evaluation_trace_json=trace.to_json(),
             resumes_audit_id=resumes_audit_id,
+            decide_principal=principal,
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the

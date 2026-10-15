@@ -78,6 +78,32 @@ def test_every_old_row_hash_still_verifies_after_the_upgrade(tmp_path: Path) -> 
         conn.close()
 
 
+def test_every_0_8_0_row_has_no_decide_principal_after_the_upgrade(tmp_path: Path) -> None:
+    """A report against a row with no recorded decide key
+    is refused with the same shape an unknown handle gets -- proven as its
+    own mechanism, with a sabotage, in `tests/service/test_service.py::test_a_
+    report_against_a_pre_upgrade_row_with_no_recorded_decide_key_is_refused`.
+    What belongs here is the fact that mechanism depends on: a REAL 0.8.0 store,
+    upgraded forward past migration `0029`, actually produces `decide_principal
+    IS NULL` on rows sealed before that column existed -- not simulated, the
+    same real fixture the rest of this file verifies against.
+    """
+    conn = _copy(tmp_path).connect()
+    try:
+        applied = run_migrations(conn)
+        assert any(v.startswith("0029") for v in applied), (
+            "the upgrade must actually apply 0029, or this test checks nothing new"
+        )
+        rows = list(conn.execute("SELECT decide_principal FROM actions_audit"))
+        assert rows, "the fixture must actually carry rows"
+        assert all(r["decide_principal"] is None for r in rows), (
+            "a row sealed before migration 0029 must read decide_principal as NULL, "
+            "never a guessed or inferred value"
+        )
+    finally:
+        conn.close()
+
+
 def test_every_0_8_0_decision_ref_still_matches_after_the_upgrade(tmp_path: Path) -> None:
     conn = _copy(tmp_path).connect()
     try:

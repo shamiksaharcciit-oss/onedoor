@@ -38,11 +38,19 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     new, ordinary (non-resumption) row's digest identical to what they would be
     without the column at all; a genuine resumption sets a real value, which IS
     included, covering the new field like any other.
+
+    `decide_principal` (migration `0029`) is the same exception, for the same
+    reason: a row sealed before this column existed must not change digest the
+    moment `ALTER TABLE` gives it a NULL value, and an ordinary in-process
+    decision with no decide key to fingerprint is also legitimately `None`
+    going forward, not only on an old row -- both read the same as a row with
+    no such column at all. A row with a real decide key sets a real value,
+    which IS included.
     """
     keys = row.keys()
     record: dict[str, object] = {}
     for key in keys:
-        if key == "resumes_audit_id" and row[key] is None:
+        if key in ("resumes_audit_id", "decide_principal") and row[key] is None:
             continue
         value = row[key]
         if isinstance(value, float):

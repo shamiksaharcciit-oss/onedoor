@@ -34,6 +34,17 @@ def _h(key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}"}
 
 
+@pytest.fixture
+def client_two_decide_keys(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("ONEDOOR_DECIDE_KEYS", "dkey1,dkey2")
+    monkeypatch.setenv("ONEDOOR_ADMIN_KEYS", "akey")
+    app = create_app(
+        db_path=tempfile.mktemp(suffix=".db"),
+        policies=str(ROOT / "config" / "policies.yaml"),
+    )
+    return TestClient(app)
+
+
 def test_auth_is_required_and_roles_split(client: TestClient) -> None:
     assert client.post("/v1/decide", json={"action_type": "demo.toggle"}).status_code == 401
     assert (
@@ -75,6 +86,66 @@ def test_an_admin_key_is_refused_on_decide_and_report(client: TestClient) -> Non
     report = {"intent_audit_id": intent, "outcome": "success"}
     assert client.post("/v1/report", json=report, headers=_h("akey")).status_code == 403
     assert client.post("/v1/report", json=report, headers=_h("dkey")).status_code == 200
+
+
+def test_a_report_is_accepted_only_from_the_decide_key_that_received_the_permit(
+    client_two_decide_keys: TestClient,
+) -> None:
+    """Two decide keys, same scope, same role -- but the permit belongs to
+    whichever one actually received it, not to the scope."""
+    client = client_two_decide_keys
+    r = client.post(
+        "/v1/decide",
+        json={"action_type": "demo.toggle", "params": {"target": "demo.lamp", "state": "on"}},
+        headers=_h("dkey1"),
+    )
+    assert r.json()["decision"] == "permitted"
+    intent = int(r.json()["intent_audit_id"])
+    report = {"intent_audit_id": intent, "outcome": "success"}
+
+    wrong_key = client.post("/v1/report", json=report, headers=_h("dkey2"))
+    assert wrong_key.status_code == 404
+    assert wrong_key.json()["detail"] == f"absent: no pending intent {intent}", (
+        "a different decide key must get the EXACT detail text a genuinely unknown "
+        "handle for this same id would get, not a message that reveals the intent "
+        "exists but was received by someone else"
+    )
+
+    unknown_handle = client.post(
+        "/v1/report",
+        json={"intent_audit_id": intent + 999, "outcome": "success"},
+        headers=_h("dkey2"),
+    )
+    assert unknown_handle.status_code == 404
+    assert unknown_handle.json()["detail"] == f"absent: no pending intent {intent + 999}"
+
+    right_key = client.post("/v1/report", json=report, headers=_h("dkey1"))
+    assert right_key.status_code == 200
+
+
+def test_a_report_against_a_pre_upgrade_row_with_no_recorded_decide_key_is_refused(
+    client: TestClient,
+) -> None:
+    """`decide_principal` is NULL on a row written before
+    this column existed (simulated here, since a fresh store can't produce one
+    honestly) -- it carries no identity to prove the reporting key is the one that
+    received it, so a report against it fails closed, with the same refusal an
+    unknown handle gets, never a permissive pass-through for an old row.
+    """
+    intent = _permit(client)
+    conn = client.app.state.engine.conn  # type: ignore[attr-defined]
+    with tx(conn):
+        conn.execute("DROP TRIGGER actions_audit_no_update")
+        conn.execute("UPDATE actions_audit SET decide_principal=NULL WHERE id=?", (intent,))
+        conn.execute(
+            "CREATE TRIGGER actions_audit_no_update BEFORE UPDATE ON actions_audit "
+            "BEGIN SELECT RAISE(ABORT, 'actions_audit is append-only'); END"
+        )
+
+    report = {"intent_audit_id": intent, "outcome": "success"}
+    refused = client.post("/v1/report", json=report, headers=_h("dkey"))
+    assert refused.status_code == 404
+    assert refused.json()["detail"] == f"absent: no pending intent {intent}"
 
 
 def test_one_credential_cannot_both_propose_and_approve(client: TestClient) -> None:

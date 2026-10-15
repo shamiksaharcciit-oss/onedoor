@@ -335,6 +335,17 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             )
         intent = outcome.intent
         assert intent is not None
+        if intent.decide_principal != state.principal(_key):
+            # A report is accepted only from the decide key that received the
+            # permit. A different decide key -- or a row with no recorded decide
+            # key at all (NULL: it predates this column, or was written in-process
+            # with no key to fingerprint) -- gets the exact refusal an unknown
+            # handle gets: same status, same detail text, never a message that
+            # confirms the intent exists but names the wrong caller. This fails
+            # closed on an upgrade rather than trusting an unidentified row.
+            raise HTTPException(
+                status_code=404, detail=f"absent: no pending intent {body.intent_audit_id}"
+            )
         with span("onedoor.report", intent.action_type), state.lock:
             try:
                 result = report_result(

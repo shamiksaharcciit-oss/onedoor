@@ -127,6 +127,13 @@ class RebuiltIntent:
     point). `None` iff the deployment has not configured an issuer -- never a
     guessed value, the same rule the live path follows."""
 
+    decide_principal: str | None = None
+    """The keyed fingerprint of the decide key that received this permit,
+    carried verbatim from the intent row. `None` means the row predates this
+    column, or was written by an in-process caller with no key to fingerprint --
+    either way, a report against it is refused: there is no identity here
+    to prove the reporting key is the one that received it."""
+
 
 @dataclass(frozen=True)
 class RebuildResult:
@@ -228,6 +235,7 @@ def rebuild(
                 decision=Decision.EXECUTED,
                 issuer=issuer,
             ),
+            decide_principal=row["decide_principal"],
         ),
         f"rebuilt from audit row {intent_audit_id}"
         + (f" and its reservation held until {deadline}" if deadline else " (no budget reserved)"),
