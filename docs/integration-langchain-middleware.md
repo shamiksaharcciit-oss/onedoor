@@ -63,7 +63,11 @@ With a checkpointer, `interrupt` pauses the graph instead:
 agent = create_agent(
     model,
     tools,
-    middleware=[OneDoorMiddleware(conn, config, on_proposed="interrupt")],
+    middleware=[
+        OneDoorMiddleware(
+            conn, config, on_proposed="interrupt", allow_same_process_approval=True
+        )
+    ],
     checkpointer=MemorySaver(),
 )
 
@@ -71,13 +75,65 @@ paused = agent.invoke({"messages": [...]}, cfg)
 paused["__interrupt__"][0].value
 # {'approval_id': 7, 'action_type': 'tool.send_wire', 'reason': 'tier_confirm'}
 
-agent.invoke(Command(resume="approved"), cfg)
+agent.invoke(
+    Command(resume={"decision": "approved", "approval_id": "7"}),
+    cfg,
+)
 ```
 
-Resuming does not trust the approval blindly. The approval is consumed
-atomically and the request is evaluated again -- the kill switch, default-deny,
-dry-run, the caps and the bounds all still apply. An approval is permission to ask a second time, not
-a permit.
+**The agent's own process never grants an approval.** A human (or whatever
+process actually faces one) grants the proposal through the decision
+service's `POST /v1/approvals/{id}/grant` -- over HTTP, with an admin key the
+agent's process never holds. The resume value's `approval_id` is a bare
+*reference* to that id, not a credential: presenting it grants nothing by
+itself. `decide_and_reserve` resolves it against the same checks every
+presented reference gets -- the row must already be `approved`, the action
+and arguments must match what was actually proposed, the principal
+presenting it must match the principal that proposed it (never the agent's
+own `agent_principal`, by construction), and it is consumed once. A
+reference to someone else's approval, to one for different arguments, to
+one not yet granted, or a missing/malformed `approval_id` all fail closed
+with a message naming the refusal; every other key in the resume value
+(a former credential, a claimed decision) is ignored.
+
+**`allow_same_process_approval=True` is required for `"interrupt"` mode.**
+This middleware holds a direct database connection, so by default there is
+no real boundary between the agent proposing and whatever calls `/grant` if
+they share this process and connection -- resuming refuses unless a
+deployer explicitly accepts that. Wiring the agent through the HTTP decision
+service with only a decide key, instead of a direct connection, would give a
+real boundary; that wiring does not exist yet.
+
+Resuming does not trust the approval blindly either way. The approval is
+consumed atomically and the request is evaluated again -- the kill switch,
+default-deny, dry-run, the caps and the bounds all still apply. An approval
+is permission to ask a second time, not a permit.
+
+**A stop does not use up a grant here.** Resuming re-proposes before
+presenting the reference (see the known limitation below), so if the kill
+switch is on, it is that fresh, ref-less proposal the switch denies -- the
+reference is never presented, so the grant is never consumed. The refusal
+says so: nothing ran, and the approval was not used. This differs from the
+MCP integration, which presents a granted reference in the same call the
+kill switch denies, consuming it there -- an MCP operator must grant again
+after a stop; a LangChain one does not. Once the switch is lifted, resuming
+with the same `approval_id` runs the action exactly once, unless an
+approver denies or withdraws the grant first -- and today there is no route
+that does that (`/deny` only refuses an approval still `pending`; see the
+known limitations list).
+
+**Known limitations:**
+
+- Resuming re-executes `wrap_tool_call` from the top (a LangGraph property),
+  including the proposal call above `_proposed` -- so every resume attempt
+  also creates a second, never-granted pending approval, left behind
+  regardless of outcome. Harmless (it is never the one presented or
+  consumed) but visible via `GET /v1/approvals`. Tracked for a future
+  release.
+- No route withdraws an already-granted approval. Once granted through
+  `/grant`, an operator who changes their mind cannot deny or revoke it
+  before it is resumed (`/deny` requires `state='pending'`); it can only
+  expire on its original TTL. Tracked for a future release.
 
 ## Why `open_engine` exists
 

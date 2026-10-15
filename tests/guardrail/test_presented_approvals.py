@@ -35,7 +35,9 @@ def test_a_presented_approval_links_the_resumption_to_its_proposal_and_approval(
     approval_id, proposal = _approved(conn, config)
     presented = make_request("demo.confirm").model_copy(update={"approval_ref": approval_id})
 
-    outcome = decide_and_reserve(presented, conn=conn, config=config, now=FROZEN_NOW)
+    outcome = decide_and_reserve(
+        presented, conn=conn, config=config, now=FROZEN_NOW, principal="agent"
+    )
 
     assert isinstance(outcome, PermittedIntent)
     row = conn.execute(

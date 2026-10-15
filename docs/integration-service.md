@@ -87,9 +87,24 @@ curl -s -X POST localhost:8470/v1/killswitch \
   -d '{"engaged": true, "origin": "incident-2291"}'
 ```
 
-While engaged: every actionable decision comes back `proposed` with reason
-`kill_switch`; reads (Tier 0) stay available; even already-approved actions
-are blocked. Release with `{"engaged": false}`.
+While engaged: every actionable decision is denied with reason `kill_switch`
+rather than proposed, so an incident never fills the approval queue with
+rows nobody can act on yet; reads (Tier 0) stay available; even
+already-approved actions are blocked. Release with `{"engaged": false}`.
+
+A stop's effect on an approval already granted depends on how it is
+presented. The MCP integration presents a granted approval's reference in
+the same call the kill switch denies, so that call consumes it — the human
+must grant again once the switch is lifted. The LangChain middleware's
+`"interrupt"` mode does not: resuming re-proposes before presenting the
+reference (a LangGraph property, not onedoor's), so that fresh proposal is
+what the kill switch denies, and the reference is never presented. A stop
+there does not use up an approval granted for an interrupted LangChain
+action -- after the switch is lifted, resuming with that same approval id
+runs the action, unless an approver denies or withdraws it first. There is
+currently no route that withdraws an *already-granted* approval (`/deny`
+only refuses one still `pending`); see the LangChain guide and the
+known-limitations list.
 
 ## Observability
 

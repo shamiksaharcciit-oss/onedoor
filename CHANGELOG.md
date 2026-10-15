@@ -9,6 +9,54 @@ onedoor is the reference implementation of the AADP Internet-Draft
 
 Under way; dated and completed once every part of this release has landed.
 
+### Security
+
+- **An approval presented by `approval_ref` can now be used only by the
+  principal that proposed the action it approves.** Previously, resuming a
+  paused Tier-3 action by presenting its approval id (`approval_ref`) checked
+  only that the action matched what a human approved — not who was presenting
+  it. Any caller that could observe or guess the approval id, and reconstruct
+  an equivalent action, could consume someone else's approval. The check was
+  deliberately left out until now because onedoor had no authenticated
+  per-caller identity to check against; it does since the decide-key
+  fingerprint work. A mismatch behaves like every other invalid reference —
+  no grant, no error, the action simply re-proposes — except the approval
+  itself is **not** consumed, since it is still good for its real proposer. A
+  row with no recorded proposer (sealed before this existed, or from a
+  same-process caller with no key to fingerprint) is unaffected.
+
+- **A new approve-only route, `POST /v1/approvals/{id}/grant`, grants an
+  approval without resuming it.** The existing `/approve` route always
+  resumed and executed in the same call, so nothing could hold an "approved
+  but not yet executed" state for a later, separate caller to act on.
+  `/grant` calls the same engine-level approve check `/approve` does
+  (including the existing self-approval refusal) and returns, leaving the row
+  `approved`; a later caller presents `approval_ref` to consume it, exactly
+  as the MCP integration already does. `/approve`'s own behaviour is
+  unchanged.
+
+- **The LangChain middleware's `"interrupt"` mode no longer approves
+  anything itself.** Previously, resuming a paused proposal passed a raw
+  credential (`approver_key`) that the agent's own process checked by
+  membership and then used to approve and execute in one step — meaning the
+  agent's process always held the means to approve, even though it couldn't
+  use its own identity to do so directly. Resuming now presents a bare
+  reference (`approval_id`) to an approval a human already granted through
+  the new `/grant` route, over HTTP, with an admin key the agent's process
+  never holds; the reference is checked against the same action/principal/
+  once-only bindings the engine already enforces (above), and grants nothing
+  by itself. `approver_keys` and `approver_key_secret` are removed from the
+  middleware's constructor. A stop (the kill switch) does not use up a
+  grant made for an interrupted LangChain action — unlike the MCP
+  integration, which presents a granted reference in the same call a stop
+  denies and so does consume it there — because resuming re-proposes before
+  presenting the reference, and that fresh proposal is what the stop denies;
+  the refusal says so. **Upgrade note:** any `"interrupt"`-mode deployment
+  must update how it resumes (see `docs/integration-langchain-
+  middleware.md`) and must now pass `allow_same_process_approval=True`
+  explicitly, naming the fact that a direct-connection deployment has no
+  real process boundary between proposing and granting.
+
 ### Fixed
 
 - **`not_attempted` no longer returns the call-count budget.** Two divergences

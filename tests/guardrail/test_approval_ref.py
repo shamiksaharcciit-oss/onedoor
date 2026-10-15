@@ -65,22 +65,37 @@ def _request(**overrides: object) -> ActionRequest:
     return make_request(str(base["action_type"]), base["params"], source=Source.LLM)  # type: ignore[arg-type]
 
 
-def _approved(conn: Connection, request: ActionRequest, config: EngineConfig) -> int:
+def _approved(
+    conn: Connection,
+    request: ActionRequest,
+    config: EngineConfig,
+    *,
+    proposed_by: str | None = None,
+) -> int:
     """Propose, then approve — the state a PEP later presents a ref for."""
     with tx(conn):
-        approval_id = approvals.create(conn, request, config.approval_ttl_seconds, FROZEN_NOW)
+        approval_id = approvals.create(
+            conn, request, config.approval_ttl_seconds, FROZEN_NOW, proposed_by=proposed_by
+        )
         approvals.cas_approve(conn, approval_id, "human-1", FROZEN_NOW)
     return approval_id
 
 
 def _present(
-    conn: Connection, config: EngineConfig, approval_id: int | None, request: ActionRequest
+    conn: Connection,
+    config: EngineConfig,
+    approval_id: int | None,
+    request: ActionRequest,
+    *,
+    principal: str | None = None,
 ) -> object:
     """A NEW decide, with a NEW request_id, carrying the ref (§idem)."""
     resumed = request.model_copy(
         update={"request_id": make_request("x").request_id, "approval_ref": approval_id}
     )
-    return decide_and_reserve(resumed, conn=conn, config=config, now=FROZEN_NOW)
+    return decide_and_reserve(
+        resumed, conn=conn, config=config, now=FROZEN_NOW, principal=principal
+    )
 
 
 def _status(conn: Connection) -> str | None:
@@ -297,40 +312,58 @@ def test_the_kill_switch_beats_a_valid_ref(conn: Connection, config: EngineConfi
     )
 
 
-# --- The reserved status ----------------------------------------------------------
+# --- A7: the ref binds to the proposer's principal --------------------------------
 
 
-def test_principal_mismatch_is_reserved_and_never_emitted() -> None:
-    """A status for a check that cannot hold is a gate that never fired.
-
-    onedoor has no authenticated per-caller identity: `session_id` is caller-supplied
-    and arrives in the same untrusted body as the ref. Scoping to it would be a control
-    that does not control anything. The value exists so the evidence vocabulary is
-    complete in one increment; it starts being emitted when `ND-004`/`ND-005` provide
-    an identity the engine can check.
-
-    Held exactly as `sender_mismatch` is held in the reason-code vocabulary — by a test
-    that greps the engine, so adding an emission site fails CI rather than review.
+def test_a_different_consuming_principal_is_refused_and_does_not_consume(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The decide principal is a keyed fingerprint the presenting
+    caller cannot forge or copy out of the request, so the ref can bind to it. A
+    mismatch must behave like every other bad ref: no grant, no error, and —
+    unlike every OTHER bad-ref case — the row is left `approved` rather than
+    burned, since the approval itself is still good; only this particular
+    presenter is not the one it was proposed for.
     """
-    package = Path(__file__).resolve().parents[2] / "onedoor"
-    emitters = []
-    for path in sorted(package.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "PRINCIPAL_MISMATCH" not in text:
-            continue
-        for line in text.splitlines():
-            stripped = line.strip()
-            if "PRINCIPAL_MISMATCH" in stripped and not stripped.startswith(
-                ("#", '"', "PRINCIPAL")
-            ):
-                emitters.append(f"{path.name}: {stripped}")
-    assert not emitters, (
-        f"principal_mismatch is reserved and must never be emitted until an "
-        f"authenticated identity exists: {emitters}"
-    )
-    assert ApprovalRefStatus.PRINCIPAL_MISMATCH.value == "principal_mismatch"
+    _tier3(conn)
+    request = _request()
+    ref = _approved(conn, request, config, proposed_by="agent-a")
+
+    outcome = _present(conn, config, ref, request, principal="agent-b")
+    assert not isinstance(outcome, PermittedIntent), "a different principal must not grant"
+    assert outcome.decision.decision is Decision.PROPOSED  # type: ignore[union-attr]
+    assert _status(conn) == ApprovalRefStatus.PRINCIPAL_MISMATCH.value
+    state = conn.execute("SELECT state FROM approvals WHERE id=?", (ref,)).fetchone()["state"]
+    assert state == "approved", "a principal mismatch must not consume the approval"
+
+    # The approval is still good for the principal it was actually proposed for.
+    second = _present(conn, config, ref, request, principal="agent-a")
+    assert isinstance(second, PermittedIntent), "the real proposer must still be able to resume"
+
+
+def test_a_matching_consuming_principal_still_honors_the_ref(
+    conn: Connection, config: EngineConfig
+) -> None:
+    _tier3(conn)
+    request = _request()
+    ref = _approved(conn, request, config, proposed_by="agent-a")
+    outcome = _present(conn, config, ref, request, principal="agent-a")
+    assert isinstance(outcome, PermittedIntent)
+    assert _status(conn) == ApprovalRefStatus.HONORED.value
+
+
+def test_a_row_with_no_recorded_proposer_keeps_todays_behaviour(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A pre-upgrade row, or a same-process caller with no key to fingerprint,
+    has `proposed_by IS NULL` — nothing to bind to, so nothing is checked, exactly
+    as before this binding existed."""
+    _tier3(conn)
+    request = _request()
+    ref = _approved(conn, request, config, proposed_by=None)
+    outcome = _present(conn, config, ref, request, principal="anyone-at-all")
+    assert isinstance(outcome, PermittedIntent)
+    assert _status(conn) == ApprovalRefStatus.HONORED.value
 
 
 def test_the_evidence_vocabulary_is_the_settled_seven() -> None:

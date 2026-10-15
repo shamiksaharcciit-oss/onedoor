@@ -6,6 +6,7 @@ Any enforcement point in any language can now consult the engine:
     POST /v1/report            report the enforcement outcome for a permitted intent
     GET  /v1/approvals         list pending approvals              (admin)
     POST /v1/approvals/{id}/approve   approve -> permitted intent  (admin)
+    POST /v1/approvals/{id}/grant      approve only, no resume      (admin)
     POST /v1/approvals/{id}/deny      deny                         (admin)
     POST /v1/killswitch        engage/release the kill switch      (admin)
     GET  /v1/health            liveness + engine state
@@ -406,6 +407,24 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
         return _decide_reply(outcome, state)
+
+    @app.post("/v1/approvals/{approval_id}/grant")
+    def grant(approval_id: int, _key: str = Depends(require_admin)) -> dict[str, Any]:
+        """Approve only: leaves the row `approved`, resumes nothing.
+
+        For an integration with no persistent "approved but not yet executed"
+        window of its own (the LangChain middleware) -- a human grants
+        here, through an authenticated admin key `cas_approve` itself refuses
+        from the proposer, and the holder of the proposal's own
+        principal resumes it later, anywhere, by presenting `approval_ref`
+        (ND-009), which binds to that exact principal.
+        """
+        with state.lock:
+            try:
+                approvals.cas_approve(state.conn, approval_id, state.principal(_key), now_utc())
+            except ApprovalError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"status": "approved", "approval_id": approval_id}
 
     @app.post("/v1/approvals/{approval_id}/deny")
     def deny(approval_id: int, _key: str = Depends(require_admin)) -> dict[str, str]:

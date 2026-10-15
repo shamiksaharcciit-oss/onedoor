@@ -238,7 +238,7 @@ def _decide_and_reserve(
         #     The kill switch is read FIRST and clamps below regardless: a valid ref
         #     resumes an approval, it does not overrule a stop (§invariants #1).
         resolution = approval_ref.resolve(
-            conn, approval_ref=request.approval_ref, presented=request, now=now
+            conn, approval_ref=request.approval_ref, presented=request, now=now, principal=principal
         )
         ref_status = resolution.status.value
         if resolution.authorised:

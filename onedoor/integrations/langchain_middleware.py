@@ -35,19 +35,21 @@ than blocking the loop, because the engine call is synchronous and short.
 from __future__ import annotations
 
 import asyncio
+import re
 import threading
 from collections.abc import Callable
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
-from onedoor.guardrail import approvals
+from onedoor.guardrail.approval_ref import ApprovalRefStatus
 from onedoor.guardrail.decision import (
     PermittedIntent,
     decide_and_reserve,
     report_result,
 )
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, Decision, Outcome, Source
+from onedoor.guardrail.models import ActionRequest, CheckId, Decision, Outcome, Source
 from onedoor.store.clock import now_utc
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -90,6 +92,15 @@ def open_engine(
     return conn, config
 
 
+def _canonical_args(args: dict[str, Any]) -> dict[str, Any]:
+    """Params that may ever be presented for action-equivalence (`approval_ref`)
+    must carry `Decimal`, never `float` (E10) -- LangChain hands a numeric tool
+    argument back as a Python `float`, whatever the tool's own type hint says.
+    Rendered through `str()` first, never `Decimal(float)` directly, so the
+    binary float's own imprecision never becomes part of the canonical form."""
+    return {k: Decimal(str(v)) if isinstance(v, float) else v for k, v in args.items()}
+
+
 def _import_middleware_base() -> type:
     try:
         from langchain.agents.middleware import AgentMiddleware
@@ -117,6 +128,21 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             checkpointer.
         action_prefix: how a tool name becomes an action type. The default
             matches the tool wrapper, so one policy file governs both.
+        agent_principal: this middleware instance's own identity, recorded as
+            the proposer of everything it proposes. Never valid as an
+            approver (the engine's own self-approval check refuses a match,
+            defense in depth).
+        allow_same_process_approval: this middleware holds a direct database
+            connection (``conn`` above), so code in the agent's own process
+            can write to the ``approvals`` table directly -- there is no
+            process boundary between the agent and whoever would approve,
+            whatever this middleware does on resume. ``"interrupt"`` mode
+            refuses to resume anything unless this is explicitly ``True``,
+            naming that lack of separation rather than silently trusting it.
+            There is currently no alternative wiring (talking to the HTTP
+            decision service with only a decide key) that would give a real
+            boundary; until one exists, this flag is the honest acknowledgment
+            that approving and proposing share one process.
     """
 
     def __init__(
@@ -127,6 +153,8 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         on_proposed: Literal["message", "interrupt"] = "message",
         action_prefix: str = "tool.",
         source: Source = Source.LLM,
+        agent_principal: str = "onedoor-langchain-agent",
+        allow_same_process_approval: bool = False,
     ) -> None:
         super().__init__()
         self._conn = conn
@@ -134,6 +162,8 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         self._on_proposed = on_proposed
         self._prefix = action_prefix
         self._source = source
+        self._agent_principal = agent_principal
+        self._allow_same_process_approval = allow_same_process_approval
         self._lock = threading.Lock()
 
     # ---------------------------------------------------------------- helpers
@@ -147,9 +177,9 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             tool_call_id=request.tool_call["id"],
         )
 
-    def _decide(self, request: ToolCallRequest) -> Any:
+    def _decide(self, request: ToolCallRequest, *, approval_ref: int | None = None) -> Any:
         name = request.tool_call["name"]
-        args = dict(request.tool_call.get("args") or {})
+        args = _canonical_args(dict(request.tool_call.get("args") or {}))
         now = now_utc()
         action = ActionRequest(
             request_id=uuid4(),
@@ -158,9 +188,16 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             source=self._source,
             rationale=f"langchain tool call {name}",
             created_at=now,
+            approval_ref=approval_ref,
         )
         with self._lock:
-            return decide_and_reserve(action, conn=self._conn, config=self._config, now=now)
+            return decide_and_reserve(
+                action,
+                conn=self._conn,
+                config=self._config,
+                now=now,
+                principal=self._agent_principal,
+            )
 
     def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:
         with self._lock:
@@ -174,33 +211,50 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                 now=now_utc(),
             )
 
-    def _execute_approved(self, approval_id: int, request: ToolCallRequest, handler: Any) -> Any:
-        """Run an action a human just approved, re-checked rather than trusted.
+    @staticmethod
+    def _parse_approval_ref(resume: object) -> int | None:
+        """The resume value's ``approval_id`` field, strictly: present, a
+        string, and that string holds nothing but decimal digits. Every other
+        key in `resume` is ignored -- a former credential shape, a claimed
+        decision, anything else -- and anything short of this exact shape
+        parses as no reference at all, never a best-effort guess."""
+        if not isinstance(resume, dict):
+            return None
+        raw = resume.get("approval_id")
+        if not isinstance(raw, str) or not re.fullmatch(r"[0-9]+", raw):
+            return None
+        return int(raw)
 
-        The approval is consumed atomically and the request is evaluated again:
-        an approval is permission to ask a second time, not a permit. The kill
-        switch, the caps and the bounds all still apply.
-        """
-        now = now_utc()
-        with self._lock:
-            original = approvals.cas_approve(self._conn, approval_id, "langchain-human", now)
-            proposal_audit_id = approvals.proposed_audit_id(self._conn, approval_id)
-            resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
-            outcome = decide_and_reserve(
-                resumed,
-                conn=self._conn,
-                config=self._config,
-                now=now,
-                approved_override=True,
-                resumes_audit_id=proposal_audit_id,
-                consumes_approval=approval_id,
-            )
-        if not isinstance(outcome, PermittedIntent):
-            return self._tool_message(
-                request,
-                f"onedoor: approved action still blocked ({outcome.decision.reason_code.value})",
-            )
-        return self._run(outcome, request, handler)
+    def _ref_status(self, audit_id: int | None) -> str | None:
+        if audit_id is None:
+            return None
+        row = self._conn.execute(
+            "SELECT approval_ref_status FROM actions_audit WHERE id=?", (audit_id,)
+        ).fetchone()
+        return str(row["approval_ref_status"]) if row is not None else None
+
+    _REF_REFUSALS = {
+        ApprovalRefStatus.EXPIRED.value: "the approval has expired; a new approval is needed.",
+        ApprovalRefStatus.CONSUMED.value: "the approval has already been used; a new approval "
+        "is needed.",
+        ApprovalRefStatus.ACTION_MISMATCH.value: "the approval does not match this exact "
+        "action; a new approval is needed.",
+        ApprovalRefStatus.PRINCIPAL_MISMATCH.value: "the approval was granted for a different "
+        "agent.",
+    }
+
+    def _resume_refusal(self, request: ToolCallRequest, name: str, outcome: Any) -> Any:
+        """Named from the engine's own evidence (`approval_ref_status`), never a
+        single generic "not resumed" -- but the kill switch wins the naming
+        first: a stop burns the approval in the same call that denies it, so
+        the refusal says that happened rather than "already used", which would
+        be true but would hide why."""
+        if outcome.decision.reason_code == CheckId.KILL_SWITCH:
+            message = "the approval was used up by a stop; a new approval is needed."
+        else:
+            status = self._ref_status(outcome.audit_id)
+            message = self._REF_REFUSALS.get(status or "", "the approval is not approved.")
+        return self._tool_message(request, f"onedoor: '{name}' was not resumed: {message}")
 
     def _run(self, intent: PermittedIntent, request: ToolCallRequest, handler: Any) -> Any:
         try:
@@ -214,6 +268,21 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
     def _denied_message(self, request: ToolCallRequest, outcome: Any) -> Any:
         d = outcome.decision
         name = request.tool_call["name"]
+        if self._on_proposed == "interrupt" and d.reason_code == CheckId.KILL_SWITCH:
+            # Resuming re-runs this whole method from the top (a known,
+            # documented limitation), so THIS proposal attempt -- the one the
+            # kill switch just denied -- is a fresh one, not the one a human
+            # may have already granted through `/grant`. The kill-switch-first
+            # check denies it before `approval_ref` is ever presented, so
+            # unlike the MCP path (which presents the ref in the same call
+            # that denies it, and so DOES consume it), nothing here ever
+            # touches a prior grant -- it is left `approved`, not used up.
+            return self._tool_message(
+                request,
+                f"onedoor: '{name}' denied: the kill switch is on; nothing ran. If an "
+                f"approval was already granted for this action, it was not used, and "
+                f"can still be resumed once the switch is lifted.",
+            )
         detail = f": {d.detail}" if d.detail else ""
         return self._tool_message(
             request,
@@ -233,9 +302,30 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                     "reason": outcome.decision.reason_code.value,
                 }
             )
-            if resume == "approved":
-                return self._execute_approved(outcome.approval_id, request, handler)
-            return self._tool_message(request, f"onedoor: '{name}' was not approved ({resume}).")
+            if not self._allow_same_process_approval:
+                return self._tool_message(
+                    request,
+                    f"onedoor: '{name}' was not resumed: this middleware holds a direct "
+                    f"database connection, with no process boundary between the agent and "
+                    f"whoever would approve. Pass allow_same_process_approval=True only if "
+                    f"that is accepted, or wire the agent through the HTTP decision "
+                    f"service instead.",
+                )
+            ref = self._parse_approval_ref(resume)
+            if ref is None:
+                return self._tool_message(
+                    request,
+                    f"onedoor: '{name}' was not resumed: no approval reference was given.",
+                )
+            # Resuming re-runs this whole function from the top (a LangGraph
+            # property, not a onedoor one): `outcome.approval_id` above names a
+            # fresh, never-granted proposal this very call just created, not the
+            # one a human approved earlier. The reference comes only from `ref`
+            # -- read from the resume value, never from this call's own outcome.
+            resumed_outcome = self._decide(request, approval_ref=ref)
+            if isinstance(resumed_outcome, PermittedIntent):
+                return self._run(resumed_outcome, request, handler)
+            return self._resume_refusal(request, name, resumed_outcome)
         return self._tool_message(
             request,
             f"onedoor: '{name}' requires human approval "
@@ -250,6 +340,52 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Any],
     ) -> Any:
+        """Resuming a Tier-3 proposal in ``"interrupt"`` mode:
+
+            agent.invoke(
+                Command(resume={"decision": "approved", "approval_id": "<id>"}),
+                cfg,
+            )
+
+        ``approval_id`` is the id from the interrupt payload this same call
+        received -- a bare reference, never a credential. This middleware
+        never calls the engine's ``cas_approve``: a human (or whatever process
+        actually faces one) grants the proposal through the service's
+        ``POST /v1/approvals/{id}/grant``, over HTTP, with an admin key the
+        agent's process never holds. The resume value only tells this
+        middleware *which* granted row to present -- every other key in it
+        (a former credential, a claimed decision) is ignored.
+
+        Presenting the reference grants nothing by itself. ``decide_and_
+        reserve`` resolves it (``onedoor.guardrail.approval_ref``) against the
+        SAME checks every presented reference gets: the row must already be
+        ``approved`` (settable only through ``/grant``), the action and
+        arguments must match what was actually proposed, the principal
+        presenting it must match the principal that proposed it, and it is
+        consumed once, atomically. An agent process free to put any string it
+        likes into the resume value gains nothing from that freedom -- it
+        cannot manufacture an ``approved`` row, and a reference to someone
+        else's approval, or to one for different arguments, refuses exactly
+        like a reference to nothing. A missing or malformed ``approval_id``,
+        or a plain decline, all give a named refusal and run nothing.
+
+        One LangGraph property this depends on: resuming re-executes this
+        whole method from the top, including the ``self._decide(request)``
+        call above ``_proposed`` -- so the fresh proposal that call creates on
+        a resume is a different, never-granted row from the one shown in the
+        original interrupt payload. The resumed branch never reads that fresh
+        proposal's own id for this reason; it reads the id out of the resume
+        value instead, which is the one the human actually saw and granted.
+        The fresh, never-granted row this creates on every resume is a known
+        limitation (see the CHANGELOG), not fixed here.
+
+        Same-process mode: this middleware holds a direct database
+        connection, so there is no process boundary between the agent
+        proposing and whatever calls ``/grant`` if they share this same
+        connection and process -- resuming refuses by default
+        (``allow_same_process_approval``, see the class docstring) unless a
+        deployer explicitly accepts that.
+        """
         outcome = self._decide(request)
         if isinstance(outcome, PermittedIntent):
             return self._run(outcome, request, handler)

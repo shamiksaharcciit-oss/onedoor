@@ -56,7 +56,7 @@ def test_a_decide_key_can_neither_approve_nor_move_the_kill_switch(client: TestC
     """The credential an enforcement point holds reaches no operator route: not
     approve, not deny, not the approvals list, and not the kill switch in either
     direction -- releasing it is the dangerous one."""
-    for path in ("/v1/approvals/1/approve", "/v1/approvals/1/deny"):
+    for path in ("/v1/approvals/1/approve", "/v1/approvals/1/deny", "/v1/approvals/1/grant"):
         assert client.post(path, headers=_h("dkey")).status_code == 403
     assert client.get("/v1/approvals", headers=_h("dkey")).status_code == 403
     for engaged in (True, False):
@@ -279,6 +279,67 @@ def test_an_approval_is_consumed_even_when_its_resumption_is_denied(client: Test
         headers=_h("dkey"),
     ).json()
     assert later["decision"] != "permitted", "a consumed approval grants nothing"
+
+
+def test_the_grant_route_approves_without_resuming(client: TestClient) -> None:
+    """`/grant` is `cas_approve` alone: the row ends up `approved`, not `consumed`,
+    and nothing executes -- unlike `/approve`, which still resumes immediately
+    (`test_a_tier3_proposal_is_approved_by_an_admin_key`, unchanged)."""
+    proposed = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("dkey"),
+    ).json()
+    approval_id = proposed["approval_id"]
+
+    granted = client.post(f"/v1/approvals/{approval_id}/grant", headers=_h("akey"))
+    assert granted.status_code == 200
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    row = engine.conn.execute("SELECT state FROM approvals WHERE id=?", (approval_id,)).fetchone()
+    assert row[0] == "approved"
+    intents = engine.conn.execute("SELECT COUNT(*) FROM actions_audit WHERE kind='exec_intent'")
+    assert intents.fetchone()[0] == 0, "granting alone must not execute anything"
+
+    # The ref it leaves behind resumes exactly through approval_ref (ND-009).
+    resumed = client.post(
+        "/v1/decide",
+        json={
+            "action_type": "money.transfer",
+            "params": {"amount_eur": 5},
+            "approval_ref": approval_id,
+        },
+        headers=_h("dkey"),
+    )
+    assert resumed.json()["decision"] == "permitted"
+
+
+def test_grant_refuses_the_proposer_the_same_way_approve_does(client: TestClient) -> None:
+    """The self-approval check lives in `cas_approve` itself, so `/grant`
+    inherits it structurally -- demonstrated here the same way the engine-level
+    refusal is: by making the granting principal equal the recorded proposer."""
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    admin_principal = engine.principal("akey")
+    with tx(engine.conn):
+        approval_id = approvals.create(
+            engine.conn,
+            ActionRequest(
+                request_id=uuid4(),
+                action_type="money.transfer",
+                params={"amount_eur": 5},
+                source=Source.LLM,
+                rationale="test",
+                created_at=now_utc(),
+            ),
+            3600,
+            now_utc(),
+            proposed_by=admin_principal,
+        )
+
+    refused = client.post(f"/v1/approvals/{approval_id}/grant", headers=_h("akey"))
+    assert refused.status_code == 409
+    assert "proposed" in refused.json()["detail"]
+    row = engine.conn.execute("SELECT state FROM approvals WHERE id=?", (approval_id,)).fetchone()
+    assert row[0] == "pending"
 
 
 def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:

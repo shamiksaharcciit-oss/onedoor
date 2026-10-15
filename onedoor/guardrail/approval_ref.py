@@ -26,6 +26,7 @@ that `decide_and_reserve` already holds, makes the race decide itself — and
 
 from __future__ import annotations
 
+import hmac
 import json
 import sqlite3
 from dataclasses import dataclass
@@ -54,21 +55,19 @@ class ApprovalRefStatus(StrEnum):
     ACTION_MISMATCH = "action_mismatch"
 
     PRINCIPAL_MISMATCH = "principal_mismatch"
-    """RESERVED, and **never emitted** — held unemitted by
-    `tests/guardrail/test_approval_ref.py`, exactly as `sender_mismatch` is held in the
-    reason-code vocabulary.
+    """The consuming caller's principal does not match the approval's recorded
+    proposer (`proposed_by`). Refused like every other bad ref: no grant, no
+    error — but, unlike the others, the approval itself is NOT consumed, since
+    it is still good for the principal it was actually proposed for.
 
-    Delivery's proposal was adopted whole. onedoor has no authenticated per-caller
-    identity: `session_id` is caller-supplied and arrives in the same untrusted body as
-    the ref, `decided_by_session` is who *approved*, and the API key is
-    deployment-wide. Scoping a ref to `session_id` would be a check the attacker
-    satisfies by copying a value out of the request he already controls — **a control
-    in `CONFORMANCE.md` that does not control anything.**
-
-    The value lands now so the evidence vocabulary is complete in one increment, and it
-    starts being emitted when `ND-004`/`ND-005` give the engine an identity it can
-    actually check. Disclosed rather than implied: the principal-scoping clause of the
-    draft stays normative and onedoor's row for it reads *partial*.
+    Was reserved and never emitted: onedoor had no authenticated per-caller
+    identity to check it against, since `session_id` was caller-supplied and
+    arrived in the same untrusted body as the ref. It does now —
+    the decide principal is a keyed fingerprint of the caller's decide key,
+    which an attacker cannot copy out of a request he controls. `proposed_by`
+    is `NULL` for a row sealed before this existed, or for a same-process
+    caller with no key to fingerprint; such a row has nothing to bind to, so
+    nothing is checked, exactly as before this binding existed.
     """
 
 
@@ -170,11 +169,16 @@ def resolve(
     approval_ref: int | None,
     presented: ActionRequest,
     now: datetime,
+    principal: str | None = None,
 ) -> RefResolution:
     """Resolve a presented ref. Consumes it on success, atomically.
 
     MUST be called inside the caller's transaction: `decide_and_reserve` holds
     `BEGIN IMMEDIATE`, which is what makes the consume-first CAS race-free.
+
+    `principal` is the consuming caller's own identity, as authenticated by whoever
+    called `decide_and_reserve` -- compared against the approval's recorded
+    `proposed_by`, never against anything the presented request carries.
     """
     if approval_ref is None:
         return RefResolution(False, ApprovalRefStatus.ABSENT)
@@ -184,7 +188,7 @@ def resolve(
         return RefResolution(False, ApprovalRefStatus.UNKNOWN)
 
     row = conn.execute(
-        "SELECT id, state, expires_at, request_json FROM approvals WHERE id=?",
+        "SELECT id, state, expires_at, request_json, proposed_by FROM approvals WHERE id=?",
         (approval_ref,),
     ).fetchone()
     if row is None:
@@ -207,6 +211,16 @@ def resolve(
     )
     if not equivalent(approved, presented):
         return RefResolution(False, ApprovalRefStatus.ACTION_MISMATCH, approval_ref)
+
+    proposed_by = row["proposed_by"]
+    if proposed_by is not None:
+        # A row with nothing recorded has nothing to bind to -- checked only when
+        # there is a real proposer identity to check against (a keyed
+        # fingerprint, not anything the presented request itself carries).
+        if principal is None or not hmac.compare_digest(principal, str(proposed_by)):
+            # Not consumed: the approval is still good for its real proposer, only
+            # this presenter is not that proposer.
+            return RefResolution(False, ApprovalRefStatus.PRINCIPAL_MISMATCH, approval_ref)
 
     # CONSUME FIRST, and let the rowcount be the gate. Reading, deciding, then marking
     # would let a second resumption read the same `approved` row in between and both
