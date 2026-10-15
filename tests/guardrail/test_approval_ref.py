@@ -7,7 +7,9 @@ The tests that carry weight here are not the ones showing a good ref works. They
   a ref exists;
 - **single-use survives a race** — two simultaneous resumptions, exactly one execution;
 - **the kill switch still wins** after a valid ref, asserted rather than assumed;
-- **`principal_mismatch` is never emitted**, held the way `sender_mismatch` is.
+- **`principal_mismatch` binds the ref to its real proposer** — refused on a
+  mismatch, without consuming the approval, which is still good for that
+  proposer.
 """
 
 from __future__ import annotations

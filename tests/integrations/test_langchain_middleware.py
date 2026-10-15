@@ -541,6 +541,49 @@ def test_lifting_the_kill_switch_lets_the_same_grant_run_once(agent_conn: Connec
     assert any("already been used" in t for t in texts), texts
 
 
+def test_the_race_window_where_the_switch_consumes_the_reference(
+    agent_conn: Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The narrow window between the fresh, ref-less re-propose and the
+    approval_ref-based call is timing-dependent in real deployment, not
+    reachable by a plain sequential test -- so it is forced here
+    deterministically: a second operator engages the switch from inside the
+    second `_decide` call itself (the exact moment the reference is about to
+    be presented), simulating that race without relying on actual thread
+    timing. There, unlike the common case, the reference genuinely is
+    presented, honored and consumed before the kill switch denies it --
+    the "used up by a stop" message, distinct from the common "not used"
+    one, and accurate for this path specifically."""
+    from langgraph.types import Command
+
+    import onedoor.integrations.langchain_middleware as mw
+
+    _seed(agent_conn)
+    agent = _wire_agent(agent_conn, allow_same_process_approval=True)
+    cfg = {"configurable": {"thread_id": "t-race"}}
+    paused = agent.invoke({"messages": [("user", "wire acme")]}, cfg)
+    aid = paused["__interrupt__"][0].value["approval_id"]
+    with tx(agent_conn):
+        approvals.cas_approve(agent_conn, aid, "operator", now_utc())
+
+    real_decide = mw.OneDoorMiddleware._decide
+
+    def _decide_racing_the_switch(self, request, *, approval_ref=None):
+        if approval_ref is not None:
+            with tx(agent_conn):
+                killswitch.set_engaged(agent_conn, True, origin="race-window")
+        return real_decide(self, request, approval_ref=approval_ref)
+
+    monkeypatch.setattr(mw.OneDoorMiddleware, "_decide", _decide_racing_the_switch)
+
+    result = agent.invoke(Command(resume={"decision": "approved", "approval_id": str(aid)}), cfg)
+    assert PAID == [], "still denied -- the switch wins even after a valid ref"
+    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
+    assert any("used up by a stop" in t for t in texts), texts
+    state = agent_conn.execute("SELECT state FROM approvals WHERE id=?", (aid,)).fetchone()[0]
+    assert state == "consumed", "this path, unlike the common one, does consume the reference"
+
+
 def test_same_process_mode_refuses_resume_without_the_opt_in(agent_conn: Connection) -> None:
     """This middleware holds a direct database connection, so there is
     no real boundary between proposing and granting unless a deployer says so
