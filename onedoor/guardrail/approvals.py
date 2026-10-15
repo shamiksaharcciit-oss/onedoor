@@ -64,6 +64,7 @@ def create(
     now: datetime,
     *,
     mandate_core_digest: str | None = None,
+    mandate_combined: bool = False,
     proposed_by: str | None = None,
 ) -> int:
     """Create a pending approval.
@@ -71,6 +72,10 @@ def create(
     `mandate_core_digest` set marks it mandate-gated: `cas_approve`/
     `deny` refuse it structurally, and only `onedoor.guardrail.mandate.ratify` can
     resolve it, against exactly this digest.
+
+    `mandate_combined` marks a mandate-gated approval whose action onedoor's own checks
+    also send to a human: it is released only when the mandate authority has ratified it
+    AND an approver has then approved it (`mandate_authority` 2 rather than 1).
 
     `proposed_by` is the principal that asked, as authenticated by the caller of the
     engine; `cas_approve` refuses an approval by that same principal.
@@ -85,7 +90,7 @@ def create(
             request.action_type,
             to_iso(now),
             to_iso(now + timedelta(seconds=ttl_seconds)),
-            1 if mandate_core_digest is not None else None,
+            (2 if mandate_combined else 1) if mandate_core_digest is not None else None,
             mandate_core_digest,
             proposed_by,
         ),
@@ -120,8 +125,10 @@ def _refuse_if_mandate_gated(
     approval is also the one route that leaves no trace when it tries.
     """
     row = conn.execute(
-        "SELECT mandate_authority FROM approvals WHERE id=?", (approval_id,)
+        "SELECT mandate_authority, state FROM approvals WHERE id=?", (approval_id,)
     ).fetchone()
+    if row is not None and row["mandate_authority"] == 2 and row["state"] == "ratified":
+        return  # the mandate half is done; an approver may now give the other half
     if row is not None and row["mandate_authority"]:
         intent_row = conn.execute(
             "SELECT * FROM actions_audit WHERE approval_id=? ORDER BY id DESC LIMIT 1",
@@ -138,6 +145,12 @@ def _refuse_if_mandate_gated(
                 decision=Decision.DENIED,
                 request_id=str(uuid4()),
             )
+        if row["mandate_authority"] == 2:
+            raise ApprovalError(
+                f"approval {approval_id} needs the mandate-layer authority's ratification "
+                f"first (onedoor.guardrail.mandate.ratify); an approver can approve it only "
+                f"after that"
+            )
         raise ApprovalError(
             f"approval {approval_id} waits on a mandate-layer ratification (AADP -03 "
             f"§8.1); it resolves only through onedoor.guardrail.mandate.ratify, never "
@@ -153,6 +166,13 @@ def cas_approve(
     The principal that proposed the action can never approve it: refused here, in the
     store, so the rule holds for every caller rather than only for the enforcement
     points that choose not to offer an approve method.
+
+    A combined approval (`mandate_authority=2`) only reaches here from
+    `state='ratified'` -- stated limit, not an oversight: the mandate authority must
+    ratify FIRST, before an approver can act; an approver cannot approve a combined
+    approval that is still merely `pending`. The requirement this satisfies is
+    narrower than "either order works" -- it is that neither authority alone resumes
+    the action, which this still holds regardless of the ordering restriction.
     """
     _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
     proposer = conn.execute(
@@ -165,8 +185,9 @@ def cas_approve(
         )
     cur = conn.execute(
         "UPDATE approvals SET state='approved', decided_at=?, decided_by_session=? "
-        "WHERE id=? AND state='pending' AND expires_at > ? "
-        "AND (proposed_by IS NULL OR proposed_by != ?)",
+        "WHERE id=? AND expires_at > ? AND (proposed_by IS NULL OR proposed_by != ?) "
+        "AND ((state='pending' AND mandate_authority IS NULL) "
+        "OR (state='ratified' AND mandate_authority=2))",
         (to_iso(now), session_id, approval_id, to_iso(now), session_id),
     )
     if cur.rowcount == 0:
@@ -189,20 +210,37 @@ def cas_resume_ratified(conn: sqlite3.Connection, approval_id: int, now: datetim
     'ratified' and is refused before anything executes twice.
     """
     cur = conn.execute(
-        "UPDATE approvals SET state='approved' WHERE id=? AND state='ratified'",
+        "UPDATE approvals SET state='approved' WHERE id=? AND state='ratified' "
+        "AND mandate_authority=1",
         (approval_id,),
     )
     if cur.rowcount == 0:
+        combined = conn.execute(
+            "SELECT 1 FROM approvals WHERE id=? AND mandate_authority=2", (approval_id,)
+        ).fetchone()
+        if combined is not None:
+            raise ApprovalError(
+                f"approval {approval_id} also needs an approver's approval; the "
+                f"ratification alone does not resume it"
+            )
         raise ApprovalError(f"approval {approval_id} not ratified or already resumed")
     row = conn.execute("SELECT request_json FROM approvals WHERE id=?", (approval_id,)).fetchone()
     return loads_request(row["request_json"])
 
 
 def deny(conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime) -> None:
-    _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
+    """Refuse a pending approval. An approver may refuse a combined approval (a mandate
+    deferral on an action onedoor also escalates) before or after the ratification --
+    either authority saying no ends it. A mandate-only approval stays the mandate
+    authority's alone."""
+    row = conn.execute(
+        "SELECT mandate_authority FROM approvals WHERE id=?", (approval_id,)
+    ).fetchone()
+    if row is None or row["mandate_authority"] != 2:
+        _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
     cur = conn.execute(
         "UPDATE approvals SET state='denied', decided_at=?, decided_by_session=? "
-        "WHERE id=? AND state='pending'",
+        "WHERE id=? AND (state='pending' OR (state='ratified' AND mandate_authority=2))",
         (to_iso(now), session_id, approval_id),
     )
     if cur.rowcount == 0:

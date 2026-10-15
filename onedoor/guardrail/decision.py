@@ -580,6 +580,7 @@ def _decide_and_reserve(
         #     re-evaluates fully" (-03 §8.1) means: bounds, caps, kill switch, not a
         #     second round of mandate consultation.
         mandate_core_digest_value: str | None = None
+        mandate_combined = False
         mandate_resolver = getattr(config, "mandate_resolver", None)
         if (
             policy.requires_external_authorization
@@ -628,10 +629,18 @@ def _decide_and_reserve(
                     ),
                 )
             if mandate_verdict is mandate.MandateVerdict.PENDING:
-                if int(effective_tier) < int(Tier.CONFIRM):
+                # Combined: onedoor's own checks already send this action to a human.
+                # One proposal, with onedoor's own reason, and one approval that needs
+                # both the mandate authority's ratification and an approver.
+                mandate_combined = int(effective_tier) >= int(Tier.CONFIRM)
+                if mandate_combined:
+                    confirm_detail = (
+                        f"{confirm_detail}; " if confirm_detail else ""
+                    ) + "also pending the mandate-layer authority's ratification"
+                else:
                     effective_tier = Tier.CONFIRM
-                reason_confirm = CheckId.EXTERNAL_AUTHORIZATION
-                confirm_detail = "pending the mandate-layer authority's ratification"
+                    reason_confirm = CheckId.EXTERNAL_AUTHORIZATION
+                    confirm_detail = "pending the mandate-layer authority's ratification"
                 mandate_core_digest_value = mandate.core_digest(
                     request.request_id, request.action_type, request.params
                 )
@@ -844,6 +853,7 @@ def _decide_and_reserve(
                 config.approval_ttl_seconds,
                 now,
                 mandate_core_digest=mandate_core_digest_value,
+                mandate_combined=mandate_combined,
                 proposed_by=principal,
             )
             decision = PolicyDecision(

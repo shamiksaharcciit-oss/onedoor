@@ -169,6 +169,25 @@ action type whose policy sets `requires_external_authorization`. A `proposed` on
 resolves only through a verified ratification from that authority — never through the
 ordinary admin approve/deny routes, and never by a timeout turning into a permit.
 
+**Combined with one of onedoor's own checks that would already propose the same
+action** (a Tier-3 policy, for example), the action still proposes **once**, and the
+reason is onedoor's own (`tier_confirm`, not `external_authorization`) — the mandate
+layer's PENDING is recorded in the evaluation trace, not the verdict, since a verdict
+names one reason. The resulting approval now needs **both** authorities before it
+resumes: the mandate authority's ratification, and an ordinary approver's approval.
+Ratification alone does not resume it, and an approver's approval alone does not
+either; either authority may still refuse it outright. This is the one case where an
+approval gated by the mandate layer is also released through the ordinary approve
+route — every other mandate-gated approval still resolves only through ratification,
+as above.
+
+**Stated limit: only one order is supported.** The mandate authority must ratify
+*before* an approver can approve — an approver cannot act on a combined approval
+while it is still merely `pending` (only once it reaches `ratified`). Approve-then-
+ratify is not implemented. The requirement this satisfies is narrower than "both
+orders work": it is that *neither authority alone* resumes the action, which holds
+regardless of this restriction.
+
 `present_bound` (AADP -03 §6) is the reason on a `denied` verdict when the
 request's `presented_audience` does not match the action type's declared
 `present_bound` (the audience URI a permit may be exercised only by being presented

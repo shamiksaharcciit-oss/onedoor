@@ -187,7 +187,8 @@ def ratify(
     from onedoor.guardrail import signing
 
     row = conn.execute(
-        "SELECT id, state FROM approvals WHERE mandate_core_digest=? AND mandate_authority=1",
+        "SELECT id, state FROM approvals "
+        "WHERE mandate_core_digest=? AND mandate_authority IN (1, 2)",
         (core_digest_value,),
     ).fetchone()
     if row is None:
