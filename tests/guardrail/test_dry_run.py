@@ -75,4 +75,4 @@ def test_kill_switch_takes_precedence_over_dry_run(
     with tx(conn):
         killswitch.set_engaged(conn, True)
     result = _run(conn, registry, config, "demo.dry", TOGGLE)
-    assert result.decision.decision == Decision.PROPOSED
+    assert result.decision.decision == Decision.DENIED

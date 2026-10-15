@@ -230,15 +230,18 @@ def test_ordinary_verdicts_carry_no_canonicalization_evidence(
     assert row["canon_schema"] is None
 
 
-def test_a_malformed_url_denies_even_though_the_kill_switch_would_propose(
+def test_a_malformed_url_denies_with_its_own_reason_even_under_the_kill_switch(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Declared, not accidental: an unreadable input denies rather than proposing.
+    """Declared, not accidental: an unreadable input denies with its own reason,
+    never the switch's.
 
-    The kill switch clamps executable tiers to propose-only, but a proposal is a
-    request to a human to approve *this action* -- and the engine cannot say what
-    this action is. Bounds already behaves this way (an out-of-bounds action is
-    denied, never proposed); the same argument reaches an unreadable target.
+    The kill switch itself also denies rather than proposing, so this no
+    longer distinguishes a propose from a deny -- it distinguishes WHICH denial
+    reason an operator sees. A proposal is a request to a human to approve *this
+    action*, and the engine cannot say what this action is, so malformed wins the
+    same way bounds already does (an out-of-bounds action is denied, never
+    proposed, under its own reason too).
     """
     from onedoor.guardrail import killswitch
     from onedoor.store.db import tx

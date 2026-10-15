@@ -1,5 +1,5 @@
 """When a request would fail multiple checks, the correct precedence holds:
-kill-switch clamps to propose-only before caps are ever consulted; bounds are
+an engaged kill switch denies before caps are ever consulted; bounds are
 validated before caps (and even for proposals — an out-of-bounds action is
 denied, never proposed)."""
 
@@ -39,13 +39,14 @@ def _run(conn, registry, config, action, params):  # type: ignore[no-untyped-def
 def test_kill_switch_clamps_before_caps(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
-    # In-bounds but cap=0 AND kill engaged -> clamped to propose-only before caps
-    # are consulted, so it proposes rather than being denied by the cap.
+    # In-bounds but cap=0 AND kill engaged -> denied by the switch before caps are
+    # ever consulted (the switch denies outright, it does not propose), so
+    # the reason is kill_switch, not the cap.
     _bounded_capped(conn, "demo.ord")
     with tx(conn):
         killswitch.set_engaged(conn, True)
     result = _run(conn, registry, config, "demo.ord", {"x": 5})
-    assert result.decision.decision == Decision.PROPOSED
+    assert result.decision.decision == Decision.DENIED
     assert result.decision.reason_code == CheckId.KILL_SWITCH
 
 

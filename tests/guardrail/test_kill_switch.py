@@ -25,21 +25,26 @@ def _run(conn, registry, config, action, params=None):  # type: ignore[no-untype
     )
 
 
-def test_engaged_clamps_tier1_to_propose(
+def test_engaged_denies_tier1_outright(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
+    """An engaged kill switch denies on a first decide. It does not propose
+    -- proposing during an incident fills the approval queue."""
     _engage(conn)
     result = _run(conn, registry, config, "demo.toggle", TOGGLE)
-    assert result.decision.decision == Decision.PROPOSED
+    assert result.decision.decision == Decision.DENIED
     assert result.decision.reason_code == CheckId.KILL_SWITCH
     assert result.decision.effective_tier == Tier.CONFIRM
+    assert conn.execute("SELECT COUNT(*) FROM approvals").fetchone()[0] == 0, (
+        "no approval is created; the queue stays empty during an incident"
+    )
 
 
-def test_engaged_clamps_tier2_to_propose(
+def test_engaged_denies_tier2_outright(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
     _engage(conn)
-    assert _run(conn, registry, config, "demo.tier2").decision.decision == Decision.PROPOSED
+    assert _run(conn, registry, config, "demo.tier2").decision.decision == Decision.DENIED
 
 
 def test_reads_exempt_from_kill_switch(
@@ -73,9 +78,7 @@ def test_disengage_restores_execution(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:
     _engage(conn)
-    assert (
-        _run(conn, registry, config, "demo.toggle", TOGGLE).decision.decision == Decision.PROPOSED
-    )
+    assert _run(conn, registry, config, "demo.toggle", TOGGLE).decision.decision == Decision.DENIED
     with tx(conn):
         killswitch.set_engaged(conn, False)
     assert _run(conn, registry, config, "demo.toggle", TOGGLE).executed is True

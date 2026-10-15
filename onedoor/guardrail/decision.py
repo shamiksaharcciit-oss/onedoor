@@ -845,7 +845,50 @@ def _decide_and_reserve(
                     ),
                 )
 
-        # 7. TIER 3 — propose and confirm.
+        # 7. TIER 3 — propose and confirm, UNLESS the kill switch is why we are
+        #    here. Proposing during an incident still fills the approval
+        #    queue; the switch must deny, not ask a human to look at it later.
+        #    `reason_confirm` can only still read `KILL_SWITCH` at this point if
+        #    nothing stronger (bounds, a mandate DENY, a malformed request) already
+        #    returned above, and nothing weaker (effect_floor, opaque_host,
+        #    no_compensation, a mandate PENDING) could have overwritten it either --
+        #    every one of those guards only escalates when the tier is currently
+        #    *below* CONFIRM, and CONFIRM is the ceiling, so once the switch sets it
+        #    it is the reason all the way to here. The tier-0 read exemption above
+        #    is unaffected: an OBSERVE action never reaches this branch engaged.
+        if effective_tier == Tier.CONFIRM and reason_confirm is CheckId.KILL_SWITCH:
+            decision = PolicyDecision(
+                decision=Decision.DENIED,
+                effective_tier=Tier.CONFIRM,
+                nominal_tier=nominal_tier,
+                reason_code=CheckId.KILL_SWITCH,
+                detail="kill switch engaged; not proposed",
+            )
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                approval_ref_status=ref_status,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
+            )
+            bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
         if effective_tier == Tier.CONFIRM:
             approval_id = approvals.create(
                 conn,

@@ -217,7 +217,7 @@ def test_kill_switch_clamps_and_health_reports(client: TestClient) -> None:
         json={"action_type": "demo.toggle", "params": {"target": "demo.lamp", "state": "on"}},
         headers=_h("dkey"),
     )
-    assert r.json()["decision"] == "proposed" and r.json()["reason"] == "kill_switch"
+    assert r.json()["decision"] == "denied" and r.json()["reason"] == "kill_switch"
     assert client.get("/v1/health").json()["kill_switch"] is True
 
 
