@@ -35,6 +35,7 @@ Run:  ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root \\
 
 from __future__ import annotations
 
+import hmac
 import os
 import threading
 from datetime import datetime
@@ -336,7 +337,9 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             )
         intent = outcome.intent
         assert intent is not None
-        if intent.decide_principal != state.principal(_key):
+        if intent.decide_principal is None or not hmac.compare_digest(
+            intent.decide_principal, state.principal(_key)
+        ):
             # A report is accepted only from the decide key that received the
             # permit. A different decide key -- or a row with no recorded decide
             # key at all (NULL: it predates this column, or was written in-process
