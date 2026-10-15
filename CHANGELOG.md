@@ -12,18 +12,16 @@ Under way; dated and completed once every part of this release has landed.
 ### Security
 
 - **An approval presented by `approval_ref` can now be used only by the
-  principal that proposed the action it approves.** Previously, resuming a
-  paused Tier-3 action by presenting its approval id (`approval_ref`) checked
-  only that the action matched what a human approved — not who was presenting
-  it. Any caller that could observe or guess the approval id, and reconstruct
-  an equivalent action, could consume someone else's approval. The check was
-  deliberately left out until now because onedoor had no authenticated
-  per-caller identity to check against; it does since the decide-key
-  fingerprint work. A mismatch behaves like every other invalid reference —
-  no grant, no error, the action simply re-proposes — except the approval
-  itself is **not** consumed, since it is still good for its real proposer. A
-  row with no recorded proposer (sealed before this existed, or from a
-  same-process caller with no key to fingerprint) is unaffected.
+  principal that proposed the action it approves.** Resuming a paused
+  Tier-3 action by presenting its approval id previously checked only that
+  the action matched what a human approved, not who was presenting it. The
+  check was deliberately left out until now because onedoor had no
+  authenticated per-caller identity to check against; it does since the
+  decide-key fingerprint work. A mismatch behaves like every other invalid
+  reference — no grant, no error, the action simply re-proposes — except the
+  approval itself is **not** consumed, since it is still good for its real
+  proposer. A row with no recorded proposer (sealed before this existed, or
+  from a same-process caller with no key to fingerprint) is unaffected.
 
 - **A new approve-only route, `POST /v1/approvals/{id}/grant`, grants an
   approval without resuming it.** The existing `/approve` route always
@@ -36,16 +34,12 @@ Under way; dated and completed once every part of this release has landed.
   unchanged.
 
 - **The LangChain middleware's `"interrupt"` mode no longer approves
-  anything itself.** Previously, resuming a paused proposal passed a raw
-  credential (`approver_key`) that the agent's own process checked by
-  membership and then used to approve and execute in one step — meaning the
-  agent's process always held the means to approve, even though it couldn't
-  use its own identity to do so directly. Resuming now presents a bare
-  reference (`approval_id`) to an approval a human already granted through
-  the new `/grant` route, over HTTP, with an admin key the agent's process
-  never holds; the reference is checked against the same action/principal/
-  once-only bindings the engine already enforces (above), and grants nothing
-  by itself. `approver_keys` and `approver_key_secret` are removed from the
+  anything itself.** Resuming now presents a bare reference (`approval_id`)
+  to an approval a human already granted through the new `/grant` route,
+  over HTTP, with an admin key the agent's process never holds; the
+  reference is checked against the same action/principal/once-only
+  bindings the engine already enforces (above), and grants nothing by
+  itself. `approver_keys` and `approver_key_secret` are removed from the
   middleware's constructor. A stop (the kill switch) does not use up a
   grant made for an interrupted LangChain action — unlike the MCP
   integration, which presents a granted reference in the same call a stop
@@ -56,6 +50,30 @@ Under way; dated and completed once every part of this release has landed.
   middleware.md`) and must now pass `allow_same_process_approval=True`
   explicitly, naming the fact that a direct-connection deployment has no
   real process boundary between proposing and granting.
+
+### Behaviour changes
+
+- **An approval can now be used only by the principal that proposed the
+  action it approves** (see "Security" above) — a report or a resumption
+  presenting someone else's reference now re-proposes instead of
+  consuming it.
+- **The LangChain middleware's resume value has a new shape.** It no
+  longer carries an approver credential; it carries a bare reference
+  (`approval_id`) to a row granted separately. Any `"interrupt"`-mode
+  caller must update what it sends on resume (see `docs/integration-
+  langchain-middleware.md`).
+- **Approving and resuming a LangChain proposal are two separate calls.**
+  A human grants through the new `POST /v1/approvals/{id}/grant`; the
+  agent resumes separately, by reference, afterward.
+- **Same-process `"interrupt"` mode refuses to resume by default.** Set
+  `allow_same_process_approval=True` explicitly to keep the previous
+  behaviour; the default is now a refusal, named for what it is.
+
+**Upgrade note:** rotate the admin key (`ONEDOOR_ADMIN_KEYS`) when
+upgrading to this release. Nothing in this release shows any admin key has
+leaked, but the approve/grant boundary this release relies on is only as
+good as that key's secrecy, and a rotation is cheap insurance for a change
+that leans on it more than before.
 
 ### Fixed
 
