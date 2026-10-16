@@ -300,7 +300,7 @@ def test_the_grant_route_approves_without_resuming(client: TestClient) -> None:
     intents = engine.conn.execute("SELECT COUNT(*) FROM actions_audit WHERE kind='exec_intent'")
     assert intents.fetchone()[0] == 0, "granting alone must not execute anything"
 
-    # The ref it leaves behind resumes exactly through approval_ref (ND-009).
+    # The ref it leaves behind resumes exactly by approval reference.
     resumed = client.post(
         "/v1/decide",
         json={

@@ -419,8 +419,8 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         window of its own (the LangChain middleware) -- a human grants
         here, through an authenticated admin key `cas_approve` itself refuses
         from the proposer, and the holder of the proposal's own
-        principal resumes it later, anywhere, by presenting `approval_ref`
-        (ND-009), which binds to that exact principal.
+        principal resumes it later, anywhere, through the approval-reference
+        flow, which binds to that exact principal.
         """
         with state.lock:
             try:
