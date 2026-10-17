@@ -78,7 +78,7 @@ that leans on it more than before.
 ### Fixed
 
 - **`not_attempted` no longer returns the call-count budget.** Two divergences
-  from `draft-saha-aadp-03` §4.1, found on the published 0.8.0 wheel while
+  from the AADP Internet-Draft's `-03` revision §4.1, found on the published 0.8.0 wheel while
   writing `-04`:
   - A rate budget is never released by any outcome. `not_attempted` was
     releasing it alongside the value dimension — the same over-release the
