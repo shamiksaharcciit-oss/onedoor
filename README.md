@@ -390,8 +390,8 @@ One static, read-only page: the decision receipt with the checks that back it, a
 tail of verdicts. Every displayed value is read from a verified artifact — if the
 evidence does not check out, the page shows the failure state and **none of the
 receipt's values**. Where something is *not yet produced* rather than wrong, it says
-so: hash-chained audit entries (`ND-001`) have not landed, so the chain block says the
-chain is **not yet in operation**, naming the ticket, instead of showing a digest it
+so: hash-chained audit entries have not landed yet, so the chain block says the
+chain is **not yet in operation**, naming the gap, instead of showing a digest it
 does not have. *Not yet in operation*, never *not yet produced*: absent-by-schedule
 must not read as broken.
 
@@ -410,7 +410,7 @@ on budget arithmetic — so the stricter-looking check steers callers toward the
 
 Found by the first operator to run `0.6.0` from PyPI. The failing direction is closed (a
 denial, never a permit). The fix widens a verdict from denied to permitted, so it lands as
-the first post-freeze change rather than a hotfix: see `TICKETS-ND-054.md`.
+the first post-freeze change rather than a hotfix: see CHANGELOG.md.
 
 
 Stated here rather than left to be discovered. The full list, with the measurement
@@ -420,7 +420,7 @@ trusting a boundary to this engine:
 
 - **A `param_effects` `pattern:` still matches URL-valued parameters as strings.** A
   redirector, an IP literal or a percent-encoded host defeats a pattern like
-  `https://(pay|bank)\.example\.com/.*`. `ND-040` adds a **`url:` block** that matches
+  `https://(pay|bank)\.example\.com/.*`. A **`url:` block** matches
   the canonicalized target instead — opt-in, so existing patterns keep their exact
   meaning — and `experiments/aliasing_benchmark.py` measures the difference: evasive
   **0/4 at L2, 3/4 at L3**, `innocent-ok` 3/3 at both. Three qualifications, because
@@ -438,15 +438,14 @@ trusting a boundary to this engine:
   large counts). Demonstrated: policy max `500.10`, wire amount
   `500.1000000000000000001`, verdict **allowed**. Affects `0.3.6` and earlier; fixed
   in `0.4.0` by parsing with `parse_float=Decimal` at every ingress.
-- **Indirect or obfuscated command construction defeats parameter rules entirely**
-  (`ND-048`). `bash -c "$(echo <base64> | base64 -d)"` carries no matchable literal:
+- **Indirect or obfuscated command construction defeats parameter rules entirely.**
+  `bash -c "$(echo <base64> | base64 -d)"` carries no matchable literal:
   the governed effect is real and **no deterministic parameter rule catches it**. This
-  is not a URL problem and `ND-040` does not close it; the benchmark asserts it as
-  still-failing so the URL fix cannot be read as covering it. Open gap, no ticketed
-  fix.
+  is not a URL problem and the `url:` block above does not close it; the benchmark
+  asserts it as still-failing so the URL fix cannot be read as covering it. Open gap,
+  no fix yet.
 - **No obligation machinery.** An AADP obligation attached to a permit would be
-  silently ignored by onedoor's own enforcement points rather than failing closed
-  (`ND-038`).
+  silently ignored by onedoor's own enforcement points rather than failing closed.
 
 ## License
 

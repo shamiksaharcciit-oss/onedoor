@@ -1,4 +1,4 @@
-"""`python -m onedoor.viewer` — generate the receipt page from a store (ND-051).
+"""`python -m onedoor.viewer` — generate the receipt page from a store.
 
 Read-only against a real store. The only writing this module does is `--demo-store`,
 which builds a **labelled** sample store by running real decisions through the real

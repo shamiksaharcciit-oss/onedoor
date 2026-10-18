@@ -1,4 +1,4 @@
-"""Render a decision receipt as static HTML (ND-051 / V3).
+"""Render a decision receipt as static HTML.
 
 This module **renders the checker's answer**. It does not check anything: there is no
 `hashlib` here, no digest arithmetic, no second opinion about whether a receipt is
@@ -17,8 +17,8 @@ number on it would be a number this system cannot stand behind — and standing 
 numbers is the entire product.
 
 The absent state is different and is *not* a failure. `row_hash` is NULL in `0.4.1`
-because `ND-001` has not run; the page says so, quietly, naming the ticket. A green
-tick over a dark column would be exactly the dashboard lie this design exists to
+because the hash chain has not run yet; the page says so, quietly, naming the gap. A
+green tick over a dark column would be exactly the dashboard lie this design exists to
 avoid.
 """
 

@@ -5,6 +5,20 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
+## 0.8.2 — unreleased
+
+Under way; dated and completed once every part of this release has landed.
+
+### Changed — internal tracking references reworded out of shipped files
+
+- **Comments and docstrings in `pyproject.toml`, `README.md`, the viewer package, and
+  the viewer design spec no longer cite internal ticket, requirement or review-lane
+  identifiers.** Each was reworded to state its point directly instead of pointing at
+  an id a reader outside the project cannot resolve; no comment lost the reasoning it
+  was written to carry. No functional change, no upgrade step: the wheel and the sdist
+  are otherwise byte-for-byte the same modules, with the same behaviour and the same
+  tests passing.
+
 ## 0.8.1 — unreleased
 
 Under way; dated and completed once every part of this release has landed.

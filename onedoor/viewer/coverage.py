@@ -1,4 +1,4 @@
-"""The coverage map's Oneview skin (ND-052 / S4-T5).
+"""The coverage map's Oneview skin.
 
 Renders `studio.coverage.CoverageMap` and computes nothing — the split that keeps every
 renderer in this package from growing a second opinion.

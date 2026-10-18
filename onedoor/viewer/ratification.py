@@ -1,4 +1,4 @@
-"""Render a ratification receipt (ND-052 / S2-T5).
+"""Render a ratification receipt.
 
 Like `onedoor.viewer.page`, this module **renders an answer it was given**. It does no
 store reads and no digest arithmetic: `studio.ratify.view_model` dereferences the cited
@@ -87,7 +87,7 @@ def render_text(view: RatificationView) -> str:
 
 
 def render_html(view: RatificationView) -> str:
-    """An HTML fragment, for the viewer page. Every value escaped (stored-XSS, ND-051)."""
+    """An HTML fragment, for the viewer page. Every value escaped (stored-XSS)."""
 
     def e(value: object) -> str:
         return escape("" if value is None else str(value), quote=True)

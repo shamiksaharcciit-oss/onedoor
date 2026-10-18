@@ -1,4 +1,4 @@
-"""The canvas's Oneview skin (ND-052 / S3-T6).
+"""The canvas's Oneview skin.
 
 Renders `studio.canvas.CanvasView` and computes nothing — the same split that keeps
 `page.py` from growing a second opinion about whether a receipt is sound.
@@ -7,7 +7,7 @@ Which parts of Oneview apply, and which do not
 ------------------------------------------------
 Oneview §3 is a hard fence — *static HTML, read-only, no backend* — and a canvas that
 edits policy violates every clause of it. **It does not apply here, and the spec says
-so itself**: §1's status line puts *"Product GUIs (onedoor ND-018/ND-020 and
+so itself**: its status line puts *"Product GUIs (onedoor's own, and
 successors)"* explicitly out of its scope. Checked against the vendored bytes rather
 than remembered, which is why it dissolved instead of becoming an escalation.
 
@@ -17,8 +17,8 @@ anatomy, §2's law**. The visual language, not the delivery fence. And it inheri
 falling back to a bundled palette: the design system is a hard
 requirement of this surface, never a default it degrades past.
 
-The two-zone colour rule (S3 §3)
-----------------------------------
+The two-zone colour rule
+-------------------------
 **State colours are verdicts' alone**, and a policy diff is not a verdict.
 Green-for-added is the single most automatic choice a diff UI makes, and making it
 would spend `--ok`/`--bad` — the pair that distinguishes ALLOW from DENY across three

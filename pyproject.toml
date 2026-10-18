@@ -21,11 +21,11 @@ Issues = "https://github.com/shamiksaharcciit-oss/onedoor/issues"
 Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-# Ed25519 signing (ND-015). An EXTRA rather than a hard requirement, ruled by R038 §2:
+# Ed25519 signing. An EXTRA rather than a hard requirement, by design:
 # chaining is opt-in and signing rides it, so a library-only user who never signs
 # should not carry a crypto dependency for a feature they have not switched on.
 #
-# X-6 -- "alarm dependencies are hard requirements, never optional extras" -- is
+# The rule that alarm dependencies are hard requirements, never optional extras, is
 # enforced at ENABLE time instead of install time, which is the reading that actually
 # closes the failure mode. A hard install dependency guarantees nothing about config,
 # and the deployment that believes it is signing and is not was always going to believe
@@ -33,29 +33,29 @@ Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG
 # REFUSES TO START, asserted by a test as a stated invariant.
 #
 # A range, not an exact pin, in the package: exact-pinning a runtime dependency of a
-# LIBRARY is hostile to every downstream that also depends on it (ND-040/U1's own
-# reasoning). CI pins the version, and the register records it -- process provenance
-# lives at the deployment layer, because Ed25519's OUTPUT cannot change with the
-# library (RFC 8032), so a version in per-row evidence would assert a dependence that
-# does not exist.
+# LIBRARY is hostile to every downstream that also depends on it. CI pins the version,
+# and the register records it -- process provenance lives at the deployment layer,
+# because Ed25519's OUTPUT cannot change with the library (RFC 8032), so a version in
+# per-row evidence would assert a dependence that does not exist.
 signed = ["cryptography>=42,<48"]
 service = ["fastapi>=0.115", "uvicorn>=0.34"]
-# The Policy Studio's canvas (ND-052/S3). Its own extra rather than part of [service],
-# because R047 §1 made them separate PROCESSES on purpose: onedoor.service is the PDP,
-# and an operator GUI that changes the rules must not ride on the credential that
-# answers decisions. Sharing an extra would quietly re-couple what the split separated.
+# The Policy Studio's canvas. Its own extra rather than part of [service], because they
+# are separate PROCESSES on purpose: onedoor.service is the PDP, and an operator GUI
+# that changes the rules must not ride on the credential that answers decisions. Sharing
+# an extra would quietly re-couple what the split separated.
 #
-# X-6 at the point of use, as with [signed]: the canvas has to run engine functions to
-# show any number at all, so a missing FastAPI is a REFUSAL naming the remedy rather
-# than a static fallback -- there is no honest static fallback here.
+# The same enable-time rule applies at the point of use, as with [signed]: the canvas
+# has to run engine functions to show any number at all, so a missing FastAPI is a
+# REFUSAL naming the remedy rather than a static fallback -- there is no honest static
+# fallback here.
 #
-# `python-multipart` is here for ND-056/T1's file upload, and it REVERSES a decision
+# `python-multipart` is here for the Studio's file upload, and it REVERSES a decision
 # recorded in `server.create_draft`: "a dependency for one text field is one the
 # [studio] extra does not need". That reasoning stands for a text field and does not
 # reach a FILE field -- `<input type=file>` forces multipart/form-data, and there is no
 # urlencoded route to it. The only alternative is hand-parsing multipart, which is a
 # second implementation of a parser in a codebase whose whole doctrine is that there is
-# one parser. Approved as a reversal with its reason stated (R066 §5) rather than left
+# one parser. Approved as a reversal with its reason stated here rather than left
 # as a comment that quietly became wrong.
 studio = ["fastapi>=0.115", "uvicorn>=0.34", "python-multipart>=0.0.9"]
 otel = ["opentelemetry-api>=1.27"]
@@ -77,7 +77,7 @@ langchain = ["langchain>=1.0"]
 litellm = ["litellm>=1.60"]
 # ruff is PINNED, not floated. Lint rule sets change between ruff releases, so an
 # unpinned linter makes CI non-deterministic: the job can go red on a morning
-# nobody touched the code. Bump it deliberately, as its own commit (ND-025).
+# nobody touched the code. Bump it deliberately, as its own commit.
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
        # Declared here as well as in [studio] for the reason stated two entries down
@@ -96,9 +96,9 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        # PINNED, not ranged, unlike the [signed] extra: CI must be reproducible, and
        # an unpinned crypto library makes a gate that can go red on a morning nobody
        # touched the code -- the same argument that pins ruff. This is the version the
-       # register records (R038 §3): process provenance at the deployment layer.
+       # register records: process provenance at the deployment layer.
        "cryptography==46.0.4",
-       # The Studio server's runtime (ND-052/S3). Here for the same reason
+       # The Studio server's runtime. Here for the same reason
        # `cryptography` is: an optional dependency the package IMPORTS must be present
        # for `mypy onedoor`, or the gate silently skips checking the one call site that
        # uses it. A `ignore_missing_imports` override would have made CI green by making
@@ -110,7 +110,7 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        # now catches that class locally, at the moment the import is written.
        "uvicorn>=0.34"]
 
-# ND-025. Lint rules are a decision, not a default. Without this block `ruff check`
+# Lint rules are a decision, not a default. Without this block `ruff check`
 # lints against whatever rule set the newest ruff ships with, so a CI job can go red
 # on a morning nobody touched the code. Pinned versions in [dev] close the other half.
 [tool.ruff]
@@ -121,11 +121,11 @@ target-version = "py312"
 # normalises, received data is frozen verbatim. Excluded here, not per-file-ignored,
 # because `ruff format` obeys `exclude` and would otherwise rewrite these bytes.
 exclude = [
-    # Core's vendored, digest-pinned artifact. `ruff check .` currently reports 10
+    # A vendored, digest-pinned artifact. `ruff check .` currently reports 10
     # findings in it, 5 of them auto-fixable -- and `ruff check --fix .` is exactly
     # what someone reaches for when CI is red. That would rewrite canonical.py, the
     # module CLAUDE.md says is vendored verbatim and never reimplemented, and every
-    # pinned manifest would stop verifying. Do not lint core's bytes.
+    # pinned manifest would stop verifying. Do not lint its bytes.
     "reference/rederivable-manifest",
     # The vendored copy of the same artifact. Excluded for the identical reason: it
     # must stay byte-identical to its origin, and `ruff format` would rewrite it.
@@ -155,10 +155,10 @@ exclude = [
     ".git",
     # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
     # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
-    # quote matches the file it indicts (reformatting ND-021's snippet would make it
-    # no longer match examples/litellm_guardrail.py), and docs/from_core/ memos are
+    # quote matches the file it indicts (reformatting a quoted snippet would make it
+    # no longer match examples/litellm_guardrail.py), and received memos are
     # pinned by `Integrity: sha256(body)` -- reformatting a code block inside one
-    # would break core's digest and fail tests/protocol/.
+    # would break that digest and fail tests/protocol/.
     "*.md",
 ]
 
@@ -184,14 +184,15 @@ asyncio_mode = "auto"
 # that state. pytest clears this directory at the start of each session; it holds
 # nothing worth keeping between runs.
 addopts = "--basetemp=.pytest-tmp"
-# ND-025 follow-up. 19 test modules do `from tests.conftest import ...`, and
+# 19 test modules do `from tests.conftest import ...`, and
 # tests/protocol imports scripts.verify_memo -- both need the repository root on
 # sys.path. `python -m pytest` puts it there implicitly (python -m prepends CWD);
 # the bare `pytest` CI runs does not. So the suite passed locally and failed in CI
 # with 20 collection errors, ModuleNotFoundError: No module named 'tests'.
 #
-# Latent since long before ND-025: the Tests step never ran, because the lint step
-# ahead of it always failed first. Making the earlier gates pass is what exposed it.
+# Latent since long before this was noticed: the Tests step never ran, because the
+# lint step ahead of it always failed first. Making the earlier gates pass is what
+# exposed it.
 # `pythonpath` is pytest's explicit answer and makes the two invocations equivalent,
 # so a green run locally means a green run in CI. Verify with BARE `pytest`.
 pythonpath = ["."]
@@ -206,7 +207,7 @@ strict = true
 module = ["opentelemetry.*"]
 ignore_missing_imports = true
 
-# Vendored verbatim from core's pinned artifact. Type-annotating it would mean
+# Vendored verbatim from a pinned upstream artifact. Type-annotating it would mean
 # editing it, and the whole guarantee is that it is not edited. A test asserts it
 # stays byte-identical to reference/rederivable-manifest/canonical.py.
 [[tool.mypy.overrides]]
@@ -227,14 +228,14 @@ include = ["onedoor*"]
 onedoor = [
     "store/migrations/*.sql",
     "viewer/_vendor/*.md",
-    # ND-055/V1. The Policy Studio v2 token block, extracted verbatim from the
-    # mockup R055 names as binding design authority. `studio/tokens.py` pins its
-    # SHA-256 and RAISES rather than falling back, so a wheel without this file is
-    # a Studio that cannot render at all -- the 0.3.0 missing-migrations failure
-    # shape, and the reason it is declared here in the same breath as being written.
+    # The Policy Studio v2 token block, extracted verbatim from the mockup named
+    # as binding design authority. `studio/tokens.py` pins its SHA-256 and RAISES
+    # rather than falling back, so a wheel without this file is a Studio that
+    # cannot render at all -- the 0.3.0 missing-migrations failure shape, and the
+    # reason it is declared here in the same breath as being written.
     "studio/_vendor/*.css",
     "studio/_fixture/HEAD",
-    # ND-052/S5. The shipped policy packs -- the YAML the engine loads AND the PACK.md
+    # The shipped policy packs -- the YAML the engine loads AND the PACK.md
     # boundary statement, because both are inside PACK_DIGEST and because a pack whose
     # "what this is not" page did not travel would be the overclaim the page prevents.
     # Caught by `tests/templates/test_pack.py::test_the_pack_is_in_the_built_wheel`,

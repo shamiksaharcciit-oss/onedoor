@@ -1,4 +1,4 @@
-"""The proposal surface (ND-052 / S6-T5): one page, two sections, never one table.
+"""The proposal surface: one page, two sections, never one table.
 
 The coverage map's rows are **measurements** — facts about the engine and the
 ledger. The proposal's mentioned-but-unruled rows are **a model's reading of a sentence**.

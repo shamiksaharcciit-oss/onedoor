@@ -1,11 +1,10 @@
 # Oneview — Receipt Viewer Design Spec (v1)
 
-**Date:** 2026-08-22 · **Author:** core
-**Consumers:** onedoor delivery · onewatch (canary) build · onetrace (forensics)
+**Consumers:** onedoor delivery · onewatch build · onetrace (forensics)
 build — one skin each, implemented against this spec and the reference mockup
 (`oneview.html`, shipped beside this file).
 **Status:** Phase-B launch asset. Demo-grade, read-only. Product GUIs
-(onedoor ND-018/ND-020 and successors) are explicitly out of scope.
+(onedoor's own, and successors) are explicitly out of scope.
 
 ## 1. What this is
 
@@ -14,7 +13,7 @@ its own **verified** store and emits a static HTML page rendering receipts in
 the shared visual language. The receipt is the hero object on every screen —
 a certificate, not a dashboard row.
 
-## 2. The law (the X-11 of UIs)
+## 2. The law (the one rule every skin must hold)
 
 **Every displayed value is read from a verified artifact.** The generator runs
 the same verification the CLI runs and renders its output — it never re-derives
@@ -82,6 +81,6 @@ is the committed single theme; ground painted explicitly.
 
 Vendor the token block + this spec into each repo (digest-pinned, the
 rederivable-manifest pattern). Each skin: one generator script + one test
-that the page's every displayed digest/number matches the store (X-11 test),
+that the page's every displayed digest/number matches the store (the law in §2),
 one test that verification-failure renders the failure state. Cold-clone:
 `python -m <pkg>.viewer` produces the page from a fresh clone's store.
