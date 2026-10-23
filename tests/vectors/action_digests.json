@@ -1,0 +1,50 @@
+{
+  "format": "onedoor-action-digest-vectors/1",
+  "description": "Action objects (profile section 4.3) and their action digests (sha-256=:...:), computed by onedoor.permit.action.action_digest -- domain tag 'aadp:action:v1', JCS canonical form, SHA-256, base64. Each object below, re-digested, must reproduce the paired value exactly.",
+  "vectors": [
+    {
+      "id": "simple_decimal",
+      "action_object": {
+        "payee": "webshop",
+        "amount_eur": "40.00"
+      },
+      "action_digest": "sha-256=:E7Ggi+zXQaWov86IhoED8GwT6JL7RQyjAtXjEqn/9cE=:"
+    },
+    {
+      "id": "nested",
+      "action_object": {
+        "amount": {
+          "currency": "EUR",
+          "max": "40.00"
+        },
+        "meta": {
+          "ref": "INV-001",
+          "tags": [
+            "urgent",
+            "approved"
+          ]
+        }
+      },
+      "action_digest": "sha-256=:qeJgThoG8DDP6W36+hCoq3bLe8BPVlPlKq4eCf2kdlE=:"
+    },
+    {
+      "id": "unicode",
+      "action_object": {
+        "name": "M\u00fcller & Co. \u2014 \u20ac, \u65e5\u672c\u8a9e",
+        "amount_eur": "12.50"
+      },
+      "action_digest": "sha-256=:hDDKsKamyMfVrh5EHRybR/KaEowd2ZIRyLUIn9K/plM=:"
+    },
+    {
+      "id": "nested_with_negative",
+      "action_object": {
+        "amount": {
+          "currency": "EUR",
+          "value": "-5.00"
+        },
+        "note": "a refund, negative on purpose"
+      },
+      "action_digest": "sha-256=:1iPbrIZhjp0fAxa8DjE/hq1vmTH8Us4FlfIZ++tPcPs=:"
+    }
+  ]
+}

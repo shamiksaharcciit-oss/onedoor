@@ -1,0 +1,105 @@
+{
+  "format": "onedoor-decision-ref-vectors/1",
+  "description": "An export (actions_audit rows, as onedoor.export.write_export would write them) and five decision references, each engineered to give exactly one of onedoor.decision_ref.check's five outcomes against that SAME export: matches, digest_mismatch (same request_id, wrong digest), not_in_export (a request_id no row carries), malformed_ref (missing required fields), and export_damaged (a property of the FILE, not any one row -- demonstrated by corrupting a byte of the export text or its .sha256 sidecar, not representable as a vector row; see onedoor.decision_ref.check_files).",
+  "export_rows": [
+    {
+      "id": 1,
+      "request_id": "00000000-0000-4000-8000-000000000010",
+      "kind": "exec_intent",
+      "parent_id": null,
+      "action_type": "vectors.simple",
+      "source": "llm",
+      "params_json": "{\"x\":\"1\"}",
+      "decision": "executed",
+      "reason_code": "passed",
+      "nominal_tier": 1,
+      "effective_tier": 1,
+      "detail": "",
+      "connector_ok": null,
+      "error": null,
+      "payload_json": null,
+      "approval_id": null,
+      "undo_until": "2026-10-24T12:15:00+00:00",
+      "undo_of": null,
+      "created_at": "2026-10-24T12:00:00+00:00",
+      "policy_version": "0c999db1e3778add5bbef113e0583dfd1fd51e1c51c4267b05c24a217e1970db",
+      "protocol": "aadp/0.2",
+      "budget_json": null,
+      "outcome": null,
+      "prev_hash": null,
+      "seq": null,
+      "row_hash": null,
+      "sig": null,
+      "key_id": null,
+      "alg": null,
+      "e_digest": null,
+      "i_digest": null,
+      "t_digest": null,
+      "v_digest": null,
+      "anchor_ref": null,
+      "params_provenance": "serialized",
+      "payload_provenance": null,
+      "malformed_kind": null,
+      "canon_schema": null,
+      "opaque_class": null,
+      "approval_ref_status": "absent",
+      "preimage_version": null,
+      "evaluation_trace_json": "[{\"check\":\"kill_switch\",\"rule\":\"an engaged kill switch requires human approval for anything but an exempt read\",\"condition\":\"engaged == false\",\"value\":\"false\",\"result\":\"pass\"},{\"check\":\"default_deny\",\"rule\":\"an action type must be declared to a policy to auto-execute or be proposed\",\"condition\":\"policy.is_default_deny == false\",\"value\":\"vectors.simple\",\"result\":\"pass\"},{\"check\":\"effect_floor\",\"rule\":\"an action inherits the strictest tier floor of its resolved effects\",\"condition\":\"no resolved effect's min_tier exceeds the nominal tier\",\"value\":\"none\",\"result\":\"pass\"},{\"check\":\"opaque_host\",\"rule\":\"a declared opaque host class can never resolve to auto-execution; a human decides\",\"condition\":\"opaque_class is None, already overridden, or the request is exempt\",\"value\":\"none\",\"result\":\"pass\"},{\"check\":\"reversibility\",\"rule\":\"an auto-executing tier requires a registered compensating command\",\"condition\":\"effective_tier not in (auto, auto_capped) or a compensating_command is set\",\"value\":\"vectors.reverse\",\"result\":\"pass\"},{\"check\":\"bounds\",\"rule\":\"declared parameter bounds (numeric ranges, enum membership, required keys) must be satisfied\",\"condition\":\"bounds.validate(policy.bounds, request.params).ok\",\"value\":\"within bounds\",\"result\":\"pass\"},{\"check\":\"dry_run\",\"rule\":\"a policy in dry-run rehearses rather than executes\",\"condition\":\"not dry_run and (dry_run_until is None or now >= dry_run_until)\",\"value\":\"live\",\"result\":\"pass\"},{\"check\":\"caps\",\"rule\":\"budget caps (rate and/or value) must not be exceeded by this action\",\"condition\":\"already-reserved + this action's cost <= every declared cap\",\"value\":\"within caps\",\"result\":\"pass\"}]"
+    }
+  ],
+  "cases": [
+    {
+      "id": "matches",
+      "ref": {
+        "format": "onedoor-decision-ref/1",
+        "request_id": "00000000-0000-4000-8000-000000000010",
+        "decision_digest": "sha256:c9d4e93d986287ddde477dc0d79ff517ea904682688ba8401d4bea0c1a0906e1",
+        "verdict": "permit",
+        "issuer": "https://onedoor.example/vectors-issuer"
+      },
+      "expected": "matches"
+    },
+    {
+      "id": "digest_mismatch",
+      "ref": {
+        "format": "onedoor-decision-ref/1",
+        "request_id": "00000000-0000-4000-8000-000000000010",
+        "decision_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "verdict": "permit",
+        "issuer": "https://onedoor.example/vectors-issuer"
+      },
+      "expected": "digest_mismatch"
+    },
+    {
+      "id": "not_in_export",
+      "ref": {
+        "format": "onedoor-decision-ref/1",
+        "request_id": "00000000-0000-4000-8000-00000000ffff",
+        "decision_digest": "sha256:c9d4e93d986287ddde477dc0d79ff517ea904682688ba8401d4bea0c1a0906e1",
+        "verdict": "permit",
+        "issuer": "https://onedoor.example/vectors-issuer"
+      },
+      "expected": "not_in_export"
+    },
+    {
+      "id": "malformed_ref",
+      "ref": {
+        "format": "onedoor-decision-ref/1",
+        "request_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "expected": "malformed_ref"
+    },
+    {
+      "id": "export_damaged",
+      "ref": {
+        "format": "onedoor-decision-ref/1",
+        "request_id": "00000000-0000-4000-8000-000000000010",
+        "decision_digest": "sha256:c9d4e93d986287ddde477dc0d79ff517ea904682688ba8401d4bea0c1a0906e1",
+        "verdict": "permit",
+        "issuer": "https://onedoor.example/vectors-issuer"
+      },
+      "expected": "export_damaged",
+      "note": "corrupt the export file or its .sha256 sidecar; see check_files"
+    }
+  ]
+}

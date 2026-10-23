@@ -1,0 +1,71 @@
+{
+  "format": "onedoor-permit-vectors/1",
+  "description": "A bound permit (compact JWS), the issuer's public key as a JWK, and three cases against the SAME permit: one whose paired action object matches what was signed (verifies), one paired with a changed amount (the action digest claim no longer matches -- a different action object, not a different signature), and the same permit checked at a time past its own exp claim (expired). A vendoring consumer verifies with: onedoor.permit.jws.verify(token, issuer_public_key_bytes) for the signature, onedoor.permit.action.action_digest(action_object) compared against claims['action_digest'] for the action binding, and claims['exp'] (Unix seconds) against its own clock for lifetime -- exactly profile section 8.1's narrower set this project vendors, not the full recipient replay/audience check.",
+  "issuer": "https://onedoor.example/vectors-issuer",
+  "issuer_public_key_jwk": {
+    "crv": "Ed25519",
+    "kty": "OKP",
+    "x": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg"
+  },
+  "permit_token": "eyJhbGciOiJFZERTQSIsImtpZCI6InZlY3RvcnMta2V5LTEiLCJ0eXAiOiJhYWRwLXBlcm1pdCtqd3QifQ.eyJpc3MiOiJodHRwczovL29uZWRvb3IuZXhhbXBsZS92ZWN0b3JzLWlzc3VlciIsInN1YiI6InVybjpvbmVkb29yOnJlcXVlc3Q6MDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiYXVkIjoiaHR0cHM6Ly9wYXltZW50cy5leGFtcGxlLmNvbS9hdWRpZW5jZSIsImp0aSI6IjEiLCJpYXQiOjE3OTI4NDMyMDAsIm5iZiI6MTc5Mjg0MzIwMCwiZXhwIjoxNzkyODQzMzIwLCJjbmYiOnsiamt0IjoiQWtYSVpGem9uYjU5Wm1Hd3lLZ2kzSDNCd01pNmFtZXZxZEtRaUxaaGR0YyJ9LCJhdXRob3JpemF0aW9uX2RldGFpbHMiOlt7InR5cGUiOiJ2ZWN0b3JzLnRyYW5zZmVyIiwicGF5ZWUiOiJ3ZWJzaG9wIiwiYW1vdW50X2V1ciI6IjQwLjAwIn1dLCJhY3Rpb25fZGlnZXN0Ijoic2hhLTI1Nj06RTdHZ2krelhRYVdvdjg2SWhvRUQ4R3dUNkpMN1JReWpBdFhqRXFuLzljRT06IiwidmVyZGljdCI6InBlcm1pdCIsInRpZXIiOnsibm9taW5hbCI6MSwiZWZmZWN0aXZlIjoxfSwiY3VycmVudG5lc3MiOiJ0aW1lLWJvdW5kZWQifQ.HNWI5dhs4QT5J2vc1aDUjgxBAcDGa9vwmxduWNGtPcFgVciYDSCZ10QcqPRY0Kcw9UMd6RshfB6Ky1vozPWUCw",
+  "header": {
+    "alg": "EdDSA",
+    "kid": "vectors-key-1",
+    "typ": "aadp-permit+jwt"
+  },
+  "claims": {
+    "iss": "https://onedoor.example/vectors-issuer",
+    "sub": "urn:onedoor:request:00000000-0000-4000-8000-000000000001",
+    "aud": "https://payments.example.com/audience",
+    "jti": "1",
+    "iat": 1792843200,
+    "nbf": 1792843200,
+    "exp": 1792843320,
+    "cnf": {
+      "jkt": "AkXIZFzonb59ZmGwyKgi3H3BwMi6amevqdKQiLZhdtc"
+    },
+    "authorization_details": [
+      {
+        "type": "vectors.transfer",
+        "payee": "webshop",
+        "amount_eur": "40.00"
+      }
+    ],
+    "action_digest": "sha-256=:E7Ggi+zXQaWov86IhoED8GwT6JL7RQyjAtXjEqn/9cE=:",
+    "verdict": "permit",
+    "tier": {
+      "nominal": 1,
+      "effective": 1
+    },
+    "currentness": "time-bounded"
+  },
+  "cases": [
+    {
+      "id": "verifies",
+      "action_object": {
+        "payee": "webshop",
+        "amount_eur": "40.00"
+      },
+      "expected": "verifies",
+      "check_at": "2026-10-24T12:00:00+00:00"
+    },
+    {
+      "id": "changed_amount",
+      "action_object": {
+        "payee": "webshop",
+        "amount_eur": "999.00"
+      },
+      "expected": "action_digest_mismatch",
+      "check_at": "2026-10-24T12:00:00+00:00"
+    },
+    {
+      "id": "expired",
+      "action_object": {
+        "payee": "webshop",
+        "amount_eur": "40.00"
+      },
+      "expected": "expired",
+      "check_at": "2026-10-24T12:02:01+00:00"
+    }
+  ]
+}
