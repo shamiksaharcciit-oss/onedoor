@@ -1,7 +1,7 @@
 # Design note: idempotent proposals on (thread_id, tool_call_id)
 
-Covers ruling item 2 (OD2+OD3) for 0.8.2. No code in this note or alongside it; it stops here
-for review.
+Covers ruling item 2 (OD2+OD3) for 0.8.2. Amended with the decided digest check below; moves
+to code next.
 
 ## The bug this closes
 
@@ -43,13 +43,32 @@ pass-through parameters with the same names, and the only caller that would supp
 read `thread_id` from the incoming `RunnableConfig`'s `configurable` mapping when LangGraph
 supplies one.
 
-**Open question, for review:** a resumed node that finds its original row returns that row
-regardless of whether the re-built `ActionRequest` is byte-identical to the one that produced
-it (LangGraph's contract is that re-execution is deterministic, but onedoor has no way to
-verify that from inside `create()`). The alternative — comparing the new request against the
-stored `request_json` and refusing on a mismatch — is a real option but is not assumed here;
-it changes what a caller sees on a resume that genuinely diverged, and that is a judgment call
-better made before code, not during review of it.
+**Decided: checked, never trusted.** A found row's request is not assumed to
+match; it is verified. A third nullable column, `request_digest TEXT`, is added alongside
+`thread_id`/`tool_call_id`, populated on every `create()` call (not only resumable ones) from
+a new `resume_digest(action_type, params) -> str` — the same canonical-JSON machinery
+`onedoor.guardrail.mandate.core_digest` already uses (`onedoor._vendor.canonical.canonical_bytes`
+/ `digest_obj`), but deliberately **excluding `request_id`**: `core_digest` is request_id-bound
+on purpose (a ratification cannot be replayed onto a different record); this digest needs the
+opposite property, since `request_id` is expected to differ on every resume and the digest
+must still match when nothing that matters changed.
+
+On a found-row resume: recompute `resume_digest` from the rebuilt request and compare.
+- **Equal** — return the original approval row, as before; no second row.
+- **Different** — refuse outright (a terminal denial, not a fresh proposal): a new reason
+  code, `CheckId.RESUME_REQUEST_MISMATCH`, and two new nullable columns on `actions_audit`
+  (`resume_digest_expected`, `resume_digest_actual`), populated only on this refusal, so the
+  evidence record carries both digests rather than a free-text claim that they differed.
+  No new approval is created on this path either — a changed resume neither reuses the old
+  row nor silently starts a new one.
+
+This is the next free migration after the schema change above, `0031` (see "Migration
+number"), since it touches `actions_audit`, a different table than the one `0030` changes.
+
+`onedoor/decision_digest.py`'s `canonical_row_record` must add both new columns to its
+omit-when-`None` list, exactly as it already does for `resumes_audit_id` and
+`decide_principal` — otherwise every row ever written gets a changed `decision_digest` the
+moment `0031` runs, breaking the stated invariant that an existing row's digest never moves.
 
 ## Migration number
 
@@ -60,7 +79,9 @@ names 0029 as "the enforcer's next"; that was accurate when 29vb was written and
 table (Studio's own tables — `ratifications`, `backtest_receipts`, `kill_switch_episodes`, and
 others — are added starting at `0016`/`0017`/`0018`), so `0030_approval_resume_key.sql`
 touching `approvals` does not run into the "no numbered migration may touch a Studio table"
-limit.
+limit. The digest-mismatch columns on `actions_audit` (also not a Studio table) are
+`0031_resume_digest_mismatch.sql`, a second migration rather than folded into `0030`, since
+each migration file touches one table's reason for existing.
 
 ## Upgrade path from 0.8.1
 
@@ -76,8 +97,12 @@ a deployer beyond running the migration.
 
 ## Rows written before this migration
 
-`thread_id` and `tool_call_id` are `NULL` on every such row, forever — nothing rewrites them.
-Because `NULL` never collides with anything under the unique index, these rows are completely
-inert with respect to the new constraint: they cannot be found by the new lookup (which only
-runs when both keys are supplied) and cannot block a new row from being created. A pre-migration
-row's behavior under every existing code path is unchanged.
+`thread_id`, `tool_call_id` and `request_digest` are `NULL` on every such row, forever —
+nothing rewrites them. Because `NULL` never collides with anything under the unique index,
+these rows are completely inert with respect to the new constraint: they cannot be found by
+the new lookup (which only runs when both keys are supplied) and cannot block a new row from
+being created. `actions_audit`'s two new digest columns are `NULL` on every row written before
+`0031` and on every row the mismatch path never touches afterward — exactly the
+`resumes_audit_id`/`decide_principal` precedent `decision_digest.canonical_row_record`
+already documents for a column that does not apply to a given row. A pre-migration row's
+behavior under every existing code path is unchanged.
