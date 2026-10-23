@@ -5,9 +5,73 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
 [BACKLOG.md](BACKLOG.md).
 
-## 0.8.2 — unreleased
+## 0.9.0 — unreleased
 
-Under way; dated and completed once every part of this release has landed.
+Under way; dated and completed once every part of this release has landed. Carries 0.8.2's
+own work forward rather than shipping it as a release of its own.
+
+### Added — idempotent proposals on resume
+
+- **A LangGraph resume no longer leaves a second, never-granted approval behind.**
+  Resuming re-executes the interrupted node from the top, including the code that
+  proposes — a fresh `request_id` every time — so a resumed proposal attempt now finds
+  its original approval row by a resume key (the caller's `thread_id`/`tool_call_id`)
+  instead of creating a new one. Checked, never trusted: the reused row's canonical
+  digest (over `action_type` and `params`, deliberately not `request_id`, which differs
+  on every resume by design) is compared against the request actually being resumed.
+  Equal reuses it; a changed request is refused outright with a new reason code,
+  `resume_request_mismatch`, and both digests are recorded on the audit row. Every
+  caller that does not supply a resume key — the HTTP service, the MCP integration,
+  direct engine calls — is byte-for-byte unaffected.
+
+### Added — a retrying, idempotent decide-key HTTP client
+
+- **`onedoor.integrations.decide_client.DecideKeyClient`** lets the LangChain
+  middleware talk to the decision service over HTTP with a decide-only key, instead of
+  holding its own database connection — the real process boundary between an agent and
+  whoever approves, named as missing since 0.8.1's "Known limitations." The server
+  needed no new mechanism: a repeated `request_id` already returns the first decision,
+  never a second reservation. The client is what reuses one `request_id` across
+  retries instead of minting a fresh one per attempt: bounded retries with backoff
+  inside a total deadline, all three settable with conservative defaults, retrying
+  only when no answer came back at all (never an answered refusal). Past the deadline,
+  it raises rather than returning anything shaped like a decision, so nothing is ever
+  assumed granted. `httpx` moves from a dev-only dependency to the `[langchain]` extra.
+
+### Added — the decision reference and bound permit, from every surface
+
+- **The library call, the HTTP decision service, the LangChain middleware and the
+  MCP proxy each hand the caller `onedoor-decision-ref/1` and the bound permit's
+  compact JWS where one was issued** — in a documented field or attribute on each,
+  never by changing the shape of anything already read. `ActionResult` and the
+  HTTP service's decide/report reply both gain `bound_permit`; the LangChain
+  middleware and the MCP proxy both gain `last_decision_ref`/`last_bound_permit`,
+  the single-value hook the proxy already had for the reference alone. This is
+  what lets a onetrace step record both in one line — see
+  [`docs/onetrace.md`](docs/onetrace.md).
+- **A replayed `/v1/decide` answer now carries the same id field as the live
+  answer to that `request_id`.** The live reply named a permitted row
+  `intent_audit_id`; a replay of the same `request_id` reconstructed the answer
+  and named the identical row `audit_id` instead — two field names for one row,
+  depending only on which call happened to answer it. Both now agree on
+  `intent_audit_id` when the row is one that was permitted; `audit_id` stays
+  populated either way. The bound permit is deliberately never reissued on a
+  replay: it is a short-lived, one-time credential that was never stored to
+  reissue from.
+- **Stable test vectors, published under `tests/vectors/`,** for a consumer
+  vendoring `onedoor.decision_digest` and the `decision_ref` checker (both
+  stdlib-only) to test against without running onedoor at all: action digests,
+  decision references giving each of the checker's five outcomes, a bound permit
+  with a verifying/changed/expired case, and `decision_digest` stability across
+  the `/6` bump. See [`tests/vectors/README.md`](tests/vectors/README.md).
+
+### Changed — a new preimage version, `/6`
+
+- **Two new `actions_audit` columns** (`resume_digest_expected`, `resume_digest_actual`,
+  set only by a `resume_request_mismatch` denial) mean a new preimage version, appended
+  together as one bump since both are the evidence one denial states. Every row sealed
+  before `/6` keeps its exact prior digest — the hint is never consulted to decide
+  whether an existing chain still verifies, only to seal new rows.
 
 ### Changed — internal tracking references reworded out of shipped files
 
