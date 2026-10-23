@@ -154,6 +154,12 @@ class CheckId(StrEnum):
     # AADP -03 §6: the request's presented_audience does not match
     # the action type's declared present_bound.
     PRESENT_BOUND = "present_bound"
+    # onedoor's own extension, not an AADP-registered code: a resume (matched by
+    # thread_id/tool_call_id) rebuilt a request whose canonical digest does not
+    # match the one recorded on the approval row it would have reused. Refused
+    # outright rather than silently reusing that row or silently proposing a new
+    # one -- an approval is for one exact request, and a resume does not widen it.
+    RESUME_REQUEST_MISMATCH = "resume_request_mismatch"
 
 
 class ApprovalState(StrEnum):

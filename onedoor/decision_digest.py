@@ -46,11 +46,22 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     going forward, not only on an old row -- both read the same as a row with
     no such column at all. A row with a real decide key sets a real value,
     which IS included.
+
+    `resume_digest_expected`/`resume_digest_actual` (migration `0031`) are the same
+    exception again: `None` on every row before `0031`, and `None` on every row
+    `0031`'s one refusal path never touches afterward -- only a `resume_request_
+    mismatch` denial sets real values, which ARE included.
     """
     keys = row.keys()
     record: dict[str, object] = {}
+    _omit_when_none = (
+        "resumes_audit_id",
+        "decide_principal",
+        "resume_digest_expected",
+        "resume_digest_actual",
+    )
     for key in keys:
-        if key in ("resumes_audit_id", "decide_principal") and row[key] is None:
+        if key in _omit_when_none and row[key] is None:
             continue
         value = row[key]
         if isinstance(value, float):

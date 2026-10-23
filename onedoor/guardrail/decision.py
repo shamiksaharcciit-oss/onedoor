@@ -145,6 +145,8 @@ def decide_and_reserve(
     resumes_audit_id: int | None = None,
     principal: str | None = None,
     consumes_approval: int | None = None,
+    thread_id: str | None = None,
+    tool_call_id: str | None = None,
 ) -> ActionResult | PermittedIntent:
     """Phase A: evaluate the ordered checks; reserve caps; record intent.
 
@@ -169,6 +171,13 @@ def decide_and_reserve(
     verdict; an approval that is no longer `approved` raises `ApprovalError` before
     anything is evaluated. The approval is then linked to this decision's audit row --
     as is an approval a presented `request.approval_ref` resumes.
+
+    `thread_id`/`tool_call_id`: a caller's resume key (e.g. LangGraph's own
+    `configurable.thread_id` and the tool call being answered), when it has one. A
+    Tier-3 propose with both set is checked against `onedoor.guardrail.approvals`'s
+    resume-key index before creating a new approval -- see `_decide_and_reserve`.
+    `None`/`None` (every caller before this parameter existed, and every caller with
+    no such concept) behaves exactly as before: an ordinary, unconditional create.
     """
     consumed: list[int] = []
     outcome = _decide_and_reserve(
@@ -182,6 +191,8 @@ def decide_and_reserve(
         principal=principal,
         consumes_approval=consumes_approval,
         consumed=consumed,
+        thread_id=thread_id,
+        tool_call_id=tool_call_id,
     )
     audit_id = outcome.intent_audit_id if isinstance(outcome, PermittedIntent) else outcome.audit_id
     for approval_id in consumed:
@@ -201,6 +212,8 @@ def _decide_and_reserve(
     principal: str | None,
     consumes_approval: int | None,
     consumed: list[int],
+    thread_id: str | None = None,
+    tool_call_id: str | None = None,
 ) -> ActionResult | PermittedIntent:
     """The body of :func:`decide_and_reserve`, which documents every parameter.
 
@@ -890,7 +903,57 @@ def _decide_and_reserve(
                 ),
             )
         if effective_tier == Tier.CONFIRM:
-            approval_id = approvals.create(
+            # A resume (matched by thread_id/tool_call_id) is CHECKED against the
+            # approval row it would reuse, never trusted to match just because the
+            # keys do. Absent either key, this is skipped entirely and behaves
+            # exactly as it always has.
+            reused_approval_id: int | None = None
+            if thread_id is not None and tool_call_id is not None:
+                existing = approvals.find_by_resume_key(conn, thread_id, tool_call_id)
+                if existing is not None:
+                    expected_digest = existing["request_digest"]
+                    actual_digest = approvals.resume_digest(request.action_type, request.params)
+                    if expected_digest == actual_digest:
+                        reused_approval_id = int(existing["id"])
+                    else:
+                        decision = PolicyDecision(
+                            decision=Decision.DENIED,
+                            effective_tier=Tier.CONFIRM,
+                            nominal_tier=nominal_tier,
+                            reason_code=CheckId.RESUME_REQUEST_MISMATCH,
+                            detail=(
+                                "resumed request does not match the approval this "
+                                "resume key would have reused"
+                            ),
+                        )
+                        aid = audit.append(
+                            conn,
+                            request,
+                            decision,
+                            kind="decision",
+                            now=now,
+                            approval_ref_status=ref_status,
+                            undo_of=undo_of,
+                            opaque_class=opaque_class,
+                            evaluation_trace_json=trace.to_json(),
+                            resumes_audit_id=resumes_audit_id,
+                            resume_digest_expected=expected_digest,
+                            resume_digest_actual=actual_digest,
+                        )
+                        bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                        return ActionResult(
+                            request_id=request.request_id,
+                            decision=decision,
+                            audit_id=aid,
+                            decision_ref=_decision_ref(
+                                conn,
+                                audit_id=aid,
+                                request_id=request.request_id,
+                                decision=decision.decision,
+                                config=config,
+                            ),
+                        )
+            approval_id = reused_approval_id or approvals.create(
                 conn,
                 request,
                 config.approval_ttl_seconds,
@@ -898,6 +961,8 @@ def _decide_and_reserve(
                 mandate_core_digest=mandate_core_digest_value,
                 mandate_combined=mandate_combined,
                 proposed_by=principal,
+                thread_id=thread_id,
+                tool_call_id=tool_call_id,
             )
             decision = PolicyDecision(
                 decision=Decision.PROPOSED,

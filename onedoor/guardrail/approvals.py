@@ -16,10 +16,51 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
+from onedoor._vendor.canonical import digest_obj
 from onedoor.guardrail import audit
 from onedoor.guardrail.errors import ApprovalError
-from onedoor.guardrail.models import ActionRequest, Approval, ApprovalState, CheckId, Decision
+from onedoor.guardrail.models import (
+    ActionRequest,
+    Approval,
+    ApprovalState,
+    CheckId,
+    Decision,
+    JsonValue,
+)
 from onedoor.store.clock import from_iso, to_iso
+
+RESUME_DIGEST_KIND = "onedoor/resume-request-digest/1"
+
+
+def resume_digest(action_type: str, params: dict[str, JsonValue]) -> str:
+    """What a resumed proposal is CHECKED against: the request's canonical digest,
+    deliberately WITHOUT `request_id`.
+
+    `onedoor.guardrail.mandate.core_digest` solves the opposite problem -- it is
+    request_id-bound ON PURPOSE, so a ratification cannot be replayed onto a
+    different record. A resumed LangGraph node rebuilds its `ActionRequest` with a
+    fresh `request_id` every time (that is the bug this digest exists to catch
+    around, not a property to bind to), so the two facts that make a resume "the
+    same request" are exactly `action_type` and `params` -- the same canonical
+    rendering `core_digest` uses for `params`, reused here rather than introducing
+    a second canonicalisation scheme.
+    """
+    params_digest = digest_obj(_canon(params))
+    return digest_obj(
+        {"kind": RESUME_DIGEST_KIND, "action_type": action_type, "params_digest": params_digest}
+    )
+
+
+def _canon(value: object) -> object:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _canon(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_canon(v) for v in value]
+    return value
 
 
 def _row_to_approval(row: sqlite3.Row) -> Approval:
@@ -66,6 +107,8 @@ def create(
     mandate_core_digest: str | None = None,
     mandate_combined: bool = False,
     proposed_by: str | None = None,
+    thread_id: str | None = None,
+    tool_call_id: str | None = None,
 ) -> int:
     """Create a pending approval.
 
@@ -79,12 +122,28 @@ def create(
 
     `proposed_by` is the principal that asked, as authenticated by the caller of the
     engine; `cas_approve` refuses an approval by that same principal.
+
+    `thread_id`/`tool_call_id` (migration `0030`) are the caller's resume key, when it
+    has one -- NULL for every caller that does not (the HTTP service, the MCP
+    integration, direct engine calls), unconstrained by the unique index either way.
+    `request_digest` is computed and stored ONLY when both are given: a row with no
+    resume key is never looked up by `find_by_resume_key`, and `resume_digest` rejects
+    a raw float in `params` (E10) -- a real, legitimate shape for a caller that has no
+    resume key and no reason to canonicalise anything. Computing it unconditionally
+    would make an ordinary, non-resumable propose fail on a param shape every other
+    path on this route already tolerates.
     """
+    digest = (
+        resume_digest(request.action_type, request.params)
+        if thread_id is not None and tool_call_id is not None
+        else None
+    )
     cur = conn.execute(
         "INSERT INTO approvals "
         "(request_json, action_type, state, created_at, expires_at, "
-        "mandate_authority, mandate_core_digest, proposed_by) "
-        "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)",
+        "mandate_authority, mandate_core_digest, proposed_by, "
+        "thread_id, tool_call_id, request_digest) "
+        "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             dumps_request(request),
             request.action_type,
@@ -93,9 +152,27 @@ def create(
             (2 if mandate_combined else 1) if mandate_core_digest is not None else None,
             mandate_core_digest,
             proposed_by,
+            thread_id,
+            tool_call_id,
+            digest,
         ),
     )
     return int(cur.lastrowid or 0)
+
+
+def find_by_resume_key(
+    conn: sqlite3.Connection, thread_id: str, tool_call_id: str
+) -> sqlite3.Row | None:
+    """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
+
+    Returns the raw row (not an :class:`Approval`) because the caller needs
+    `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
+    would have to grow a field most callers never need.
+    """
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=?", (thread_id, tool_call_id)
+    ).fetchone()
+    return row
 
 
 def get(conn: sqlite3.Connection, approval_id: int) -> Approval | None:

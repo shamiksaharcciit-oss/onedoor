@@ -45,8 +45,13 @@ supplies one.
 
 **Decided: checked, never trusted.** A found row's request is not assumed to
 match; it is verified. A third nullable column, `request_digest TEXT`, is added alongside
-`thread_id`/`tool_call_id`, populated on every `create()` call (not only resumable ones) from
-a new `resume_digest(action_type, params) -> str` — the same canonical-JSON machinery
+`thread_id`/`tool_call_id`, populated by `create()` ONLY when both are given — a row with no
+resume key is never looked up by `find_by_resume_key`, and `resume_digest` rejects a raw float
+in `params` (E10), a shape every other path on this route already tolerates; computing it
+unconditionally broke exactly that tolerance for a propose with no resume key at all (found
+by `tests/guardrail/test_param_effects_compat.py`, which deliberately exercises float params
+for an unrelated feature). The digest itself comes from a new `resume_digest(action_type,
+params) -> str` — the same canonical-JSON machinery
 `onedoor.guardrail.mandate.core_digest` already uses (`onedoor._vendor.canonical.canonical_bytes`
 / `digest_obj`), but deliberately **excluding `request_id`**: `core_digest` is request_id-bound
 on purpose (a ratification cannot be replayed onto a different record); this digest needs the

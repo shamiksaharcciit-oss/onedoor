@@ -22,6 +22,10 @@ from onedoor.store.db import tx
 
 ROOT = Path(__file__).parent.parent.parent
 ISSUER = "https://onedoor.example/mcp-deployment"
+AMOUNT_EUR = Decimal("49.99")
+"""Decimal, as `serve` would hand it over: JSON numbers are parsed as Decimal
+there (E10). A raw Python float never reaches a real call; these fixtures
+should not manufacture one either."""
 
 
 def _proxy(*, issuer: str | None = ISSUER) -> Proxy:
@@ -45,7 +49,7 @@ def test_no_issuer_configured_the_hook_stays_none() -> None:
             "method": "tools/call",
             "params": {
                 "name": "send_payment",
-                "arguments": {"payee": "webshop", "amount_eur": 49.99},
+                "arguments": {"payee": "webshop", "amount_eur": AMOUNT_EUR},
             },
         }
     )
@@ -61,7 +65,7 @@ def test_a_proposed_call_is_obtainable_through_the_hook() -> None:
             "method": "tools/call",
             "params": {
                 "name": "send_payment",
-                "arguments": {"payee": "webshop", "amount_eur": 49.99},
+                "arguments": {"payee": "webshop", "amount_eur": AMOUNT_EUR},
             },
         }
     )

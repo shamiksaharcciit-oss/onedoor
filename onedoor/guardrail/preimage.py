@@ -44,7 +44,8 @@ VERSION_2 = "onedoor/row-preimage/2"
 VERSION_3 = "onedoor/row-preimage/3"
 VERSION_4 = "onedoor/row-preimage/4"
 VERSION_5 = "onedoor/row-preimage/5"
-CURRENT_VERSION = VERSION_5
+VERSION_6 = "onedoor/row-preimage/6"
+CURRENT_VERSION = VERSION_6
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009): the field records *why*
@@ -71,6 +72,14 @@ edit `approval_ref_status` guards against for an approval. Not excluded: it
 is set in the same `INSERT` as every other column here, with nothing circular
 or chronologically later about it, which is what the `EXCLUDED` entries below
 all share and this does not.
+
+`/6` adds `resume_digest_expected` and `resume_digest_actual` (migration
+`0031`), together, one bump: both are set in the same `INSERT`, on the same
+row, for the same reason -- the evidence a `resume_request_mismatch` denial
+states. An attacker who could edit either after the row was sealed could
+erase the record that a resume's rebuilt request diverged from what it would
+have reused, or fabricate a divergence that never happened; the same class of
+edit the chain exists to catch.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -161,7 +170,17 @@ refuse a report from any decide key but the one that received the permit (see
 the design note for this version).
 """
 
-FIELD_ORDER = FIELD_ORDER_V5
+FIELD_ORDER_V6: tuple[str, ...] = (
+    *FIELD_ORDER_V5,
+    "resume_digest_expected",
+    "resume_digest_actual",
+)
+"""`/6` appends rather than inserts, same precedent as `/4` -> `/5`, two fields at
+once: both are the evidence one `resume_request_mismatch` denial states, set
+together in the same row (see the design note for this version).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V6
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
@@ -170,6 +189,7 @@ FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_3: FIELD_ORDER_V3,
     VERSION_4: FIELD_ORDER_V4,
     VERSION_5: FIELD_ORDER_V5,
+    VERSION_6: FIELD_ORDER_V6,
 }
 """Every version this build can verify.
 

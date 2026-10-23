@@ -177,6 +177,23 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             tool_call_id=request.tool_call["id"],
         )
 
+    @staticmethod
+    def _resume_key(request: ToolCallRequest) -> tuple[str | None, str | None]:
+        """The resume key a re-executed node would present a second time: LangGraph's
+        own `configurable.thread_id`, and the tool call this proposal answers.
+
+        `None`/`None` outside a graph (`request.runtime` is `None`, per its own
+        docstring) or when the running graph was never given a `thread_id` -- both
+        behave exactly as a caller with no resume key always has.
+        """
+        runtime = request.runtime
+        if runtime is None:
+            return None, None
+        config = getattr(runtime, "config", None) or {}
+        thread_id = config.get("configurable", {}).get("thread_id")
+        tool_call_id = request.tool_call.get("id")
+        return thread_id, tool_call_id
+
     def _decide(self, request: ToolCallRequest, *, approval_ref: int | None = None) -> Any:
         name = request.tool_call["name"]
         args = _canonical_args(dict(request.tool_call.get("args") or {}))
@@ -190,6 +207,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
             created_at=now,
             approval_ref=approval_ref,
         )
+        thread_id, tool_call_id = self._resume_key(request)
         with self._lock:
             return decide_and_reserve(
                 action,
@@ -197,6 +215,8 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                 config=self._config,
                 now=now,
                 principal=self._agent_principal,
+                thread_id=thread_id,
+                tool_call_id=tool_call_id,
             )
 
     def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:

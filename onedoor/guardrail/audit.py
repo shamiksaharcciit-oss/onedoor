@@ -333,6 +333,8 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "prev_hash",
     "row_hash",
     "decide_principal",
+    "resume_digest_expected",
+    "resume_digest_actual",
 )
 """Every column an append writes.
 
@@ -387,6 +389,8 @@ def append(
     evaluation_trace_json: str | None = None,
     resumes_audit_id: int | None = None,
     decide_principal: str | None = None,
+    resume_digest_expected: str | None = None,
+    resume_digest_actual: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -417,6 +421,8 @@ def append(
         evaluation_trace_json=evaluation_trace_json,
         resumes_audit_id=resumes_audit_id,
         decide_principal=decide_principal,
+        resume_digest_expected=resume_digest_expected,
+        resume_digest_actual=resume_digest_actual,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -465,6 +471,8 @@ def _row_values(
     evaluation_trace_json: str | None = None,
     resumes_audit_id: int | None = None,
     decide_principal: str | None = None,
+    resume_digest_expected: str | None = None,
+    resume_digest_actual: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -544,6 +552,13 @@ def _row_values(
             # way, a report against it is refused too: there is no identity
             # here to prove the reporting key is the one that received the permit.
             "decide_principal": decide_principal,
+            # Set only on a `resume_request_mismatch` denial (migration `0031`): the
+            # digest recorded on the approval row a resume would have reused, and the
+            # digest of the request that was actually resumed. `None` for every other
+            # row, before or after this column existed -- the mismatch is the one fact
+            # these columns state, and absent means it did not happen, never "unknown".
+            "resume_digest_expected": resume_digest_expected,
+            "resume_digest_actual": resume_digest_actual,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (see `_stamp_chain`).

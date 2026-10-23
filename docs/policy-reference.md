@@ -161,7 +161,7 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
 `dry_run` · `budget_exhausted` · `rate_exhausted` · `cost_unknown` · `kill_switch` ·
 `observe` · `effect_floor` · `malformed` · `expired` · `external_authorization` ·
-`present_bound`
+`present_bound` · `resume_request_mismatch`
 
 `external_authorization` (AADP -03 §8.1) is the reason on a `denied` or
 `proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
@@ -203,3 +203,14 @@ moving into the `budget` object. All five retired codes are gone from this build
 vocabulary and never emitted; a row sealed under any of them keeps it, since the
 audit log is append-only. `sender_mismatch` is registered but **never emitted**
 until `ND-005` wires the check it belongs to.
+
+`resume_request_mismatch` is onedoor's own extension, not a draft-registered code:
+a caller resumes by the same session/call pair (`thread_id`/`tool_call_id`) a
+pending proposal was created under, but the rebuilt request's canonical digest
+does not match the one recorded when that proposal was first made. Refused
+outright, on a `denied` verdict — the engine neither hands back the original
+approval (it is not the same request) nor silently proposes a new one. Both
+digests are recorded on the audit row (`resume_digest_expected`,
+`resume_digest_actual`), so the evidence states what differed rather than only
+that something did. An approval is for one exact request; a resume does not
+widen it.
