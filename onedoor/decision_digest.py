@@ -18,6 +18,18 @@ import json
 import sqlite3
 from collections.abc import Mapping
 
+OMIT_WHEN_NONE: tuple[str, ...] = (
+    "resumes_audit_id",
+    "decide_principal",
+    "resume_digest_expected",
+    "resume_digest_actual",
+)
+"""Columns omitted from `canonical_row_record` when `None`, each because a row
+sealed before the column existed must not change digest the moment `ALTER
+TABLE` gives it a NULL value -- see that function's own docstring. Module
+level, like `preimage.EXCLUDED`/`FIELD_ORDER`, so a test can patch it to show
+the omission is load-bearing rather than assume it."""
+
 
 def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, object]:
     """Every column of an `actions_audit` row, exactly as stored -- no float ever
@@ -54,14 +66,8 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     """
     keys = row.keys()
     record: dict[str, object] = {}
-    _omit_when_none = (
-        "resumes_audit_id",
-        "decide_principal",
-        "resume_digest_expected",
-        "resume_digest_actual",
-    )
     for key in keys:
-        if key in _omit_when_none and row[key] is None:
+        if key in OMIT_WHEN_NONE and row[key] is None:
             continue
         value = row[key]
         if isinstance(value, float):
