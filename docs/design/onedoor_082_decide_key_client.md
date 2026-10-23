@@ -1,7 +1,7 @@
 # Design note: the LangChain middleware over HTTP, with a decide-only key
 
-Covers ruling item 3 (OD4) for 0.8.2. No code in this note or alongside it; it stops here
-for review.
+Covers ruling item 3 (OD4) for 0.8.2. Amended with the decided retry/idempotency
+contract below; moves to code next.
 
 ## The gap this closes
 
@@ -91,13 +91,36 @@ in-process, or a new (code-step, not this note) HTTP-client constructor taking a
 a decide key for the real boundary. No existing test, deployment, or documented call changes
 unless the integrator opts into the new path.
 
-## Not decided here
+## Decided: a retrying client, idempotent by construction
 
-- There is no precedent HTTP client anywhere in the codebase (`requests`/`httpx` do not
-  appear outside `.venv`); this would be the first one. Whether it is a small internal
-  wrapper or a published, documented client surface is a scope question for the code step, not
-  this note.
-- Retry/timeout behaviour for a decide call that the network drops between request and
-  response (as opposed to between decide and report, which `/v1/report`'s existing design
-  already covers) is unaddressed here and should be decided before the code, not during its
-  review.
+**The server needs no new mechanism.** `request_id` is already the idempotency key
+`DecideBody` carries (optional; the service mints one if absent). `decide_and_reserve`'s
+first act, before any transaction, is `audit.result_for_request_id` — a repeated
+`request_id` returns the already-recorded result outright
+(`onedoor/guardrail/decision.py:211-216`), and `app.py`'s `/v1/decide` handler wraps the
+whole call in `state.lock` (app.py:307), so even two genuinely concurrent requests carrying
+the same `request_id` against one process serialize completely: the second never starts its
+own check until the first has committed, and so always finds the first's result rather than
+racing it. `actions_audit`'s `UNIQUE(request_id, kind)` constraint is the backstop under
+that. **Never a second reservation** was already true; what did not exist is a client that
+reuses one `request_id` across retries instead of minting a fresh one each attempt.
+
+**The client (new module, this item's actual code) is what carries the call:**
+- Generates one `request_id` per logical `decide()` call, before the first attempt, and sends
+  the identical value on every retry of that same call — this is the whole of "a
+  client-generated idempotency key, the same on every retry"; no new wire field, no server
+  change.
+- Retries a bounded number of times (default conservative, e.g. 3 attempts) with backoff
+  (default conservative, e.g. exponential from a small base), inside a total deadline (default
+  conservative, e.g. a few seconds) — all three settable by the integrator, since "conservative
+  defaults" is a starting point, not every deployment's right answer.
+- **On the deadline passing with no answer:** stops retrying, takes no action, and reports the
+  call as **not attempted**, with a reason naming that the decision was never received —
+  distinct from a `denied` reply (which the service did answer) and distinct from a `permitted`
+  reply the caller then fails to enforce (which `/v1/report`'s existing design already handles).
+  Nothing is assumed granted; the caller that gets "not attempted" back has exactly the
+  information a decide call that never reached the service would have, because for all onedoor
+  can tell, it may not have.
+- This answers the note's own earlier open question: the client is a small, purpose-built
+  wrapper (not a published general surface), because its entire reason to exist is this
+  specific retry/deadline/idempotency contract — a generic HTTP client would not carry it.
