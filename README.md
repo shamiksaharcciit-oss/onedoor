@@ -337,10 +337,10 @@ the AADP draft — gaps included.
 Extracted from a personal single-user control plane (home/energy/money with an
 LLM agent layer), where this engine has governed every action since July 2026 —
 the domain modules stayed home; the engine, its mock connector, its demo action
-types, and its full test suite are what you see here. v0.2: SQLite-backed,
-single-process, synchronous; PDP/PEP split with an MCP proxy as the first
-external enforcement point. Deliberately boring technology; the design is the
-contribution.
+types, and its full test suite are what you see here. 0.8.1 (the latest
+released version): SQLite-backed, single-process, synchronous; PDP/PEP split
+with an MCP proxy as the first external enforcement point. Deliberately
+boring technology; the design is the contribution.
 
 ## Signed receipts
 
