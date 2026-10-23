@@ -210,6 +210,35 @@ def test_decide_permit_then_report(client: TestClient) -> None:
     assert again.status_code == 404
 
 
+def test_a_replayed_decide_carries_the_same_id_field_as_the_live_answer(
+    client: TestClient,
+) -> None:
+    """A repeated `request_id` against one process already returns the first
+    decision outright (decide_and_reserve's prior-result check) -- this is
+    about the REPLY SHAPE, not the dedup itself: the live answer and the
+    replayed answer must name the permitted row under the SAME field, not
+    `intent_audit_id` for one and `audit_id` for the other."""
+    body = {"action_type": "demo.toggle", "params": {"target": "demo.lamp", "state": "on"}}
+    request_id = "8e2a1c44-0000-4000-8000-00000000abcd"
+
+    live = client.post("/v1/decide", json={**body, "request_id": request_id}, headers=_h("dkey"))
+    assert live.status_code == 200
+    live_body = live.json()
+    assert live_body["decision"] == "permitted"
+    assert live_body["intent_audit_id"] is not None
+
+    replayed = client.post(
+        "/v1/decide", json={**body, "request_id": request_id}, headers=_h("dkey")
+    )
+    assert replayed.status_code == 200
+    replayed_body = replayed.json()
+
+    assert replayed_body["intent_audit_id"] == live_body["intent_audit_id"], (
+        "the replay must name the same row under the same field the live answer used"
+    )
+    assert replayed_body["decision_ref"] == live_body["decision_ref"]
+
+
 def test_bounds_denial_over_the_wire(client: TestClient) -> None:
     r = client.post(
         "/v1/decide",

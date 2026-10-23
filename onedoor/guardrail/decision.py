@@ -1464,6 +1464,7 @@ def report_result(
         # from the intent, never recomputed here: `result_decision.decision` can
         # be FAILED, which has no defined decision_ref verdict on purpose.
         decision_ref=intent.decision_ref,
+        bound_permit=intent.bound_permit,
     )
 
 

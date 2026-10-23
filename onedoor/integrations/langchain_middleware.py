@@ -49,7 +49,14 @@ from onedoor.guardrail.decision import (
     report_result,
 )
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ActionRequest, CheckId, Decision, Outcome, Source
+from onedoor.guardrail.models import (
+    ActionRequest,
+    CheckId,
+    Decision,
+    DecisionRef,
+    Outcome,
+    Source,
+)
 from onedoor.store.clock import now_utc
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -165,6 +172,19 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         self._agent_principal = agent_principal
         self._allow_same_process_approval = allow_same_process_approval
         self._lock = threading.Lock()
+        self.last_decision_ref: DecisionRef | None = None
+        """The reference to the most recent decision this middleware acted on --
+        `None` before any call, or if no `EngineConfig.issuer` was configured.
+        The same documented hook `onedoor.mcp.proxy.Proxy.last_decision_ref` is,
+        for the same reason: a tool call's result is a plain string/content
+        payload this middleware does not own the shape of, so the reference
+        cannot be embedded in it without conflating two different things. Set
+        from `_decide()`, so it covers both `wrap_tool_call` and
+        `awrap_tool_call` (the latter calls `_decide` via a worker thread, not
+        a separate implementation)."""
+        self.last_bound_permit: str | None = None
+        """The most recent decision's bound permit (compact JWS), iff the policy
+        issued one. Same hook, same set site as `last_decision_ref` above."""
 
     # ---------------------------------------------------------------- helpers
 
@@ -209,7 +229,7 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         )
         thread_id, tool_call_id = self._resume_key(request)
         with self._lock:
-            return decide_and_reserve(
+            outcome = decide_and_reserve(
                 action,
                 conn=self._conn,
                 config=self._config,
@@ -218,6 +238,11 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
                 thread_id=thread_id,
                 tool_call_id=tool_call_id,
             )
+        self.last_decision_ref = outcome.decision_ref
+        self.last_bound_permit = (
+            outcome.bound_permit if isinstance(outcome, PermittedIntent) else None
+        )
+        return outcome
 
     def _report(self, intent: PermittedIntent, ok: bool, payload: Any, error: str | None) -> None:
         with self._lock:

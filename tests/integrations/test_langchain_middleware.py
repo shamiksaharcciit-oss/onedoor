@@ -192,6 +192,42 @@ def test_permitted_call_executes_and_is_reported(agent_conn: Connection) -> None
     assert out["messages"]
 
 
+def test_last_decision_ref_is_exposed_after_a_permitted_call(agent_conn: Connection) -> None:
+    """Nothing before this exposed `decision_ref`/`bound_permit` anywhere a
+    caller of the middleware could read them -- the same documented hook
+    `onedoor.mcp.proxy.Proxy.last_decision_ref` already is, now here too."""
+    _seed(agent_conn)
+    config = EngineConfig(
+        approval_ttl_seconds=3600,
+        connector_timeout_seconds=5.0,
+        tz=ZoneInfo("UTC"),
+        issuer="https://onedoor.example/langchain-deployment",
+    )
+    middleware = OneDoorMiddleware(agent_conn, config)
+    assert middleware.last_decision_ref is None
+    assert middleware.last_bound_permit is None
+
+    agent = create_agent(
+        model=_model(
+            AIMessage(
+                content="",
+                tool_calls=[_call("pay_invoice", {"invoice_id": "A1", "amount_eur": 90.0}, "c2")],
+            ),
+            AIMessage(content="done"),
+        ),
+        tools=[pay_invoice],
+        middleware=[middleware],
+    )
+    agent.invoke({"messages": [("user", "clear A1")]})
+
+    assert middleware.last_decision_ref is not None
+    assert middleware.last_decision_ref.verdict == "permit"
+    # No policy here declares present_bound/bound_permit_action_type, so this
+    # call cannot have been issued one -- the hook stays honestly None rather
+    # than this test claiming more than the policy supports.
+    assert middleware.last_bound_permit is None
+
+
 def test_cumulative_cap_denies_the_call_that_would_cross_it(agent_conn: Connection) -> None:
     """Three compliant payments, a 250 cap: the third must not execute."""
     _seed(agent_conn)

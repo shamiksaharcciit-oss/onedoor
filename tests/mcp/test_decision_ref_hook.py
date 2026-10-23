@@ -56,6 +56,29 @@ def test_no_issuer_configured_the_hook_stays_none() -> None:
     assert proxy.last_decision_ref is None
 
 
+def test_last_bound_permit_exists_and_stays_none_with_no_bound_permit_policy() -> None:
+    """`Proxy.last_bound_permit` is the same documented hook as
+    `last_decision_ref`, for the permit rather than the reference -- exercised
+    here against what the shipped MCP demo policies actually declare: none of
+    them set `present_bound`/`bound_permit_action_type`, and the proxy's own
+    request never carries a presenter key thumbprint either, so no call
+    through this proxy can be issued one today. The hook exists and tracks
+    that honestly (`None`, never a guess) rather than this test claiming more
+    than the demo config supports.
+    """
+    proxy = _proxy()
+    assert proxy.last_bound_permit is None
+    proxy.handle_tools_call(
+        {
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "get_weather", "arguments": {"city": "Amsterdam"}},
+        }
+    )
+    assert proxy.last_decision_ref is not None, "the call itself must have gone through"
+    assert proxy.last_bound_permit is None
+
+
 def test_a_proposed_call_is_obtainable_through_the_hook() -> None:
     proxy = _proxy()
     assert proxy.last_decision_ref is None

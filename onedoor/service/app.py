@@ -147,6 +147,12 @@ class DecideReply(BaseModel):
     `actions_audit` (`python -m onedoor.decision_ref check`). Present iff this
     deployment has configured `EngineConfig.issuer`; absent otherwise, never a
     guessed value."""
+    bound_permit: str | None = None
+    """The compact JWS, present iff the policy issued one for THIS decide call.
+    Never present on a replayed answer to the same `request_id`: a bound permit
+    is a short-lived, one-time credential, and reissuing one for an old call
+    would be handing out a credential that already expired or was already
+    presented, not reporting what was decided."""
 
 
 class ReportBody(BaseModel):
@@ -256,8 +262,20 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
             undo_until=outcome.undo_until,
             present_bound=outcome.present_bound,
             decision_ref=outcome.decision_ref,
+            bound_permit=outcome.bound_permit,
         )
     d = outcome.decision
+    # A replayed answer to a request_id that was permitted reconstructs an
+    # ActionResult (audit.result_for_request_id), not a fresh PermittedIntent --
+    # its decision reads EXECUTED because that is what the exec_intent row has
+    # said since the moment it was written (decision.py's intent recording).
+    # Naming that same row under a DIFFERENT field than the live reply used
+    # (audit_id here, intent_audit_id there) would be two names for one row
+    # depending only on which call happened to answer it; set both so a caller
+    # checking intent_audit_id sees the same value on a replay as on the
+    # original call. bound_permit is deliberately NOT reissued here -- see
+    # DecideReply.bound_permit's own docstring.
+    replayed_intent_audit_id = outcome.audit_id if d.decision == Decision.EXECUTED else None
     return DecideReply(
         decision=d.decision.value,
         reason=d.reason_code.value,
@@ -266,6 +284,7 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
         request_id=outcome.request_id,
         audit_id=outcome.audit_id,
         approval_id=outcome.approval_id,
+        intent_audit_id=replayed_intent_audit_id,
         budget=d.budget,
         decision_ref=outcome.decision_ref,
     )

@@ -127,6 +127,15 @@ class RebuiltIntent:
     point). `None` iff the deployment has not configured an issuer -- never a
     guessed value, the same rule the live path follows."""
 
+    bound_permit: str | None = None
+    """Always `None`. Unlike `decision_ref`, a bound permit cannot be rebuilt from
+    the ledger: the ledger never stores the JWS itself (it is a short-lived,
+    one-time credential, not evidence), so there is nothing here to re-derive. A
+    process that restarted before reporting a permit that had one has lost the
+    permit along with everything else memory held -- which is this whole
+    module's reason to exist for `decision_ref`, and exactly the gap `bound_permit`
+    cannot be closed the same way."""
+
     decide_principal: str | None = None
     """The keyed fingerprint of the decide key that received this permit,
     carried verbatim from the intent row. `None` means the row predates this

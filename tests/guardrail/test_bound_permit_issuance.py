@@ -15,9 +15,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from onedoor.guardrail import policy_loader
-from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve
+from onedoor.guardrail.decision import (
+    ActionResult,
+    PermittedIntent,
+    decide_and_reserve,
+    report_result,
+)
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import Bounds, Policy, Source, Tier
+from onedoor.guardrail.models import Bounds, Outcome, Policy, Source, Tier
 from onedoor.permit import httpsig, jwk, jws
 from onedoor.permit.models import PAYMENTS_TRANSFER_V1, REGISTRY, IssuerTableEntry
 from onedoor.permit.recipient import InMemoryConsumeStore, RecipientRequest, verify
@@ -213,3 +218,34 @@ def test_a_policy_with_no_bound_permit_action_type_behaves_exactly_as_before(
     )
     assert isinstance(result, PermittedIntent)
     assert result.bound_permit is None
+
+
+def test_report_result_propagates_the_same_bound_permit_the_intent_carried(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Every `evaluate_and_execute` caller only ever sees the REPORTED
+    ActionResult, never the live PermittedIntent -- the permit must survive
+    that collapse, unchanged, or a caller going through the one-call form
+    never gets the credential at all.
+    """
+    _policy(conn)
+    issuer_priv, _ = _keypair()
+    _, presenter_pub = _keypair()
+    jkt = jwk.thumbprint(presenter_pub)
+    cfg = _config_with_issuer(config, issuer_priv)
+
+    intent = decide_and_reserve(_request(jkt), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(intent, PermittedIntent)
+    assert intent.bound_permit is not None
+
+    result = report_result(
+        intent,
+        conn=conn,
+        config=cfg,
+        outcome=Outcome.SUCCESS,
+        payload={},
+        error=None,
+        now=FROZEN_NOW,
+    )
+    assert isinstance(result, ActionResult)
+    assert result.bound_permit == intent.bound_permit

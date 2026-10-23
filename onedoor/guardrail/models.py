@@ -609,6 +609,16 @@ class ActionResult(BaseModel):
     verdict `permit`) that authorised the action, not the result row: a
     connector failure after a permit was granted does not change what was
     decided, only what happened next."""
+    bound_permit: str | None = None
+    """The compact JWS `PermittedIntent.bound_permit` carried, propagated here by
+    `report_result` so a caller that only ever sees the reported `ActionResult`
+    (every `evaluate_and_execute` caller) still gets it -- present iff the policy
+    issued one in the first place. Never reconstructed on a replay: a bound permit
+    is a short-lived, one-time credential (120 seconds at most), and re-handing one
+    out for an old `request_id` would be reissuing a credential that already expired
+    or was already presented, not reporting a fact. A replayed `ActionResult` (see
+    `audit.result_for_request_id`) always carries `None` here, by construction --
+    it is built from the stored row, which never stored the permit itself."""
 
 
 class Approval(BaseModel):

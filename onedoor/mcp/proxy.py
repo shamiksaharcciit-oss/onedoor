@@ -163,6 +163,14 @@ class Proxy:
         same as it must already do to read the ordinary MCP response for the
         one it just made."""
 
+        self.last_bound_permit: str | None = None
+        """The most recent decision's bound permit (compact JWS), iff the policy
+        issued one -- `None` before any call, if the action was proposed/denied
+        rather than permitted, or if the policy declares no bound-permit action
+        type. Same hook, same concurrency argument as `last_decision_ref` above;
+        read together, since both describe the one decision `last_decision_ref`
+        already names."""
+
     # --- the interception ---------------------------------------------------
 
     def _forward_and_report(
@@ -250,6 +258,9 @@ class Proxy:
             request, conn=self.conn, config=self.config, now=now, principal=PRINCIPAL
         )
         self.last_decision_ref = outcome.decision_ref
+        self.last_bound_permit = (
+            outcome.bound_permit if isinstance(outcome, PermittedIntent) else None
+        )
 
         if isinstance(outcome, PermittedIntent):
             if outcome.present_bound is not None:
