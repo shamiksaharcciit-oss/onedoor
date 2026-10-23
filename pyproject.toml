@@ -65,8 +65,12 @@ otel = ["opentelemetry-api>=1.27"]
 # follows the docs should not have to guess what to install.
 examples = ["langgraph>=1.0", "langchain-core>=1.0"]
 # The agent-middleware integration. LangChain v1 or later: `wrap_tool_call`
-# does not exist before it.
-langchain = ["langchain>=1.0"]
+# does not exist before it. `httpx` is here too: `onedoor.integrations.decide_client`
+# is what lets this middleware talk to the decision service with a decide-only key
+# instead of holding its own database connection, and that real boundary is the
+# reason this extra exists at all -- it was already a dev-only dependency for the
+# FastAPI test client, never a runtime one, until this gave it a production caller.
+langchain = ["langchain>=1.0", "httpx>=0.27"]
 # The LiteLLM gateway guardrail example. Its own extra rather than part of
 # [examples]: litellm is a large dependency tree and a reader who wants the
 # LangGraph examples should not pay for it. Declared because
