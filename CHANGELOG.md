@@ -19,9 +19,7 @@ Under way; dated and completed once every part of this release has landed.
   are otherwise byte-for-byte the same modules, with the same behaviour and the same
   tests passing.
 
-## 0.8.1 — unreleased
-
-Under way; dated and completed once every part of this release has landed.
+## 0.8.1 — 2026-10-18
 
 ### Security
 
