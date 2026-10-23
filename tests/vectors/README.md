@@ -10,6 +10,14 @@ A consumer that vendors `onedoor.decision_digest` and `onedoor.decision_ref`'s
 checker (both stdlib-only, by design) does not need to run `onedoor` at all to use
 these files — they are plain JSON, read and compared against directly.
 
+**The permit vector's keypair is a test key, not a credential.** `permits.json`'s
+issuer public key exists only to make that one vector's signature reproducible
+and checkable; its matching private key was used once, by the generator, and was
+never committed anywhere. It has no use outside this directory: it is not in any
+default trust file this package ships, and nothing outside `tests/vectors/`
+references it. Do not configure a real deployment's `permit_issuer_private_key`
+or any issuer trust table with it.
+
 ## Files
 
 - **`action_digests.json`** — action objects (bound-permit profile §4.3) and their
