@@ -118,6 +118,11 @@ def test_the_issued_permit_verifies_end_to_end_through_the_standalone_recipient_
     import base64
     import hashlib
 
+    _, permit_claims, _, _ = jws.parse(result.bound_permit)
+    idempotency_key = httpsig._sf_string(
+        str(permit_claims["jti"])
+    )  # -00 §12: Idempotency-Key = jti
+
     content_digest = (
         "sha-256=:" + base64.b64encode(hashlib.sha256(body).digest()).decode("ascii") + ":"
     )
@@ -127,7 +132,7 @@ def test_the_issued_permit_verifies_end_to_end_through_the_standalone_recipient_
         "@path": "/act",
         "@query": "",
         "content-digest": content_digest,
-        "idempotency-key": "idem-1",
+        "idempotency-key": idempotency_key,
         "aadp-permit": result.bound_permit,
     }
     created = int(FROZEN_NOW.replace(tzinfo=UTC).timestamp())
@@ -146,7 +151,7 @@ def test_the_issued_permit_verifies_end_to_end_through_the_standalone_recipient_
         signature_input_header=sig_input,
         signature_header=sig,
         signature_created=created,
-        idempotency_key_header="idem-1",
+        idempotency_key_header=idempotency_key,
         recipient_audience=AUDIENCE,
         action_object=action_params,
     )

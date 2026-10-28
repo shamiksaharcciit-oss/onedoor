@@ -82,7 +82,7 @@ def _build(
     header_overrides: dict[str, object] | None = None,
     body: bytes = BODY,
     sign_with: Ed25519PrivateKey | None = None,
-    idempotency_key: str = "idem-1",
+    idempotency_key: str | None = None,
 ) -> Fixture:
     issuer_priv, issuer_pub = _keypair()
     presenter_priv, presenter_pub = _keypair()
@@ -96,11 +96,12 @@ def _build(
     }
     digest = action_digest(action_object)
     iat = int(now.timestamp())
+    jti = (claim_overrides or {}).get("jti", str(uuid4()))
     claims: dict[str, object] = {
         "iss": ISSUER,
         "sub": "urn:test:presenter",
         "aud": AUDIENCE,
-        "jti": str(uuid4()),
+        "jti": jti,
         "iat": iat,
         "nbf": iat,
         "exp": iat + lifetime_seconds,
@@ -116,6 +117,14 @@ def _build(
     if header_overrides:
         header.update(header_overrides)
     token = jws.encode(header, claims, issuer_priv)
+
+    # -00 §12: Idempotency-Key equals the permit's own jti, RFC 8941-quoted,
+    # unless a test explicitly asks for something else (to exercise step 8's
+    # own check of this).
+    if idempotency_key is None:
+        from onedoor.permit.httpsig import _sf_string
+
+        idempotency_key = _sf_string(str(claims["jti"]))
 
     content_digest = _content_digest(body)
     components = {
@@ -432,6 +441,29 @@ def test_no_cnf_jkt_is_binding_incomplete() -> None:
     result = _verify(fx)
     assert result.reason is RefusalReason.BINDING_INCOMPLETE
     assert result.step == 8
+
+
+def test_idempotency_key_absent_is_refused() -> None:
+    fx = _build(idempotency_key="")
+    result = _verify(fx)
+    assert result.reason is RefusalReason.BINDING_INCOMPLETE
+    assert result.step == 8
+
+
+def test_idempotency_key_different_from_jti_is_refused() -> None:
+    from onedoor.permit.httpsig import _sf_string
+
+    fx = _build()
+    fx = replace(fx, request=replace(fx.request, idempotency_key_header=_sf_string("not-the-jti")))
+    result = _verify(fx)
+    assert result.reason is RefusalReason.BINDING_INCOMPLETE
+    assert result.step == 8
+
+
+def test_idempotency_key_equal_to_jti_passes_step_8() -> None:
+    fx = _build()  # _build's own default: Idempotency-Key is the permit's jti, quoted
+    result = _verify(fx)
+    assert result.status is VerificationStatus.VERIFIED
 
 
 def test_a_missing_http_signature_is_refused() -> None:

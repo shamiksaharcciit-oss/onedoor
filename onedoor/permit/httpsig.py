@@ -45,6 +45,38 @@ def _sf_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def parse_sf_string(value: str) -> str:
+    """The reverse of `_sf_string`: an RFC 8941 `sf-string` header value --
+    `"..."`, with `\\` and `"` escaped -- back to its raw text.
+
+    Raises `ValueError` for anything not exactly one well-formed quoted
+    string: no leading/trailing surrounding whitespace tolerance beyond
+    `.strip()`, no bare (unquoted) token, no trailing characters after the
+    closing quote. Used wherever a header this profile treats as a single
+    `sf-string` (the `Idempotency-Key` field, profile -00 §12) needs its value
+    compared against a claim, the same way `extract_keyid` already reads
+    `keyid` out of `Signature-Input` by hand rather than with a regex.
+    """
+    text = value.strip()
+    if len(text) < 2 or text[0] != '"':
+        raise ValueError(f"not a quoted RFC 8941 sf-string: {value!r}")
+    result: list[str] = []
+    i = 1
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text):
+            result.append(text[i + 1])
+            i += 2
+            continue
+        if ch == '"':
+            if i != len(text) - 1:
+                raise ValueError(f"trailing characters after closing quote: {value!r}")
+            return "".join(result)
+        result.append(ch)
+        i += 1
+    raise ValueError(f"unterminated quoted string: {value!r}")
+
+
 def extract_keyid(signature_input_header: str) -> str | None:
     """The `keyid` parameter as the presenter's own `Signature-Input` claims it,
     read directly from the raw header -- independent of, and prior to, the full

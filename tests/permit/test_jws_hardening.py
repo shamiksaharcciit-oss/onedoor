@@ -21,11 +21,13 @@ import json
 from dataclasses import replace
 from decimal import Decimal
 
+import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from onedoor.permit import httpsig, jcs, jws
 from onedoor.permit.action import action_digest
+from onedoor.permit.jwk import thumbprint
 from onedoor.permit.models import RefusalReason, VerificationStatus
 from tests.permit.test_recipient import ISSUER, _build, _keypair, _verify
 
@@ -550,10 +552,43 @@ def test_changing_the_query_after_signing_breaks_verification() -> None:
 
 
 def test_changing_the_idempotency_key_after_signing_breaks_verification() -> None:
+    """Step 8's own Idempotency-Key-equals-jti check (-00 §12) now intercepts a
+    changed value before the signature check gets a turn -- the component is
+    still covered by the signature (proved directly, at the httpsig layer, by
+    `test_httpsig_itself_covers_the_idempotency_key_component` below), but a
+    recipient sees `binding-incomplete` first either way."""
     fx = _build()
-    result = _verify(replace(fx, request=replace(fx.request, idempotency_key_header="different")))
+    tampered = httpsig._sf_string("a-different-jti")
+    result = _verify(replace(fx, request=replace(fx.request, idempotency_key_header=tampered)))
     assert result.status is not VerificationStatus.VERIFIED
-    assert result.reason is RefusalReason.REQUEST_SIGNATURE_INVALID
+    assert result.reason is RefusalReason.BINDING_INCOMPLETE
+
+
+def test_httpsig_itself_covers_the_idempotency_key_component() -> None:
+    """The lower-level proof `test_httpsig_covers_exactly_the_seven_declared_components`
+    names but does not itself exercise: changing `idempotency-key` after
+    signing, at the `httpsig` layer directly (no `recipient.verify`, no jti
+    check in the way), still breaks the signature."""
+    fx = _build()
+    req = fx.request
+    components = {
+        "@method": req.method.upper(),
+        "@authority": req.authority.lower(),
+        "@path": req.path,
+        "@query": req.query,
+        "content-digest": (req.content_digest_header or "").strip(),
+        "idempotency-key": "a-different-value",
+        "aadp-permit": req.permit_token,
+    }
+    with pytest.raises(httpsig.SignatureVerificationError):
+        httpsig.verify(
+            components,
+            created=req.signature_created or 0,
+            keyid=thumbprint(fx.presenter_public),
+            signature_input_header=req.signature_input_header or "",
+            signature_header=req.signature_header or "",
+            public_key_bytes=fx.presenter_public,
+        )
 
 
 def test_a_component_the_presenter_never_signed_over_cannot_be_added_and_still_verify() -> None:

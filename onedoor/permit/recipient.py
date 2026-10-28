@@ -308,6 +308,23 @@ def verify(
     jkt = cnf.get("jkt") if isinstance(cnf, dict) else None
     if not jkt:
         return _fail(8, RefusalReason.BINDING_INCOMPLETE, "permit carries no cnf.jkt")
+    # -00 §12: the request's Idempotency-Key MUST equal the permit's own jti --
+    # the one piece of §12's idempotency rule this profile puts on the wire,
+    # rather than leaving it to whatever the presenter happened to send.
+    if not request.idempotency_key_header:
+        return _fail(8, RefusalReason.BINDING_INCOMPLETE, "no Idempotency-Key field")
+    try:
+        idempotency_value = httpsig.parse_sf_string(request.idempotency_key_header)
+    except ValueError as exc:
+        return _fail(
+            8, RefusalReason.BINDING_INCOMPLETE, f"Idempotency-Key is not a valid sf-string: {exc}"
+        )
+    if idempotency_value != jti:
+        return _fail(
+            8,
+            RefusalReason.BINDING_INCOMPLETE,
+            f"Idempotency-Key {idempotency_value!r} does not equal the permit's jti {jti!r}",
+        )
     if not request.signature_header or not request.signature_input_header:
         return _fail(
             8, RefusalReason.REQUEST_SIGNATURE_MISSING, "no HTTP message signature present"

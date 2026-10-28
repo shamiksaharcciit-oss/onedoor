@@ -10,7 +10,9 @@ without re-running the decision.
 When a policy asks for one, a permitted action's response includes a compact
 JWS (RFC 7515), typed `aadp-permit+jwt`, with claims (RFC 7519) that state:
 
-- who issued it, who it is for, and a unique identifier (`iss`, `aud`, `jti`);
+- who issued it, who it is for, and a unique identifier (`iss`, `aud`, `jti`) —
+  `jti` is minted independently, at least 128 random bits, never derived from
+  or reducible to any other record onedoor keeps;
 - when it becomes valid and when it stops being valid (`nbf`, `exp`), with a
   short, bounded lifetime;
 - the action it authorises, as a digest over a canonical JSON rendering
@@ -45,7 +47,11 @@ consumes the permit it presented. In order:
    (RFC 9530's `Content-Digest` field).
 8. The request itself is signed (RFC 9421, HTTP Message Signatures) by the key
    the permit's confirmation claim names, over a fixed set of the request's
-   components.
+   components, and carries an `Idempotency-Key` equal to the permit's own
+   `jti` — the one piece of the permit's single-use rule that travels on the
+   wire, rather than being left to whatever the presenter happened to send.
+   Anywhere onedoor itself builds or documents such a request, the
+   `Idempotency-Key` it sends is the permit's `jti`.
 9. The action the request actually describes matches the digest the permit
    authorised.
 10. The permit's currentness is still good — see below.
