@@ -45,7 +45,8 @@ VERSION_3 = "onedoor/row-preimage/3"
 VERSION_4 = "onedoor/row-preimage/4"
 VERSION_5 = "onedoor/row-preimage/5"
 VERSION_6 = "onedoor/row-preimage/6"
-CURRENT_VERSION = VERSION_6
+VERSION_7 = "onedoor/row-preimage/7"
+CURRENT_VERSION = VERSION_7
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009): the field records *why*
@@ -80,6 +81,13 @@ states. An attacker who could edit either after the row was sealed could
 erase the record that a resume's rebuilt request diverged from what it would
 have reused, or fabricate a divergence that never happened; the same class of
 edit the chain exists to catch.
+
+`/7` adds `permit_jti` (migration `0032`): the bound permit's own `jti`,
+minted independently and recorded on the intent row it belongs to. An
+attacker who could edit it after the row was sealed could rewrite which
+permit a row's issuance maps to, the same class of edit `decide_principal`
+guards against for who may report one. Not excluded, for the same reason:
+set in the same `INSERT`, nothing circular or later about it.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -180,7 +188,14 @@ once: both are the evidence one `resume_request_mismatch` denial states, set
 together in the same row (see the design note for this version).
 """
 
-FIELD_ORDER = FIELD_ORDER_V6
+FIELD_ORDER_V7: tuple[str, ...] = (*FIELD_ORDER_V6, "permit_jti")
+"""`/7` appends rather than inserts, same precedent as `/5` -> `/6`.
+
+`permit_jti` is hashed because it is the fact an intent row makes about which
+bound permit it issued (see the design note for this version).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V7
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
@@ -190,6 +205,7 @@ FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_4: FIELD_ORDER_V4,
     VERSION_5: FIELD_ORDER_V5,
     VERSION_6: FIELD_ORDER_V6,
+    VERSION_7: FIELD_ORDER_V7,
 }
 """Every version this build can verify.
 

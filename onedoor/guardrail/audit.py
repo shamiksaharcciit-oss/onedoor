@@ -335,6 +335,7 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "decide_principal",
     "resume_digest_expected",
     "resume_digest_actual",
+    "permit_jti",
 )
 """Every column an append writes.
 
@@ -391,6 +392,7 @@ def append(
     decide_principal: str | None = None,
     resume_digest_expected: str | None = None,
     resume_digest_actual: str | None = None,
+    permit_jti: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -423,6 +425,7 @@ def append(
         decide_principal=decide_principal,
         resume_digest_expected=resume_digest_expected,
         resume_digest_actual=resume_digest_actual,
+        permit_jti=permit_jti,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -473,6 +476,7 @@ def _row_values(
     decide_principal: str | None = None,
     resume_digest_expected: str | None = None,
     resume_digest_actual: str | None = None,
+    permit_jti: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -559,6 +563,12 @@ def _row_values(
             # these columns state, and absent means it did not happen, never "unknown".
             "resume_digest_expected": resume_digest_expected,
             "resume_digest_actual": resume_digest_actual,
+            # The permit's `jti` (migration `0032`), minted independently of this
+            # row's own id -- -00 §3.2 requires the issuer to be able to look up
+            # the decision from `jti`, and this is that mapping's other half.
+            # `None` for every row with no bound permit, and for every row
+            # written before this column existed.
+            "permit_jti": permit_jti,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (see `_stamp_chain`).

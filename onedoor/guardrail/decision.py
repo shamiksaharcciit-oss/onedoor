@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -1140,6 +1141,13 @@ def _decide_and_reserve(
             reason_code=CheckId.PASSED,
             compensating_command=policy.compensating_command,
         )
+        # Minted here, independently of the row it is about to be stamped on:
+        # a bound permit's `jti` must not be guessable from, or reducible to,
+        # the intent's own audit id. 128 random bits, URL-safe (bound-permit
+        # profile -00 §3.2 treats `jti` as an opaque nonce).
+        permit_jti = (
+            secrets.token_urlsafe(16) if policy.bound_permit_action_type is not None else None
+        )
         intent_id = audit.append(
             conn,
             request,
@@ -1153,6 +1161,7 @@ def _decide_and_reserve(
             evaluation_trace_json=trace.to_json(),
             resumes_audit_id=resumes_audit_id,
             decide_principal=principal,
+            permit_jti=permit_jti,
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the
@@ -1179,14 +1188,17 @@ def _decide_and_reserve(
     bound_permit_token = None
     if policy.bound_permit_action_type is not None:
         # Preconditions already verified at 6c, before caps were reserved; this
-        # signs the permit now that intent_id exists to name as the permit's `jti`.
+        # signs the permit now, naming the independently-minted `permit_jti`
+        # already stamped on the intent row above -- never `intent_id` itself,
+        # which is sequential and would make `jti` guessable.
         from onedoor.guardrail import bound_permit as bound_permit_mod
 
+        assert permit_jti is not None
         bound_permit_token = bound_permit_mod.issue(
             request=request,
             policy=policy,
             action_object=request.params,
-            permit_id=str(intent_id),
+            permit_id=permit_jti,
             issuer=getattr(config, "permit_issuer"),
             issuer_key_id=getattr(config, "permit_issuer_key_id"),
             issuer_private_key=getattr(config, "permit_issuer_private_key"),

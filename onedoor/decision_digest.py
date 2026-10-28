@@ -23,6 +23,7 @@ OMIT_WHEN_NONE: tuple[str, ...] = (
     "decide_principal",
     "resume_digest_expected",
     "resume_digest_actual",
+    "permit_jti",
 )
 """Columns omitted from `canonical_row_record` when `None`, each because a row
 sealed before the column existed must not change digest the moment `ALTER
@@ -63,6 +64,12 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     exception again: `None` on every row before `0031`, and `None` on every row
     `0031`'s one refusal path never touches afterward -- only a `resume_request_
     mismatch` denial sets real values, which ARE included.
+
+    `permit_jti` (migration `0032`) is the same exception again: `None` on
+    every row before `0032`, and `None` on every row with no bound permit,
+    before or after -- only a row that actually issued one sets a real value,
+    which IS included (and tampering with it moves the digest, same as any
+    other column).
     """
     keys = row.keys()
     record: dict[str, object] = {}

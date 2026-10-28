@@ -36,7 +36,14 @@ FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "chain_v2_61aaeed.d
 def _copy(tmp_path: Path) -> Database:
     target = tmp_path / "chain_v2_copy.db"
     shutil.copy(FIXTURE, target)
-    return Database(str(target))
+    database = Database(str(target))
+    # The fixture is frozen at an old commit's schema; a real deployment's
+    # database would have picked up every migration since as it upgraded, and
+    # this copy -- the only thing a test ever mutates -- does the same before
+    # any current code touches it. The 5 committed /2 rows are untouched by a
+    # forward-only `ALTER TABLE`; only new, nullable columns appear.
+    database.init()
+    return database
 
 
 def test_the_stored_2_chain_verifies_unchanged_under_the_current_code(

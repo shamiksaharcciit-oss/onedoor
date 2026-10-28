@@ -249,3 +249,138 @@ def test_report_result_propagates_the_same_bound_permit_the_intent_carried(
     )
     assert isinstance(result, ActionResult)
     assert result.bound_permit == intent.bound_permit
+
+
+def test_the_permits_jti_is_minted_independently_of_the_intent_audit_id(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """-00 §3.2: `jti` must not be guessable from, or reducible to, the
+    sequential audit row id -- a presenter who can see one permit must not be
+    able to derive or enumerate another."""
+    _policy(conn)
+    issuer_priv, _ = _keypair()
+    _, presenter_pub = _keypair()
+    jkt = jwk.thumbprint(presenter_pub)
+    cfg = _config_with_issuer(config, issuer_priv)
+
+    result = decide_and_reserve(_request(jkt), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(result, PermittedIntent)
+    assert result.bound_permit is not None
+
+    _, claims = jws.verify(
+        result.bound_permit, issuer_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    jti = claims["jti"]
+    audit_id = result.intent_audit_id
+    assert jti != str(audit_id)
+    assert len(jti) >= 16  # base64url of >=128 random bits is at least this long
+
+
+def test_the_jti_to_intent_mapping_is_recorded_and_read_back(
+    conn: Connection, config: EngineConfig
+) -> None:
+    _policy(conn)
+    issuer_priv, _ = _keypair()
+    _, presenter_pub = _keypair()
+    jkt = jwk.thumbprint(presenter_pub)
+    cfg = _config_with_issuer(config, issuer_priv)
+
+    result = decide_and_reserve(_request(jkt), conn=conn, config=cfg, now=FROZEN_NOW)
+    assert isinstance(result, PermittedIntent)
+    assert result.bound_permit is not None
+    _, claims = jws.verify(
+        result.bound_permit, issuer_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+
+    row = conn.execute(
+        "SELECT permit_jti FROM actions_audit WHERE id=?", (result.intent_audit_id,)
+    ).fetchone()
+    assert row["permit_jti"] == claims["jti"], (
+        "the mapping from jti back to the intent row must be recorded"
+    )
+
+
+def test_an_existing_0_8_x_store_upgrades_and_old_rows_keep_their_digest() -> None:
+    """A store that predates migration `0032` has no `permit_jti` column at
+    all; upgrading to it must not change the digest of a row that never had
+    a bound permit -- the same "a new NULL column reads as absent, not as a
+    new fact" discipline every earlier addition to this table follows."""
+    from onedoor.decision_digest import decision_digest
+    from onedoor.store.db import _MIGRATIONS_DIR, connect, run_migrations
+
+    conn = connect(":memory:")
+    try:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations "
+            "(version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
+        )
+        for path in sorted(_MIGRATIONS_DIR.glob("*.sql")):
+            if path.name >= "0032_permit_jti.sql":
+                continue
+            conn.executescript(path.read_text(encoding="utf-8"))
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+                (path.name,),
+            )
+        conn.execute(
+            "INSERT INTO actions_audit "
+            "(request_id, kind, action_type, source, params_json, decision, reason_code, "
+            "nominal_tier, effective_tier, created_at, protocol) "
+            "VALUES ('r-1', 'exec_intent', 'demo.legacy', 'ui', '{}', 'executed', 'passed', 1, 1, "
+            "'2026-07-05T12:00:00Z', 'aadp/0.2')"
+        )
+        row_before = dict(
+            conn.execute("SELECT * FROM actions_audit WHERE request_id='r-1'").fetchone()
+        )
+        digest_before = decision_digest(row_before)
+
+        applied = run_migrations(conn)
+        assert "0032_permit_jti.sql" in applied
+
+        row_after = dict(
+            conn.execute("SELECT * FROM actions_audit WHERE request_id='r-1'").fetchone()
+        )
+        assert row_after["permit_jti"] is None
+        digest_after = decision_digest(row_after)
+        assert digest_after == digest_before, (
+            "a row with no bound permit must digest identically before and after the upgrade"
+        )
+    finally:
+        conn.close()
+
+
+def test_sabotage_a_fixed_non_random_jti_is_caught_by_the_length_assertion(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """If minting regressed to something fixed or predictable (not 128 random
+    bits), the independence test's own `len(jti) >= 16` bound is what would
+    catch the next-smallest version of the same weakness -- a short,
+    low-entropy id that happens not to literally equal `str(intent_id)`."""
+    import onedoor.guardrail.decision as decision_mod
+
+    _policy(conn)
+    issuer_priv, _ = _keypair()
+    _, presenter_pub = _keypair()
+    jkt = jwk.thumbprint(presenter_pub)
+    cfg = _config_with_issuer(config, issuer_priv)
+
+    class _FixedSecrets:
+        @staticmethod
+        def token_urlsafe(_n: int) -> str:
+            return "x"  # SABOTAGE: not random, not 128 bits
+
+    original_secrets = decision_mod.secrets
+    decision_mod.secrets = _FixedSecrets()
+    try:
+        result = decide_and_reserve(_request(jkt), conn=conn, config=cfg, now=FROZEN_NOW)
+    finally:
+        decision_mod.secrets = original_secrets
+    assert isinstance(result, PermittedIntent)
+    assert result.bound_permit is not None
+    _, claims = jws.verify(
+        result.bound_permit, issuer_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    assert claims["jti"] == "x"
+    assert len(claims["jti"]) < 16, (
+        "the sabotage produced exactly the short, low-entropy id this test checks for"
+    )

@@ -34,18 +34,21 @@ def test_export_round_trips_every_row(
 
     expected = [dict(row) for row in conn.execute("SELECT * FROM actions_audit ORDER BY id ASC")]
     assert len(expected) == 3
-    # `resumes_audit_id` (migration 0025), `decide_principal` (migration 0029), and
-    # `resume_digest_expected`/`resume_digest_actual` (migration 0031) are the
-    # deliberate exceptions: each omitted by `canonical_row_record` whenever it is
-    # None, so an ordinary row (no resumption, no decide key, no resume mismatch)
-    # exports as it would without the column existing at all -- see that function's
-    # own docstring for why. None of these rows are resumptions, decided through a
-    # key this in-process call could fingerprint, or a resume mismatch.
+    # `resumes_audit_id` (migration 0025), `decide_principal` (migration 0029),
+    # `resume_digest_expected`/`resume_digest_actual` (migration 0031), and
+    # `permit_jti` (migration 0032) are the deliberate exceptions: each omitted
+    # by `canonical_row_record` whenever it is None, so an ordinary row (no
+    # resumption, no decide key, no resume mismatch, no bound permit) exports
+    # as it would without the column existing at all -- see that function's
+    # own docstring for why. None of these rows are resumptions, decided
+    # through a key this in-process call could fingerprint, a resume
+    # mismatch, or a permit issuance.
     for row in expected:
         assert row.pop("resumes_audit_id") is None
         assert row.pop("decide_principal") is None
         assert row.pop("resume_digest_expected") is None
         assert row.pop("resume_digest_actual") is None
+        assert row.pop("permit_jti") is None
 
     out = tmp_path / "export.jsonl"
     count = write_export(conn, out)
