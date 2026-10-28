@@ -132,3 +132,44 @@ def test_every_exception_carries_its_reason() -> None:
     """An exception without a written reason is indistinguishable from an oversight."""
     for module, reason in DECLARED_ELSEWHERE.items():
         assert len(reason) > 40, f"{module} is excepted without a stated reason"
+
+
+MANIFEST_IN = Path(__file__).resolve().parent.parent / "MANIFEST.in"
+
+
+def test_every_file_manifest_in_includes_is_in_the_built_sdist(tmp_path: Path) -> None:
+    """`MANIFEST.in` naming a file that the build silently drops is worse than
+    not naming it at all: a reader (and `pip download --no-binary`) trusts the
+    manifest, and finds out only by looking inside the tarball.
+
+    This builds a real sdist -- the only way to know what setuptools actually
+    put in it, rather than what the config merely claims it will.
+    """
+    import subprocess
+    import sys
+    import tarfile
+
+    included = [
+        line.split(maxsplit=1)[1].strip()
+        for line in MANIFEST_IN.read_text(encoding="utf-8").splitlines()
+        if line.startswith("include ")
+    ]
+    assert included, "MANIFEST.in has no 'include' lines to check"
+
+    repo_root = Path(__file__).resolve().parent.parent
+    subprocess.run(
+        [sys.executable, "-m", "build", "--sdist", "--outdir", str(tmp_path)],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    (sdist_path,) = tmp_path.glob("*.tar.gz")
+    with tarfile.open(sdist_path) as tar:
+        names = {Path(n).name for n in tar.getnames()}
+
+    missing = [f for f in included if f not in names]
+    assert not missing, (
+        f"MANIFEST.in includes {missing}, but the built sdist does not contain "
+        f"{'them' if len(missing) > 1 else 'it'} -- either the file does not "
+        "exist in the repository, or setuptools is not picking it up."
+    )

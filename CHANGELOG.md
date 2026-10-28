@@ -3,7 +3,8 @@
 onedoor is the reference implementation of the AADP Internet-Draft
 (`draft-saha-aadp`). Per-requirement conformance status, gaps included, lives in
 [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
-[BACKLOG.md](BACKLOG.md).
+[BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
+(not shipped in the package itself).
 
 ## 0.9.0 — unreleased
 
@@ -73,6 +74,31 @@ own work forward rather than shipping it as a release of its own.
   before `/6` keeps its exact prior digest — the hint is never consulted to decide
   whether an existing chain still verifies, only to seal new rows.
 
+### Changed — the permit's `jti` is minted independently
+
+- **A bound permit's `jti` is no longer the intent's own audit id, stringified** — it is
+  minted independently, at least 128 random bits, before the intent row even exists, and
+  recorded on that row (`actions_audit.permit_jti`, migration `0032`) as the mapping back
+  to it. A presenter that could see one permit could, under the old scheme, guess or
+  enumerate another by its sequential id; it cannot now. No caller-visible shape changed —
+  `bound_permit`'s own claims are the same fields, just no longer predictable.
+
+### Changed — BREAKING: `Idempotency-Key` must equal the permit's `jti`
+
+- **`recipient.verify`'s step 8 now also refuses `binding-incomplete` when the request's
+  `Idempotency-Key` is absent or does not equal the permit's `jti`** (bound-permit profile
+  -00 §12's own rule, previously unchecked, previously accepted with none present at all).
+  A presenter that was sending some other idempotency value for a bound-permit request
+  must switch to the permit's `jti`; every other request is unaffected. The published
+  test vectors under `tests/vectors/` are untouched by this: none of them exercises
+  `recipient.verify`'s full pipeline, so none needed a new case for this rule.
+
+### Changed — a new preimage version, `/7`
+
+- **`permit_jti`** (the new column above) is the fact an intent row makes about which
+  bound permit it issued, so it joins the hash too — `onedoor/row-preimage/7` (migration
+  `0032`). Every row sealed before `/7` keeps its exact prior digest.
+
 ### Changed — internal tracking references reworded out of shipped files
 
 - **Comments and docstrings in `pyproject.toml`, `README.md`, the viewer package, and
@@ -84,6 +110,10 @@ own work forward rather than shipping it as a release of its own.
   tests passing.
 
 ## 0.8.1 — 2026-10-18
+
+This heading was corrected after release: the version published to PyPI on that date
+shipped with this heading still reading "unreleased", left over from before the upload.
+The date above is PyPI's own record of that upload.
 
 ### Security
 
@@ -1822,7 +1852,8 @@ Ten new tests, including the regression that fails against the old behaviour.
   before.
 - **`ND-036`** — `ROADMAP.md` is a pointer to the live documents rather than a
   stale feature list. Eleven work items that lived only in it were migrated into
-  `BACKLOG.md` rather than deleted.
+  [`BACKLOG.md`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
+  rather than deleted.
 - **Packaging:** a `[litellm]` extra. The LiteLLM example imported a package no
   extra installed, so anyone following the docs hit `ModuleNotFoundError`.
 - **Repository integrity:** `.gitattributes` forces LF and freezes the vendored,

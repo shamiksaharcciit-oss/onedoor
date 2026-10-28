@@ -3,7 +3,7 @@
 [![CI](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/onedoor.svg)](https://pypi.org/project/onedoor/)
 [![Python](https://img.shields.io/pypi/pyversions/onedoor.svg)](https://pypi.org/project/onedoor/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/LICENSE)
 
 **A tiered guardrail engine for agentic systems.**
 The model proposes; the policy layer disposes.
@@ -66,16 +66,16 @@ agent may *do* — and it takes positions most frameworks leave as wishes:
 
 ## Documentation
 
-Developer guides live in [`docs/`](docs/index.md): the three-minute mental
-model, an integration guide per surface — [library](docs/integration-library.md),
-[HTTP decision service](docs/integration-service.md),
-[MCP proxy](docs/integration-mcp.md),
-[LiteLLM adapter](docs/integration-litellm.md),
-[LangGraph](docs/integration-langgraph.md) — and the full
-[policy reference](docs/policy-reference.md).
+Developer guides live in [`docs/`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/index.md): the three-minute mental
+model, an integration guide per surface — [library](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-library.md),
+[HTTP decision service](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-service.md),
+[MCP proxy](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-mcp.md),
+[LiteLLM adapter](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-litellm.md),
+[LangGraph](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-langgraph.md) — and the full
+[policy reference](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/policy-reference.md).
 
 The **user manual** for the current release is
-[`docs/OneDoor_User_Manual.pdf`](docs/OneDoor_User_Manual.pdf) — ten pages, written for the
+[`docs/OneDoor_User_Manual.pdf`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/OneDoor_User_Manual.pdf) — ten pages, written for the
 operator rather than the integrator: install, the first policy, the Studio, approvals, the
 kill switch, receipts and how to verify one.
 
@@ -328,9 +328,10 @@ separate from decide-role keys by design: the process that asks for permission
 should not be the process that grants it. Tier-3 proposals can notify a
 webhook (`ONEDOOR_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
 `onedoor[otel]` lights up OpenTelemetry spans and decision counters with no
-code changes. [BACKLOG.md](BACKLOG.md) is where this is going, ticket by ticket,
-and [CONFORMANCE.md](CONFORMANCE.md) is the honest per-requirement status against
-the AADP draft — gaps included.
+code changes. [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
+is where this is going, ticket by ticket, and
+[CONFORMANCE.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CONFORMANCE.md)
+is the honest per-requirement status against the AADP draft — gaps included.
 
 ## Origin & status
 
@@ -414,8 +415,8 @@ the first post-freeze change rather than a hotfix: see CHANGELOG.md.
 
 
 Stated here rather than left to be discovered. The full list, with the measurement
-behind each, is in [CHANGELOG.md](CHANGELOG.md) and
-[CONFORMANCE.md](CONFORMANCE.md); these are the ones a deployer should read before
+behind each, is in [CHANGELOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG.md) and
+[CONFORMANCE.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CONFORMANCE.md); these are the ones a deployer should read before
 trusting a boundary to this engine:
 
 - **A `param_effects` `pattern:` still matches URL-valued parameters as strings.** A
