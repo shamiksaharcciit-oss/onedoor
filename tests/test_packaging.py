@@ -173,3 +173,61 @@ def test_every_file_manifest_in_includes_is_in_the_built_sdist(tmp_path: Path) -
         f"{'them' if len(missing) > 1 else 'it'} -- either the file does not "
         "exist in the repository, or setuptools is not picking it up."
     )
+
+
+def test_the_sdist_is_byte_identical_across_two_builds_once_rewritten(tmp_path: Path) -> None:
+    """setuptools 84.0.0's sdist gives every FILE entry a deterministic mtime
+    (inherited from `git archive`'s own `SOURCE_DATE_EPOCH` support,
+    preserved through the copy into its release tree) but stamps every
+    DIRECTORY entry it creates with the real build-wall-clock time instead --
+    checked directly in this pinned version's own source, which reads
+    `SOURCE_DATE_EPOCH` nowhere in its sdist path at all.
+
+    `tools/reproducible_sdist.py` closes that gap after the build, rather
+    than working around it by moving off the pinned tool versions. This
+    proves the fix, not just the gap: two independent builds, each rewritten,
+    must produce the exact same bytes.
+    """
+    import os
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    epoch = str(
+        int(
+            subprocess.run(
+                ["git", "log", "-1", "--format=%ct", "HEAD"],
+                cwd=repo_root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+    )
+    outputs = []
+    for i in (1, 2):
+        out_dir = tmp_path / f"build{i}"
+        out_dir.mkdir()
+        env = {**os.environ, "SOURCE_DATE_EPOCH": epoch}
+        subprocess.run(
+            [sys.executable, "-m", "build", "--sdist", "--outdir", str(out_dir)],
+            cwd=repo_root,
+            env=env,
+            check=True,
+            capture_output=True,
+        )
+        (sdist_path,) = out_dir.glob("*.tar.gz")
+        subprocess.run(
+            [
+                sys.executable,
+                str(repo_root / "tools" / "reproducible_sdist.py"),
+                str(sdist_path),
+                "--epoch",
+                epoch,
+            ],
+            check=True,
+            capture_output=True,
+        )
+        outputs.append(sdist_path.read_bytes())
+
+    assert outputs[0] == outputs[1], "two builds, each rewritten, must be byte-identical"
