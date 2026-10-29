@@ -117,8 +117,9 @@ The second is a **permit** — capped, reversible, and you now owe a `/v1/report
 third is **default-deny**: `wire.anywhere` is in no policy, so it is refused, and the refusal
 says what would allow it. Nothing is proposed and nothing self-promotes.
 
-**Numbers in `params` are JSON numbers** (`120.00`), not strings — see *Known
-limitations* for the decimal-string asymmetry.
+**Numbers in `params` may be JSON numbers (`120.00`) or decimal strings**
+(`"120.00"`) — a numeric bound reads both the same way; see *Known
+limitations* for the history.
 
 ### The Studio — point it at the same database
 
@@ -398,20 +399,25 @@ must not read as broken.
 
 ## Known limitations
 
-**A decimal string in `params` is refused by a `numeric` bound — and that is a
-conformance defect, ours.** `{"amount_eur": "120.00"}` is refused as *must be numeric*
-while `{"amount_eur": 120.00}` works, and while `cost_eur` and the cap path both already
-read the decimal-string form as money.
+**A decimal string in `params` was refused by a `numeric` bound — a conformance
+defect, ours, now fixed.** `{"amount_eur": "120.00"}` was refused as *must be
+numeric* while `{"amount_eur": 120.00}` worked, even though `cost_eur` and the cap
+path already read the decimal-string form as money.
 
 AADP §5 requires the opposite: *monetary values are decimal strings, never floating-point
 numbers*, a rule that applies **inside `params`**, and the draft's own worked decide
-request carries `"amount_eur": "40.00"`. Refusing it also pushes integrators toward binary
+request carries `"amount_eur": "40.00"`. Refusing it also pushed integrators toward binary
 floats — the representation the draft's Security Considerations names as an attack surface
-on budget arithmetic — so the stricter-looking check steers callers toward the hazard.
+on budget arithmetic — so the stricter-looking check steered callers toward the hazard.
 
-Found by the first operator to run `0.6.0` from PyPI. The failing direction is closed (a
-denial, never a permit). The fix widens a verdict from denied to permitted, so it lands as
-the first post-freeze change rather than a hotfix: see CHANGELOG.md.
+Found by the first operator to run `0.6.0` from PyPI; fixed in `0.8.0`
+(`onedoor.guardrail.numeric.numeric_value`, now the one parser shared by
+`bounds.validate` and `caps.resolve_cost`, so a numeric bound can no longer change
+which wire types an action accepts — see CHANGELOG.md). As of this release:
+`{"amount_eur": "40.00"}` is permitted, exactly like `{"amount_eur": 40.00}`;
+`{"amount_eur": "abc"}` and `{"amount_eur": "1e3"}` are both refused as
+`not_numeric` — exponent notation is a refused *spelling* (`Decimal` would read
+`"1e3"` as finite), not merely unparseable.
 
 
 Stated here rather than left to be discovered. The full list, with the measurement
