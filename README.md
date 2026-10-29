@@ -426,9 +426,10 @@ Found by the first operator to run `0.6.0` from PyPI; fixed in `0.8.0`
 `bounds.validate` and `caps.resolve_cost`, so a numeric bound can no longer change
 which wire types an action accepts — see CHANGELOG.md). As of this release:
 `{"amount_eur": "40.00"}` is permitted, exactly like `{"amount_eur": 40.00}`;
-`{"amount_eur": "abc"}` and `{"amount_eur": "1e3"}` are both refused as
-`not_numeric` — exponent notation is a refused *spelling* (`Decimal` would read
-`"1e3"` as finite), not merely unparseable.
+`{"amount_eur": "abc"}` and `{"amount_eur": "1e3"}` are both refused with
+`"decision":"denied","reason":"bounds"`, detail `"param 'amount_eur' must be
+numeric: … (got 'abc')"` (or `'1e3'`) — exponent notation is a refused
+*spelling* (`Decimal` would read `"1e3"` as finite), not merely unparseable.
 
 
 Stated here rather than left to be discovered. The full list, with the measurement

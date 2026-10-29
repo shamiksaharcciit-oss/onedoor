@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from onedoor.guardrail.numeric import NOT_NUMERIC, parse_numeric
+from onedoor.guardrail.bounds import validate
+from onedoor.guardrail.models import Bounds, NumericBound
+from onedoor.guardrail.numeric import parse_numeric
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 README = REPO_ROOT / "README.md"
@@ -32,8 +34,18 @@ def test_a_decimal_string_under_a_numeric_bound_is_accepted_exactly_as_the_readm
     assert parsed.value == parse_numeric(40.00).value
 
 
-def test_garbage_and_exponent_notation_are_both_refused_as_not_numeric_as_the_readme_says() -> None:
-    """README.md, Known limitations: '`{"amount_eur": "abc"}` and
-    `{"amount_eur": "1e3"}` are both refused as `not_numeric`'."""
-    assert parse_numeric("abc").reason == NOT_NUMERIC
-    assert parse_numeric("1e3").reason == NOT_NUMERIC
+def test_garbage_and_exponent_notation_are_both_refused_with_bounds_as_the_readme_says() -> None:
+    """README.md, Known limitations: both are refused with
+    `"decision":"denied","reason":"bounds"`, detail "param 'amount_eur' must
+    be numeric: ...". A caller never sees the parser's own internal reason
+    (`not_numeric`) -- `bounds.validate`'s own `detail` is exactly what
+    `decision.py`'s step 6 copies into the reply (`reason_code=CheckId.BOUNDS,
+    detail=bounds_result.detail`), so this holds the reply itself, not the
+    parser underneath it."""
+    bounds = Bounds(numeric={"amount_eur": NumericBound(min=0.01, max=2000.00)})
+    for value in ("abc", "1e3"):
+        result = validate(bounds, {"amount_eur": value})
+        assert result.ok is False
+        assert result.detail is not None
+        assert "must be numeric" in result.detail
+        assert repr(value) in result.detail
