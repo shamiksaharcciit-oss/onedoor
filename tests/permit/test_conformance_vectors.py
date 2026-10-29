@@ -19,6 +19,7 @@ already covered in `test_recipient.py`, named here rather than duplicated.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -52,11 +53,12 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     "V09": (
         IMPLEMENTED,
         "test_recipient.py::test_v09_a_signature_that_honestly_claims_a_different_key_is_"
-        "presenter_key_mismatch -- ruled: a signature honestly naming a key other than "
+        "presenter_key_mismatch and "
+        "test_recipient.py::test_v09_a_signature_that_claims_the_cnf_jkt_key_but_fails_is_"
+        "request_signature_invalid -- ruled: a signature honestly naming a key other than "
         "cnf.jkt is presenter-key-mismatch, checked before any cryptography or key "
         "resolution; a signature claiming cnf.jkt that fails to verify is "
-        "request-signature-invalid (test_v09_a_signature_that_claims_the_cnf_jkt_key_but_"
-        "fails_is_request_signature_invalid). The two are distinct code paths.",
+        "request-signature-invalid. The two are distinct code paths.",
     ),
     "V10": (IMPLEMENTED, "test_recipient.py::test_a_missing_http_signature_is_refused"),
     "V11": (
@@ -107,6 +109,43 @@ def test_the_gap_count_matches_what_the_report_should_say() -> None:
     assert implemented == 22
     assert gaps == 2
     assert implemented + gaps == len(VECTOR_IDS) == 24
+
+
+# A test citation of the form `some_file.py::test_name` or `this file::test_name`.
+# `VECTOR_STATUS`'s V09 entry names two in one string ("X and Y"), so this
+# matches every occurrence rather than assuming one per value.
+_TEST_CITATION = re.compile(r"(this file|[\w.]+\.py)::(test_\w+)")
+
+
+def test_every_test_vector_status_names_actually_exists() -> None:
+    """A citation here can rot exactly the way V09's second half did: the
+    prose named a test that was never written under that name, and nothing
+    caught it until a review did, by hand. This reads every real `def
+    test_...` out of `test_recipient.py` and this file itself, and checks
+    every citation in `VECTOR_STATUS` against that set -- so a citation that
+    outlives (or never matches) its test fails here instead."""
+    this_file = Path(__file__)
+    recipient_file = this_file.parent / "test_recipient.py"
+
+    def _defined_tests(path: Path) -> set[str]:
+        return {
+            match.group(1)
+            for match in re.finditer(
+                r"^def (test_\w+)\(", path.read_text(encoding="utf-8"), re.MULTILINE
+            )
+        }
+
+    tests_by_file = {
+        "this file": _defined_tests(this_file),
+        "test_recipient.py": _defined_tests(recipient_file),
+    }
+
+    missing = []
+    for vector_id, (_, detail) in VECTOR_STATUS.items():
+        for file_label, test_name in _TEST_CITATION.findall(detail):
+            if test_name not in tests_by_file.get(file_label, set()):
+                missing.append(f"{vector_id} cites {file_label}::{test_name}")
+    assert not missing, f"VECTOR_STATUS cites test(s) that don't exist under that name: {missing}"
 
 
 # --- V02: path changed after signing -----------------------------------------------

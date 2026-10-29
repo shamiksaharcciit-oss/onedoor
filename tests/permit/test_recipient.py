@@ -491,7 +491,9 @@ def test_the_wrong_presenter_key_is_refused() -> None:
     assert result.step == 8
 
 
-def test_a_request_signed_by_the_wrong_key_is_refused() -> None:
+def test_v09_a_signature_that_claims_the_cnf_jkt_key_but_fails_is_request_signature_invalid() -> (
+    None
+):
     """A different failure mode from the mismatched-directory-key case above: here
     the directory correctly resolves the REAL presenter key, but the request was
     actually signed by a different key -- so the signature itself fails to verify
