@@ -27,29 +27,39 @@ own work forward rather than shipping it as a release of its own.
   caller that does not supply a resume key — the HTTP service, the MCP integration,
   direct engine calls — is byte-for-byte unaffected.
 
-### Fixed — a resume could reuse an approval already consumed or expired, or leave a second one behind
+### Fixed — the resume key's reuse rule, stated once over every approval state
 
-- **A resume key now reuses its row while the row is `pending` or `approved`,
-  and never reuses one that is `consumed`, `expired` or `denied`.** The
-  ordinary shape of a LangGraph resume decides twice — once with no
-  reference, because resuming re-executes the interrupted node from the top,
-  and once with the reference the human actually granted — and the first of
-  those two must find the SAME row whether a human has acted on it yet or
-  not. Filtering to `pending` alone (an earlier state in this same release)
-  made that first decision miss an already-`approved` row and propose a
-  second, never-granted one on every ordinary resume — contradicting the
-  "Added" entry above, which this now actually delivers. Filtering to
-  `pending` alone also made a legitimate later resume fail outright once the
-  original row left `pending`:
-  `idx_approvals_resume_key` (migration `0030`) was a unique index on the
-  pair, so inserting a fresh row for the same resume key after that would
-  violate it. The index is now partial, `WHERE state IN ('pending',
-  'approved')` — at most one row in flight per resume key, never one for its
+- **A resume key reuses its row exactly while that row is IN FLIGHT: state
+  `pending`, `ratified` or `approved`, and `expires_at` later than now.**
+  Everything else — `denied`, `expired`, `consumed`, `executed`, or any of
+  those three in-flight states once its own `expires_at` has passed — gets a
+  fresh row. A lapsed in-flight row is marked `expired` at the next resume
+  that finds it (nothing in `onedoor/` calls `approvals.sweep`, so without
+  this an approval past its expiry would otherwise be reused forever, and,
+  for `pending`/`ratified`, never become approvable again either).
+  `idx_approvals_resume_key` (migration `0030`, still edited in place -- it
+  ships in no release) is a partial unique index on the same three in-flight
+  states: at most one row in flight per resume key, never one for its
   entire lifetime.
+- Two earlier states of this same fix, within this same unreleased release,
+  each named the case they were written for and missed a neighbour: a plain
+  (non-partial) unique index on the pair already existed; narrowing the
+  lookup to `pending` alone, to stop a dead `consumed`/`expired` row being
+  reused forever, would by itself have made a legitimate later resume fail
+  outright on that plain index the moment the original row left `pending` --
+  so the index became partial in the same change, not after it. Widening the
+  lookup and the index to `pending` **or** `approved` then missed `ratified`
+  (a mandate-gated, combined approval the mandate authority has ratified but
+  the approver has not yet acted on): a resume in that window created a
+  second, pending row that sat beside the ratified one until the approver's
+  own `cas_approve` raised `IntegrityError` on the index. The rule above
+  covers every value of `ApprovalState`, tested as such, so a future state
+  cannot be missed the same way.
 - **An unreleased 0.9.0 development build's database should be discarded,
   not reused**, if it was ever migrated before this fix: migrations are
-  tracked by file name alone, so a database that already ran the earlier
-  `0030` keeps its old, now-superseded index and raises on the next resume.
+  tracked by file name alone, so a database that already ran an earlier
+  `0030` keeps its old, now-superseded index and can raise on a later
+  resume.
 
 ### Added — a retrying, idempotent decide-key HTTP client
 

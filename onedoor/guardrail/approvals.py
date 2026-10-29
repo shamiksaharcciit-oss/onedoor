@@ -161,22 +161,34 @@ def create(
 
 
 def find_by_resume_key(
-    conn: sqlite3.Connection, thread_id: str, tool_call_id: str
+    conn: sqlite3.Connection, thread_id: str, tool_call_id: str, now: datetime
 ) -> sqlite3.Row | None:
     """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
 
-    `state` `pending` or `approved` only. A LangGraph resume re-executes the
-    interrupted node from the top -- `_decide()` runs once with no reference,
-    which must find the row whatever state waiting left it in, pending (a
-    human hasn't acted) or approved (a human already has, but the resumed
-    node hasn't yet presented the reference to consume it) -- and only then,
-    separately, with the reference. A row that has been consumed, denied or
-    expired is no longer reusable -- `cas_approve` will never flip it to
-    'approved' a second time -- so a resume that finds one must get a fresh
-    pending approval of its own, the same as a caller presenting this resume
-    key for the very first time. Without this, a resume landing after the
-    original approval was consumed (the action already ran) or expired would
-    be told 'proposed' against a dead row that can never be approved again.
+    The rule, stated once over every value of :class:`ApprovalState`: a row is
+    IN FLIGHT while its state is `pending`, `ratified` or `approved` AND
+    `expires_at` is later than `now`. A resume key reuses its in-flight row,
+    and only that; everything else -- `denied`, `expired`, `consumed`,
+    `executed`, or any of the three in-flight states past its own expiry --
+    gets a fresh row.
+
+    A LangGraph resume re-executes the interrupted node from the top --
+    `_decide()` runs once with no reference, which must find the row
+    whatever in-flight state waiting left it in (`pending`: no one has acted;
+    `ratified`: the mandate authority has, the approver hasn't yet;
+    `approved`: the approver has, but the resumed node hasn't yet presented
+    the reference to consume it) -- and only then, separately, with the
+    reference. A row that has been consumed, denied or expired is no longer
+    reusable -- `cas_approve`/`cas_resume_ratified` will never flip it again
+    -- so a resume that finds one must get a fresh pending approval of its
+    own, the same as a caller presenting this resume key for the very first
+    time.
+
+    An in-flight row found past its own `expires_at` is marked `expired`
+    here, in the caller's own transaction, before returning None -- nothing
+    in `onedoor/` calls `sweep`, so without this an approval past its expiry
+    would otherwise keep its in-flight state and be reused forever (and,
+    for `pending`/`ratified`, never actually be approvable again either).
 
     Returns the raw row (not an :class:`Approval`) because the caller needs
     `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
@@ -184,9 +196,14 @@ def find_by_resume_key(
     """
     row: sqlite3.Row | None = conn.execute(
         "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? "
-        "AND state IN ('pending', 'approved')",
+        "AND state IN ('pending', 'ratified', 'approved')",
         (thread_id, tool_call_id),
     ).fetchone()
+    if row is None:
+        return None
+    if row["expires_at"] <= to_iso(now):
+        conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
+        return None
     return row
 
 

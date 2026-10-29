@@ -910,7 +910,7 @@ def _decide_and_reserve(
             # exactly as it always has.
             reused_approval_id: int | None = None
             if thread_id is not None and tool_call_id is not None:
-                existing = approvals.find_by_resume_key(conn, thread_id, tool_call_id)
+                existing = approvals.find_by_resume_key(conn, thread_id, tool_call_id, now)
                 if existing is not None:
                     expected_digest = existing["request_digest"]
                     actual_digest = approvals.resume_digest(request.action_type, request.params)

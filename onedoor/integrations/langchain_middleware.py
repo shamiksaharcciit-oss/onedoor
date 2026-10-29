@@ -418,13 +418,16 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
         whole method from the top, including the ``self._decide(request)``
         call above ``_proposed`` -- so a resume decides twice: once here, with
         no reference, and once more inside ``_proposed`` once the resume
-        value is read, with it. The first of those two finds the SAME row the
-        human already acted on, whether it is still ``pending`` or has been
-        ``approved`` in the meantime (``find_by_resume_key``, keyed on
-        ``thread_id``/``tool_call_id``) -- it does not propose a second,
-        never-granted one. The resumed branch still never reads that first
-        call's own id, by design; it reads the id out of the resume value
-        instead, which is the one the human actually saw and granted.
+        value is read, with it. The first of those two finds the SAME row,
+        whichever of the three IN-FLIGHT states (``pending``, ``ratified`` --
+        a mandate-gated approval the mandate authority has ratified but the
+        approver has not yet acted on -- or ``approved``) it is still in, as
+        long as it has not itself lapsed past its own expiry
+        (``find_by_resume_key``, keyed on ``thread_id``/``tool_call_id``) --
+        it does not propose a second, never-granted one. The resumed branch
+        still never reads that first call's own id, by design; it reads the
+        id out of the resume value instead, which is the one the human
+        actually saw and granted.
 
         Same-process mode: this middleware holds a direct database
         connection, so there is no process boundary between the agent
