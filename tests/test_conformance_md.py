@@ -6,6 +6,8 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DECISION_PY = REPO_ROOT / "onedoor" / "guardrail" / "decision.py"
 CONFORMANCE_MD = REPO_ROOT / "CONFORMANCE.md"
@@ -26,14 +28,15 @@ _STEP_COMMENT = re.compile(r"^\s*# (\d+[a-z]?(?:/\d+)?)\.\s")
 _STEP_LABEL_IN_DOC = re.compile(r"^- `(\d+[a-z]?(?:/\d+)?)`", re.MULTILINE)
 
 
-def _code_step_labels() -> list[str]:
+def _code_step_labels(path: Path = DECISION_PY) -> list[str]:
     """Every numbered step comment inside `_decide_and_reserve`, in the order
     the code itself runs them. Stops at the next top-level `def`, so a
     label-shaped comment anywhere else in the file is never picked up by
-    accident."""
+    accident. Takes a path (default the real `decision.py`) so a sabotage
+    test can point it at a modified copy instead."""
     labels = []
     in_function = False
-    for line in DECISION_PY.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith("def _decide_and_reserve("):
             in_function = True
             continue
@@ -100,6 +103,14 @@ def test_bound_permit_next_citations_name_a_heading_that_exists() -> None:
     the same two gaps until this was caught, so a heading name that drifts
     from a renamed or removed section is exactly the next way that mistake
     could recur silently."""
+    if not BOUND_PERMIT_NEXT_MD.exists():
+        pytest.skip(
+            "docs/design/ does not ship in the sdist -- nothing to check its citations against"
+        )
+    if not TEST_CONFORMANCE_VECTORS_PY.exists():
+        pytest.skip(
+            "tests/permit/ does not ship in the sdist -- nothing to extract a citation from"
+        )
     headings = _bound_permit_next_headings()
     assert headings, (
         "the extractor found no '## ' heading -- it is broken, not the claim this test checks"
@@ -118,11 +129,23 @@ def test_bound_permit_next_citations_name_a_heading_that_exists() -> None:
         )
 
 
-def test_sabotage_a_renumbered_code_comment_is_caught() -> None:
-    """Demonstrates what the test above actually guards against: renumber one
-    step in the code (without touching the doc) and the comparison must
-    fail."""
-    code_labels = _code_step_labels()
-    sabotaged = [*code_labels[:3], "99", *code_labels[4:]]  # drop step 4, insert a fake one
-    doc_labels = _doc_step_labels()
-    assert sabotaged != doc_labels, "the sabotage must actually diverge from the doc"
+def test_sabotage_a_renumbered_code_comment_is_caught(tmp_path: Path) -> None:
+    """Runs the real comparison test_conformance_md_section_1_matches_the_codes_own_step_order
+    performs, against a real temp copy of decision.py with one step comment
+    renumbered -- not a hand-built list standing in for what the extractor
+    would have found. Demonstrates the guard itself catches a mismatch,
+    rather than only asserting two lists differ."""
+    original = _code_step_labels()
+    assert "2b" in original, "the step this sabotage renumbers must actually be there"
+
+    sabotaged_text = DECISION_PY.read_text(encoding="utf-8").replace(
+        "# 2b. EFFECT RESOLUTION", "# 2z. EFFECT RESOLUTION", 1
+    )
+    sabotaged_path = tmp_path / "decision.py"
+    sabotaged_path.write_text(sabotaged_text, encoding="utf-8")
+
+    sabotaged_labels = _code_step_labels(sabotaged_path)
+    assert sabotaged_labels != original, "the sabotage must actually change the extracted labels"
+    assert sabotaged_labels != _doc_step_labels(), (
+        "the real comparison must catch a renumbered step comment"
+    )
