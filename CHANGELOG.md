@@ -6,10 +6,9 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
-## 0.9.0 — unreleased
+## 0.9.0 — 2026-10-29
 
-Under way; dated and completed once every part of this release has landed. Carries 0.8.2's
-own work forward rather than shipping it as a release of its own.
+Carries 0.8.2's own work forward rather than shipping it as a release of its own.
 
 ### Added — idempotent proposals on resume
 
