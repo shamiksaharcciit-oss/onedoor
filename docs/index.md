@@ -66,4 +66,6 @@ committer time, and closes the sdist's one remaining non-determinism (see
 versions, the epoch and commit, both sha256 values -- beside `build`'s own,
 uncaptured output. A plain `python -m build` installs whatever setuptools
 PyPI is currently serving instead of this repository's pin — the gap that
-once let a release ship a wheel built with the wrong version.
+once let a release ship a wheel built with the wrong version. Release tags are
+annotated from now on, tagged by the no-reply address
+(`noreply@anthropic.com`); a published tag is never moved.
