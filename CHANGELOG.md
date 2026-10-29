@@ -27,6 +27,19 @@ own work forward rather than shipping it as a release of its own.
   caller that does not supply a resume key — the HTTP service, the MCP integration,
   direct engine calls — is byte-for-byte unaffected.
 
+### Fixed — a resume could reuse an approval already consumed or expired
+
+- **`find_by_resume_key` matched on `(thread_id, tool_call_id)` alone, with no
+  filter on the approval's own state** — a resume landing after the original
+  approval was consumed (the action already ran) or had expired found that same
+  dead row and was told `proposed` against an id `cas_approve` can never flip
+  to `approved` again. Now filtered to `state='pending'`. This alone would have
+  made a later, legitimate resume fail outright: `idx_approvals_resume_key`
+  (migration `0030`) was a plain unique index on the pair, so once a row left
+  `pending`, inserting a fresh one for the same resume key violated it. The
+  index is now partial, `WHERE state='pending'` — at most one row in flight per
+  resume key, never one for its entire lifetime.
+
 ### Added — a retrying, idempotent decide-key HTTP client
 
 - **`onedoor.integrations.decide_client.DecideKeyClient`** talks to the decision

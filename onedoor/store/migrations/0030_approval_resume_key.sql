@@ -18,4 +18,11 @@ ALTER TABLE approvals ADD COLUMN thread_id TEXT;
 ALTER TABLE approvals ADD COLUMN tool_call_id TEXT;
 ALTER TABLE approvals ADD COLUMN request_digest TEXT;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_approvals_resume_key ON approvals (thread_id, tool_call_id);
+-- Partial, on state='pending': at most one row IN FLIGHT per resume key, not one
+-- EVER. A row that has been approved, denied, consumed or expired is done with --
+-- `find_by_resume_key` (approvals.py) already excludes it from reuse -- and a later
+-- resume with the same key must be free to get a fresh pending approval of its own.
+-- A plain (non-partial) unique index would make that INSERT fail outright once the
+-- original row left 'pending', turning an ordinary later resume into a crash.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_approvals_resume_key ON approvals (thread_id, tool_call_id)
+    WHERE state = 'pending';

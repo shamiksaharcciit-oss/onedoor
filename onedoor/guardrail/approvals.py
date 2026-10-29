@@ -165,12 +165,21 @@ def find_by_resume_key(
 ) -> sqlite3.Row | None:
     """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
 
+    `state='pending'` only: a row that has been approved, denied, consumed or
+    expired is no longer reusable -- `cas_approve` will never flip it to
+    'approved' a second time -- so a resume that finds one must get a fresh
+    pending approval of its own, the same as a caller presenting this resume
+    key for the very first time. Without this, a resume landing after the
+    original approval was consumed (the action already ran) or expired would
+    be told 'proposed' against a dead row that can never be approved again.
+
     Returns the raw row (not an :class:`Approval`) because the caller needs
     `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
     would have to grow a field most callers never need.
     """
     row: sqlite3.Row | None = conn.execute(
-        "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=?", (thread_id, tool_call_id)
+        "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? AND state='pending'",
+        (thread_id, tool_call_id),
     ).fetchone()
     return row
 
