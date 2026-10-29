@@ -9,27 +9,69 @@ work is tracked.
 
 ## 1. The decision pipeline
 
-One ordered check sequence, read from `onedoor.guardrail.decision.decide_and_reserve`
-as it stands today: kill switch; policy lookup and the effective tier
-(default-deny for an unknown action type, the opaque-host and
-no-compensating-command escalations); external authorization, when a policy
-declares one and a resolver is configured (a mandate-layer deferral may deny
-outright or escalate to the approval step, never re-consulted on resumption);
-observe (a read, audited and returned, never a proposal or a reservation);
-bounds, including the bound-permit presentation's own preconditions; the
-approval step, for whatever still needs one; dry-run; caps, checked and
-reserved inside the deciding transaction; intent recorded.
+One ordered sequence, read from `onedoor.guardrail.decision.decide_and_reserve`'s
+own numbered step comments, every one, in the code's own order. A test
+(`tests/test_conformance_md.py`) reads both this section's step labels and
+the code's and fails if either side gains, loses or reorders one.
 
-Not four outcomes: `decide_and_reserve` returns either an `ActionResult`,
-whose `decision` is one of `executed`, `dry_run`, `proposed` or `denied` (a
-fifth value, `failed`, exists on the same `Decision` enum but is only ever
-set by `report_result`, never by this function), or a `PermittedIntent`,
-which carries no `Decision` value at all -- the obligation-bearing case the
-caller must still report. `observe` and `permitted` both resolve to
-`executed` in spirit, but only `observe` is terminal on the spot; a
-permitted action's own row is recorded `executed` immediately, while the
-caller's own report is what the ledger's second row states actually
-happened.
+Two steps run before the kill switch is even read, outside the deciding
+transaction: the replay guard (a repeated `request_id` returns the stored
+result outright, never re-evaluated) and the reclaim of any reservation
+whose deadline has passed unreported. Inside the transaction:
+
+- `1` the kill switch is READ here -- not decided here. An engaged switch
+  denies only at `7`, for a fresh request (or at its own point mid-resumption,
+  immediately after default-deny); every refusal reachable before that --
+  `2b`'s malformed exit, `3a`'s default-deny, `4b`'s external-authorization
+  denial, `5`'s observe, and `6`/`6b`/`6c`'s bounds and `present_bound` exits
+  -- wins over it first. A read (`observe`) is exempt from the switch
+  entirely.
+- `1b` the approval reference is resolved, straight after the kill-switch
+  read and before policy lookup.
+- `1c` the approval a resumption resumes is consumed, in the same
+  transaction, right after.
+- `2` policy lookup, which does not itself exit.
+- `2b` effect resolution (declared labels plus deterministic parameter
+  rules), which exits `malformed`.
+- `3/4` the effective tier is resolved, with every escalation that can raise
+  it: the effect-tier floor, the opaque-host invariant, the
+  no-compensating-command demotion, and the kill-switch clamp (to `CONFIRM`,
+  not an exit).
+- `3a` default-deny exits here -- after effect resolution, not at policy
+  lookup itself.
+- `4b` external authorization: consulted only when a policy declares it and
+  a resolver is configured; denies outright, or escalates a `PENDING`
+  verdict to the approval step; never re-consulted on resumption.
+- `5` observe: a read, audited and returned, never a proposal or a
+  reservation.
+- `6` bounds, which can exit `bounds`.
+- `6b` `present_bound`'s audience match, which can exit `present_bound`.
+- `6c` the bound permit's own issuance preconditions, which can also exit
+  `present_bound`.
+- `7` the approval step: a fresh request's kill-switch denial lands here if
+  nothing above already exited; a resumption's own resume-key check can
+  exit `resume_request_mismatch` here too; otherwise a proposal is created.
+- `8` dry-run (terminal).
+- `9` caps, checked and reserved inside this same deciding transaction.
+- `10` the intent is recorded, minting the bound permit's `jti` where one is
+  owed.
+- `10b` the reservation ledger row, if caps were actually reserved.
+
+After the transaction commits: the bound permit itself is signed, and the
+caller's consumed approvals are linked to the audit row -- neither is a
+numbered step inside the pipeline; both still run before this function
+returns.
+
+Not four outcomes: a fresh evaluation's `ActionResult.decision` is one of
+`executed`, `dry_run`, `proposed` or `denied`, or the function returns a
+`PermittedIntent`, which carries no `Decision` value at all -- the
+obligation-bearing case the caller must still report. A fifth value,
+`failed`, exists on the same `Decision` enum; it is not reachable from a
+fresh evaluation, but it is reachable from this same function two other
+ways: the replay guard (above) can return a stored result whose `decision`
+is `failed` (an executed-then-failed request, replayed), and the reclaim
+step writes `failed` expiry rows of its own, though it never returns them to
+the caller.
 
 - An action type absent from the policy table is denied (`default_deny`),
   never proposed.
