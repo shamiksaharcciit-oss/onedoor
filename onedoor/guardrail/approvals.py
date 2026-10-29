@@ -165,7 +165,12 @@ def find_by_resume_key(
 ) -> sqlite3.Row | None:
     """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
 
-    `state='pending'` only: a row that has been approved, denied, consumed or
+    `state` `pending` or `approved` only. A LangGraph resume re-executes the
+    interrupted node from the top -- `_decide()` runs once with no reference,
+    which must find the row whatever state waiting left it in, pending (a
+    human hasn't acted) or approved (a human already has, but the resumed
+    node hasn't yet presented the reference to consume it) -- and only then,
+    separately, with the reference. A row that has been consumed, denied or
     expired is no longer reusable -- `cas_approve` will never flip it to
     'approved' a second time -- so a resume that finds one must get a fresh
     pending approval of its own, the same as a caller presenting this resume
@@ -178,7 +183,8 @@ def find_by_resume_key(
     would have to grow a field most callers never need.
     """
     row: sqlite3.Row | None = conn.execute(
-        "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? AND state='pending'",
+        "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? "
+        "AND state IN ('pending', 'approved')",
         (thread_id, tool_call_id),
     ).fetchone()
     return row

@@ -27,18 +27,29 @@ own work forward rather than shipping it as a release of its own.
   caller that does not supply a resume key — the HTTP service, the MCP integration,
   direct engine calls — is byte-for-byte unaffected.
 
-### Fixed — a resume could reuse an approval already consumed or expired
+### Fixed — a resume could reuse an approval already consumed or expired, or leave a second one behind
 
-- **`find_by_resume_key` matched on `(thread_id, tool_call_id)` alone, with no
-  filter on the approval's own state** — a resume landing after the original
-  approval was consumed (the action already ran) or had expired found that same
-  dead row and was told `proposed` against an id `cas_approve` can never flip
-  to `approved` again. Now filtered to `state='pending'`. This alone would have
-  made a later, legitimate resume fail outright: `idx_approvals_resume_key`
-  (migration `0030`) was a plain unique index on the pair, so once a row left
-  `pending`, inserting a fresh one for the same resume key violated it. The
-  index is now partial, `WHERE state='pending'` — at most one row in flight per
-  resume key, never one for its entire lifetime.
+- **A resume key now reuses its row while the row is `pending` or `approved`,
+  and never reuses one that is `consumed`, `expired` or `denied`.** The
+  ordinary shape of a LangGraph resume decides twice — once with no
+  reference, because resuming re-executes the interrupted node from the top,
+  and once with the reference the human actually granted — and the first of
+  those two must find the SAME row whether a human has acted on it yet or
+  not. Filtering to `pending` alone (an earlier state in this same release)
+  made that first decision miss an already-`approved` row and propose a
+  second, never-granted one on every ordinary resume — contradicting the
+  "Added" entry above, which this now actually delivers. Filtering to
+  `pending` alone also made a legitimate later resume fail outright once the
+  original row left `pending`:
+  `idx_approvals_resume_key` (migration `0030`) was a unique index on the
+  pair, so inserting a fresh row for the same resume key after that would
+  violate it. The index is now partial, `WHERE state IN ('pending',
+  'approved')` — at most one row in flight per resume key, never one for its
+  entire lifetime.
+- **An unreleased 0.9.0 development build's database should be discarded,
+  not reused**, if it was ever migrated before this fix: migrations are
+  tracked by file name alone, so a database that already ran the earlier
+  `0030` keeps its old, now-superseded index and raises on the next resume.
 
 ### Added — a retrying, idempotent decide-key HTTP client
 

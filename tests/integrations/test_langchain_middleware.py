@@ -335,6 +335,42 @@ def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connec
     assert PAID == [2400.0], "a granted reference releases exactly that action"
 
 
+def _approvals_table(conn: Connection) -> list[tuple[int, str]]:
+    rows = conn.execute("SELECT id, state FROM approvals ORDER BY id").fetchall()
+    return [(r[0], r[1]) for r in rows]
+
+
+def test_the_ordinary_resume_leaves_exactly_one_row_through_the_middleware(
+    agent_conn: Connection,
+) -> None:
+    """Row-counting: the README's own interrupt, grant and resume flow.
+    `wrap_tool_call` decides twice on a resume -- once with no reference
+    (LangGraph re-executes the interrupted node from the top) and once with
+    the reference -- and the first of those two must find the row the human
+    already approved rather than propose a second, never-granted one."""
+    from langgraph.types import Command
+
+    _seed(agent_conn)
+    agent = _wire_agent(agent_conn, allow_same_process_approval=True)
+    cfg = {"configurable": {"thread_id": "t-row-count"}}
+
+    paused = agent.invoke({"messages": [("user", "wire acme")]}, cfg)
+    approval_id = paused["__interrupt__"][0].value["approval_id"]
+    assert _approvals_table(agent_conn) == [(approval_id, "pending")]
+
+    with tx(agent_conn):
+        approvals.cas_approve(agent_conn, approval_id, "operator", now_utc())
+    assert _approvals_table(agent_conn) == [(approval_id, "approved")]
+
+    agent.invoke(Command(resume={"decision": "approved", "approval_id": str(approval_id)}), cfg)
+
+    assert PAID == [2400.0], "the action must pay exactly once"
+    assert _approvals_table(agent_conn) == [(approval_id, "consumed")], (
+        "the README's pause/grant/resume flow must end with exactly the one "
+        "original row, consumed -- not a second, never-granted approval"
+    )
+
+
 def test_resuming_an_ungranted_reference_is_refused(agent_conn: Connection) -> None:
     """The id shown in the interrupt payload, presented before anyone granted it
     (still `pending`) -- and a made-up id that names nothing -- both refuse."""

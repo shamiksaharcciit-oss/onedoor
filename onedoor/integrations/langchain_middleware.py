@@ -416,13 +416,15 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
 
         One LangGraph property this depends on: resuming re-executes this
         whole method from the top, including the ``self._decide(request)``
-        call above ``_proposed`` -- so the fresh proposal that call creates on
-        a resume is a different, never-granted row from the one shown in the
-        original interrupt payload. The resumed branch never reads that fresh
-        proposal's own id for this reason; it reads the id out of the resume
-        value instead, which is the one the human actually saw and granted.
-        The fresh, never-granted row this creates on every resume is a known
-        limitation (see the CHANGELOG), not fixed here.
+        call above ``_proposed`` -- so a resume decides twice: once here, with
+        no reference, and once more inside ``_proposed`` once the resume
+        value is read, with it. The first of those two finds the SAME row the
+        human already acted on, whether it is still ``pending`` or has been
+        ``approved`` in the meantime (``find_by_resume_key``, keyed on
+        ``thread_id``/``tool_call_id``) -- it does not propose a second,
+        never-granted one. The resumed branch still never reads that first
+        call's own id, by design; it reads the id out of the resume value
+        instead, which is the one the human actually saw and granted.
 
         Same-process mode: this middleware holds a direct database
         connection, so there is no process boundary between the agent
