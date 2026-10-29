@@ -47,13 +47,28 @@ own work forward rather than shipping it as a release of its own.
 ### Added — the decision reference and bound permit, from every surface
 
 - **The library call, the HTTP decision service, the LangChain middleware and the
-  MCP proxy each hand the caller `onedoor-decision-ref/1` and the bound permit's
-  compact JWS where one was issued** — in a documented field or attribute on each,
-  never by changing the shape of anything already read. `ActionResult` and the
-  HTTP service's decide/report reply both gain `bound_permit`; the LangChain
+  MCP proxy each hand the caller `onedoor-decision-ref/1` and a `bound_permit`
+  field or attribute** — in a documented field or attribute on each, never by
+  changing the shape of anything already read. `ActionResult` and the HTTP
+  service's decide/report reply both gain `bound_permit`; the LangChain
   middleware and the MCP proxy both gain `last_decision_ref`/`last_bound_permit`,
-  the single-value hook the proxy already had for the reference alone. This is
-  what lets a onetrace step record both in one line — see
+  the single-value hook the proxy already had for the reference alone. Which of
+  these can actually carry a permit's JWS in 0.9.0, rather than leaving the
+  field null, differs by surface:
+  - **The library call** issues one, as a `PermittedIntent`, where the caller's
+    own config names a permit issuer and the request carries a presenter key's
+    thumbprint.
+  - **The HTTP decision service, the MCP proxy and the LangChain middleware**
+    hand back the decision reference every time, but none of them is
+    configured to issue a permit in 0.9.0 (no permit issuer, no
+    `presenter_key_thumbprint` plumbed from the caller) — their `bound_permit`
+    field stays null.
+  - **`/v1/report`'s reply** rebuilds an already-decided row rather than
+    evaluating a fresh one, so its `bound_permit` is always null; a bound
+    permit is deliberately never reissued on anything but the original decide
+    call.
+
+  This is what lets a onetrace step record both in one line — see
   [`docs/onetrace.md`](docs/onetrace.md).
 - **A replayed `/v1/decide` answer now carries the same id field as the live
   answer to that `request_id`.** The live reply named a permitted row
