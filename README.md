@@ -105,11 +105,22 @@ curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Cont
 curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"request_id":"22222222-2222-2222-2222-222222222222","action_type":"wire.anywhere","params":{},"source":"llm","rationale":"first look"}'
 ```
 
+On Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`, whose own
+`-Headers`/body handling doesn't take these calls verbatim: use `curl.exe` (the
+real binary) with `--%`, PowerShell's stop-parsing token, so the embedded
+double quotes reach it exactly as written instead of being re-parsed:
+
+```powershell
+curl.exe --% -s localhost:8099/v1/health
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"request_id\":\"11111111-1111-1111-1111-111111111111\",\"action_type\":\"payments.transfer\",\"params\":{\"amount_eur\":120.00,\"destination_account\":\"acct-1\"},\"source\":\"llm\",\"rationale\":\"first look\"}"
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"request_id\":\"22222222-2222-2222-2222-222222222222\",\"action_type\":\"wire.anywhere\",\"params\":{},\"source\":\"llm\",\"rationale\":\"first look\"}"
+```
+
 What you should see — the three outputs that tell you it works:
 
 ```
 {"status":"ok","kill_switch":false,"pending_intents":0}
-{"decision":"permitted","reason":"passed","effective_tier":2,...,"intent_audit_id":1,...}
+{"decision":"permitted","reason":"passed","detail":null,"effective_tier":2,...,"intent_audit_id":1,...}
 {"decision":"denied","reason":"default_deny","detail":"action type 'wire.anywhere' is declared by no policy, ...",...}
 ```
 
