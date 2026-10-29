@@ -16,7 +16,9 @@ own work forward rather than shipping it as a release of its own.
 - **A LangGraph resume no longer leaves a second, never-granted approval behind.**
   Resuming re-executes the interrupted node from the top, including the code that
   proposes — a fresh `request_id` every time — so a resumed proposal attempt now finds
-  its original approval row by a resume key (the caller's `thread_id`/`tool_call_id`)
+  its original approval row by a resume key (the caller's `thread_id`/`tool_call_id` --
+  e.g. LangGraph's own `configurable.thread_id` and the tool call being answered --
+  the one handle that stays the same across a resume, unlike `request_id`)
   instead of creating a new one. Checked, never trusted: the reused row's canonical
   digest (over `action_type` and `params`, deliberately not `request_id`, which differs
   on every resume by design) is compared against the request actually being resumed.
@@ -89,10 +91,12 @@ own work forward rather than shipping it as a release of its own.
 ### Changed — a new preimage version, `/6`
 
 - **Two new `actions_audit` columns** (`resume_digest_expected`, `resume_digest_actual`,
-  set only by a `resume_request_mismatch` denial) mean a new preimage version, appended
-  together as one bump since both are the evidence one denial states. Every row sealed
-  before `/6` keeps its exact prior digest — the hint is never consulted to decide
-  whether an existing chain still verifies, only to seal new rows.
+  set only by a `resume_request_mismatch` denial) mean a new preimage version
+  (the exact bytes an audit row's hash is computed over — see
+  [`docs/row-preimage.md`](docs/row-preimage.md)), appended together as one bump
+  since both are the evidence one denial states. Every row sealed before `/6` keeps
+  its exact prior digest — the hint is never consulted to decide whether an existing
+  chain still verifies, only to seal new rows.
 
 ### Changed — the permit's `jti` is minted independently
 
@@ -107,11 +111,15 @@ own work forward rather than shipping it as a release of its own.
 
 - **`recipient.verify`'s step 8 now also refuses `binding-incomplete` when the request's
   `Idempotency-Key` is absent or does not equal the permit's `jti`** (bound-permit profile
-  -00 §12's own rule, previously unchecked, previously accepted with none present at all).
+  -00 -- the draft defining the bound permit itself, `onedoor.permit`'s recipient-side
+  conformance target, distinct from AADP proper -- §12's own rule, previously unchecked,
+  previously accepted with none present at all).
   A presenter that was sending some other idempotency value for a bound-permit request
-  must switch to the permit's `jti`; every other request is unaffected. The published
-  test vectors under `tests/vectors/` are untouched by this: none of them exercises
-  `recipient.verify`'s full pipeline, so none needed a new case for this rule.
+  must switch to the permit's `jti`; every other request is unaffected. A 0.8.x
+  presenter talking to a 0.9.0 recipient is refused under this rule, so update
+  presenters before recipients. The published test vectors under `tests/vectors/` are
+  untouched by this: none of them exercises `recipient.verify`'s full pipeline, so none
+  needed a new case for this rule.
 
 ### Changed — a new preimage version, `/7`
 
@@ -125,9 +133,8 @@ own work forward rather than shipping it as a release of its own.
   the viewer design spec no longer cite internal ticket, requirement or review
   identifiers.** Each was reworded to state its point directly instead of pointing at
   an id a reader outside the project cannot resolve; no comment lost the reasoning it
-  was written to carry. No functional change, no upgrade step: the wheel and the sdist
-  are otherwise byte-for-byte the same modules, with the same behaviour and the same
-  tests passing.
+  was written to carry. This item changes no module, with the same behaviour and the
+  same tests passing.
 
 ## 0.8.1 — 2026-10-18
 
