@@ -102,7 +102,7 @@ own work forward rather than shipping it as a release of its own.
 ### Changed — internal tracking references reworded out of shipped files
 
 - **Comments and docstrings in `pyproject.toml`, `README.md`, the viewer package, and
-  the viewer design spec no longer cite internal ticket, requirement or review-lane
+  the viewer design spec no longer cite internal ticket, requirement or review
   identifiers.** Each was reworded to state its point directly instead of pointing at
   an id a reader outside the project cannot resolve; no comment lost the reasoning it
   was written to carry. No functional change, no upgrade step: the wheel and the sdist
