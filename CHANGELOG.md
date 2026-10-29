@@ -27,17 +27,22 @@ own work forward rather than shipping it as a release of its own.
 
 ### Added — a retrying, idempotent decide-key HTTP client
 
-- **`onedoor.integrations.decide_client.DecideKeyClient`** lets the LangChain
-  middleware talk to the decision service over HTTP with a decide-only key, instead of
-  holding its own database connection — the real process boundary between an agent and
-  whoever approves, named as missing since 0.8.1's "Known limitations." The server
-  needed no new mechanism: a repeated `request_id` already returns the first decision,
-  never a second reservation. The client is what reuses one `request_id` across
-  retries instead of minting a fresh one per attempt: bounded retries with backoff
-  inside a total deadline, all three settable with conservative defaults, retrying
-  only when no answer came back at all (never an answered refusal). Past the deadline,
-  it raises rather than returning anything shaped like a decision, so nothing is ever
-  assumed granted. `httpx` moves from a dev-only dependency to the `[langchain]` extra.
+- **`onedoor.integrations.decide_client.DecideKeyClient`** talks to the decision
+  service over HTTP with a decide-only key, instead of holding a database
+  connection — the real process boundary between an agent and whoever approves,
+  named as missing since 0.8.1's "Known limitations." Nothing in `onedoor` uses
+  it yet: the LangChain middleware still takes a database connection directly
+  and calls `decide_and_reserve(..., conn=self._conn, ...)`; wiring the
+  middleware to this client instead is future work. The server needed no new
+  mechanism: a repeated `request_id` already returns the first decision, never
+  a second reservation. The client is what reuses one `request_id` across
+  retries instead of minting a fresh one per attempt: `max_retries` (default 3)
+  counts attempts in total, not retries after the first, with backoff inside a
+  total deadline, all three settable with conservative defaults, retrying only
+  when no answer came back at all (never an answered refusal). Past the
+  deadline, it raises rather than returning anything shaped like a decision, so
+  nothing is ever assumed granted. `httpx` moves from a dev-only dependency to
+  the `[langchain]` extra.
 
 ### Added — the decision reference and bound permit, from every surface
 
