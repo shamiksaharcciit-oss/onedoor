@@ -91,6 +91,10 @@ the caller.
 
 Append-only; every row carries the policy hash in force when it was decided
 (AADP §10), so a verdict re-derives against the exact rules that produced it.
+A row's policy hash is `NULL` exactly when no `policy_current` snapshot row
+exists yet at the moment it is written (`onedoor.guardrail.audit`: the
+`SELECT version_hash FROM policy_current WHERE id=1` lookup finds nothing) --
+never a silently dropped value.
 Each row's `row_hash` covers the previous row's hash, held in that row's own
 `prev_hash` (the audit chain's own signing and hash design); the preimage --
 the exact bytes `row_hash` is computed over -- is normatively defined in
@@ -107,9 +111,11 @@ fails the moment a migration adds a column nobody classified.
 ## 3. Bound permits (bound-permit profile)
 
 `onedoor.permit` is the standalone recipient-side package; `onedoor.guardrail.bound_permit`
-is the issuer side. Appendix B's 24 conformance vectors
-(`tests/permit/vectors/manifest.json`), traced against real tests in
-`tests/permit/test_conformance_vectors.py`'s `VECTOR_STATUS`:
+is the issuer side. The bound-permit profile's 24 conformance vectors
+(`tests/permit/vectors/manifest.json`) -- the profile text itself is not in
+this repository, so no section number is claimed for them here -- traced
+against real tests in `tests/permit/test_conformance_vectors.py`'s
+`VECTOR_STATUS`:
 
 | Vector | Checks | Status |
 |---|---|---|
@@ -151,11 +157,15 @@ The request's `Idempotency-Key` MUST equal the permit's own `jti` (profile
 - **V17 (status-checked currentness).** `currentness: "status-checked"`
   always reports `could-not-check`; no status mechanism (list lookup or
   stapled freshness) is wired in. Design options are laid out in
-  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md) §1.
-- **V22 (the recipient confirmation).** Closing bound-permit profile §10 is
-  under active review, not in this release. Design is in
-  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md) §3.
+  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md),
+  under "Modes of currentness".
+- **V22 (the recipient confirmation).** Closing the bound-permit profile's
+  recipient-confirmation requirement is under active review, not in this
+  release. Design is in
+  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md),
+  under "The joint record".
 - **The mandate reference, issuer side.** The recipient side of a referenced
   mandate (step 11) is implemented; nothing on the issuer side yet populates
   a permit's `mandate` claim from onedoor's own mandate-layer deferral. See
-  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md) §2.
+  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md),
+  under "The mandate reference".

@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DECISION_PY = REPO_ROOT / "onedoor" / "guardrail" / "decision.py"
 CONFORMANCE_MD = REPO_ROOT / "CONFORMANCE.md"
+BOUND_PERMIT_NEXT_MD = REPO_ROOT / "docs" / "design" / "bound-permit-next.md"
+TEST_CONFORMANCE_VECTORS_PY = REPO_ROOT / "tests" / "permit" / "test_conformance_vectors.py"
+
+# A citation of the form `bound-permit-next.md, under "Heading Name"` -- the
+# doc has no numbered sections, so this is the only way either file may
+# point at a part of it. `re.DOTALL` so a citation wrapped across lines (as
+# Markdown prose is) still matches.
+_HEADING_CITATION = re.compile(r'bound-permit-next\.md.{0,40}?under "([^"]+)"', re.DOTALL)
 
 _STEP_COMMENT = re.compile(r"^\s*# (\d+[a-z]?(?:/\d+)?)\.\s")
 # Anchored to the START of a bullet line, not any backtick-quoted number in
@@ -57,6 +66,56 @@ def test_conformance_md_section_1_matches_the_codes_own_step_order() -> None:
         f"_decide_and_reserve's own numbered step comments are {code_labels}, "
         f"in that order -- section 1 gained, lost or reordered a step"
     )
+
+
+def _bound_permit_next_headings() -> set[str]:
+    headings = set()
+    for line in BOUND_PERMIT_NEXT_MD.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            headings.add(line.removeprefix("## ").strip())
+    return headings
+
+
+def _citations_in_markdown(path: Path) -> list[str]:
+    return _HEADING_CITATION.findall(path.read_text(encoding="utf-8"))
+
+
+def _citations_in_python(path: Path) -> list[str]:
+    """Adjacent Python string literals (as `VECTOR_STATUS` uses to wrap a
+    long value across lines) are joined into one `ast.Constant` by the
+    parser itself, so walking the AST -- rather than regexing the raw
+    source -- is what makes this immune to where the line breaks fall."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    cited = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            cited.extend(_HEADING_CITATION.findall(node.value))
+    return cited
+
+
+def test_bound_permit_next_citations_name_a_heading_that_exists() -> None:
+    """`docs/design/bound-permit-next.md` carries no numbered sections, so
+    CONFORMANCE.md and test_conformance_vectors.py cite it by heading name --
+    both files independently claimed different, invented section NUMBERS for
+    the same two gaps until this was caught, so a heading name that drifts
+    from a renamed or removed section is exactly the next way that mistake
+    could recur silently."""
+    headings = _bound_permit_next_headings()
+    assert headings, (
+        "the extractor found no '## ' heading -- it is broken, not the claim this test checks"
+    )
+
+    for source, extract in (
+        (CONFORMANCE_MD, _citations_in_markdown),
+        (TEST_CONFORMANCE_VECTORS_PY, _citations_in_python),
+    ):
+        cited = extract(source)
+        assert cited, f"{source.name} cites bound-permit-next.md but names no heading"
+        missing = [h for h in cited if h not in headings]
+        assert not missing, (
+            f"{source.name} cites heading(s) {missing} of bound-permit-next.md, "
+            f"but its actual headings are {sorted(headings)}"
+        )
 
 
 def test_sabotage_a_renumbered_code_comment_is_caught() -> None:

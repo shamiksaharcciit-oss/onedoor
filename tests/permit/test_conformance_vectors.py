@@ -1,5 +1,6 @@
-"""Bound-permit profile §16 conformance vectors, traced against this package's
-actual test coverage.
+"""The bound-permit profile's conformance vectors, traced against this
+package's actual test coverage. The profile's own text is not in this
+repository, so no section number is claimed for them here.
 
 `vectors/manifest.json` is the vector table verbatim (id, mutation, expected
 outcome) as a data file, per the ticket's own requirement that vectors live as
@@ -77,7 +78,7 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
         GAP,
         "no status mechanism is implemented (currentness is always 'time-bounded' or "
         "an unimplemented 'status-checked'); STALE_POLICY is unreachable. See "
-        "docs/design/bound-permit-next.md §7.",
+        'docs/design/bound-permit-next.md, under "Modes of currentness".',
     ),
     "V18": (IMPLEMENTED, "test_recipient.py::test_status_checked_currentness_could_not_be_checked"),
     "V19": (IMPLEMENTED, "test_recipient.py::test_a_mandate_digest_mismatch_is_refused"),
@@ -86,7 +87,8 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     "V22": (
         GAP,
         "the joint record (recipient confirmation) is not implemented -- there is no "
-        "presenter-side check to write. See docs/design/bound-permit-next.md §10.",
+        "presenter-side check to write. See docs/design/bound-permit-next.md, under "
+        '"The joint record".',
     ),
     "V23": (IMPLEMENTED, "this file::test_v23_consume_store_unavailable_is_could_not_check"),
     "V24": (IMPLEMENTED, "this file::test_v24_a_local_policy_refusal_never_consumes_the_permit"),
