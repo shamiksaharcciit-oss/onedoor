@@ -32,6 +32,8 @@ import tomllib
 from importlib.metadata import packages_distributions
 from pathlib import Path
 
+import pytest
+
 PACKAGE = Path(__file__).resolve().parent.parent / "onedoor"
 PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
@@ -175,59 +177,56 @@ def test_every_file_manifest_in_includes_is_in_the_built_sdist(tmp_path: Path) -
     )
 
 
-def test_the_sdist_is_byte_identical_across_two_builds_once_rewritten(tmp_path: Path) -> None:
-    """setuptools 84.0.0's sdist gives every FILE entry a deterministic mtime
-    (inherited from `git archive`'s own `SOURCE_DATE_EPOCH` support,
-    preserved through the copy into its release tree) but stamps every
-    DIRECTORY entry it creates with the real build-wall-clock time instead --
-    checked directly in this pinned version's own source, which reads
-    `SOURCE_DATE_EPOCH` nowhere in its sdist path at all.
-
-    `tools/reproducible_sdist.py` closes that gap after the build, rather
-    than working around it by moving off the pinned tool versions. This
-    proves the fix, not just the gap: two independent builds, each rewritten,
-    must produce the exact same bytes.
+def test_build_release_is_byte_identical_across_two_runs(tmp_path: Path) -> None:
+    """The one gap `tools/reproducible_sdist.py` alone left: a plain, isolated
+    `python -m build` installs whatever setuptools PyPI currently serves,
+    not this repository's own pin -- which is exactly how a release
+    candidate once shipped a wheel built with setuptools 84.2.1 while the
+    pin stayed 84.0.0 (`WHEEL`'s own `Generator:` line is what caught it).
+    `tools/build_release.py` is now the one recipe: pinned-version check,
+    `--no-isolation`, then the sdist rewrite. This proves the fix, not just
+    the gap -- two independent runs must produce the exact same wheel AND
+    sdist bytes, not only the sdist as before.
     """
-    import os
-    import subprocess
     import sys
 
-    repo_root = Path(__file__).resolve().parent.parent
-    epoch = str(
-        int(
-            subprocess.run(
-                ["git", "log", "-1", "--format=%ct", "HEAD"],
-                cwd=repo_root,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
-        )
-    )
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    from build_release import build as build_release  # noqa: PLC0415
+
     outputs = []
     for i in (1, 2):
         out_dir = tmp_path / f"build{i}"
         out_dir.mkdir()
-        env = {**os.environ, "SOURCE_DATE_EPOCH": epoch}
-        subprocess.run(
-            [sys.executable, "-m", "build", "--sdist", "--outdir", str(out_dir)],
-            cwd=repo_root,
-            env=env,
-            check=True,
-            capture_output=True,
-        )
-        (sdist_path,) = out_dir.glob("*.tar.gz")
-        subprocess.run(
-            [
-                sys.executable,
-                str(repo_root / "tools" / "reproducible_sdist.py"),
-                str(sdist_path),
-                "--epoch",
-                epoch,
-            ],
-            check=True,
-            capture_output=True,
-        )
-        outputs.append(sdist_path.read_bytes())
+        wheel, sdist = build_release(out_dir)
+        outputs.append((wheel.read_bytes(), sdist.read_bytes()))
 
-    assert outputs[0] == outputs[1], "two builds, each rewritten, must be byte-identical"
+    assert outputs[0][0] == outputs[1][0], "the wheel must be byte-identical across two runs"
+    assert outputs[0][1] == outputs[1][1], "the sdist must be byte-identical across two runs"
+
+
+def test_build_release_refuses_a_wrong_tool_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The check this whole script exists to add: it must refuse to build at
+    all rather than silently use whatever is installed."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_release  # noqa: PLC0415
+
+    def _wrong_version(package: str) -> str:
+        return "84.2.1" if package == "setuptools" else build_release.REQUIRED_VERSIONS[package]
+
+    monkeypatch.setattr(build_release, "installed_version", _wrong_version)
+    with pytest.raises(SystemExit, match="setuptools is '84.2.1', not '84.0.0'"):
+        build_release.check_pinned_versions()
+
+
+def test_build_release_accepts_the_pinned_versions() -> None:
+    """The sabotage test above only proves something, rather than nothing,
+    if the unpatched check passes in the venv these tests actually run in --
+    which is this project's own pinned venv, by construction."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_release  # noqa: PLC0415
+
+    build_release.check_pinned_versions()  # must not raise
