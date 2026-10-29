@@ -55,12 +55,15 @@ Then write your policies: [Policy reference](policy-reference.md).
 
 ## Building a release
 
-`python tools/build_release.py` is the one recipe: it refuses to run unless
-the active Python holds exactly the tool versions `requirements-build.txt`
-pins (create that venv with
-`pip install -r requirements-build.txt --require-hashes`), builds from a
-clean `git archive HEAD` with `SOURCE_DATE_EPOCH` set to HEAD's own
+`python tools/build_release.py`, run from a git checkout (it reads `HEAD`
+itself, via `git rev-parse`/`git archive`; a bare export has nothing for
+that to read), is the one recipe: it refuses to run unless the active Python
+holds exactly the tool versions `requirements-build.txt` pins (create that
+venv with `pip install -r requirements-build.txt --require-hashes`), builds
+from a clean `git archive HEAD` with `SOURCE_DATE_EPOCH` set to HEAD's own
 committer time, and closes the sdist's one remaining non-determinism (see
-`tools/reproducible_sdist.py`). A plain `python -m build` installs whatever
-setuptools PyPI is currently serving instead of this repository's pin — the
-gap that once let a release ship a wheel built with the wrong version.
+`tools/reproducible_sdist.py`). It prints four lines of its own -- the tool
+versions, the epoch and commit, both sha256 values -- beside `build`'s own,
+uncaptured output. A plain `python -m build` installs whatever setuptools
+PyPI is currently serving instead of this repository's pin — the gap that
+once let a release ship a wheel built with the wrong version.

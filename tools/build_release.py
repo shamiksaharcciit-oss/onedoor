@@ -22,8 +22,14 @@ This script is the one place that checks. It:
 4. Runs `reproducible_sdist.rewrite` on the sdist (directory entries and the
    gzip header otherwise carry the real build-wall-clock time; see that
    module's own docstring).
-5. Prints exactly four lines: the tool versions actually used, the pinned
-   epoch (and which commit it came from), and both sha256 values.
+5. Prints four lines of its own, beside whatever `python -m build` prints
+   (not captured, not suppressed): the tool versions actually used, the
+   pinned epoch (and which commit it came from), and both sha256 values.
+
+Run this from a git checkout, not a bare export: steps 2 and 3 call
+`git rev-parse HEAD` and `git archive HEAD` themselves, which need a real
+`.git` directory above `tools/`. A plain `git archive <ref>` of this script
+alone has nothing to read `HEAD` from and exits before building anything.
 
 Usage: `python tools/build_release.py [--outdir DIR]` (default: `./dist`).
 """
