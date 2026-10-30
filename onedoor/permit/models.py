@@ -39,6 +39,12 @@ class RefusalReason(StrEnum):
     REPLAYED = "replayed"
     IDEMPOTENCY_CONFLICT = "idempotency-conflict"
     CHAINED_PERMIT_UNSUPPORTED = "chained-permit-unsupported"
+    CONFIRMATION_PERMIT_MISMATCH = "confirmation-permit-mismatch"
+    """`onedoor.permit.confirmation.check`: the confirmation cites a different
+    permit than the one the presenter is checking it against."""
+    CONFIRMATION_OUTCOME_MISMATCH = "confirmation-outcome-mismatch"
+    """`onedoor.permit.confirmation.check`: the step's own outcome was ok, but
+    the confirmation does not say `effected`."""
 
 
 class VerificationStatus(StrEnum):
@@ -68,6 +74,17 @@ class VerificationResult:
     """VERIFIED but this exact (iss, jti, Content-Digest) was already consumed
     (profile §12: "same (iss, jti), same Content-Digest, after completion: return
     the stored result"). Distinguishes a repeat from a first, effecting pass."""
+    confirmation_token: str | None = None
+    """The stored confirmation (draft §5), when `repeat` is true and the caller
+    had attached one (`onedoor.permit.recipient.StoredConsumption`) after a prior
+    pass. `None` on a first, non-repeat pass -- the recipient has not built one
+    yet -- and on a first pass that never gets one attached at all."""
+    retryable: bool = False
+    """An `idempotency-conflict` refusal while a prior reservation of
+    the same `(iss, jti)` is still open (not yet completed) is retryable --
+    try again once the first pass finishes. A refusal because a *completed*
+    reservation's `Content-Digest` differs is a permanent conflict for this
+    body: `False`. Always `False` for every other reason."""
 
 
 @dataclass(frozen=True)

@@ -121,6 +121,59 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
   with a verifying/changed/expired case, and `decision_digest` stability across
   the `/6` bump. See [`tests/vectors/README.md`](tests/vectors/README.md).
 
+### Added — the recipient confirmation (V22)
+
+- **`onedoor.permit.confirmation`**, closing bound-permit profile §10 (Appendix
+  B's V22, previously a disclosed gap): `build`, the recipient side, signs a
+  joint record of `recipient.verify`'s own result once the caller has
+  attempted (or could not attempt) the real-world effect; `check`, the
+  presenter side, verifies that record against reference values the step
+  itself recorded, with no re-verification of the permit. Single use across
+  many confirmations is `find_reused_permits`, given whatever tokens the
+  reader already has. See [`docs/confirmation.md`](docs/confirmation.md) and
+  [`tests/vectors/README.md`](tests/vectors/README.md) (`confirmation_vectors_1.json`,
+  21 cases). `ActionResult`/the HTTP service/etc. are unchanged by this: a
+  confirmation is built by whoever runs `recipient.verify` directly, not by
+  onedoor's own issuer side.
+
+### Changed — the permit's `jti` is minted independently
+
+- **A bound permit's `jti` is no longer the intent's own audit id, stringified**
+  (`permit_id=str(intent_id)`) — it is minted independently, at least 128
+  random bits, before the intent row even exists, and recorded on that row
+  (`actions_audit.permit_jti`, migration `0032`) as the mapping back to it. A
+  presenter that could see one permit could, under the old scheme, guess or
+  enumerate another by its sequential id; it cannot now. No caller-visible
+  shape changed — `bound_permit`'s own claims are the same fields, just no
+  longer predictable.
+
+### Changed — BREAKING: `Idempotency-Key` must equal the permit's `jti`
+
+- **`recipient.verify`'s step 8 now also refuses `binding-incomplete` when the
+  request's `Idempotency-Key` is absent or does not equal the permit's `jti`**
+  (bound-permit profile -00 §12's own rule, previously unchecked). A presenter
+  that was sending some other idempotency value for a bound-permit request
+  must switch to the permit's `jti`; every other request is unaffected.
+
+### Changed — the consume store completes in two steps
+
+- **`recipient.verify`'s step 13 only reserves `(iss, jti)` and stops** — it no
+  longer records a complete, `verified` result before the caller has
+  attempted the request's effect (profile -00 §12: "consume, perform, store
+  the result", not "store, then perform"). A new function,
+  `onedoor.permit.recipient.complete_reservation`, is the only thing that now
+  writes a completed result (with the confirmation token, if one was built);
+  callers that acted on a `VERIFIED`, non-repeat result must call it once,
+  afterwards. Without that call, a retried presentation of the same request
+  now comes back refused (`idempotency-conflict`, `retryable=True`) rather
+  than `verified` a second time — an existing caller that never completes a
+  reservation will see every retry refused as retryable instead of silently
+  re-verified; one that already called `report_result`-equivalent bookkeeping
+  of its own now has a dedicated place to do it. `VerificationResult` gains
+  `retryable: bool`, additive, distinguishing this from a permanent
+  different-`Content-Digest` conflict (`retryable=False`) under the same
+  reason code.
+
 ### Changed — a new preimage version, `/6`
 
 - **Two new `actions_audit` columns** (`resume_digest_expected`, `resume_digest_actual`,
@@ -159,6 +212,12 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
 - **`permit_jti`** (the new column above) is the fact an intent row makes about which
   bound permit it issued, so it joins the hash too — `onedoor/row-preimage/7` (migration
   `0032`). Every row sealed before `/7` keeps its exact prior digest.
+
+### Changed — a new preimage version, `/7`
+
+- **`permit_jti`** (the new column above) is the fact an intent row makes about which
+  bound permit it issued, so it joins the hash too — `onedoor/row-preimage/7`
+  (migration `0032`). Every row sealed before `/7` keeps its exact prior digest.
 
 ### Changed — internal tracking references reworded out of shipped files
 

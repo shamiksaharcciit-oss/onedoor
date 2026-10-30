@@ -59,10 +59,15 @@ consumes the permit it presented. In order:
     authority's current verdict is consulted and must not have changed to a
     denial or a pending state.
 12. The recipient's own local policy, whatever it is, allows the request.
-13. The permit has not already been consumed — a repeated presentation of the
-    exact same request returns the stored outcome rather than acting twice; a
-    repeated presentation of a *different* request under the same identifier
-    is refused.
+13. The permit's identifier is reserved, not yet consumed — this step only
+    reserves it and stops; the recipient attempts the request's effect
+    afterwards and separately completes the reservation with the outcome. A
+    repeated presentation of the exact same request, once completed, returns
+    the stored outcome rather than acting twice; a repeated presentation of a
+    *different* request under the same identifier is refused, as is a
+    duplicate presented while the first attempt's reservation is still open
+    (distinguishably — a presenter can tell "try again later" from "this
+    exact body will never be accepted here").
 
 Every outcome is exactly one of three things: verified, refused with a named
 reason and the step that refused it, or could-not-check with the dependency

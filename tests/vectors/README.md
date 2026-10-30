@@ -18,6 +18,11 @@ default trust file this package ships, and nothing outside `tests/vectors/`
 references it. Do not configure a real deployment's `permit_issuer_private_key`
 or any issuer trust table with it.
 
+**`confirmation_vectors_1.json`'s keys are RFC 8032 §7.1's own published test
+keys** (TEST 1, 2, 3, 1024) — public by design, not secrets at all, and still
+with no use outside this directory: not in any default trust file this
+package ships, and not packaged in the wheel.
+
 ## Files
 
 - **`action_digests.json`** — action objects (bound-permit profile §4.3) and their
@@ -44,6 +49,13 @@ or any issuer trust table with it.
   keeps the exact same digest once they run, and the two new columns are included
   in the digest whenever a `resume_request_mismatch` denial actually sets them.
   Each row is exactly what `export_rows` would emit.
+- **`confirmation_vectors_1.json`** — the recipient confirmation (bound-permit
+  profile §10, V22): one shared permit and signed request, and 21 cases
+  (`C01`-`C21`) against `onedoor.permit.confirmation.check` and the single-use
+  helper, covering every row of its verifier (key/`typ`, permit, request,
+  outcome) and every one of `confirmation.build`'s "once step N passed"
+  branches. See `docs/confirmation.md`. Superseded `confirmation_vectors_0.json`
+  (draft 0, C01-C12) entirely; draft 0's file is not kept alongside it.
 
 ## Regenerating
 

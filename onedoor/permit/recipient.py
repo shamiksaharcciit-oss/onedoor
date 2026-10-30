@@ -65,6 +65,12 @@ class StoredConsumption:
 
     content_digest: str
     result: VerificationResult
+    confirmation_token: str | None = None
+    """The recipient confirmation (draft §5), attached once the caller builds
+    one with `onedoor.permit.confirmation.build` -- not present at the moment
+    `verify()` itself writes this record (step 13 runs before any effect is
+    attempted), so a caller that builds a confirmation calls `put` a second
+    time, same `content_digest`, to attach it for a future repeat to return."""
 
 
 class ConsumeStore(Protocol):
@@ -129,9 +135,15 @@ class RecipientRequest:
     authorization type) passes `None`."""
 
 
-def _fail(step: int, reason: RefusalReason, detail: str = "") -> VerificationResult:
+def _fail(
+    step: int, reason: RefusalReason, detail: str = "", *, retryable: bool = False
+) -> VerificationResult:
     return VerificationResult(
-        status=VerificationStatus.REFUSED, step=step, reason=reason, detail=detail
+        status=VerificationStatus.REFUSED,
+        step=step,
+        reason=reason,
+        detail=detail,
+        retryable=retryable,
     )
 
 
@@ -448,32 +460,81 @@ def verify(
     if not local_policy(claims):
         return _fail(12, RefusalReason.LOCAL_POLICY)
 
-    # --- 13. (iss, jti) consumed atomically ---
-    # A consume-store failure is a dependency the recipient cannot reach, not a
-    # policy denial -- it must not collapse into a refusal (three distinct outcomes,
-    # this package's own version of it), and a permit refused by an unavailable
+    # --- 13. (iss, jti) RESERVED, not yet completed ---
+    # -00 §12's own sequence is "consume, perform, store the result" -- this
+    # step only reserves and stops: it must not record a complete
+    # result before the caller has even attempted the effect. The caller
+    # completes the reservation afterwards with `complete_reservation`, which
+    # is the only thing that ever calls `consume_store.put`. A consume-store
+    # failure is a dependency the recipient cannot reach, not a policy denial
+    # -- it must not collapse into a refusal (three distinct outcomes, this
+    # package's own version of it), and a permit refused by an unavailable
     # store must not read as "the recipient looked and said no".
     try:
         existing = consume_store.get(iss, jti)
         if existing is not None:
+            # `get` returns a row only once `complete_reservation` has written
+            # one -- a completed reservation, never a merely-open one: a
+            # reservation never completed must not answer a retry with
+            # `verified`, and indeed never reaches this branch at all.
             if existing.content_digest == request.content_digest_header.strip():
                 return VerificationResult(
-                    status=VerificationStatus.VERIFIED, repeat=True, detail="stored result returned"
+                    status=VerificationStatus.VERIFIED,
+                    repeat=True,
+                    detail="stored result returned",
+                    confirmation_token=existing.confirmation_token,
                 )
             return _fail(
-                13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti), different Content-Digest"
+                13,
+                RefusalReason.IDEMPOTENCY_CONFLICT,
+                "same (iss, jti), different Content-Digest",
+                retryable=False,
             )
         if consume_store.in_progress(iss, jti):
+            # The first pass's reservation is still open (whether it
+            # is genuinely in flight or the recipient crashed before
+            # completing it) -- a presenter can tell this apart from the
+            # permanent conflict above by `retryable` alone; both keep the
+            # same reason code for now, pending a second code in a future
+            # revision of the format this closes a gap in.
             return _fail(
-                13, RefusalReason.IDEMPOTENCY_CONFLICT, "same (iss, jti) still in progress"
+                13,
+                RefusalReason.IDEMPOTENCY_CONFLICT,
+                "same (iss, jti) still in progress",
+                retryable=True,
             )
         consume_store.mark_in_progress(iss, jti)
-        result = VerificationResult(status=VerificationStatus.VERIFIED)
-        consume_store.put(
-            iss,
-            jti,
-            StoredConsumption(content_digest=request.content_digest_header.strip(), result=result),
-        )
     except Exception as exc:  # noqa: BLE001 - any consume-store failure is could-not-check
         return _could_not_check("consume-store", f"consume store unavailable: {exc}")
-    return result
+    return VerificationResult(status=VerificationStatus.VERIFIED)
+
+
+def complete_reservation(
+    consume_store: ConsumeStore,
+    iss: str,
+    jti: str,
+    *,
+    content_digest: str,
+    confirmation_token: str | None,
+) -> None:
+    """Complete a reservation step 13 opened (-00 §12: "consume, perform,
+    store the result" -- this is the "store the result" half).
+
+    Called once, after the caller has attempted the effect and (for a
+    `VERIFIED`, non-repeat result) built a confirmation with
+    `onedoor.permit.confirmation.build`. `confirmation_token` may be `None`
+    for a caller that chooses not to build one at all (a confirmation is this
+    profile's own addition, not required by `verify` itself) -- a later
+    repeat then returns `confirmation_token=None` too, honestly, rather than
+    inventing one. Not called at all for a `REFUSED` or `COULD_NOT_CHECK`
+    result: nothing was reserved for either to complete.
+    """
+    consume_store.put(
+        iss,
+        jti,
+        StoredConsumption(
+            content_digest=content_digest,
+            result=VerificationResult(status=VerificationStatus.VERIFIED),
+            confirmation_token=confirmation_token,
+        ),
+    )

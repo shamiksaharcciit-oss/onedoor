@@ -41,6 +41,7 @@ from onedoor.permit.recipient import (
     MandateEvaluation,
     MandateVerdict,
     RecipientRequest,
+    complete_reservation,
     verify,
 )
 
@@ -232,26 +233,111 @@ def test_a_valid_permit_from_end_to_end_is_verified() -> None:
     assert result.repeat is False
 
 
+def test_a_fresh_reservation_is_not_yet_a_completed_result() -> None:
+    """Step 13 only reserves and stops -- a result is not "stored as
+    complete" before the caller has attempted the effect."""
+    fx = _build()
+    store = InMemoryConsumeStore()
+    first = _verify(fx, consume_store=store)
+    assert first.status is VerificationStatus.VERIFIED
+    assert first.repeat is False
+    iss, jti = fx.claims["iss"], fx.claims["jti"]
+    assert store.get(iss, jti) is None, "nothing is completed until complete_reservation runs"
+    assert store.in_progress(iss, jti) is True
+
+
 def test_a_repeated_presentation_with_the_same_content_digest_returns_the_stored_result() -> None:
     fx = _build()
     store = InMemoryConsumeStore()
     first = _verify(fx, consume_store=store)
     assert first.status is VerificationStatus.VERIFIED
+    iss, jti = fx.claims["iss"], fx.claims["jti"]
+    complete_reservation(
+        store,
+        iss,
+        jti,
+        content_digest=fx.request.content_digest_header.strip(),
+        confirmation_token=None,
+    )
     second = _verify(fx, consume_store=store)
     assert second.status is VerificationStatus.VERIFIED
     assert second.repeat is True
 
 
-def test_a_replay_with_a_different_content_digest_is_an_idempotency_conflict() -> None:
+def test_a_duplicate_while_the_first_reservation_is_still_open_is_retryable() -> None:
+    """A duplicate while the first pass has not yet completed is the
+    same reason code as a permanent conflict, but retryable."""
     fx = _build()
     store = InMemoryConsumeStore()
     first = _verify(fx, consume_store=store)
     assert first.status is VerificationStatus.VERIFIED
+    second = _verify(fx, consume_store=store)  # no complete_reservation call in between
+    assert second.status is VerificationStatus.REFUSED
+    assert second.reason is RefusalReason.IDEMPOTENCY_CONFLICT
+    assert second.retryable is True
+
+
+def test_a_reservation_never_completed_never_answers_a_retry_with_verified() -> None:
+    """A recipient that stopped mid-effect (crashed, never called
+    complete_reservation) must not have a later retry come back `verified` --
+    it must look exactly like a still-open reservation, every time."""
+    fx = _build()
+    store = InMemoryConsumeStore()
+    for _ in range(3):
+        result = _verify(fx, consume_store=store)
+        if result.status is VerificationStatus.VERIFIED:
+            continue  # the very first pass
+        assert result.status is VerificationStatus.REFUSED
+        assert result.retryable is True
+
+
+def test_a_replay_with_a_different_content_digest_after_completion_is_a_permanent_conflict() -> (
+    None
+):
+    fx = _build()
+    store = InMemoryConsumeStore()
+    first = _verify(fx, consume_store=store)
+    assert first.status is VerificationStatus.VERIFIED
+    iss, jti = fx.claims["iss"], fx.claims["jti"]
+    complete_reservation(
+        store,
+        iss,
+        jti,
+        content_digest=fx.request.content_digest_header.strip(),
+        confirmation_token=None,
+    )
     fx2 = _resign_for_body(fx, body=BODY + b"a-second-distinct-presentation")
     result = _verify(fx2, consume_store=store)
     assert result.status is VerificationStatus.REFUSED
     assert result.reason is RefusalReason.IDEMPOTENCY_CONFLICT
     assert result.step == 13
+    assert result.retryable is False, (
+        "a different body for a completed (iss, jti) will never succeed"
+    )
+
+
+def test_sabotage_completing_with_the_wrong_digest_masks_the_real_conflict() -> None:
+    """If `complete_reservation` were called with some OTHER digest than the
+    one the reservation was actually opened for, a genuinely different replay
+    could be masked as a plain repeat instead of flagged as a conflict."""
+    fx = _build()
+    store = InMemoryConsumeStore()
+    first = _verify(fx, consume_store=store)
+    assert first.status is VerificationStatus.VERIFIED
+    iss, jti = fx.claims["iss"], fx.claims["jti"]
+    complete_reservation(
+        store,
+        iss,
+        jti,
+        content_digest="sha-256=:" + "0" * 43 + "=:",  # SABOTAGE: not the real digest
+        confirmation_token=None,
+    )
+    second = _verify(fx, consume_store=store)
+    assert second.status is VerificationStatus.REFUSED, (
+        "the real request's own digest no longer matches the (wrong) stored "
+        "one, so the honest presentation itself now reads as the conflict -- "
+        "proving complete_reservation's content_digest argument is load-bearing"
+    )
 
 
 # --- Step 1: malformed / chained -------------------------------------------------

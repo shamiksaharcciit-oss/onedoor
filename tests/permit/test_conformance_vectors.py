@@ -48,7 +48,8 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     ),
     "V08": (
         IMPLEMENTED,
-        "test_recipient.py::test_a_replay_with_a_different_content_digest_is_an_idempotency_conflict",
+        "test_recipient.py::"
+        "test_a_replay_with_a_different_content_digest_after_completion_is_a_permanent_conflict",
     ),
     "V09": (
         IMPLEMENTED,
@@ -87,10 +88,9 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     "V20": (IMPLEMENTED, "test_recipient.py::test_a_mandate_pending_is_refused"),
     "V21": (IMPLEMENTED, "test_recipient.py::test_a_chained_permit_is_refused_structurally"),
     "V22": (
-        GAP,
-        "the joint record (recipient confirmation) is not implemented -- there is no "
-        "presenter-side check to write. See docs/design/bound-permit-next.md, under "
-        '"The joint record".',
+        IMPLEMENTED,
+        "tests/vectors/test_confirmation_vectors.py (confirmation_vectors_1.json, C01-C21) and "
+        "tests/permit/test_confirmation.py -- onedoor.permit.confirmation.build/check.",
     ),
     "V23": (IMPLEMENTED, "this file::test_v23_consume_store_unavailable_is_could_not_check"),
     "V24": (IMPLEMENTED, "this file::test_v24_a_local_policy_refusal_never_consumes_the_permit"),
@@ -106,8 +106,8 @@ def test_every_vector_in_the_manifest_has_a_traced_status() -> None:
 def test_the_gap_count_matches_what_the_report_should_say() -> None:
     implemented = sum(1 for status, _ in VECTOR_STATUS.values() if status == IMPLEMENTED)
     gaps = sum(1 for status, _ in VECTOR_STATUS.values() if status == GAP)
-    assert implemented == 22
-    assert gaps == 2
+    assert implemented == 23
+    assert gaps == 1
     assert implemented + gaps == len(VECTOR_IDS) == 24
 
 
