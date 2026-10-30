@@ -20,9 +20,11 @@ ALTER TABLE approvals ADD COLUMN request_digest TEXT;
 
 -- Partial, on state IN ('pending', 'ratified', 'approved'): at most one row IN
 -- FLIGHT per resume key, not one EVER -- the same three states
--- `find_by_resume_key` (approvals.py) treats as reusable, and only those: a
--- resume reuses its row for as long as it is in flight AND not past its own
--- `expires_at` (which `find_by_resume_key` itself expires on the way out),
+-- `find_by_resume_key` (approvals.py) treats as reusable, and only those. This
+-- index enforces the STATE half of "in flight" alone -- SQL has no access to
+-- `now`, so it cannot also enforce the time half. A resume reuses its row for
+-- as long as it is in flight AND its `expires_at` is later than now (which
+-- `find_by_resume_key` itself checks, expiring a lapsed row on the way out),
 -- and gets a fresh one otherwise. All three in-flight states are covered
 -- because `wrap_tool_call`'s own re-execution on resume decides twice --
 -- once with no reference (must find the row whichever of the three a human,

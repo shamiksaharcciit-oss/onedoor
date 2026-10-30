@@ -37,9 +37,12 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
   this an approval past its expiry would otherwise be reused forever, and,
   for `pending`/`ratified`, never become approvable again either).
   `idx_approvals_resume_key` (migration `0030`, still edited in place -- it
-  ships in no release) is a partial unique index on the same three in-flight
-  states: at most one row in flight per resume key, never one for its
-  entire lifetime.
+  ships in no release) is a partial unique index on the same three states --
+  SQL has no access to `now`, so the index enforces the state half of "in
+  flight" alone; the time half (`expires_at` later than now) is
+  `find_by_resume_key`'s own job, checked and expired in application code.
+  At most one row in flight per resume key, never one for its entire
+  lifetime.
 - Two earlier states of this same fix, within this same unreleased release,
   each named the case they were written for and missed a neighbour: a plain
   (non-partial) unique index on the pair already existed; narrowing the

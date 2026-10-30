@@ -34,7 +34,31 @@ from onedoor.guardrail.registry import ConnectorRegistry
 from onedoor.store.clock import to_iso
 from tests.conftest import FROZEN_NOW, make_request
 
-IN_FLIGHT = frozenset({ApprovalState.PENDING, ApprovalState.RATIFIED, ApprovalState.APPROVED})
+REUSED = "reused: the resume key finds this row and acts on it again"
+FRESH = "fresh: the resume key gets a new row, this one is untouched (or expired first)"
+
+RESUME_OUTCOME: dict[ApprovalState, str] = {
+    ApprovalState.PENDING: REUSED,
+    ApprovalState.RATIFIED: REUSED,
+    ApprovalState.APPROVED: REUSED,
+    ApprovalState.DENIED: FRESH,
+    ApprovalState.EXPIRED: FRESH,
+    ApprovalState.EXECUTED: FRESH,
+    ApprovalState.CONSUMED: FRESH,
+}
+"""Every `ApprovalState` member's own expected outcome, named once: the three
+in-flight states (`pending`, `ratified`, `approved`), while unexpired, are the
+only ones a resume key ever reuses -- everything else is a fresh row. A state
+added to the enum with no entry here fails
+`test_every_approval_state_has_a_traced_resume_outcome` immediately, rather
+than silently landing on one side of a membership test nobody updated."""
+
+
+def test_every_approval_state_has_a_traced_resume_outcome() -> None:
+    assert set(RESUME_OUTCOME) == set(ApprovalState)
+
+
+IN_FLIGHT = frozenset(state for state, outcome in RESUME_OUTCOME.items() if outcome == REUSED)
 
 
 def _resume(
