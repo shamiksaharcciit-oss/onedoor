@@ -399,6 +399,24 @@ def test_the_divergence_panel_holds_three_outcomes_apart(
     assert ran.panels.divergence.receipt is not None
 
 
+def test_a_backtest_refusal_does_not_double_its_own_final_period() -> None:
+    """`backtest.run`'s own refusal is a full sentence, already ended with a
+    period ("...the honest demo path."). The panel's own sentence ("No
+    numbers are shown...") follows right after it in the same run of text --
+    unstripped, the two periods run together ("...demo path.. No numbers...")
+    rather than reading as two sentences."""
+    from types import SimpleNamespace
+
+    from onedoor.studio import screens
+
+    divergence = canvas.Divergence(state=canvas.BACKTEST_REFUSED, refusal="no citable rows.")
+    panels = canvas.Panels(computed_from=None, preview=None, divergence=divergence)
+    view = SimpleNamespace(view=SimpleNamespace(panels=panels))
+    html = screens._backtest_block(view)  # type: ignore[arg-type]
+    assert ".." not in html
+    assert "no citable rows. No numbers are shown" in html
+
+
 def test_the_canvas_writes_nothing_to_the_enforcers_ledger(
     conn: Connection, studio: Connection, config: EngineConfig
 ) -> None:

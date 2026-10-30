@@ -376,6 +376,30 @@ def proposed_audit_id(conn: sqlite3.Connection, approval_id: int) -> int | None:
     return int(row["id"]) if row is not None else None
 
 
+def proposed_decide_principal(conn: sqlite3.Connection, approval_id: int) -> str | None:
+    """The decide key's own fingerprint that proposed this approval, so a
+    resumption can record it and `/v1/report` does not refuse the same key
+    that proposed the action in the first place.
+
+    Read from `approvals.proposed_by` -- already set at proposal time for the
+    self-approval check (`cas_approve`'s own `proposed_by == session_id`
+    refusal) -- rather than from the proposal's own audit row: the PROPOSED
+    decision's `kind='decision'` row never writes `decide_principal` (only an
+    intent that resumes all the way to step 10 does), so that column reads
+    `NULL` for every proposal regardless of who made it.
+
+    `/v1/approvals/{id}/approve` resumes `decide_and_reserve` with no
+    `principal` of its own -- the admin key that called `/approve` cannot be
+    that principal, since each key holds exactly one role and `/v1/report` is
+    gated on `require_decide`, never `require_admin`. The decide key that
+    proposed the action is the one holding the "ticket" for it, and is the
+    one meant to report its outcome once approved -- so it is that key's
+    fingerprint the resumed row must carry, not the admin's and not `None`.
+    """
+    row = conn.execute("SELECT proposed_by FROM approvals WHERE id=?", (approval_id,)).fetchone()
+    return None if row is None else row["proposed_by"]
+
+
 def consume(conn: sqlite3.Connection, approval_id: int) -> None:
     """Flip approved -> consumed iff still approved; refuse otherwise.
 

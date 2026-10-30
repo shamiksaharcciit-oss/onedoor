@@ -57,13 +57,14 @@ from decimal import Decimal
 
 from onedoor.guardrail import killswitch, policy_loader
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import Policy
+from onedoor.guardrail.models import Caps, EffectPolicy, Policy
 from onedoor.store.clock import now_utc
 
 RANK = (
     "The kill switch outranks everything, including granted approvals: the engine reads "
-    "it before any policy lookup, and while it holds, every acting tier is clamped to "
-    "propose-only."
+    "it before any policy lookup, and while it holds, every acting tier but reads is "
+    "denied outright, not queued for approval — proposing would still fill the queue, "
+    "and the switch must deny, not ask a human to look at it later."
 )
 """The design calls for *"its rank stated plainly"*. Checked against `decision.py`, where the switch
 is step 1 and the clamp is unconditional — not inferred from the name."""
@@ -207,18 +208,29 @@ class LiveState:
     now: datetime
 
 
-def _limits(policies: list[Policy]) -> dict[tuple[str, str], Decimal]:
+def _limits_from(key: str, caps: Caps | None, out: dict[tuple[str, str], Decimal]) -> None:
+    if caps is None:
+        return
+    if caps.daily_rate is not None:
+        out[(key, "rate")] = Decimal(str(caps.daily_rate))
+    if caps.eur_day is not None:
+        out[(key, "eur_day")] = Decimal(str(caps.eur_day))
+    if caps.eur_month is not None:
+        out[(key, "eur_month")] = Decimal(str(caps.eur_month))
+
+
+def _limits(policies: list[Policy], effects: list[EffectPolicy]) -> dict[tuple[str, str], Decimal]:
+    """Policy-level caps, keyed by `action_type`, and effect-level caps, keyed by
+    `effect:<name>` -- the same pseudo-key `caps._reserve_all` writes `cap_counters`
+    under for an effect-level cap (one budget shared by every carrier of that label).
+    Without this second half, an effect-level counter row still gets a `Bar` (`build`
+    draws one for every row `cap_counters` holds), but with no matching limit here it
+    reads "none declared" even though the deployment's own policy does declare one."""
     out: dict[tuple[str, str], Decimal] = {}
     for policy in policies:
-        caps = policy.caps
-        if caps is None:
-            continue
-        if caps.daily_rate is not None:
-            out[(policy.action_type, "rate")] = Decimal(str(caps.daily_rate))
-        if caps.eur_day is not None:
-            out[(policy.action_type, "eur_day")] = Decimal(str(caps.eur_day))
-        if caps.eur_month is not None:
-            out[(policy.action_type, "eur_month")] = Decimal(str(caps.eur_month))
+        _limits_from(policy.action_type, policy.caps, out)
+    for effect in effects:
+        _limits_from(f"effect:{effect.effect}", effect.caps, out)
     return out
 
 
@@ -258,7 +270,8 @@ def build(
     now = now or now_utc()
     episode = killswitch.open_episode(ledger)
 
-    limits = _limits(_policies_in_force(ledger))
+    policies, effects = _policies_in_force(ledger)
+    limits = _limits(policies, effects)
     reservations, holding = _held(ledger)
 
     bars = []
@@ -323,12 +336,15 @@ def build(
     )
 
 
-def _policies_in_force(ledger: sqlite3.Connection) -> list[Policy]:
+def _policies_in_force(ledger: sqlite3.Connection) -> tuple[list[Policy], list[EffectPolicy]]:
     """The policy set behind the pinned version — the same rule applied here too.
 
     The caps a bar is measured against must come from the same snapshot the header's
-    digest names, or the page draws a limit the engine is not enforcing.
+    digest names, or the page draws a limit the engine is not enforcing. Both halves
+    of it: a policy's own caps, and every effect-level cap -- a bar for an
+    `effect:<name>` counter is measured against the latter, never the former.
     """
     from onedoor.studio import ratify
 
-    return ratify._policies_at(ledger, policy_loader.current_version(ledger))
+    version = policy_loader.current_version(ledger)
+    return ratify._policies_at(ledger, version), ratify._effects_at(ledger, version)

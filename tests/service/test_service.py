@@ -281,6 +281,39 @@ def test_a_tier3_proposal_is_approved_by_an_admin_key(client: TestClient) -> Non
     assert ok.json()["decision"] == "permitted"  # obligation handed back for enforcement
 
 
+def test_the_proposing_decide_key_can_report_an_admin_approved_intent(
+    client: TestClient,
+) -> None:
+    """The admin key that calls /approve cannot be the resumed intent's own
+    principal -- each key holds exactly one role, and /v1/report is gated on
+    require_decide, never require_admin. Found by reproducing it directly: an
+    admin-approved intent's decide_principal was NULL, so /v1/report refused
+    the very decide key that proposed the action, 404, as if the intent did
+    not exist -- not a 403 naming the wrong key, the same "absent" a stranger
+    gets. decide_and_reserve's resume must carry the proposer's own
+    principal, not the admin's and not None.
+    """
+    proposed = client.post(
+        "/v1/decide",
+        json={"action_type": "money.transfer", "params": {"amount_eur": 5}},
+        headers=_h("dkey"),
+    ).json()
+    aid = proposed["approval_id"]
+
+    approved = client.post(f"/v1/approvals/{aid}/approve", headers=_h("akey"))
+    assert approved.status_code == 200
+    intent_audit_id = approved.json()["intent_audit_id"]
+    assert intent_audit_id is not None
+
+    report = client.post(
+        "/v1/report",
+        json={"intent_audit_id": intent_audit_id, "outcome": "success", "payload": {}},
+        headers=_h("dkey"),
+    )
+    assert report.status_code == 200
+    assert report.json()["decision"] == "executed"
+
+
 def test_an_approval_is_consumed_even_when_its_resumption_is_denied(client: TestClient) -> None:
     proposed = client.post(
         "/v1/decide",

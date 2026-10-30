@@ -391,7 +391,7 @@ def _check_chain(row: sqlite3.Row) -> Check:
         return Check(
             "chain",
             Status.ABSENT,
-            "chain not yet in operation (ND-001); the columns exist and are NULL",
+            "chain not yet in operation; the columns exist and are NULL",
         )
     if len(filled) != len(CHAIN_COLUMNS):
         blank = [c for c in CHAIN_COLUMNS if c not in filled]

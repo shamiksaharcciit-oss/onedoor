@@ -180,8 +180,13 @@ def main(argv: list[str] | None = None) -> int:
         html = build_page(conn)
     finally:
         conn.close()
-    args.out.write_text(html, encoding="utf-8")
-    print(f"wrote {args.out} ({len(html.encode('utf-8'))} bytes) from {store}")
+    encoded = html.encode("utf-8")
+    # Binary mode, deliberately: `write_text` applies universal-newline translation,
+    # which turns every `\n` into `\r\n` on Windows -- changing the bytes actually
+    # written without changing `encoded`'s own length, so the byte count printed
+    # below would then describe a file that was never written.
+    args.out.write_bytes(encoded)
+    print(f"wrote {args.out} ({len(encoded)} bytes) from {store}")
     return 0
 
 

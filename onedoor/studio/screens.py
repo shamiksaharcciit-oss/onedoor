@@ -619,8 +619,16 @@ def _diff_block(view: drafts.DraftView) -> str:
         )
     rows = []
     for d in view.diffs:
-        was = "\u2014" if d.was is None else escape(" ".join(library.sentences(d.was)))
-        becomes = "\u2014" if d.becomes is None else escape(" ".join(library.sentences(d.becomes)))
+        # `_inline`, not `escape`: `library.sentences` writes `` `code` `` and `**bold**``
+        # marks for `_inline` to render, the same way the Library page already does for
+        # the same sentences -- escaping the joined text outright left those marks as
+        # literal backticks and asterisks instead.
+        was = "\u2014" if d.was is None else " ".join(_inline(s) for s in library.sentences(d.was))
+        becomes = (
+            "\u2014"
+            if d.becomes is None
+            else " ".join(_inline(s) for s in library.sentences(d.becomes))
+        )
         rows.append(
             f'<div class="diff"><div class="barhead">'
             f'<span class="mono">{escape(d.action_type)}</span>'
@@ -657,10 +665,15 @@ def _backtest_block(view: drafts.DraftView) -> str:
             f'<p class="note">{escape(drafts.BACKTEST_IS_ABOUT_THE_PAST)}</p></div>'
         )
     if divergence.state == canvas.BACKTEST_REFUSED:
+        # `.rstrip(".")`: the refusal's own words already end in a period (it is a
+        # full sentence on its own), and this sentence follows right after it in the
+        # same run of text -- without stripping it, the two periods run together
+        # ("...demo path.. No numbers...") rather than reading as two sentences.
+        refusal_text = str(divergence.refusal or "").rstrip(".")
         return (
             '<div class="panel"><h3>Backtest</h3>'
             f'<div class="empty">The replay refused: '
-            f"{escape(str(divergence.refusal or ''))}. No numbers are shown, because "
+            f"{escape(refusal_text)}. No numbers are shown, because "
             "there are none to show.</div></div>"
         )
     receipt = divergence.receipt

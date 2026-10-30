@@ -253,6 +253,7 @@ def resume_approval(
     with tx(conn):
         original = approvals.cas_approve(conn, approval_id, session_id, when)
         proposal_audit_id = approvals.proposed_audit_id(conn, approval_id)
+        proposer_principal = approvals.proposed_decide_principal(conn, approval_id)
     resumed = original.model_copy(update={"request_id": uuid4(), "created_at": when})
     result = evaluate_and_execute(
         resumed,
@@ -263,6 +264,7 @@ def resume_approval(
         policy_store=policy_store,
         approved_override=True,
         resumes_audit_id=proposal_audit_id,
+        principal=proposer_principal,
         consumes_approval=approval_id,
     )
     return result

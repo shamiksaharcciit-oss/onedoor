@@ -136,6 +136,33 @@ def test_resumption_names_the_proposals_audit_id(
     assert row["resumes_audit_id"] == proposal_audit_id
 
 
+def test_resume_approval_carries_the_proposers_own_principal_not_nothing(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """`resume_approval` used to call `evaluate_and_execute` with no `principal`
+    at all, so a resumed intent's `decide_principal` was always `None` --
+    indistinguishable from a row that never had one. The admin/session
+    identity that approves cannot be that principal either (a different
+    identity resumes than the one that proposed); the decide key that
+    proposed the action is the one a later report is meant to come from.
+    """
+    now = make_request("demo.confirm").created_at
+    req = make_request("demo.confirm", now=now)
+    proposed = evaluate_and_execute(
+        req, conn=conn, registry=registry, config=config, now=now, principal="proposer-1"
+    )
+    assert proposed.approval_id is not None
+
+    result = resume_approval(
+        proposed.approval_id, "admin-session", conn=conn, registry=registry, config=config, now=now
+    )
+    assert result.executed is True
+    row = conn.execute(
+        "SELECT decide_principal FROM actions_audit WHERE id=?", (result.audit_id,)
+    ).fetchone()
+    assert row["decide_principal"] == "proposer-1"
+
+
 def test_a_replayed_resumption_does_not_add_a_second_link(
     conn: Connection, registry: ConnectorRegistry, config: EngineConfig
 ) -> None:

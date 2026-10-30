@@ -184,7 +184,7 @@ def verify_chain(conn: sqlite3.Connection) -> ChainReport:
             "written before the chain was switched on; these rows cannot be hashed "
             "retroactively because the table forbids UPDATE"
             if boundary is not None
-            else "chain not yet in operation (ND-001)"
+            else "chain not yet in operation"
         )
         regions.append(
             Region(

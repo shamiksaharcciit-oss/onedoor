@@ -205,8 +205,8 @@ def test_a_value_that_is_not_a_decimal_is_refused_by_name() -> None:
         editor.policy_from_form({"caps.eur_day": ["12.3.4"]}, base=_rule())
 
 
-def test_the_nd054_note_appears_at_every_decimal_field() -> None:
-    """V7: the divergence is NOTED at the decimal fields."""
+def test_the_decimal_note_appears_at_every_decimal_field() -> None:
+    """V7: how decimal strings are treated is NOTED at the decimal fields."""
     noted = {f.name for f in editor.fields_for(_rule()) if f.note}
     assert noted == set(editor.DECIMAL_FIELDS)
 
@@ -215,22 +215,24 @@ def test_the_note_describes_what_the_engine_does_today(draft) -> None:
     """The sharpest constraint on this stage.
 
     **A note that describes tomorrow's behaviour is aspiration dressed as capability,
-    one field at a time.** So the note says what happens now, and says nothing about a
-    fix — no "will be", no "until", no ticket number promising relief.
+    one field at a time** -- and a note that still describes a closed divergence as
+    live is the same failure in the other direction. So the note says what happens
+    now: a numeric bound does NOT change which wire types an action accepts, no
+    hedge toward a future fix (there is none pending to hedge toward).
     """
     note = editor.DECIMAL_DIVERGENCE
-    assert "today" in note
-    assert "changes which wire types that action accepts" in note
-    for hedge in ("will be", "soon", "until", "ND-054", "planned", "fixed", "upcoming"):
+    assert "does not change which wire types that action accepts" in note
+    for hedge in ("will be", "soon", "until", "planned", "upcoming"):
         assert hedge.lower() not in note.lower(), f"the note hedges toward a fix: {hedge!r}"
 
 
-def test_the_note_matches_the_behaviour_originally_measured_on_shipped_code() -> None:
-    """The wording was drawn from a measurement on shipped code (ticket ND-054,
-    archived outside this repository): adding a bound changes which wire types
-    the action accepts. A note that drifted from the measurement would be a
-    note about nothing."""
-    assert "changes which wire types that action accepts" in editor.DECIMAL_DIVERGENCE
+def test_the_note_no_longer_describes_the_closed_divergence_as_live() -> None:
+    """Before 0.8.1, `caps.resolve_cost` accepted a decimal string and
+    `bounds.validate` refused it -- `onedoor.guardrail.numeric.numeric_value`
+    closed that. A note still warning that a bound "refuses" a decimal string
+    would be a note about a bug that no longer exists."""
+    assert "refuses it" not in editor.DECIMAL_DIVERGENCE
+    assert "does not change which wire types that action accepts" in editor.DECIMAL_DIVERGENCE
 
 
 def test_the_note_is_shown_to_the_reader(draft) -> None:

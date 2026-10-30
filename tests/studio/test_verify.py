@@ -18,7 +18,7 @@ import pytest
 
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.models import Bounds, Policy, Tier
-from onedoor.studio import server, verify
+from onedoor.studio import screens, server, shell, verify
 
 
 @pytest.fixture
@@ -73,6 +73,49 @@ def test_a_tampered_snapshot_fails_not_unreadable(state) -> None:
     assert tampered != dep.snapshot_text  # precondition: the replace actually landed
     outcome, _detail = verify.check(dep.receipt_json, tampered)
     assert outcome == verify.FAILED
+
+
+def test_the_snapshot_panel_cannot_blow_out_the_page_width(state) -> None:
+    """`policy_loader._normalized_snapshot` writes the stored snapshot with
+    `separators=(",", ":")` and no `indent` -- one unbroken line, by design (it
+    must stay byte-for-byte what was hashed). A real deployment's policy set
+    makes that line thousands of characters long. `<pre>` does not wrap it, and
+    `pre{overflow-x:auto}` only has an effect once something has already
+    shrunk the box down to its container -- a CSS grid item's own default
+    min-width is auto, which for unwrapped content is the content's own width,
+    so without an explicit override the grid track (and the page) is forced
+    out to match the line instead of scrolling it.
+    """
+    draft = server.new_draft(state, title="many policies")
+    policies = [
+        Policy(
+            action_type=f"demo.action_{i:03d}",
+            tier=Tier.OBSERVE,
+            bounds=Bounds(strict_params=False),
+        )
+        for i in range(80)
+    ]
+    server.save_draft(state, draft.draft_id, policies=policies)
+    outcome = server.ratify_draft(state, draft.draft_id, session="tester")
+    assert outcome.ratified, outcome.message
+    digest = str(outcome.receipt.sealed()["ratification_digest"])  # type: ignore[union-attr]
+
+    dep = verify.deposition(state.enforcer, digest)
+    assert dep is not None
+    assert "\n" not in dep.snapshot_text, "precondition: the snapshot really is one line"
+    assert len(dep.snapshot_text) > 5000, (
+        "precondition: the line is long enough to actually blow out a fixed-width page"
+    )
+
+    body = screens.deposition_body(dep)
+    assert "<pre>" in body and 'class="cols"' in body, (
+        "precondition: the snapshot pre really is inside the two-column grid"
+    )
+    css = shell.css()
+    assert ".cols>*{min-width:0}" in css, (
+        "the grid item must be allowed to shrink below its unwrapped <pre> content, "
+        "or pre's own overflow-x:auto never gets a chance to scroll"
+    )
 
 
 def test_an_unparseable_file_is_unreadable_not_failed(state) -> None:

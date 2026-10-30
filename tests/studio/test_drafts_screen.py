@@ -70,6 +70,15 @@ def test_the_diff_shows_was_and_would_become_per_rule(state) -> None:
     assert "would become" in html
     assert "was" in html
 
+    # `library.sentences` writes `` `code` `` and `**bold**` marks for `_inline` to
+    # render -- the fixture's own `compensating_command` sentence carries one
+    # ("undone by `payments.reverse`"). The diff panel used to escape the joined
+    # sentences outright, leaving literal backticks and asterisks on screen instead
+    # of the <code>/<strong> tags the Library page already renders for the same text.
+    assert "`" not in html
+    assert "**" not in html
+    assert "<code>payments.reverse</code>" in html
+
 
 def test_the_diff_comes_from_the_preview_the_ceremony_itself_computes(state) -> None:
     """The page and the receipt cannot disagree about what changed, because they are

@@ -1,7 +1,11 @@
 """Global kill switch — a single flag in the ``config`` table.
 
 The executor reads this FIRST, before any policy lookup (invariant: kill switch
-check is first). When engaged, every acting tier is clamped to propose-only.
+check is first). When engaged, every acting tier but tier 0 (reads, exempt)
+is DENIED outright, not merely clamped to tier 3's own propose-and-confirm --
+proposing while the switch holds would still fill the approval queue, and
+the switch must deny, not ask a human to look at it later. Nothing is queued;
+the caller resubmits once the switch releases.
 M1 will mirror this flag to a Home Assistant ``input_boolean``; the executor keeps
 reading exactly one source of truth here regardless.
 

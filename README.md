@@ -250,7 +250,9 @@ in fact installed — just not on this process's `PATH`.
 
 The demo walks the whole surface: auto-execution and undo, an unlisted action denied
 by default, a declared tier-3 action approved and then executed, a bounds rejection, cap exhaustion, dry-run,
-and the kill switch clamping an auto action to propose-and-confirm.
+and the kill switch denying an auto action outright — proposing it instead would
+still fill the approval queue, so the switch denies rather than asking a human to
+look at it later.
 
 ## A policy, concretely
 
@@ -463,8 +465,11 @@ trusting a boundary to this engine:
   is not a URL problem and the `url:` block above does not close it; the benchmark
   asserts it as still-failing so the URL fix cannot be read as covering it. Open gap,
   no fix yet.
-- **No obligation machinery.** An AADP obligation attached to a permit would be
-  silently ignored by onedoor's own enforcement points rather than failing closed.
+- **No general obligation machinery.** `present_bound` is the one AADP obligation
+  onedoor does implement — it fails closed, denying `present_bound` when the
+  presented audience does not match (`onedoor.guardrail.decision`, policy step 6b).
+  An obligation this package does not know about would still be silently ignored
+  rather than failing closed; there is no generic mechanism for an arbitrary one.
 
 ## License
 

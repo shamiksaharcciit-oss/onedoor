@@ -38,19 +38,24 @@ from decimal import Decimal, InvalidOperation
 from onedoor.guardrail.models import Bounds, Caps, NumericBound, Policy, Tier
 
 DECIMAL_DIVERGENCE = (
-    "Decimal strings are accepted here and are what the draft stores. Be aware of how "
-    "the engine treats them today: a cap reads a decimal string exactly, and a numeric "
-    "bound over the same parameter refuses it. Declaring a numeric bound on a parameter "
-    "therefore changes which wire types that action accepts."
+    "Decimal strings are accepted here and are what the draft stores. A cap reads a "
+    "decimal string exactly, and, since 0.8.1, a numeric bound over the same parameter "
+    "reads it the identical way: declaring a numeric bound on a parameter does not "
+    "change which wire types that action accepts."
 )
-"""The ND-054 note, at the decimal fields.
+"""The note at the decimal fields.
 
 **It describes what the engine does today, and nothing else.** No "will be fixed", no
-"until ND-054 lands", no softening toward a change that has not happened: *a note that
-describes tomorrow's behaviour is aspiration dressed as capability, one field at a time.*
+softening toward a change that has not happened: *a note that describes tomorrow's
+behaviour is aspiration dressed as capability, one field at a time* -- and, just as
+much, a note that still describes yesterday's bug once the bug is fixed is confusion
+dressed as caution.
 
-The wording is drawn from `TICKETS-ND-054.md` §3, which measured it on shipped code —
-`caps.resolve_cost` accepts `str`, `bounds` does not.
+Before 0.8.1, `caps.resolve_cost` accepted a decimal string and `bounds.validate`
+refused it, so declaring a numeric bound changed which wire types an action accepted.
+`onedoor.guardrail.numeric.numeric_value`, called by both, closed that: this note's
+wording moved from warning about the divergence to stating that it is closed, the
+same discipline that kept it from describing a fix in advance.
 """
 
 DECIMAL_FIELDS = ("caps.eur_day", "caps.eur_month", "bounds.numeric")

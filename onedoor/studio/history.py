@@ -16,20 +16,20 @@ belong to the register.**
 Rows that predate the chain carry no `seq`, and those render as absent rather than as
 zero — see `Entry.number`.
 
-## The filter this store cannot answer
+## The filter this page does not offer
 
 The filters expected here are *"time, action, verdict, policy version, key"*. Four of those
-are columns. **The fifth is not recorded anywhere.** `onedoor.service` authenticates
-callers with bearer API keys, but `audit.append` takes no caller identity and
-`actions_audit` has no column for one, so the ledger cannot say *who asked*.
+are columns. **The fifth is recorded, but not as something to filter by.**
+`onedoor.service` authenticates `/v1/decide` callers with bearer API keys and, since
+migration `0029`, records who asked: `decide_principal`, a keyed fingerprint of the
+bearer key (`onedoor.service.app.State.principal`), never the key itself. It answers
+*who*, but a fingerprint is not a value a reader can type into a filter and recognize —
+this page does not offer one on it, a gap stated rather than quietly left unmentioned.
 
-That is not a filter to approximate. `source` is the nearest column and it means
-something else — *how the request was built* (scheduler, rule, llm, ui), documented in
-the model as **"informational only, never affects the decision"** — so offering it as an
-actor filter would answer a question about identity with a fact about provenance.
-Offered under its own name, and the missing filter is stated on the page rather than
-quietly dropped: *unverifiable and absent are different, and both are failures to
-surface.*
+`source` is a different column and must not be offered in its place: it means
+*how the request was built* (scheduler, rule, llm, ui), documented in the model as
+**"informational only, never affects the decision"** — so offering it as an actor
+filter would answer a question about identity with a fact about provenance.
 """
 
 from __future__ import annotations
@@ -39,10 +39,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 MISSING_ACTOR_FILTER = (
-    "Filtering by API key is not offered because the ledger does not record one. The "
-    "decision service authenticates callers with bearer keys, but no caller identity is "
-    "written to the audit row, so this page cannot say who asked — only what was asked "
-    "and what was decided."
+    "Filtering by API key is not offered. The decision service does record who asked "
+    "(a keyed fingerprint of the bearer key, never the key itself) on every decision "
+    "made through /v1/decide, but a fingerprint is not something a reader can type "
+    "into a filter and recognize, so this page does not offer one on it."
 )
 """Stated on the page. An absent capability that is silently omitted reads as a
 capability that exists and found nothing."""

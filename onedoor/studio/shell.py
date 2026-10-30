@@ -372,6 +372,12 @@ td a:hover{border-bottom-color:var(--gold)}
 .plain strong{color:var(--ink)}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:1.15rem}
 @media(max-width:900px){.cols{grid-template-columns:1fr}}
+/* A grid item's default min-width is auto, which for a <pre> with no wrapping
+   resolves to the width of its longest unbroken line -- a minified JSON snapshot
+   is one such line, tens of thousands of characters wide. That forces the 1fr
+   track (and the whole page) out to match it; pre's own overflow-x:auto never
+   gets a chance to scroll, because nothing ever shrank the box down to it. */
+.cols>*{min-width:0}
 pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:var(--well);
   border:1px solid var(--line);border-radius:6px;padding:.9rem 1rem;overflow-x:auto;
   color:var(--dim)}

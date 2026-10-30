@@ -415,8 +415,13 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
                     state.conn, approval_id, state.principal(_key), now
                 )
                 proposal_audit_id = approvals.proposed_audit_id(state.conn, approval_id)
+                proposer_principal = approvals.proposed_decide_principal(state.conn, approval_id)
                 resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
-                # The resumed decision consumes the approval whatever its verdict.
+                # The resumed decision consumes the approval whatever its verdict. Its
+                # principal is the decide key that PROPOSED the action, not the admin
+                # key that approved it here -- that key cannot report later (each key
+                # holds exactly one role), and the decide key that proposed the action
+                # is the one meant to report its outcome once approved.
                 outcome = decide_and_reserve(
                     resumed,
                     conn=state.conn,
@@ -425,6 +430,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
                     approved_override=True,
                     resumes_audit_id=proposal_audit_id,
                     consumes_approval=approval_id,
+                    principal=proposer_principal,
                 )
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc

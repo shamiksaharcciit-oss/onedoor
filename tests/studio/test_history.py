@@ -139,15 +139,15 @@ def test_the_filter_choices_come_from_the_ledger_not_the_enum(ledger) -> None:
 
 
 def test_the_missing_api_key_filter_is_stated_on_the_page(ledger) -> None:
-    """**The fifth filter V3 asks for cannot be built**: the service authenticates
-    with bearer keys and no caller identity is written to the audit row.
+    """**The fifth filter V3 asks for is not offered**: the service does record who
+    asked, `decide_principal` (a keyed fingerprint of the bearer key), but a
+    fingerprint is not a value a reader can type into a filter and recognize.
 
-    Silently omitting it would read as a filter that exists and found nothing. Absent
-    and unverifiable are different, and both are failures to surface.
+    Silently omitting the filter would read as one that exists and found nothing.
     """
     html = screens.history_body(history.page(ledger), history.choices(ledger))
     assert history.MISSING_ACTOR_FILTER in html
-    assert "does not record one" in html
+    assert "keyed fingerprint" in html
 
 
 def test_request_origin_is_not_offered_as_an_identity_filter(ledger) -> None:

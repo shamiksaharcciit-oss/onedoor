@@ -88,7 +88,7 @@ def test_a_sound_receipt_reports_every_check(conn: Connection, config: EngineCon
 def test_the_chain_is_absent_not_verified_and_not_failed(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """ND-001 has not run. The honest word for that is `absent`.
+    """The hash chain has not run. The honest word for that is `absent`.
 
     Not `verified` -- there is nothing to verify. Not `failed` -- nothing is wrong.
     A viewer that rendered a green tick here would be showing confidence in a NULL.
@@ -96,7 +96,8 @@ def test_the_chain_is_absent_not_verified_and_not_failed(
     audit_id = _deny_with_budget(conn, config)
     chain = verify_decision(conn, fetch_decision(conn, audit_id)).by_name("chain")  # type: ignore[arg-type]
     assert chain.status is Status.ABSENT
-    assert "ND-001" in chain.detail, "an absent state names the ticket that will fill it"
+    assert "chain not yet in operation" in chain.detail
+    assert "ND-001" not in chain.detail, "a page users publish must not name an internal ticket id"
 
 
 def test_a_half_written_chain_is_unverifiable_not_absent(

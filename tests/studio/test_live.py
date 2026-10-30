@@ -15,7 +15,7 @@ from decimal import Decimal
 import pytest
 
 from onedoor.guardrail import killswitch, policy_loader
-from onedoor.guardrail.models import Bounds, Caps, Policy, Tier
+from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, Policy, Tier
 from onedoor.store.db import Database
 from onedoor.studio import live, screens, server, shell
 
@@ -166,6 +166,27 @@ def test_no_budget_number_travels_through_a_float(ledger, config) -> None:
     assert "0.30000000000000004" not in screens.live_body(live.build(ledger, config, NOW))
 
 
+def test_an_effect_level_cap_shows_its_real_limit_not_none_declared(ledger, config) -> None:
+    """`caps._reserve_all` writes an effect-level counter under the pseudo-key
+    `effect:<name>` -- one budget shared by every carrier of that label, never a real
+    `action_type`. `_limits` must read it from the policy set's own `effects`, not
+    `policies`, or the bar for it draws with no limit at all."""
+    policy_loader.upsert_effect(
+        ledger,
+        EffectPolicy(effect="money.egress", min_tier=Tier.AUTO_CAPPED, caps=Caps(eur_day="750.00")),
+    )
+    _counter(ledger, "effect:money.egress", "eur_day", NOW.date().isoformat(), 2, "300.00")
+    _reserve(ledger, "effect:money.egress", "eur_day", "50.00")
+
+    bar = next(
+        b for b in live.build(ledger, config, NOW).bars if b.action_type == "effect:money.egress"
+    )
+    assert bar.limit == Decimal("750.00"), "an effect-level cap must not read as undeclared"
+    assert bar.unbounded is False
+    assert bar.free == Decimal("450.00")
+    assert "none declared" not in bar.texts()
+
+
 # --- Reservations ----------------------------------------------------------------------
 
 
@@ -220,6 +241,17 @@ def test_the_switch_state_is_shown_with_its_rank_in_words(ledger, config) -> Non
     assert live.RANK in html
     assert "outranks everything" in html
     assert "including granted approvals" in html
+
+
+def test_the_ranks_own_words_match_what_an_engaged_switch_actually_does() -> None:
+    """`decision.py`'s own kill-switch clamp denies an acting request outright --
+    `test_engaged_denies_tier1_outright` is the proof at the engine. This text
+    must not claim something softer ("clamped to propose-only"/"propose-and-
+    confirm") that would read as a queued approval rather than a denial nobody
+    can act on until the switch releases."""
+    assert "denied outright" in live.RANK
+    assert "propose-only" not in live.RANK
+    assert "propose-and-confirm" not in live.RANK
 
 
 def test_the_page_says_what_the_switch_does_not_stop(ledger, config) -> None:
