@@ -6,6 +6,106 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
+## 0.10.0 — unreleased
+
+### Added — the recipient confirmation (V22), closed per the format note's draft 3
+
+- **`onedoor.permit.confirmation`**, closing bound-permit profile §10 (Appendix
+  B's V22, previously a disclosed gap): `build`, the recipient side, signs a
+  joint record of `recipient.verify`'s own result once the caller has
+  attempted (or could not attempt) the real-world effect; `check`, the
+  presenter side, verifies that record against reference values the step
+  itself recorded, with no re-verification of the permit. Single use across
+  many confirmations is `find_reused_permits`, given whatever tokens the
+  reader already has. See [`docs/confirmation.md`](docs/confirmation.md) and
+  [`tests/vectors/README.md`](tests/vectors/README.md)
+  (`confirmation_vectors_3.json`, 29 cases, moved from the format note's own
+  draft 1). `ActionResult`/the HTTP service/etc. are unchanged by this: a
+  confirmation is built by whoever runs `recipient.verify` directly, not by
+  onedoor's own issuer side.
+- **`check` now also refuses an unimplemented `crit` header parameter and an
+  `effected` confirmation with no `recipient_action_id`** (both malformed,
+  per the format note's own §1 and §2.4) -- two gaps draft 3's own vectors
+  (C22, C23) found still open; neither was caught before because no vector
+  exercised them. Two detail strings also changed to match the note's own
+  wording instead of reusing a sibling check's: a different
+  `signature_base_digest` now says so, rather than "a different request
+  body"; a refusal for a dependency (no `step`/`reason`) in the outcome
+  check now says "the recipient could not check (\<dependency\>)", rather
+  than misapplying the step/reason wording with both fields `None`.
+
+### Changed — the consume store completes in two steps
+
+- **`recipient.verify`'s step 13 only reserves `(iss, jti)` and stops** — it no
+  longer records a complete, `verified` result before the caller has
+  attempted the request's effect (profile -00 §12: "consume, perform, store
+  the result", not "store, then perform"). A new function,
+  `onedoor.permit.recipient.complete_reservation`, is the only thing that now
+  writes a completed result (with the confirmation token, if one was built);
+  callers that acted on a `VERIFIED`, non-repeat result must call it once,
+  afterwards. Without that call, a retried presentation of the same request
+  now comes back refused (`idempotency-conflict`, `retryable=True`) rather
+  than `verified` a second time — an existing caller that never completes a
+  reservation will see every retry refused as retryable instead of silently
+  re-verified; one that already called `report_result`-equivalent bookkeeping
+  of its own now has a dedicated place to do it. `VerificationResult` gains
+  `retryable: bool`, additive, distinguishing this from a permanent
+  different-`Content-Digest` conflict (`retryable=False`) under the same
+  reason code. **A repeat now returns the original confirmation, byte for
+  byte** (format note §5/Appendix A.4): the recipient keeps the signed token
+  after the effect, not only the fact that the effect happened.
+
+### Fixed — eleven findings against the shipped product, each with a test
+
+- **Studio's Live state now reads effect-level caps, not only per-policy
+  ones.** An effect-level cap's counter is written under the pseudo-key
+  `effect:<name>`; the page drew a bar for it but never a limit, so a
+  declared cap read "none declared".
+- **An intent resumed via `/v1/approvals/{id}/approve` now carries the
+  proposing decide key's own principal**, so `/v1/report` no longer refuses
+  it with the same 404 an unknown intent gets. The admin key that approves
+  cannot be that principal itself (each key holds exactly one role).
+- **The viewer's CLI writes its page in binary mode.** `Path.write_text`
+  applied universal-newline translation, so the byte count it printed
+  described a file Windows never actually wrote.
+- **The History page's caller-identity note no longer claims 0.8.1 left
+  open**: `decide_principal` has recorded a caller fingerprint since
+  migration `0029`; the page still offers no filter on it, a narrower and
+  now-true claim.
+- **The editor's decimal-fields note no longer describes a closed
+  divergence as live**: `bounds`/`caps` have read a decimal string the same
+  way since 0.8.1's shared `numeric_value`.
+- **The ratify page's Changes panel renders `` `code` `` and `**bold**``
+  marks, not their literal characters** — the same text the Library page
+  already renders correctly, now routed through the same `_inline` helper.
+- **The backtest refusal panel no longer doubles its own final period.**
+- **The viewer's chain row no longer names an internal ticket id** on a page
+  meant to be published to a stranger.
+- **The kill switch's own words now say it denies outright**, not that it
+  merely clamps to a pending approval — `decision.py` already denied every
+  acting tier but reads, unconditionally, so a queued approval cannot
+  accumulate during an incident; README, the Studio Live page and
+  `killswitch`'s own docstring all said the softer, inaccurate thing.
+- **README's obligations note no longer claims every AADP obligation is
+  silently ignored** — `present_bound` is one onedoor does implement and
+  does fail closed on.
+- **The Verify detail page's snapshot panel can no longer blow out the page
+  width.** The stored snapshot is one unbroken, un-indented line by design;
+  a CSS grid item's default `min-width:auto` forced the whole page out to
+  match it instead of letting `pre`'s own `overflow-x:auto` scroll it.
+
+### Fixed — the resume key's reuse rule, named by table, not by two branches
+
+- **Every `ApprovalState` member's own expected resume outcome is now one
+  table** (`RESUME_OUTCOME`, in the test that proves it), not an `IN_FLIGHT`
+  set a reader had to reverse-engineer from two branches; a state added with
+  no entry fails the completeness test immediately.
+- **The partial index behind the resume key names only what it enforces.**
+  `idx_approvals_resume_key`'s own `WHERE` clause can test state alone — SQL
+  has no access to `now` — so its own comment and the CHANGELOG entry for
+  migration `0030` no longer describe it as an index "on the same three
+  in-flight states", which reads as though it enforces the time half too.
+
 ## 0.9.0 — 2026-10-29
 
 Carries 0.8.2's own work forward rather than shipping it as a release of its own.
@@ -124,21 +224,6 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
   with a verifying/changed/expired case, and `decision_digest` stability across
   the `/6` bump. See [`tests/vectors/README.md`](tests/vectors/README.md).
 
-### Added — the recipient confirmation (V22)
-
-- **`onedoor.permit.confirmation`**, closing bound-permit profile §10 (Appendix
-  B's V22, previously a disclosed gap): `build`, the recipient side, signs a
-  joint record of `recipient.verify`'s own result once the caller has
-  attempted (or could not attempt) the real-world effect; `check`, the
-  presenter side, verifies that record against reference values the step
-  itself recorded, with no re-verification of the permit. Single use across
-  many confirmations is `find_reused_permits`, given whatever tokens the
-  reader already has. See [`docs/confirmation.md`](docs/confirmation.md) and
-  [`tests/vectors/README.md`](tests/vectors/README.md) (`confirmation_vectors_1.json`,
-  21 cases). `ActionResult`/the HTTP service/etc. are unchanged by this: a
-  confirmation is built by whoever runs `recipient.verify` directly, not by
-  onedoor's own issuer side.
-
 ### Changed — the permit's `jti` is minted independently
 
 - **A bound permit's `jti` is no longer the intent's own audit id, stringified**
@@ -154,28 +239,13 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
 
 - **`recipient.verify`'s step 8 now also refuses `binding-incomplete` when the
   request's `Idempotency-Key` is absent or does not equal the permit's `jti`**
-  (bound-permit profile -00 §12's own rule, previously unchecked). A presenter
+  (bound-permit profile -00's own rule, §12, previously unchecked). A presenter
   that was sending some other idempotency value for a bound-permit request
-  must switch to the permit's `jti`; every other request is unaffected.
-
-### Changed — the consume store completes in two steps
-
-- **`recipient.verify`'s step 13 only reserves `(iss, jti)` and stops** — it no
-  longer records a complete, `verified` result before the caller has
-  attempted the request's effect (profile -00 §12: "consume, perform, store
-  the result", not "store, then perform"). A new function,
-  `onedoor.permit.recipient.complete_reservation`, is the only thing that now
-  writes a completed result (with the confirmation token, if one was built);
-  callers that acted on a `VERIFIED`, non-repeat result must call it once,
-  afterwards. Without that call, a retried presentation of the same request
-  now comes back refused (`idempotency-conflict`, `retryable=True`) rather
-  than `verified` a second time — an existing caller that never completes a
-  reservation will see every retry refused as retryable instead of silently
-  re-verified; one that already called `report_result`-equivalent bookkeeping
-  of its own now has a dedicated place to do it. `VerificationResult` gains
-  `retryable: bool`, additive, distinguishing this from a permanent
-  different-`Content-Digest` conflict (`retryable=False`) under the same
-  reason code.
+  must switch to the permit's `jti`; every other request is unaffected. A
+  0.8.x presenter talking to a 0.9.0 recipient is refused under this rule, so
+  update presenters before recipients. The published test vectors under
+  `tests/vectors/` are untouched by this: none of them exercises
+  `recipient.verify`'s full pipeline, so none needed a new case for this rule.
 
 ### Changed — a new preimage version, `/6`
 
@@ -187,40 +257,11 @@ Carries 0.8.2's own work forward rather than shipping it as a release of its own
   its exact prior digest — the hint is never consulted to decide whether an existing
   chain still verifies, only to seal new rows.
 
-### Changed — the permit's `jti` is minted independently
-
-- **A bound permit's `jti` is no longer the intent's own audit id, stringified** — it is
-  minted independently, at least 128 random bits, before the intent row even exists, and
-  recorded on that row (`actions_audit.permit_jti`, migration `0032`) as the mapping back
-  to it. A presenter that could see one permit could, under the old scheme, guess or
-  enumerate another by its sequential id; it cannot now. No caller-visible shape changed —
-  `bound_permit`'s own claims are the same fields, just no longer predictable.
-
-### Changed — BREAKING: `Idempotency-Key` must equal the permit's `jti`
-
-- **`recipient.verify`'s step 8 now also refuses `binding-incomplete` when the request's
-  `Idempotency-Key` is absent or does not equal the permit's `jti`** (bound-permit profile
-  -00 -- the draft defining the bound permit itself, `onedoor.permit`'s recipient-side
-  conformance target, distinct from AADP proper -- §12's own rule, previously unchecked,
-  previously accepted with none present at all).
-  A presenter that was sending some other idempotency value for a bound-permit request
-  must switch to the permit's `jti`; every other request is unaffected. A 0.8.x
-  presenter talking to a 0.9.0 recipient is refused under this rule, so update
-  presenters before recipients. The published test vectors under `tests/vectors/` are
-  untouched by this: none of them exercises `recipient.verify`'s full pipeline, so none
-  needed a new case for this rule.
-
 ### Changed — a new preimage version, `/7`
 
 - **`permit_jti`** (the new column above) is the fact an intent row makes about which
   bound permit it issued, so it joins the hash too — `onedoor/row-preimage/7` (migration
   `0032`). Every row sealed before `/7` keeps its exact prior digest.
-
-### Changed — a new preimage version, `/7`
-
-- **`permit_jti`** (the new column above) is the fact an intent row makes about which
-  bound permit it issued, so it joins the hash too — `onedoor/row-preimage/7`
-  (migration `0032`). Every row sealed before `/7` keeps its exact prior digest.
 
 ### Changed — internal tracking references reworded out of shipped files
 
