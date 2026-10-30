@@ -111,52 +111,24 @@ that never applied does not appear).
 
 ## The joint record
 
-Each side of a cross-domain action — the issuer's own decision record, the
-recipient's verification outcome — is, on its own, a self-authored account.
-A joint record is a second object, signed by whichever side produces it,
-naming the other side's artifact by digest, so a dispute has one object both
-sides can check rather than two that merely happen to agree.
+**Built.** `onedoor.permit.confirmation` (`build`/`check`/`find_reused_permits`)
+implements this, closing bound-permit profile §10 per a separate,
+not-yet-public format note; see [`docs/confirmation.md`](confirmation.md) and
+`CONFORMANCE.md` §3 (V22). The three open questions below, as this design note
+first posed them, resolved as built, not as originally framed:
 
-**Attachment point.** The recipient side: `onedoor/permit/recipient.py`'s
-`verify()` returns a `VerificationResult` today and stops there. A joint
-record would be a value produced *from* that result — a small, separate
-function, `onedoor/permit/confirmation.py`, taking the result, the parsed
-permit claims, and the recipient's own signing key, and returning a signed
-JWS naming: the permit's own digest, the request's content digest and
-signature-base digest, the action digest, the mandate verdict's digest where
-one was evaluated, and the outcome. Kept separate from `verify()` itself for
-the same reason `jws.py`/`httpsig.py`/`jcs.py` are separate modules already —
-one function, one responsibility, so a recipient that wants verification
-without ever producing a confirmation is not forced to.
-
-**Inputs.** Nothing this package does not already compute somewhere:
-`action_digest` (already computed at step 9), the Content-Digest header
-(already validated at step 7), a digest over the HTTP message signature base
-(`httpsig.signature_base`'s own output, already computed at step 8) — the
-gap is only that `verify()` discards these intermediate values on return
-rather than making them available to a confirmation builder.
-
-**Tests that would prove it.** A confirmation built from a `VERIFIED` result
-verifies under the recipient's own public key and names the exact permit and
-request digests `verify()` computed; a confirmation built from a `REFUSED`
-result still names the reason; the confirmation's own digest, once computed,
-round-trips through parse/verify the same way a permit does (this package
-already has that machinery in `jws.py`).
-
-**Open questions.**
-1. `VerificationResult` is a frozen dataclass with no field for the
-   intermediate digests a confirmation needs. Threading them through means
-   either widening `VerificationResult` (a public-surface change every
-   existing caller would need to tolerate) or having `verify()` optionally
-   return a second, richer object — which shape is worth the disruption is a
-   question for whoever picks this up, not answered here.
-2. Direction of reference matters for the record to stay acyclic: the
-   confirmation should name the permit and the request, and nothing written
-   after the confirmation should be something the confirmation itself names.
-   Is that ordering constraint something this package should assert in code
-   (refusing to build a confirmation that references something not yet
-   computed), or is it purely a caller discipline to document?
-3. Should a refused verification also produce a signed confirmation? A
-   refusal that is merely returned is an assertion the recipient can later
-   deny making; a refusal it signs is evidence. Whether *every* refusal
-   should be confirmed, or only ones past a certain step, is unresolved.
+1. `VerificationResult` was not widened, and `verify()` does not return a
+   second object. `confirmation.build` takes the *request* (which already
+   carries everything a confirmation needs to recompute: the permit token,
+   the body, the signature's own `created`/components) alongside the
+   `VerificationResult`, and re-derives each digest itself, gated on
+   `result.step` so a field is only ever computed once the step it depends on
+   actually passed.
+2. The acyclic direction is kept by construction, not asserted at runtime: a
+   confirmation always names a permit and a request that already exist (it is
+   built *after* `verify()` returns), and nothing a confirmation names is ever
+   itself required to carry a confirmation.
+3. Every outcome gets a confirmation, including a refusal and a could-not-check
+   — not only a verified one. `outcome` is fixed to `"refused"` for both,
+   carrying `step`/`reason` for a check refusal and `dependency` for a
+   could-not-check, per the format note's own §2.2.

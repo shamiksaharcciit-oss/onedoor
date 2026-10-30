@@ -1,0 +1,1027 @@
+{
+ "format": "confirmation-vectors/3-draft",
+ "keys": {
+  "issuer": {
+   "kid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+   "public_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+   "secret_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+   "source": "RFC 8032 section 7.1 TEST 1"
+  },
+  "other_recipient": {
+   "kid": "lZI1vM7tnlYapaF5-cy86ptx0tT_8Av721hhiNB5ti4",
+   "public_hex": "278117fc144c72340f67d0f2316e8386ceffbf2b2428c9c51fef7c597f1d426e",
+   "secret_hex": "f5e5767cf153319517630f226876b86c8160cc583bc013744c6bf255f5cc0ee5",
+   "source": "RFC 8032 section 7.1 TEST 1024"
+  },
+  "presenter": {
+   "kid": "FtIu-VbGrfe_KB6CH7GNwODB72MNxj_ml11dEvO-7kk",
+   "public_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+   "secret_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+   "source": "RFC 8032 section 7.1 TEST 2"
+  },
+  "recipient": {
+   "kid": "FVV5umTuau890q59V-4Ga_R6qWb7ON_ivJc4EjvCwTM",
+   "public_hex": "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025",
+   "secret_hex": "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7",
+   "source": "RFC 8032 section 7.1 TEST 3"
+  }
+ },
+ "step": {
+  "action_digest": "sha-256=:a2aghNUBenu2/BatDIfkdmXLbZo7HdoyZ+qtOhUOd9c=:",
+  "action_jcs": "{\"amount_eur\":\"40.00\",\"invoice\":\"INV-0001\",\"type\":\"pay\"}",
+  "action_object": {
+   "amount_eur": "40.00",
+   "invoice": "INV-0001",
+   "type": "pay"
+  },
+  "content_digest": "sha-256=:QndJtXCLJ2FLXU7g+zQYZhZlpcyhTY3GI70bJM8+KHM=:",
+  "ended": 1790000007,
+  "permit": "eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJ0eXAiOiJhYWRwLXBlcm1pdCtqd3QifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3ViIjoiYWdlbnQtMSIsImF1ZCI6Imh0dHBzOi8vcGF5bWVudHMuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImlhdCI6MTc5MDAwMDAwMCwibmJmIjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAxMjAsImNuZiI6eyJqa3QiOiJGdEl1LVZiR3JmZV9LQjZDSDdHTndPREI3Mk1OeGpfbWwxMWRFdk8tN2trIn0sImF1dGhvcml6YXRpb25fZGV0YWlscyI6W3sidHlwZSI6InBheW1lbnRzLnRyYW5zZmVyLzEiLCJhbW91bnQiOnsiY3VycmVuY3kiOiJFVVIiLCJtYXgiOiI0MC4wMCJ9fV0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJ2ZXJkaWN0IjoicGVybWl0IiwiY3VycmVudG5lc3MiOiJ0aW1lLWJvdW5kZWQiLCJwb2xpY3lfdmVyc2lvbiI6InNoYTI1NjowMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0.fny4WytekegcnyinoeuvEgVWj-ZvEf7VRH74j2-duyWEMRRgQSLg5bmeyvZjRimXKJlPcaABuZhVQhL48BNHCA",
+  "permit_aud": "https://payments.example",
+  "permit_digest": "sha-256=:OU2EjsrUgdr5Gm4/Yjs9SR66yjgDbcJfAPfz04cDAqs=:",
+  "permit_exp": 1790000120,
+  "permit_iss": "https://issuer.example",
+  "permit_jti": "p-0001",
+  "request": {
+   "@authority": "payments.example",
+   "@method": "POST",
+   "@path": "/v1/transfers",
+   "@query": "?",
+   "aadp-permit": "eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJ0eXAiOiJhYWRwLXBlcm1pdCtqd3QifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3ViIjoiYWdlbnQtMSIsImF1ZCI6Imh0dHBzOi8vcGF5bWVudHMuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImlhdCI6MTc5MDAwMDAwMCwibmJmIjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAxMjAsImNuZiI6eyJqa3QiOiJGdEl1LVZiR3JmZV9LQjZDSDdHTndPREI3Mk1OeGpfbWwxMWRFdk8tN2trIn0sImF1dGhvcml6YXRpb25fZGV0YWlscyI6W3sidHlwZSI6InBheW1lbnRzLnRyYW5zZmVyLzEiLCJhbW91bnQiOnsiY3VycmVuY3kiOiJFVVIiLCJtYXgiOiI0MC4wMCJ9fV0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJ2ZXJkaWN0IjoicGVybWl0IiwiY3VycmVudG5lc3MiOiJ0aW1lLWJvdW5kZWQiLCJwb2xpY3lfdmVyc2lvbiI6InNoYTI1NjowMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0.fny4WytekegcnyinoeuvEgVWj-ZvEf7VRH74j2-duyWEMRRgQSLg5bmeyvZjRimXKJlPcaABuZhVQhL48BNHCA",
+   "body": "{\"type\":\"pay\",\"invoice\":\"INV-0001\",\"amount_eur\":\"40.00\"}",
+   "content-digest": "sha-256=:QndJtXCLJ2FLXU7g+zQYZhZlpcyhTY3GI70bJM8+KHM=:",
+   "idempotency-key": "\"p-0001\"",
+   "signature": "sig1=:yKMJi/PIqHr95zYJR9NYExDdgE8CeNuO4Ih6JQKocWoq6wLtNgi6USeoWpDnhXxt/NfasF1ztkjJUKvQyYybAg==:",
+   "signature-input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"idempotency-key\" \"aadp-permit\");created=1790000005;keyid=\"FtIu-VbGrfe_KB6CH7GNwODB72MNxj_ml11dEvO-7kk\";alg=\"ed25519\""
+  },
+  "signature_base": "\"@method\": POST\n\"@authority\": payments.example\n\"@path\": /v1/transfers\n\"@query\": ?\n\"content-digest\": sha-256=:QndJtXCLJ2FLXU7g+zQYZhZlpcyhTY3GI70bJM8+KHM=:\n\"idempotency-key\": \"p-0001\"\n\"aadp-permit\": eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJ0eXAiOiJhYWRwLXBlcm1pdCtqd3QifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3ViIjoiYWdlbnQtMSIsImF1ZCI6Imh0dHBzOi8vcGF5bWVudHMuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImlhdCI6MTc5MDAwMDAwMCwibmJmIjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAxMjAsImNuZiI6eyJqa3QiOiJGdEl1LVZiR3JmZV9LQjZDSDdHTndPREI3Mk1OeGpfbWwxMWRFdk8tN2trIn0sImF1dGhvcml6YXRpb25fZGV0YWlscyI6W3sidHlwZSI6InBheW1lbnRzLnRyYW5zZmVyLzEiLCJhbW91bnQiOnsiY3VycmVuY3kiOiJFVVIiLCJtYXgiOiI0MC4wMCJ9fV0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJ2ZXJkaWN0IjoicGVybWl0IiwiY3VycmVudG5lc3MiOiJ0aW1lLWJvdW5kZWQiLCJwb2xpY3lfdmVyc2lvbiI6InNoYTI1NjowMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0.fny4WytekegcnyinoeuvEgVWj-ZvEf7VRH74j2-duyWEMRRgQSLg5bmeyvZjRimXKJlPcaABuZhVQhL48BNHCA\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"idempotency-key\" \"aadp-permit\");created=1790000005;keyid=\"FtIu-VbGrfe_KB6CH7GNwODB72MNxj_ml11dEvO-7kk\";alg=\"ed25519\"",
+  "signature_base_digest": "sha-256=:dMl92zde8VJ2a8W4qgZdJnk5zizhA88pLEow3LgLoJI=:",
+  "started": 1790000004
+ },
+ "trust": {
+  "https://payments.example": [
+   "FVV5umTuau890q59V-4Ga_R6qWb7ON_ivJc4EjvCwTM"
+  ]
+ },
+ "vectors": {
+  "C01": {
+   "case": "effected, every row passes",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C02": {
+   "case": "refused at step 9 (no action_digest), the step reported an error",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sIm91dGNvbWUiOiJyZWZ1c2VkIiwiaWF0IjoxNzkwMDAwMDA2LCJyZWFzb24iOiJhY3Rpb24tbWlzbWF0Y2giLCJzdGVwIjo5fQ.P6FZrzaq_Imh93w98GW6csGoPqjIMIbLCouiNhi8d0NeGVz7-srAo0KE5loLArXyWJLcSRT9neA6C3_U3ZgXDw",
+     "name": "approve_payment",
+     "outcome": "error"
+    }
+   ]
+  },
+  "C03": {
+   "case": "refused at step 12, the step reported ok",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "FAIL",
+     "approve_payment: reported ok, but the recipient says 'refused' (local-policy, step 12)"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoicmVmdXNlZCIsImlhdCI6MTc5MDAwMDAwNiwicmVhc29uIjoibG9jYWwtcG9saWN5Iiwic3RlcCI6MTJ9.lI2kRP0840p14uGFf6P22XTcG1LySZe66ExlfeclKO-koA9MkqC2MXu3DsEpGPEftrNTwdlhDyalHwAKCKHoDQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C04": {
+   "case": "signed with the presenter's key, not the recipient's",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: the confirmation does not verify under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.lKbdMF9thOCzNAXcgRv_jUKJhjDAeeqoj8jjoj9_Br22TdyS9NSbwpFMulLSYSz-Qf_YMO_4N4LIIboknO7uAw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C05": {
+   "case": "recipient not on the list",
+   "expect": {
+    "key": [
+     "NOT-RUN",
+     "approve_payment: recipient https://payments.example is not on the list"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ],
+   "trust": {}
+  },
+  "C06": {
+   "case": "cites another permit",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "FAIL",
+     "approve_payment: the confirmation cites another permit"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9OlBVN0w4c0VySzdNb1lES3lsN0N5TjkzOHBpT0ZpRWNSMHJBb0h1bDNVY0E9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.yGC4TDigtiB_TEAmv25dqk3_69uZJXHCKswTnJ8OBwo1nuzoSZFuvCYM135DicqVJVn5yZk2H2PxLwZHBgGCAw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C07": {
+   "case": "a different request body digest",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "FAIL",
+     "approve_payment: the recipient confirmed a different request body"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06TVZJR3Y0V3kyZENLREJMVjNxMzN5c1FVTk1SYUZCWG9uYnlOcUFsMWkxOD06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.8BkaNqqNX-YhpTHA7lX4be5MmssRDhOKP_DsdPaAPSPdUgxq1qJYNH9rKymGWeO4ZXdCybKf5HjodL-cEHH8AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C08": {
+   "case": "a different action digest",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "FAIL",
+     "approve_payment: the recipient confirmed a different action"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTpPWFErQXV1dk9seFBySkh6RFZSc29TbHk5YXZYRzUrSkdkcGtiNFA5QVJVPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.2TOfSkVNwcEcYTI1IYWmdfQNu_1Rd6TnoH7zhXxaKGta4BT3t-BnoaIwW7H1iWttzh6aDvFrfeygpAjMrhpSCw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C09": {
+   "case": "two steps, same permit, two different effected confirmations",
+   "expect": {
+    "key": [
+     "PASS",
+     "2 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "2 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "2 confirmation(s) checked against the permit their step presented"
+    ],
+    "request": [
+     "PASS",
+     "2 confirmation(s) checked against the request their step sent"
+    ],
+    "single_use": [
+     "FAIL",
+     "permit https://issuer.example p-0001 confirmed as effected twice: approve_payment, approve_payment_retry"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    },
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMiIsImlhdCI6MTc5MDAwMDAwN30.FuSGnAY2gIWDDYXO3jslbvSqpNseikpGxg_xg7EMwZtvSMlo4rZ8xd-yZledYzfD0hW482KjgCB0g8CCVJTVDQ",
+     "name": "approve_payment_retry",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C10": {
+   "case": "two steps, same permit, the byte-identical confirmation (a repeat)",
+   "expect": {
+    "key": [
+     "PASS",
+     "2 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "2 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "2 confirmation(s) checked against the permit their step presented"
+    ],
+    "request": [
+     "PASS",
+     "2 confirmation(s) checked against the request their step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice (1 byte-identical repeat)"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    },
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment_retry",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C11": {
+   "case": "typ is the permit's",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: not a recipient confirmation (typ 'aadp-permit+jwt')"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLXBlcm1pdCtqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.EfM44_3800fUPn2YWuXNgZBhvIIqCZIt8NSkzSqcbBH9GFYMfk_0axzL7n_44bOOMGKLzPiD3KpM7saMKVYgBQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C12": {
+   "case": "effect-unknown, the step reported ok",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "FAIL",
+     "approve_payment: reported ok, but the recipient says 'effect-unknown'"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0LXVua25vd24iLCJpYXQiOjE3OTAwMDAwMDZ9.N4Z3_PQOIMcqstWWqprI8tGXVfRa7DXTDtylt4ij4mu1rgEndw62BKe7UTOyCdgK58544fhROwmkBCun_xEzAw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C13": {
+   "case": "refused at step 1: no permit, request or action members; iss and iat still checked",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented (1 by recipient only)"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent (1 by date only)"
+    ],
+    "single_use": [
+     "NOT-RUN",
+     "no confirmation cites a permit"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJvdXRjb21lIjoicmVmdXNlZCIsInN0ZXAiOjEsInJlYXNvbiI6Im1hbGZvcm1lZCIsImlhdCI6MTc5MDAwMDAwNn0.Tl6_dpoWsJ6IXr99OPYlB95zRwKHPuDQGH5cPp2nKinfkMuiZ7DXp8oSQaWUn3LwKGSH3THWTKy07Hn6x1ApCQ",
+     "name": "approve_payment",
+     "outcome": "error"
+    }
+   ]
+  },
+  "C14": {
+   "case": "an unknown payload member",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key; unknown member(s) ignored: note"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNiwibm90ZSI6IngifQ.v-548-f_EpjFRljnekhqSayhnY04W-N5DVqGKCf74ewiu6HvigS1f2pStovdbE0FAXfD9ENN2-dgNDyQU04bCg",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C15": {
+   "case": "recipient on the list, its kid not listed",
+   "expect": {
+    "key": [
+     "NOT-RUN",
+     "approve_payment: key FVV5umTu... is not listed for https://payments.example"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ],
+   "trust": {
+    "https://payments.example": [
+     "lZI1vM7tnlYapaF5-cy86ptx0tT_8Av721hhiNB5ti4"
+    ]
+   }
+  },
+  "C16": {
+   "case": "no recipient list given",
+   "expect": {
+    "key": [
+     "NOT-RUN",
+     "no recipient list given (pass --recipients)"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ],
+   "trust": null
+  },
+  "C17": {
+   "case": "refused at step 13 while the first presentation was in progress, then effected, same permit",
+   "expect": {
+    "key": [
+     "PASS",
+     "2 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "2 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "2 confirmation(s) checked against the permit their step presented"
+    ],
+    "request": [
+     "PASS",
+     "2 confirmation(s) checked against the request their step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoicmVmdXNlZCIsImlhdCI6MTc5MDAwMDAwNSwic3RlcCI6MTMsInJlYXNvbiI6ImlkZW1wb3RlbmN5LWNvbmZsaWN0In0.sto4L1P6I-6izXcfwCdt8EfCLVbZcv2FcrgWWONkzIjGYca0qmGilsFTYZ0tcoaT5nNrfLdNpQ9FXFh-_ZPWAQ",
+     "name": "approve_payment",
+     "outcome": "error"
+    },
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment_retry",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C18": {
+   "case": "signed by another listed recipient; its iss is not the permit's aud",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "FAIL",
+     "approve_payment: confirmed by https://ledger.example, but the permit is for https://payments.example"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxaSTF2TTd0bmxZYXBhRjUtY3k4NnB0eDB0VF84QXY3MjFoaGlOQjV0aTQiLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL2xlZGdlci5leGFtcGxlIiwicGVybWl0Ijp7ImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJqdGkiOiJwLTAwMDEiLCJkaWdlc3QiOiJzaGEtMjU2PTpPVTJFanNyVWdkcjVHbTQvWWpzOVNSNjZ5amdEYmNKZkFQZnowNGNEQXFzPToifSwicmVxdWVzdCI6eyJjb250ZW50X2RpZ2VzdCI6InNoYS0yNTY9OlFuZEp0WENMSjJGTFhVN2crelFZWmhabHBjeWhUWTNHSTcwYkpNOCtLSE09OiIsInNpZ25hdHVyZV9iYXNlX2RpZ2VzdCI6InNoYS0yNTY9OmRNbDkyemRlOFZKMmE4VzRxZ1pkSm5rNXppemhBODhwTEVvdzNMZ0xvSkk9OiJ9LCJhY3Rpb25fZGlnZXN0Ijoic2hhLTI1Nj06YTJhZ2hOVUJlbnUyL0JhdERJZmtkbVhMYlpvN0hkb3laK3F0T2hVT2Q5Yz06Iiwib3V0Y29tZSI6ImVmZmVjdGVkIiwicmVjaXBpZW50X2FjdGlvbl9pZCI6IlRYLTAwMDEiLCJpYXQiOjE3OTAwMDAwMDZ9.GtJjuADqCLxzw1qo9oZ9oy-N9dDwma84I5af0YO7ftgiFPh8r65LWV5JhsXjr0RoG660FelgNLJpE-BGoiO4Ag",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ],
+   "trust": {
+    "https://ledger.example": [
+     "lZI1vM7tnlYapaF5-cy86ptx0tT_8Av721hhiNB5ti4"
+    ],
+    "https://payments.example": [
+     "FVV5umTuau890q59V-4Ga_R6qWb7ON_ivJc4EjvCwTM"
+    ]
+   }
+  },
+  "C19": {
+   "case": "the step reported an error, but holds an effected confirmation",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "FAIL",
+     "approve_payment: reported error, but the recipient says it acted (TX-0001)"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.5oWhWkGjaAI1GL42yLpy9bymUtgrxQ-HiRCLyHb_gxWzLwfmL6qgf2XRQ9x9YyzuQZDHM1IDO0r1PxI8kwT5AQ",
+     "name": "approve_payment",
+     "outcome": "error"
+    }
+   ]
+  },
+  "C20": {
+   "case": "the step presented the permit and reported ok; no confirmation recorded",
+   "expect": {
+    "key": [
+     "NOT-RUN",
+     "no confirmation recorded"
+    ],
+    "outcome": [
+     "NOT-RUN",
+     "approve_payment: presented a permit; no confirmation recorded"
+    ],
+    "permit": [
+     "NOT-RUN",
+     "no confirmation recorded"
+    ],
+    "request": [
+     "NOT-RUN",
+     "no confirmation recorded"
+    ],
+    "single_use": [
+     "NOT-RUN",
+     "no confirmation recorded"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": null,
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C21": {
+   "case": "iat 3600 s after the step ended",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "FAIL",
+     "approve_payment: the confirmation is dated outside the step (iat 3600 s after it ended)"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMzYwN30._7gvtW231ovII43RSlP6bqf0V2p765YlLaWjKFzA8moFDLU4NynfgNjut3WMcGJfL0SI8AqfSLK6zj1W8fs4Dw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C22": {
+   "case": "a crit header naming an extension this reader does not implement",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: unknown critical header parameter(s): x-ext"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QiLCJjcml0IjpbIngtZXh0Il0sIngtZXh0IjoxfQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.RDFuC2uUx69I-WmN5LA8_tdwcW7cx4JO8Umq7EYGrTZSXupoh3lTAGzTfsfMNHv0ChQkeTbGDi0Ag14xVlOXDQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C23": {
+   "case": "effected without recipient_action_id (a section 2 violation)",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: malformed confirmation (effected without recipient_action_id)"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJpYXQiOjE3OTAwMDAwMDZ9.NuSLp_F_UXKadPiSp4aaxLFxPwkHFit2t3J8MMlneV1bjNuINJyHRASgyQDL-_4hdTUYfedldnKvb6knKCY2Bw",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C24": {
+   "case": "a duplicate payload member: the confirmation is not read",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: malformed confirmation (duplicate member 'outcome')"
+    ],
+    "outcome": [
+     "NOT-RUN",
+     "approve_payment: the confirmation could not be read"
+    ],
+    "permit": [
+     "NOT-RUN",
+     "no readable confirmation"
+    ],
+    "request": [
+     "NOT-RUN",
+     "no readable confirmation"
+    ],
+    "single_use": [
+     "NOT-RUN",
+     "no readable confirmation"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNiwib3V0Y29tZSI6InJlZnVzZWQifQ.Lui-LhHVqXOdu5sWrBFyanoF60Q5tyzcKaAUQTL0SZ338U1totgBWUoW9cr7siRV_peSU_nPRU6GipFHKUNLCg",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C25": {
+   "case": "refused for a dependency (consume store), the step reported ok",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "FAIL",
+     "approve_payment: reported ok, but the recipient could not check (consume-store)"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoicmVmdXNlZCIsImlhdCI6MTc5MDAwMDAwNiwiZGVwZW5kZW5jeSI6ImNvbnN1bWUtc3RvcmUifQ.Uq8wpkkRig4LfS9OYFN7Ce-OrUk9uND_MEuH-tQ1m_XEgd784Uyp5xEhUHtkPdGEfghCVGDJGrLcronmExcYBA",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C26": {
+   "case": "typ written as the full media type",
+   "expect": {
+    "key": [
+     "FAIL",
+     "approve_payment: not a recipient confirmation (typ 'application/aadp-confirmation+jwt')"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented; signature not verified for: approve_payment"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent; signature not verified for: approve_payment"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhcHBsaWNhdGlvbi9hYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.JWWNLgjoMXivCP6SH19e5_25zKm9k4irvnKbRZs_LpqsSHoCzYJjsmXc_p9MMr7KpFPnVwodBgMGtbFJ8whyBA",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C27": {
+   "case": "iat before the step started, outside the window",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "FAIL",
+     "approve_payment: the confirmation is dated outside the step (iat 100 s before it started)"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc4OTk5OTkwNH0.Rdd7_iJOiiLODRutm8841MZeaJc2MiOHGjt2X7EjigUYChwt7ze_bJ8bIpOLv4RETnjl4M1E90Iw6Dj9mM73AA",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C28": {
+   "case": "a different signature base digest",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "FAIL",
+     "approve_payment: the recipient confirmed a different signature base"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06M2wzd2dXSk5idS9WdENsamh0ZUk4K2k3OW5mZCswT0g5WjB0Yjh3ZnpUbz06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0ZWQiLCJyZWNpcGllbnRfYWN0aW9uX2lkIjoiVFgtMDAwMSIsImlhdCI6MTc5MDAwMDAwNn0.zmxTEUjaSVhsJBODVtrWPpARhRJs2yMRxze9Hi_iYWwA4pi7Ov31pHVE3UU5HUDhP6lEVBG904PYC2rMfayeDQ",
+     "name": "approve_payment",
+     "outcome": "ok"
+    }
+   ]
+  },
+  "C29": {
+   "case": "effect-unknown, the step reported an error",
+   "expect": {
+    "key": [
+     "PASS",
+     "1 confirmation(s), each verifying under the recipient's listed key"
+    ],
+    "outcome": [
+     "PASS",
+     "1 step(s), each outcome consistent with its confirmation"
+    ],
+    "permit": [
+     "PASS",
+     "1 confirmation(s) checked against the permit its step presented"
+    ],
+    "request": [
+     "PASS",
+     "1 confirmation(s) checked against the request its step sent"
+    ],
+    "single_use": [
+     "PASS",
+     "1 permit(s) cited, none confirmed as effected twice"
+    ]
+   },
+   "steps": [
+    {
+     "confirmation": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0iLCJ0eXAiOiJhYWRwLWNvbmZpcm1hdGlvbitqd3QifQ.eyJpc3MiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUiLCJwZXJtaXQiOnsiaXNzIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZSIsImp0aSI6InAtMDAwMSIsImRpZ2VzdCI6InNoYS0yNTY9Ok9VMkVqc3JVZ2RyNUdtNC9ZanM5U1I2NnlqZ0RiY0pmQVBmejA0Y0RBcXM9OiJ9LCJyZXF1ZXN0Ijp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhLTI1Nj06UW5kSnRYQ0xKMkZMWFU3Zyt6UVlaaFpscGN5aFRZM0dJNzBiSk04K0tITT06Iiwic2lnbmF0dXJlX2Jhc2VfZGlnZXN0Ijoic2hhLTI1Nj06ZE1sOTJ6ZGU4VkoyYThXNHFnWmRKbms1eml6aEE4OHBMRW93M0xnTG9KST06In0sImFjdGlvbl9kaWdlc3QiOiJzaGEtMjU2PTphMmFnaE5VQmVudTIvQmF0RElma2RtWExiWm83SGRveVorcXRPaFVPZDljPToiLCJvdXRjb21lIjoiZWZmZWN0LXVua25vd24iLCJpYXQiOjE3OTAwMDAwMDZ9.N4Z3_PQOIMcqstWWqprI8tGXVfRa7DXTDtylt4ij4mu1rgEndw62BKe7UTOyCdgK58544fhROwmkBCun_xEzAw",
+     "name": "approve_payment",
+     "outcome": "error"
+    }
+   ]
+  }
+ },
+ "window_seconds": 60
+}

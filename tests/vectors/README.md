@@ -18,7 +18,7 @@ default trust file this package ships, and nothing outside `tests/vectors/`
 references it. Do not configure a real deployment's `permit_issuer_private_key`
 or any issuer trust table with it.
 
-**`confirmation_vectors_1.json`'s keys are RFC 8032 §7.1's own published test
+**`confirmation_vectors_3.json`'s keys are RFC 8032 §7.1's own published test
 keys** (TEST 1, 2, 3, 1024) — public by design, not secrets at all, and still
 with no use outside this directory: not in any default trust file this
 package ships, and not packaged in the wheel.
@@ -49,13 +49,28 @@ package ships, and not packaged in the wheel.
   keeps the exact same digest once they run, and the two new columns are included
   in the digest whenever a `resume_request_mismatch` denial actually sets them.
   Each row is exactly what `export_rows` would emit.
-- **`confirmation_vectors_1.json`** — the recipient confirmation (bound-permit
-  profile §10, V22): one shared permit and signed request, and 21 cases
-  (`C01`-`C21`) against `onedoor.permit.confirmation.check` and the single-use
-  helper, covering every row of its verifier (key/`typ`, permit, request,
-  outcome) and every one of `confirmation.build`'s "once step N passed"
-  branches. See `docs/confirmation.md`. Superseded `confirmation_vectors_0.json`
-  (draft 0, C01-C12) entirely; draft 0's file is not kept alongside it.
+- **`confirmation_vectors_3.json`** (format `confirmation-vectors/3-draft`) —
+  the recipient confirmation (bound-permit profile §10, V22): one shared
+  permit and signed request, and 29 cases (`C01`-`C29`), each naming its own
+  steps (name, recorded outcome, confirmation token) and the exact verdict and
+  detail of the format note's own five verifier rows (request, permit,
+  key/`typ`, single use, outcome). `gen_confirmation_vectors_3.py` is the
+  generator (not shipped code, kept here as a record of how the file was
+  built); `check_confirmation_rows_3.py` is a second, independent
+  implementation of those five rows, written from the format note's text
+  alone — it imports nothing from `onedoor` or `onetrace` — the same
+  "a second implementation that agrees with itself has proved nothing"
+  discipline `docs/row-preimage.md`/`test_row_preimage.py` already follow for
+  the audit chain. `test_confirmation_vectors.py` checks three things
+  independently: the file reproduces byte for byte from this repository's own
+  `onedoor.permit` code; every one of `onedoor.permit.confirmation.check`'s
+  own four rows (it does not implement single use directly — see
+  `find_reused_permits`) and `confirmation.build`'s "once step N passed"
+  branches read every vector as expected; and `check_confirmation_rows_3.py`
+  agrees with the file's own stated `expect` for all 29 vectors' five rows.
+  See `docs/confirmation.md`. Superseded `confirmation_vectors_1.json`
+  (C01-C21) and `confirmation_vectors_0.json` (draft 0, C01-C12) entirely;
+  neither earlier file is kept alongside it.
 
 ## Regenerating
 

@@ -31,7 +31,9 @@ the effect happened in the world — see the non-claims below.
   action digest, the step's outcome and time window), it checks the
   confirmation against them — never against the permit a second time. Stops
   at the first failing row, the same discipline `verify` follows: key and
-  `typ`, permit, request, outcome.
+  `typ` (also refusing an unimplemented `crit` parameter and an `effected`
+  confirmation with no `recipient_action_id`, the same way `verify` itself
+  refuses a permit's `crit`), permit, request, outcome.
 
 Single use across many confirmations (two different `effected` tokens for one
 permit) is deliberately not `check`'s own job, since `check` only ever sees
@@ -47,7 +49,9 @@ same standalone promise `onedoor.permit.recipient` already makes.
 Word for word, so nothing is implied beyond what follows:
 
 - A confirmation shows the recipient said it acted. It does not show the
-  effect happened in the world; that is the recipient's word, signed.
+  effect happened in the world; that is the recipient's word, signed. A
+  `refused` confirmation is likewise the recipient's word that it did not
+  act, signed.
 - A trusted key means the key is on the list you gave. onetrace does not
   decide whom to trust.
 - The request digests are the ones this record wrote when the step sent the
@@ -57,9 +61,13 @@ Word for word, so nothing is implied beyond what follows:
 - In a refusal at step 2 (signature-invalid, issuer-unknown), the permit's
   issuer and id are what the recipient read, not what it authenticated.
 - Single use is checked across the records you give one verifier run, not
-  across every record that exists.
+  across every record that exists. A byte-identical repeat is counted once,
+  so a second effect behind a reused token cannot be seen.
+- A confirmation's `iat` is the recipient's own clock. `mandate_verdict` is
+  recorded, not checked. An unknown payload member is named, not checked.
 - The rows read the record as onetrace wrote it. Recording a confirmation's
-  digest in a step does not discharge onedoor's `present_bound` obligation:
-  that is the presenter's own AADP report (-00 §13).
+  digest in a step does not discharge AADP's `present_bound` obligation
+  (which onedoor implements): that is the presenter's own AADP report
+  (-00 §13).
 - The rows check the record against itself and the list. They make no
   network calls and ask no recipient anything.

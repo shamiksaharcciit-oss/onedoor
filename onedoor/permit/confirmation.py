@@ -1,6 +1,6 @@
 """The recipient confirmation: a signed joint record closing bound-permit
 profile §10 (bound-permit profile, "The Recipient Confirmation"), per the gaps
-a separate, not-yet-public format note closes (draft 1, §§1-5; cited by
+a separate, not-yet-public format note closes (§§1-5; cited by
 section number in this module's docstrings, the same convention `recipient.py`
 uses for the profile itself). Appendix B lists this as V22, not implemented;
 this module implements it.
@@ -83,7 +83,7 @@ the conservative reading rather than risking over-inclusion."""
 _IAT_WINDOW_SKEW_SECONDS = 60
 """The step's own recorded start/end, widened by this on each side -- onedoor's
 own clock-skew ceiling (`recipient.DEFAULT_CLOCK_SKEW_SECONDS`), reused here
-for the confirmation's `iat` window (format note §7 row 1, draft 1)."""
+for the confirmation's `iat` window (format note §7 row 1)."""
 
 
 class ConfirmationError(ValueError):
@@ -119,7 +119,7 @@ def build(
     refused are simply never computed, so a refusal can never carry a value
     the recipient had not actually established.
 
-    A `COULD_NOT_CHECK` result also fixes `outcome="refused"` (draft 1: a
+    A `COULD_NOT_CHECK` result also fixes `outcome="refused"` (a
     could-not-check confirmation has no step and no reason, only
     `dependency` -- the recipient did not act, and does not know which
     numbered step it would have failed or passed). The "once step N passed"
@@ -220,7 +220,7 @@ def check(
     step_outcome_ok: bool,
     recipients: dict[str, dict[str, bytes]],
 ) -> VerificationResult:
-    """The presenter side (format note §7, draft 1), onedoor's own four of its
+    """The presenter side (format note §7), onedoor's own four of its
     five rows -- single use (row 4) is excluded on purpose; see
     `find_reused_permits`. In order: key and `typ`, permit, request, outcome.
     Stops at the first failure, the same discipline `recipient.verify` follows.
@@ -264,6 +264,21 @@ def check(
             step=1,
             reason=RefusalReason.MALFORMED,
             detail=f"not a recipient confirmation (typ {header.get('typ')!r})",
+        )
+    crit = header.get("crit")
+    if crit:
+        return VerificationResult(
+            status=VerificationStatus.REFUSED,
+            step=1,
+            reason=RefusalReason.MALFORMED,
+            detail=f"unimplemented critical header parameter(s): {crit}",
+        )
+    if payload.get("outcome") == "effected" and "recipient_action_id" not in payload:
+        return VerificationResult(
+            status=VerificationStatus.REFUSED,
+            step=1,
+            reason=RefusalReason.MALFORMED,
+            detail="malformed confirmation (effected without recipient_action_id)",
         )
     iss = payload.get("iss")
     kid = header.get("kid")
@@ -347,7 +362,7 @@ def check(
                 status=VerificationStatus.REFUSED,
                 step=3,
                 reason=RefusalReason.CONTENT_MISMATCH,
-                detail="the recipient confirmed a different request body",
+                detail="the recipient confirmed a different signature base",
             )
     if payload.get("action_digest") is not None and payload.get("action_digest") != action_digest:
         return VerificationResult(
@@ -378,9 +393,12 @@ def check(
     # --- 4. outcome ---
     confirmed_outcome = payload.get("outcome")
     if step_outcome_ok and confirmed_outcome != "effected":
-        step_number = payload.get("step")
-        reason_code = payload.get("reason")
-        if confirmed_outcome == "refused":
+        dependency = payload.get("dependency")
+        if confirmed_outcome == "refused" and dependency is not None:
+            detail = f"reported ok, but the recipient could not check ({dependency})"
+        elif confirmed_outcome == "refused":
+            step_number = payload.get("step")
+            reason_code = payload.get("reason")
             detail = (
                 f"reported ok, but the recipient says 'refused' ({reason_code}, step {step_number})"
             )
@@ -419,7 +437,7 @@ def find_reused_permits(tokens: Sequence[str]) -> list[tuple[object, object]]:
     that appears on two or more *different* tokens both claiming
     `outcome: "effected"`. A byte-identical repeat (format note §5) is the same
     token twice, never a conflict; a refusal for the same permit, before or
-    after an effected token, is also never a conflict (draft 1 §5 narrows
+    after an effected token, is also never a conflict (format note §5 narrows
     this to two different *effected* tokens only). Tokens that do not parse,
     are not `effected`, or carry no usable `permit` claim are silently skipped
     -- this helper reports conflicts among the tokens it can read, not

@@ -107,7 +107,7 @@ def test_build_on_a_refusal_before_the_permit_parses_cites_no_permit() -> None:
 
 
 def test_build_on_a_could_not_check_result_fixes_outcome_refused_with_dependency() -> None:
-    """draft 1: a could-not-check confirmation has `outcome: "refused"` and
+    """A could-not-check confirmation has `outcome: "refused"` and
     `dependency`, never `step` or `reason` -- the recipient did not act, and
     does not know which numbered step it would have failed or passed."""
     fx = _build()
@@ -247,7 +247,7 @@ def test_sabotage_without_the_known_field_check_an_unknown_member_is_not_named()
 
 def test_check_distinguishes_no_list_from_not_listed() -> None:
     kid, priv = _recipient_identity()
-    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "effected", "iat": 1})
+    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 1})
     no_list = _check(token, recipients={})
     assert no_list.status is VerificationStatus.COULD_NOT_CHECK
     assert "no recipient list given" in no_list.detail

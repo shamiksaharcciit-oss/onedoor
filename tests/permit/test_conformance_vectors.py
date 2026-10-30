@@ -89,7 +89,7 @@ VECTOR_STATUS: dict[str, tuple[str, str]] = {
     "V21": (IMPLEMENTED, "test_recipient.py::test_a_chained_permit_is_refused_structurally"),
     "V22": (
         IMPLEMENTED,
-        "tests/vectors/test_confirmation_vectors.py (confirmation_vectors_1.json, C01-C21) and "
+        "tests/vectors/test_confirmation_vectors.py (confirmation_vectors_3.json, C01-C29) and "
         "tests/permit/test_confirmation.py -- onedoor.permit.confirmation.build/check.",
     ),
     "V23": (IMPLEMENTED, "this file::test_v23_consume_store_unavailable_is_could_not_check"),

@@ -140,17 +140,31 @@ against real tests in `tests/permit/test_conformance_vectors.py`'s
 | V19 | Mandate digest differs from the evaluated AAE -> `mandate-mismatch` | Implemented |
 | V20 | Referenced AAE evaluates to `PENDING` -> `mandate-pending` | Implemented |
 | V21 | Permit carries a `parent` -> `chained-permit-unsupported` | Implemented |
-| V22 | The recipient confirmation (profile §10) | **Gap** -- not in this release; under review, see §4 |
+| V22 | The recipient confirmation (profile §10) | Implemented |
 | V23 | Consume store unavailable -> could-not-check, not a denial | Implemented |
 | V24 | Local policy denies -> permit not consumed | Implemented |
 
-22 of 24 implemented; 2 disclosed gaps (V17, V22).
+23 of 24 implemented; 1 disclosed gap (V17).
 
 `jti` is minted independently of any other record onedoor keeps (at least
 128 random bits), per profile -00 §3.2; the mapping back to the intent it
 was issued for is recorded on the audit row (`actions_audit.permit_jti`).
 The request's `Idempotency-Key` MUST equal the permit's own `jti` (profile
 -00 §12), checked at `recipient.verify`'s step 8.
+
+**The recipient confirmation** (`onedoor.permit.confirmation`, V22) closes
+profile §10 per a separate, not-yet-public format note that fills the gaps
+-00 leaves open there (no JWS header shape, no field table, the digest
+inputs, how the recipient's key is trusted, and what a repeat returns).
+Where -00 §12 itself only says a repeat "returns the stored result," the
+format note closes this as: the stored result is the original confirmation,
+byte for byte. `recipient.verify`'s step 13 only reserves `(iss, jti)` and
+stops; `complete_reservation` -- called once, after the caller has attempted
+the effect and (for a verified result) built a confirmation with
+`confirmation.build` -- is the only thing that writes a result, and a
+later repeat returns that same stored token unchanged. (0.8.1's own
+predecessor of this step wrote its result before the effect and kept no
+token to return; this is 0.10's own change to it, not -00's.)
 
 ## 4. Open gaps, and where they are tracked
 
@@ -159,11 +173,6 @@ The request's `Idempotency-Key` MUST equal the permit's own `jti` (profile
   stapled freshness) is wired in. Design options are laid out in
   [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md),
   under "Modes of currentness".
-- **V22 (the recipient confirmation).** Closing the bound-permit profile's
-  recipient-confirmation requirement is under active review, not in this
-  release. Design is in
-  [`docs/design/bound-permit-next.md`](docs/design/bound-permit-next.md),
-  under "The joint record".
 - **The mandate reference, issuer side.** The recipient side of a referenced
   mandate (step 11) is implemented; nothing on the issuer side yet populates
   a permit's `mandate` claim from onedoor's own mandate-layer deferral. See
