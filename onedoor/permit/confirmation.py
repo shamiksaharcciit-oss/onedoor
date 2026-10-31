@@ -85,6 +85,17 @@ _IAT_WINDOW_SKEW_SECONDS = 60
 own clock-skew ceiling (`recipient.DEFAULT_CLOCK_SKEW_SECONDS`), reused here
 for the confirmation's `iat` window (format note §7 row 1)."""
 
+_DEPENDENCY_PAYLOAD_NAME: dict[str, str] = {"status-unavailable": "status"}
+"""Format note §2.1/§10 name the status dependency `status`, one of exactly
+three (`consume-store`, `presenter-key-directory`, `status`). `"status-unavailable"`
+is `recipient.verify`'s own internal name for the same dependency (it is also
+`RefusalReason.STATUS_UNAVAILABLE`'s value, reused there for logging/metrics,
+not the format note's own vocabulary) -- translated here, once, at the point
+this module writes the payload's own `dependency` member, rather than renamed
+at its source and risking every other reader of `result.dependency`. The other
+two dependency strings already equal the format note's own names, so they pass
+through unchanged."""
+
 _OUTCOMES = frozenset({"effected", "refused", "effect-unknown"})
 
 _DEPENDENCIES = frozenset({"consume-store", "presenter-key-directory", "status"})
@@ -287,7 +298,10 @@ def build(
         payload["reason"] = result.reason.value if result.reason is not None else None
         payload["step"] = result.step
     elif result.status is VerificationStatus.COULD_NOT_CHECK:
-        payload["dependency"] = result.dependency
+        dependency = result.dependency
+        payload["dependency"] = (
+            _DEPENDENCY_PAYLOAD_NAME.get(dependency, dependency) if dependency is not None else None
+        )
 
     header = {"alg": "EdDSA", "kid": recipient_key_id, "typ": CONFIRMATION_TYP}
     return jws.encode(header, payload, recipient_private_key)

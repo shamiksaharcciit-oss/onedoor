@@ -148,6 +148,29 @@ def test_build_on_a_could_not_check_at_step_8_cites_no_request_digests() -> None
     assert "action_digest" not in payload
 
 
+def test_build_on_a_step_10_could_not_check_writes_dependency_status() -> None:
+    """Format note §2.1/§10 name the status dependency `status`, one of
+    exactly three allowed values -- not `recipient.verify`'s own internal
+    `"status-unavailable"` (`RefusalReason.STATUS_UNAVAILABLE`'s value),
+    which is not a format-note name at all. Step 10 is the one in progress
+    for this dependency (`_COULD_NOT_CHECK_STEP_IN_PROGRESS["status-unavailable"]
+    == 10`), so steps 1-9 passed: permit, both request digests and
+    action_digest are all legitimately established."""
+    fx = _build()
+    result = VerificationResult(
+        status=VerificationStatus.COULD_NOT_CHECK, dependency="status-unavailable"
+    )
+    kid, priv = _recipient_identity()
+
+    token = confirmation.build(
+        fx.request, result, recipient_key_id=kid, recipient_private_key=priv, now=NOW
+    )
+    _, payload = jws.verify(token, priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+    assert payload["dependency"] == "status"
+    assert "permit" in payload
+    assert "action_digest" in payload
+
+
 def test_sabotage_an_unrecognised_dependency_is_treated_conservatively() -> None:
     """If the step-in-progress mapping were missing an entry, the conservative
     default (step 1: nothing established) is what stands between an unmapped
