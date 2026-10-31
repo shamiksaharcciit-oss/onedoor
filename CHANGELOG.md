@@ -19,20 +19,26 @@ onedoor is the reference implementation of the AADP Internet-Draft
   many confirmations is `find_reused_permits`, given whatever tokens the
   reader already has. See [`docs/confirmation.md`](docs/confirmation.md) and
   [`tests/vectors/README.md`](tests/vectors/README.md)
-  (`confirmation_vectors_3.json`, 29 cases, moved from the format note's own
-  draft 1). `ActionResult`/the HTTP service/etc. are unchanged by this: a
-  confirmation is built by whoever runs `recipient.verify` directly, not by
-  onedoor's own issuer side.
-- **`check` now also refuses an unimplemented `crit` header parameter and an
-  `effected` confirmation with no `recipient_action_id`** (both malformed,
-  per the format note's own §1 and §2.4) -- two gaps draft 3's own vectors
-  (C22, C23) found still open; neither was caught before because no vector
-  exercised them. Two detail strings also changed to match the note's own
-  wording instead of reusing a sibling check's: a different
-  `signature_base_digest` now says so, rather than "a different request
-  body"; a refusal for a dependency (no `step`/`reason`) in the outcome
-  check now says "the recipient could not check (\<dependency\>)", rather
-  than misapplying the step/reason wording with both fields `None`.
+  (`confirmation_vectors_3.json`, 29 cases: draft 3's own vectors, version 3,
+  replacing draft 1's version 1 entirely). `ActionResult`/the HTTP
+  service/etc. are unchanged by this: a confirmation is built by whoever
+  runs `recipient.verify` directly, not by onedoor's own issuer side.
+- **`check` now applies the format note's §1 `alg` rule and §2's full shape
+  (member presence by step) before checking the signature, refusing a
+  malformed token with its own reason** -- an `alg` other than `EdDSA`, a
+  non-string `iss`/`iat`, an unknown `outcome`, a `step` outside 1-13 or
+  missing its `reason`, and a member present before its own step or missing
+  once it should be there, are all malformed (§1, §2.4). It already refused
+  an unimplemented `crit` header parameter and an `effected` confirmation
+  with no `recipient_action_id` (also malformed, per §1 and §2.4) -- two
+  gaps draft 3's own vectors (C22, C23) found still open; neither was
+  caught before because no vector exercised them. Two detail strings also
+  changed to match the note's own wording instead of reusing a sibling
+  check's: a different `signature_base_digest` now says so, rather than "a
+  different request body"; a refusal for a dependency (no `step`/`reason`)
+  in the outcome check now says "the recipient could not check
+  (\<dependency\>)", rather than misapplying the step/reason wording with
+  both fields `None`.
 
 ### Changed — the consume store completes in two steps
 

@@ -55,8 +55,9 @@ package ships, and not packaged in the wheel.
   steps (name, recorded outcome, confirmation token) and the exact verdict and
   detail of the format note's own five verifier rows (request, permit,
   key/`typ`, single use, outcome). `gen_confirmation_vectors_3.py` is the
-  generator (not shipped code, kept here as a record of how the file was
-  built); `check_confirmation_rows_3.py` is a second, independent
+  generator -- not shipped code, and not kept in this folder either: it is
+  in the format note's own pack, outside this repository.
+  `check_confirmation_rows_3.py` is a second, independent
   implementation of those five rows, written from the format note's text
   alone — it imports nothing from `onedoor` or `onetrace` — the same
   "a second implementation that agrees with itself has proved nothing"
