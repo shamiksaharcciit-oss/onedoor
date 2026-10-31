@@ -6,6 +6,22 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
+## 0.10.1
+
+### Fixed — a present-but-wrongly-typed nested permit/request member said "missing"
+
+`onedoor.permit.confirmation.check` and the vectors' own reference checker copy
+(`tests/vectors/check_confirmation_rows_3.py`) both reported a nested `permit`/`request`
+member as missing whenever its type check failed, even one that is genuinely present with
+the wrong type. Each now says `<key>.<member> not a string` for that case; a member that is
+actually absent (decided by the step table) keeps its own "missing" detail.
+
+### Changed — `docs/confirmation.md` names `crit` as its own rule
+
+The key row's own aside described `crit` only as something the shape check happened to
+cover, rather than one of the rules `check` applies up front, the same way `verify` already
+names `alg` and `crit` together for a permit. Reworded to name both directly.
+
 ## 0.10.0 — 2026-10-31
 
 ### Added — the recipient confirmation (V22), closed per the format note's draft 3

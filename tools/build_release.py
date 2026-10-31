@@ -31,6 +31,13 @@ Run this from a git checkout, not a bare export: steps 2 and 3 call
 `.git` directory above `tools/`. A plain `git archive <ref>` of this script
 alone has nothing to read `HEAD` from and exits before building anything.
 
+CHANGELOG.md's own heading for the release these candidates belong to is plain -- no
+"unreleased", no date -- before this script ever runs: SOURCE_DATE_EPOCH is HEAD's own
+committer time (step 2), so a heading written as though the upload had already happened
+would date the release before it existed. The heading is dated afterwards, in its own
+commit, once PyPI actually holds what this script built (0.9.0's and 0.10.0's own
+precedent).
+
 Usage: `python tools/build_release.py [--outdir DIR]` (default: `./dist`).
 """
 
