@@ -342,13 +342,11 @@ def check(
     widened by `_IAT_WINDOW_SKEW_SECONDS` each way.
     """
     if token is None:
-        if step_outcome_ok:
-            return VerificationResult(
-                status=VerificationStatus.COULD_NOT_CHECK,
-                dependency="step-confirmation",
-                detail="presented a permit; no confirmation recorded",
-            )
-        return VerificationResult(status=VerificationStatus.VERIFIED)
+        return VerificationResult(
+            status=VerificationStatus.COULD_NOT_CHECK,
+            dependency="step-confirmation",
+            detail="presented a permit; no confirmation recorded",
+        )
 
     try:
         header, payload, signing_input, signature = jws.parse(token)

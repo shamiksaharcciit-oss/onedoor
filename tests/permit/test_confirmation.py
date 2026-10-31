@@ -424,9 +424,18 @@ def test_check_c20_no_confirmation_recorded_is_could_not_check() -> None:
     assert "no confirmation recorded" in result.detail
 
 
-def test_check_no_confirmation_and_step_was_not_ok_passes() -> None:
-    result = _check(None, step_outcome_ok=False)
-    assert result.status is VerificationStatus.VERIFIED
+def test_check_no_confirmation_and_step_not_ok_is_the_same_could_not_check_as_c20() -> None:
+    """Format note §7.2 row 5, "either | none recorded | NOT-RUN" -- a step
+    that was not ok, with no confirmation recorded, reads the same
+    could-not-check C20's case does, never VERIFIED. `step_outcome_ok` does
+    not change this branch at all: the recipient simply never said
+    anything, whatever the step's own outcome was."""
+    not_ok = _check(None, step_outcome_ok=False)
+    ok = _check(None, step_outcome_ok=True)
+    assert not_ok == ok
+    assert not_ok.status is VerificationStatus.COULD_NOT_CHECK
+    assert not_ok.dependency == "step-confirmation"
+    assert "no confirmation recorded" in not_ok.detail
 
 
 def test_check_iat_window_fails_the_request_row() -> None:
