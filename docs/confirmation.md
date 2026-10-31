@@ -31,11 +31,10 @@ the effect happened in the world — see the non-claims below.
   action digest, the step's outcome and time window), it checks the
   confirmation against them — never against the permit a second time. Stops
   at the first failing row, the same discipline `verify` follows: key and
-  `typ` (also applying §1's `alg` rule and §2's full shape -- member
-  presence by step -- before the signature is ever checked, which covers
-  refusing an unimplemented `crit` parameter and an `effected` confirmation
-  with no `recipient_action_id`, the same way `verify` itself refuses a
-  permit's `crit`), permit, request, outcome.
+  `typ` (also applying §1's `alg` and `crit` rules and §2's full shape --
+  member presence by step -- before the signature is ever checked, the
+  same way `verify` itself refuses a permit's `crit`), permit, request,
+  outcome.
 
 Single use across many confirmations (two different `effected` tokens for one
 permit) is deliberately not `check`'s own job, since `check` only ever sees
