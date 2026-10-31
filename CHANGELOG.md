@@ -26,7 +26,7 @@ onedoor is the reference implementation of the AADP Internet-Draft
 - **`check` now applies the format note's §1 `alg` rule and §2's full shape
   (member presence by step) before checking the signature, refusing a
   malformed token with its own reason** -- an `alg` other than `EdDSA`, a
-  non-string `iss`/`iat`, an unknown `outcome`, a `step` outside 1-13 or
+  non-string `iss` or a non-integer `iat`, an unknown `outcome`, a `step` outside 1-13 or
   missing its `reason`, and a member present before its own step or missing
   once it should be there, are all malformed (§1, §2.4). It already refused
   an unimplemented `crit` header parameter and an `effected` confirmation
