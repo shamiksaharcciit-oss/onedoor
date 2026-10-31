@@ -207,7 +207,16 @@ def _check(token, **over):  # type: ignore[no-untyped-def]
 def test_check_ignores_an_unknown_payload_member_and_names_it() -> None:
     kid, priv = _recipient_identity()
     token = _signed(
-        kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 1, "extra": 1}
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "malformed",
+            "extra": 1,
+        },
     )
     result = _check(
         token,
@@ -226,7 +235,16 @@ def test_sabotage_without_the_known_field_check_an_unknown_member_is_not_named()
 
     kid, priv = _recipient_identity()
     token = _signed(
-        kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 1, "extra": 1}
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "malformed",
+            "extra": 1,
+        },
     )
     recipients = {
         "https://r.example": {kid: priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)}
@@ -245,9 +263,129 @@ def test_sabotage_without_the_known_field_check_an_unknown_member_is_not_named()
     )
 
 
+# ---------------------------------------------------------------------------
+# Format note §1's `alg` rule and §2's full shape, each probed against a
+# confirmation genuinely, validly signed by the listed key, but malformed
+# under §1 or §2 -- it must still be refused for that reason, never read as
+# verified just because its signature checks out.
+# ---------------------------------------------------------------------------
+
+
+def _listed(kid: str, priv: Ed25519PrivateKey) -> dict:  # type: ignore[type-arg]
+    return {
+        "https://r.example": {kid: priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)}
+    }
+
+
+def test_check_refuses_alg_other_than_eddsa() -> None:
+    kid, priv = _recipient_identity()
+    recipients = _listed(kid, priv)
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    for header in (
+        {"alg": "HS256", "kid": kid, "typ": "aadp-confirmation+jwt"},
+        {"alg": "none", "kid": kid, "typ": "aadp-confirmation+jwt"},
+        {"kid": kid, "typ": "aadp-confirmation+jwt"},  # alg absent
+    ):
+        token = jws.encode(header, payload, priv)
+        result = _check(token, recipients=recipients)
+        assert result.status is VerificationStatus.REFUSED, header
+        assert result.reason is RefusalReason.MALFORMED, header
+        assert result.step == 1, header
+
+
+def test_check_refuses_a_string_iat() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {"iss": "https://r.example", "outcome": "refused", "iat": "soon", "step": 1, "reason": "x"},
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "iat" in result.detail
+
+
+def test_check_refuses_a_step_9_refusal_that_still_carries_action_digest() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 9,
+            "reason": "x",
+            "permit": {"iss": "https://ledger.example", "jti": "J1", "digest": "sha-256=:AAAA:"},
+            "request": {
+                "content_digest": "sha-256=:BBBB:",
+                "signature_base_digest": "sha-256=:CCCC:",
+            },
+            "action_digest": "sha-256=:DDDD:",  # not yet established at step 9
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "action_digest" in result.detail
+
+
+def test_check_refuses_a_refusal_at_step_14() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 14, "reason": "x"},
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "step" in result.detail
+
+
+def test_check_refuses_a_step_9_refusal_with_no_reason() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 9}
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "reason" in result.detail
+
+
+def test_check_refuses_iss_the_number_7() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(kid, priv, {"iss": 7, "outcome": "refused", "iat": 1, "step": 1, "reason": "x"})
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "iss" in result.detail
+
+
+def test_check_refuses_an_unknown_outcome() -> None:
+    kid, priv = _recipient_identity()
+    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "done", "iat": 1})
+    result = _check(token, recipients=_listed(kid, priv), step_outcome_ok=True)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "outcome" in result.detail
+
+
 def test_check_distinguishes_no_list_from_not_listed() -> None:
     kid, priv = _recipient_identity()
-    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 1})
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "malformed",
+        },
+    )
     no_list = _check(token, recipients={})
     assert no_list.status is VerificationStatus.COULD_NOT_CHECK
     assert "no recipient list given" in no_list.detail
@@ -270,7 +408,17 @@ def test_check_no_confirmation_and_step_was_not_ok_passes() -> None:
 
 def test_check_iat_window_fails_the_request_row() -> None:
     kid, priv = _recipient_identity()
-    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "refused", "iat": 10_000})
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 10_000,
+            "step": 1,
+            "reason": "malformed",
+        },
+    )
     result = _check(
         token,
         recipients={
@@ -287,7 +435,17 @@ def test_check_iat_window_fails_the_request_row() -> None:
 
 def test_check_permit_aud_mismatch_fails_the_permit_row() -> None:
     kid, priv = _recipient_identity()
-    token = _signed(kid, priv, {"iss": "https://ledger.example", "outcome": "refused", "iat": 1})
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://ledger.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "malformed",
+        },
+    )
     result = _check(
         token,
         permit_aud="https://payments.example",
@@ -303,7 +461,21 @@ def test_check_permit_aud_mismatch_fails_the_permit_row() -> None:
 
 
 def test_check_not_ok_but_effected_fails_the_outcome_row() -> None:
+    """An `effected` confirmation's shape (§2.1) requires `permit`, both
+    request digests and `action_digest` -- all given here, matching the
+    reference values passed to `check()`, so this reaches the outcome row
+    (step 4) rather than failing shape or a mismatch at an earlier one."""
     kid, priv = _recipient_identity()
+    permit_signer = Ed25519PrivateKey.generate()
+    permit_token = jws.encode(
+        {"alg": "EdDSA", "typ": "aadp-permit+jwt"},
+        {"iss": "https://ledger.example", "jti": "J1"},
+        permit_signer,
+    )
+    permit_digest = confirmation._structured_digest(permit_token.encode("ascii"))
+    content_digest = "sha-256=:BBBB:"
+    signature_base_digest = confirmation._structured_digest(b"")  # matches signature_base="" below
+    action_digest = "sha-256=:DDDD:"
     token = _signed(
         kid,
         priv,
@@ -312,10 +484,20 @@ def test_check_not_ok_but_effected_fails_the_outcome_row() -> None:
             "outcome": "effected",
             "recipient_action_id": "TX-1",
             "iat": 1,
+            "permit": {"iss": "https://ledger.example", "jti": "J1", "digest": permit_digest},
+            "request": {
+                "content_digest": content_digest,
+                "signature_base_digest": signature_base_digest,
+            },
+            "action_digest": action_digest,
         },
     )
     result = _check(
         token,
+        permit_token=permit_token,
+        content_digest=content_digest,
+        signature_base="",
+        action_digest=action_digest,
         recipients={
             "https://r.example": {
                 kid: priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)

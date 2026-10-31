@@ -85,6 +85,92 @@ _IAT_WINDOW_SKEW_SECONDS = 60
 own clock-skew ceiling (`recipient.DEFAULT_CLOCK_SKEW_SECONDS`), reused here
 for the confirmation's `iat` window (format note §7 row 1)."""
 
+_OUTCOMES = frozenset({"effected", "refused", "effect-unknown"})
+
+_DEPENDENCIES = frozenset({"consume-store", "presenter-key-directory", "status"})
+
+_PERMIT_MEMBERS = frozenset({"iss", "jti", "digest"})
+_REQUEST_MEMBERS = frozenset({"content_digest", "signature_base_digest"})
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _shape_problem(payload: dict[str, object]) -> str | None:
+    """Format note §2's presence rules (§2.1, §2.2), checked before the
+    signature so a payload that breaks them is malformed (§2.4) whatever it is
+    signed with -- a valid signature over a shape draft 3 forbids is still a
+    malformed confirmation, never a verified one. Returns a problem string, or
+    `None` when the shape is clean. Ported from the format note's own
+    reference checker (`tests/vectors/check_confirmation_rows_3.py`'s
+    `shape_problem`), adapted to this module's own dict-based payload rather
+    than that script's JSON-only one."""
+    if not isinstance(payload.get("iss"), str):
+        return "iss missing or not a string"
+    if not _is_int(payload.get("iat")):
+        return "iat missing or not an integer"
+    outcome = payload.get("outcome")
+    if outcome not in _OUTCOMES:
+        return "outcome missing or unknown"
+    if outcome == "effected" and "recipient_action_id" not in payload:
+        return "effected without recipient_action_id"
+    if outcome != "effected" and "recipient_action_id" in payload:
+        return f"recipient_action_id on a {outcome!r} confirmation"
+    if outcome != "refused" and any(k in payload for k in ("step", "reason", "dependency")):
+        return f"step, reason or dependency on a {outcome!r} confirmation"
+    if outcome == "refused":
+        by_check = "step" in payload or "reason" in payload
+        if by_check and "dependency" in payload:
+            return "both a check refusal and a dependency"
+        if by_check:
+            step = payload.get("step")
+            if not isinstance(step, int) or isinstance(step, bool) or not (1 <= step <= 13):
+                return "step missing or outside 1 to 13"
+            if not isinstance(payload.get("reason"), str):
+                return "reason missing"
+        elif payload.get("dependency") not in _DEPENDENCIES:
+            return "a refusal with neither step and reason nor a known dependency"
+    for key, members in (("permit", _PERMIT_MEMBERS), ("request", _REQUEST_MEMBERS)):
+        nested = payload.get(key)
+        if key in payload:
+            if not isinstance(nested, dict):
+                return f"{key} is not an object"
+            for member in members:
+                if not isinstance(nested.get(member), str):
+                    return f"{key}.{member} missing"
+    if outcome == "refused" and "step" in payload:
+        step = payload["step"]
+        assert isinstance(step, int)
+        need = {
+            "permit": step > 1,
+            "request.content_digest": step > 7,
+            "request.signature_base_digest": step > 8,
+            "action_digest": step > 9,
+        }
+    elif outcome in ("effected", "effect-unknown"):
+        need = dict.fromkeys(
+            ("permit", "request.content_digest", "request.signature_base_digest", "action_digest"),
+            True,
+        )
+    else:
+        need = None  # a dependency refusal: nothing is required
+    if need is not None:
+        request = payload.get("request")
+        request = request if isinstance(request, dict) else {}
+        have = {
+            "permit": "permit" in payload,
+            "request.content_digest": "content_digest" in request,
+            "request.signature_base_digest": "signature_base_digest" in request,
+            "action_digest": "action_digest" in payload,
+        }
+        for key, required in need.items():
+            if required and not have[key]:
+                return f"{key} missing"
+            if not required and have[key]:
+                return f"{key} present before its step passed"
+    return None
+
 
 class ConfirmationError(ValueError):
     """`build` cannot produce a confirmation for this result."""
@@ -224,6 +310,11 @@ def check(
     five rows -- single use (row 4) is excluded on purpose; see
     `find_reused_permits`. In order: key and `typ`, permit, request, outcome.
     Stops at the first failure, the same discipline `recipient.verify` follows.
+    Before any of that, the key row also applies §1's `alg` rule and §2's
+    full shape (`_shape_problem`) -- a payload that breaks either is malformed
+    (§2.4) and refused with its own reason before the signature is ever
+    checked, so a validly signed but malformed token is never read as
+    verified.
 
     `token` is `None` when the step presented a permit but no confirmation was
     ever recorded (C20) -- only the outcome row has anything to say about that.
@@ -273,12 +364,20 @@ def check(
             reason=RefusalReason.MALFORMED,
             detail=f"unimplemented critical header parameter(s): {crit}",
         )
-    if payload.get("outcome") == "effected" and "recipient_action_id" not in payload:
+    if header.get("alg") != "EdDSA":
         return VerificationResult(
             status=VerificationStatus.REFUSED,
             step=1,
             reason=RefusalReason.MALFORMED,
-            detail="malformed confirmation (effected without recipient_action_id)",
+            detail=f"malformed confirmation (alg {header.get('alg')!r})",
+        )
+    shape_problem = _shape_problem(payload)
+    if shape_problem is not None:
+        return VerificationResult(
+            status=VerificationStatus.REFUSED,
+            step=1,
+            reason=RefusalReason.MALFORMED,
+            detail=f"malformed confirmation ({shape_problem})",
         )
     iss = payload.get("iss")
     kid = header.get("kid")
