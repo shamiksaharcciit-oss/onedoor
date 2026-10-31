@@ -6,7 +6,7 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
-## 0.10.1
+## 0.10.1 — 2026-10-31
 
 ### Fixed — a present-but-wrongly-typed nested permit/request member said "missing"
 
