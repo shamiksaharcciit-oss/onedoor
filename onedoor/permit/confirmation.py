@@ -149,7 +149,7 @@ def _shape_problem(payload: dict[str, object]) -> str | None:
                 return f"{key} is not an object"
             for member in members:
                 if member in nested and not isinstance(nested[member], str):
-                    return f"{key}.{member} missing"
+                    return f"{key}.{member} not a string"
     if outcome == "refused" and "step" in payload:
         step = payload["step"]
         assert isinstance(step, int)

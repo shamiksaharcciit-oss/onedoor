@@ -396,6 +396,29 @@ def test_check_refuses_an_unknown_outcome() -> None:
     assert "outcome" in result.detail
 
 
+def test_check_refuses_a_present_but_non_string_nested_member_as_not_a_string() -> None:
+    """A nested member that is present but is not a string is a different problem from one
+    that is simply not due yet: the detail says "not a string", never "missing" (which stays
+    the word for a member genuinely absent -- see the step-table "need"/"have" checks)."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "x",
+            "request": {"content_digest": 7},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "request.content_digest not a string" in result.detail
+
+
 def _signature_base_for(fx) -> str:  # type: ignore[no-untyped-def]
     """The same base `confirmation.build` computes internally once step 8 is
     reached (`onedoor/permit/confirmation.py`'s own `components` dict),
