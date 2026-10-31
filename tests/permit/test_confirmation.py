@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from onedoor.permit import confirmation, jws
 from onedoor.permit.models import RefusalReason, VerificationResult, VerificationStatus
 from onedoor.permit.recipient import InMemoryConsumeStore, complete_reservation
-from tests.permit.test_recipient import NOW, _build, _verify
+from tests.permit.test_recipient import AUDIENCE, NOW, _build, _verify
 
 
 def _recipient_identity() -> tuple[str, Ed25519PrivateKey]:
@@ -394,6 +394,93 @@ def test_check_refuses_an_unknown_outcome() -> None:
     assert result.status is VerificationStatus.REFUSED
     assert result.reason is RefusalReason.MALFORMED
     assert "outcome" in result.detail
+
+
+def _signature_base_for(fx) -> str:  # type: ignore[no-untyped-def]
+    """The same base `confirmation.build` computes internally once step 8 is
+    reached (`onedoor/permit/confirmation.py`'s own `components` dict),
+    rebuilt here from the fixture so `check` can be given the matching
+    plaintext (it hashes this itself to compare against `signature_base_digest`)."""
+    from onedoor.permit import httpsig
+
+    jkt = fx.claims["cnf"]["jkt"]
+    components = {
+        "@method": fx.request.method.upper(),
+        "@authority": fx.request.authority.lower(),
+        "@path": fx.request.path,
+        "@query": fx.request.query,
+        "content-digest": (fx.request.content_digest_header or "").strip(),
+        "idempotency-key": (fx.request.idempotency_key_header or "").strip(),
+        "aadp-permit": fx.request.permit_token,
+    }
+    return httpsig.signature_base(components, created=fx.request.signature_created, keyid=jkt)
+
+
+def test_build_then_check_never_reads_any_result_as_malformed() -> None:
+    """Every result `build` can be given, round-tripped straight into `check`
+    with matching reference values: a refusal at each step 1 to 13, each of
+    the three dependencies, and both `VERIFIED` outcomes. None of these is
+    ever malformed. A refusal at step 8, and a `presenter-key-directory`
+    dependency refusal (step 8 is the step in progress for it too),
+    legitimately carry `request.content_digest` alone -- `signature_base_digest`
+    is established only once step 8 itself passes -- and must not be refused
+    for the member the step table itself says is not due yet."""
+    fx = _build()
+    kid, priv = _recipient_identity()
+    recipients = _listed(kid, priv)
+    content_digest = confirmation._structured_digest(fx.request.body)
+    signature_base = _signature_base_for(fx)
+    action_digest = fx.claims["action_digest"]
+
+    def _round_trip(result: VerificationResult, *, step_outcome_ok: bool, **build_kwargs):  # type: ignore[no-untyped-def]
+        token = confirmation.build(
+            fx.request,
+            result,
+            recipient_key_id=kid,
+            recipient_private_key=priv,
+            now=NOW,
+            **build_kwargs,
+        )
+        return confirmation.check(
+            token,
+            permit_token=fx.request.permit_token,
+            permit_aud=AUDIENCE,
+            content_digest=content_digest,
+            signature_base=signature_base,
+            action_digest=action_digest,
+            step_started=0,
+            step_ended=1_000_000_000,
+            step_outcome_ok=step_outcome_ok,
+            recipients=recipients,
+        )
+
+    def _assert_not_malformed(checked: VerificationResult, label: object) -> None:
+        assert not (
+            checked.status is VerificationStatus.REFUSED
+            and checked.reason is RefusalReason.MALFORMED
+        ), (label, checked.detail)
+
+    for step in range(1, 14):
+        refused = VerificationResult(
+            status=VerificationStatus.REFUSED, step=step, reason=RefusalReason.MALFORMED
+        )
+        _assert_not_malformed(_round_trip(refused, step_outcome_ok=False), f"step {step}")
+
+    for dependency in ("consume-store", "presenter-key-directory", "status-unavailable"):
+        could_not_check = VerificationResult(
+            status=VerificationStatus.COULD_NOT_CHECK, dependency=dependency
+        )
+        _assert_not_malformed(_round_trip(could_not_check, step_outcome_ok=False), dependency)
+
+    verified = VerificationResult(status=VerificationStatus.VERIFIED)
+    _assert_not_malformed(
+        _round_trip(verified, step_outcome_ok=True, outcome="effected", recipient_action_id="TX-1"),
+        "effected",
+    )
+    _assert_not_malformed(
+        _round_trip(verified, step_outcome_ok=False, outcome="effect-unknown"),
+        "effect-unknown",
+    )
 
 
 def test_check_distinguishes_no_list_from_not_listed() -> None:

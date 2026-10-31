@@ -105,7 +105,7 @@ def shape_problem(p):
             if not isinstance(p[k], dict):
                 return f"{k} is not an object"
             for m in KNOWN_NESTED[k]:
-                if not isinstance(p[k].get(m), str):
+                if m in p[k] and not isinstance(p[k][m], str):
                     return f"{k}.{m} missing"
     if o == "refused" and "step" in p:
         s = p["step"]
