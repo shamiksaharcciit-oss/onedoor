@@ -17,9 +17,8 @@ own `expect` for all 54 vectors' five rows.
 own `onedoor.permit.confirmation.check`, asserting its status, reason and step
 (C09, C10 and C17 are two-step pairs, exercised through `find_reused_permits`
 instead in `test_confirmation_vectors.py`, same as for draft 3 -- draft 4 does
-not change them). For every vector whose key row is `malformed confirmation
-(<problem>)`, the exact `<problem>` text is asserted too: that text, verbatim
-by section, is the whole of what draft 4 adds over draft 3.
+not change them). Every malformed vector's exact detail text is asserted too,
+verbatim by section: that text is the whole of what draft 4 adds over draft 3.
 """
 
 from __future__ import annotations
@@ -105,7 +104,7 @@ _EXPECTED: dict[str, tuple[VerificationStatus, RefusalReason | None, int | None,
     "C06": (REFUSED, RefusalReason.CONFIRMATION_PERMIT_MISMATCH, 2, None),
     "C07": (REFUSED, RefusalReason.CONTENT_MISMATCH, 3, None),
     "C08": (REFUSED, RefusalReason.ACTION_MISMATCH, 3, None),
-    "C11": (REFUSED, MALFORMED, 1, None),
+    "C11": (REFUSED, MALFORMED, 1, "not a recipient confirmation (typ 'aadp-permit+jwt')"),
     "C12": (REFUSED, RefusalReason.CONFIRMATION_OUTCOME_MISMATCH, 4, None),
     "C13": (VERIFIED, None, None, None),
     "C14": (VERIFIED, None, None, None),
@@ -115,11 +114,16 @@ _EXPECTED: dict[str, tuple[VerificationStatus, RefusalReason | None, int | None,
     "C19": (REFUSED, RefusalReason.CONFIRMATION_OUTCOME_MISMATCH, 4, None),
     "C20": (COULD_NOT_CHECK, None, None, None),
     "C21": (REFUSED, RefusalReason.CONTENT_MISMATCH, 3, None),
-    "C22": (REFUSED, MALFORMED, 1, None),
+    "C22": (REFUSED, MALFORMED, 1, "unknown critical header parameter(s): x-ext"),
     "C23": (REFUSED, MALFORMED, 1, "malformed confirmation (effected without recipient_action_id)"),
     "C24": (REFUSED, MALFORMED, 1, "malformed confirmation (duplicate member 'outcome')"),
     "C25": (REFUSED, RefusalReason.CONFIRMATION_OUTCOME_MISMATCH, 4, None),
-    "C26": (REFUSED, MALFORMED, 1, None),
+    "C26": (
+        REFUSED,
+        MALFORMED,
+        1,
+        "not a recipient confirmation (typ 'application/aadp-confirmation+jwt')",
+    ),
     "C27": (REFUSED, RefusalReason.CONTENT_MISMATCH, 3, None),
     "C28": (REFUSED, RefusalReason.CONTENT_MISMATCH, 3, None),
     "C29": (VERIFIED, None, None, None),

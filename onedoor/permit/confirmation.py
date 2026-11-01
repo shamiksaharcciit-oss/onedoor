@@ -370,11 +370,12 @@ def check(
         )
     crit = header.get("crit")
     if crit:
+        names = ", ".join(str(c) for c in crit) if isinstance(crit, list) else str(crit)
         return VerificationResult(
             status=VerificationStatus.REFUSED,
             step=1,
             reason=RefusalReason.MALFORMED,
-            detail=f"unimplemented critical header parameter(s): {crit}",
+            detail=f"unknown critical header parameter(s): {names}",
         )
     if header.get("alg") != "EdDSA":
         return VerificationResult(
