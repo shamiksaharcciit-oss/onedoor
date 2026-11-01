@@ -11,6 +11,11 @@ It closes the last link console's Authorization page shows: proposal → permit
 didn't). A confirmation shows the recipient *said* it acted; it does not show
 the effect happened in the world — see the non-claims below.
 
+onedoor implements the format note's draft 4
+(`tests/vectors/confirmation_vectors_4.json`, C01-C54): draft 3's own rules,
+with every malformed and unreadable problem's exact detail text tested, one
+by one, against this module's own `check`.
+
 ## The two sides
 
 - **`onedoor.permit.confirmation.build`** — the recipient side. Given the

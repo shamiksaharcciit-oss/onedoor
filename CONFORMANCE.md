@@ -156,6 +156,9 @@ The request's `Idempotency-Key` MUST equal the permit's own `jti` (profile
 profile §10 per a separate, not-yet-public format note that fills the gaps
 -00 leaves open there (no JWS header shape, no field table, the digest
 inputs, how the recipient's key is trusted, and what a repeat returns).
+onedoor 0.10.2 implements the format note's draft 4
+(`tests/vectors/confirmation_vectors_4.json`, C01-C54); draft 3, which 0.10.0
+and 0.10.1 implemented, added nothing draft 4 removes.
 Where -00 §12 itself only says a repeat "returns the stored result," the
 format note closes this as: the stored result is the original confirmation,
 byte for byte. `recipient.verify`'s step 13 only reserves `(iss, jti)` and
