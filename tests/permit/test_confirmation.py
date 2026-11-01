@@ -419,6 +419,80 @@ def test_check_refuses_a_present_but_non_string_nested_member_as_not_a_string() 
     assert "request.content_digest not a string" in result.detail
 
 
+# ---------------------------------------------------------------------------
+# Draft 4's three added rules (its own change note). Each already held in
+# check()/_shape_problem; none needed a change -- the reason is given in each
+# test's own docstring.
+# ---------------------------------------------------------------------------
+
+
+def test_a_non_object_permit_is_refused_outright_never_read_as_absent() -> None:
+    """Rule: 'a permit or request that is not an object is absent to the
+    other rows' (format note section 2.4). That is the reference checker's
+    own discipline across its five *independent* rows; check() keeps no such
+    rows to stay consistent -- a non-object permit or request is caught by
+    _shape_problem itself, before any comparison runs, and refused as its
+    own distinct problem ('<member> is not an object'), never silently read
+    as absent and let through to a later row. No change needed."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "x",
+            "permit": "not-an-object",
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "malformed confirmation (permit is not an object)"
+
+
+def test_the_request_row_compares_iat_only_when_it_is_an_integer() -> None:
+    """Rule: the request row compares iat only when it is an integer (format
+    note section 7.2 row 1). check()'s own iat-window comparison already
+    guards with `isinstance(iat, int) and not isinstance(iat, bool)` -- a
+    non-integer iat is refused earlier, at the shape check ('iat missing or
+    not an integer'), and never reaches that comparison; a boolean iat (an
+    int subtype) is excluded by name, not accepted as a 0/1 timestamp. No
+    change needed: given a boolean iat far outside the step's own window,
+    the refusal must still name the shape problem, not the window."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {"iss": "https://r.example", "outcome": "refused", "iat": True, "step": 1, "reason": "x"},
+    )
+    result = _check(token, recipients=_listed(kid, priv), step_started=10_000, step_ended=10_001)
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "malformed confirmation (iat missing or not an integer)"
+
+
+def test_an_unknown_outcome_fails_regardless_of_the_steps_own_reported_outcome() -> None:
+    """Rule: an unknown outcome passes the outcome row, and the key row
+    fails it (format note section 7.2 row 5). check() has one verdict, not
+    five independent rows, so there is no separate outcome row for an
+    unknown outcome to 'pass' -- it is refused by _shape_problem before step
+    4's own outcome comparison ever runs. Demonstrated here by the refusal
+    being identical whichever way the step itself came out: if step 4 ran at
+    all, flipping step_outcome_ok would change which comparison it makes.
+    No change needed."""
+    kid, priv = _recipient_identity()
+    token = _signed(kid, priv, {"iss": "https://r.example", "outcome": "done", "iat": 1})
+    ok_result = _check(token, recipients=_listed(kid, priv), step_outcome_ok=True)
+    not_ok_result = _check(token, recipients=_listed(kid, priv), step_outcome_ok=False)
+    assert ok_result == not_ok_result
+    assert ok_result.status is VerificationStatus.REFUSED
+    assert ok_result.reason is RefusalReason.MALFORMED
+    assert ok_result.detail == "malformed confirmation (outcome missing or unknown)"
+
+
 def _signature_base_for(fx) -> str:  # type: ignore[no-untyped-def]
     """The same base `confirmation.build` computes internally once step 8 is
     reached (`onedoor/permit/confirmation.py`'s own `components` dict),
