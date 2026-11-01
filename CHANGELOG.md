@@ -25,7 +25,11 @@ A confirmation whose payload names the same member twice is unreadable (format
 note §2.4), and the key row fails it the same way every other malformed
 confirmation does: `malformed confirmation (<problem>)`. `check` passed
 `jws.parse`'s own duplicate-key wording straight through instead, so this case's
-detail never matched the format note's text.
+detail never matched the format note's text. `check` now wraps every parse
+failure this way, as `malformed confirmation (<problem>)`. A permit that
+names a member twice now reads `duplicate member '<name>'` at step 1, the
+same wording change in `jws.parse` carried to the permit side's own, unwrapped
+detail.
 
 ## 0.10.1 — 2026-10-31
 
