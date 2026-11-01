@@ -71,7 +71,25 @@ package ships, and not packaged in the wheel.
   agrees with the file's own stated `expect` for all 29 vectors' five rows.
   See `docs/confirmation.md`. Superseded `confirmation_vectors_1.json`
   (C01-C21) and `confirmation_vectors_0.json` (draft 0, C01-C12) entirely;
-  neither earlier file is kept alongside it.
+  neither earlier file is kept alongside it. Kept beside
+  `confirmation_vectors_4.json` below, as the record of what onedoor 0.10.0
+  and 0.10.1 claimed before draft 4.
+- **`confirmation_vectors_4.json`** (format `confirmation-vectors/4-draft`) —
+  draft 4's vectors: C01-C29 unchanged from `confirmation_vectors_3.json`
+  (token and expectation both), and C30-C54 added to exercise, one by one,
+  every problem format note section 2.4's table names, each with its exact
+  text. `gen_confirmation_vectors_4.py` is the generator, kept the same way as
+  draft 3's: in draft 4's own pack, outside this repository.
+  `check_confirmation_rows_4.py` is draft 4's reference checker, reformatted
+  from the format note's own copy only as this repository's lint requires (the
+  format note's own §9 permits this: it is the same checker when it reads
+  every vector as stated). `test_confirmation_vectors_4.py` checks two
+  things: `check_confirmation_rows_4.py` agrees with the file's own stated
+  `expect` for all 54 vectors' five rows; and `onedoor.permit.confirmation.check`
+  reads each of the 51 one-step vectors (C09, C10, C17 are two-step pairs,
+  exercised through `find_reused_permits` instead, same as draft 3) with the
+  expected status, reason and step, and for every malformed one, the exact
+  detail text draft 4's own table gives it.
 
 ## Regenerating
 
