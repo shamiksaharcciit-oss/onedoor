@@ -799,10 +799,12 @@ def test_c23_effected_with_no_recipient_action_id_is_malformed() -> None:
 
 
 def test_c24_a_duplicate_payload_member_is_malformed() -> None:
-    result = _check_vector(_load(), "C24")
+    data = _load()
+    result = _check_vector(data, "C24")
     assert result.status is VerificationStatus.REFUSED
     assert result.reason is confirmation.RefusalReason.MALFORMED
-    assert "duplicate" in result.detail
+    step_name = data["vectors"]["C24"]["steps"][0]["name"]
+    assert f"{step_name}: {result.detail}" == data["vectors"]["C24"]["expect"]["key"][1]
 
 
 def test_c25_refused_for_a_dependency_but_the_step_reported_ok_fails_the_outcome_row() -> None:

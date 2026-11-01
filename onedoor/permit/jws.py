@@ -89,7 +89,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
     result: dict[str, object] = {}
     for key, value in pairs:
         if key in seen:
-            raise MalformedJWS(f"duplicate object key: {key!r}")
+            raise MalformedJWS(f"duplicate member {key!r}")
         seen.add(key)
         result[key] = value
     return result

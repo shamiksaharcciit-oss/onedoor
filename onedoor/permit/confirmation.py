@@ -355,7 +355,7 @@ def check(
             status=VerificationStatus.REFUSED,
             step=1,
             reason=RefusalReason.MALFORMED,
-            detail=str(exc),
+            detail=f"malformed confirmation ({exc})",
         )
 
     unknown = sorted(set(payload) - _KNOWN_PAYLOAD_FIELDS)
