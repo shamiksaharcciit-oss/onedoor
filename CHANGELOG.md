@@ -36,8 +36,8 @@ detail.
 ### Fixed — a present-but-wrongly-typed nested permit/request member said "missing"
 
 `onedoor.permit.confirmation.check` and the vectors' own reference checker copy
-(`tests/vectors/check_confirmation_rows_3.py`) both reported a nested `permit`/`request`
-member as missing for a present member that is not a string. Each now says
+(`tests/vectors/check_confirmation_rows_3.py`) both reported a present `permit` or
+`request` member that is not a string as missing. Each now says
 `<key>.<member> not a string` for that case; a member that is actually absent (decided by
 the step table) keeps its own "missing" detail.
 
