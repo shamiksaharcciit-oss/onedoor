@@ -6,15 +6,36 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
+## 0.10.2
+
+### Added — the confirmation format's draft 4
+
+`tests/vectors/confirmation_vectors_4.json` and its reference checker
+(`tests/vectors/check_confirmation_rows_4.py`) join `confirmation_vectors_3.json`
+and its own checker, which stay as the record of what 0.10.0 and 0.10.1 claimed.
+C01-C29 are unchanged from draft 3; C30-C54 exercise, one by one, every
+malformed and unreadable problem the format note's own table names, each
+against `onedoor.permit.confirmation.check`'s exact detail text.
+`docs/confirmation.md` and `CONFORMANCE.md` now name draft 4 as the format
+implemented.
+
+### Fixed — a duplicate confirmation payload member read `jws`'s own wording
+
+A confirmation whose payload names the same member twice is unreadable (format
+note §2.4), and the key row fails it the same way every other malformed
+confirmation does: `malformed confirmation (<problem>)`. `check` passed
+`jws.parse`'s own duplicate-key wording straight through instead, so this case's
+detail never matched the format note's text.
+
 ## 0.10.1 — 2026-10-31
 
 ### Fixed — a present-but-wrongly-typed nested permit/request member said "missing"
 
 `onedoor.permit.confirmation.check` and the vectors' own reference checker copy
 (`tests/vectors/check_confirmation_rows_3.py`) both reported a nested `permit`/`request`
-member as missing whenever its type check failed, even one that is genuinely present with
-the wrong type. Each now says `<key>.<member> not a string` for that case; a member that is
-actually absent (decided by the step table) keeps its own "missing" detail.
+member as missing for a present member that is not a string. Each now says
+`<key>.<member> not a string` for that case; a member that is actually absent (decided by
+the step table) keeps its own "missing" detail.
 
 ### Changed — `docs/confirmation.md` names `crit` as its own rule
 
