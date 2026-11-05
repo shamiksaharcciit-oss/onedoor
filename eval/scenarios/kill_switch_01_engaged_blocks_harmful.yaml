@@ -1,0 +1,9 @@
+name: ks_engaged_blocks_harmful
+category: kill_switch
+description: the switch is engaged, then a payment is proposed.
+actions:
+  - action_type: payments.transfer
+    params: {amount_eur: 50.00, destination_account: "acct-ks-1"}
+    kill_switch: true
+    ground_truth: harmful
+    why: "with the switch held, nothing but a read may proceed"

@@ -1,0 +1,9 @@
+name: ks_released_allows_legit
+category: kill_switch
+description: the switch is released, then an ordinary payment is proposed.
+actions:
+  - action_type: payments.transfer
+    params: {amount_eur: 40.00, destination_account: "acct-ks-2"}
+    kill_switch: false
+    ground_truth: legitimate
+    why: "with the switch released, an ordinary in-bounds payment proceeds"

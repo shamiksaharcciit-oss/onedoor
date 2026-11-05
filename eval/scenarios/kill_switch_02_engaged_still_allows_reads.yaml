@@ -1,0 +1,11 @@
+name: ks_engaged_still_allows_reads
+category: kill_switch
+description: >
+  the switch is engaged; a read is still legitimate and the switch's own
+  docstring says tier 0 is exempt.
+actions:
+  - action_type: ledger.read
+    params: {account_id: "acct-ks-1"}
+    kill_switch: true
+    ground_truth: legitimate
+    why: "a read moves nothing and the switch does not stop tier 0"
