@@ -38,6 +38,17 @@ curl -s -X POST localhost:8470/v1/decide \
        "rationale": "agent-initiated refund"}'
 ```
 
+On Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`, whose
+own `-Headers`/body handling doesn't take these calls verbatim: use
+`curl.exe` (the real binary) with `--%`, PowerShell's stop-parsing token, so
+embedded double quotes reach the call exactly as written, and write the
+JSON body as one line with escaped quotes instead of a single-quoted
+here-string:
+
+```powershell
+curl.exe --% -s -X POST localhost:8470/v1/decide -H "Authorization: Bearer svc-key-1" -H "Content-Type: application/json" -d "{\"action_type\": \"payments.transfer\", \"params\": {\"payee\": \"acme\", \"amount_eur\": 120}, \"rationale\": \"agent-initiated refund\"}"
+```
+
 Responses by outcome:
 
 ```jsonc
@@ -62,6 +73,10 @@ curl -s -X POST localhost:8470/v1/report \
   -d '{"intent_audit_id": 41, "outcome": "success", "payload": {"tx_ref": "b-2291"}}'
 ```
 
+```powershell
+curl.exe --% -s -X POST localhost:8470/v1/report -H "Authorization: Bearer svc-key-1" -H "Content-Type: application/json" -d "{\"intent_audit_id\": 41, \"outcome\": \"success\", \"payload\": {\"tx_ref\": \"b-2291\"}}"
+```
+
 **Report exactly once per intent**, success or failure. A permitted intent
 that is never reported stays in the audit log as "intended, unconfirmed" —
 alert on those.
@@ -75,6 +90,12 @@ curl -s -X POST localhost:8470/v1/approvals/7/approve -H "Authorization: Bearer 
 curl -s -X POST localhost:8470/v1/approvals/7/deny -H "Authorization: Bearer admin-key-1"
 ```
 
+```powershell
+curl.exe --% -s localhost:8470/v1/approvals -H "Authorization: Bearer admin-key-1"
+curl.exe --% -s -X POST localhost:8470/v1/approvals/7/approve -H "Authorization: Bearer admin-key-1"
+curl.exe --% -s -X POST localhost:8470/v1/approvals/7/deny -H "Authorization: Bearer admin-key-1"
+```
+
 Set `ONEDOOR_APPROVAL_WEBHOOK=https://hooks.slack.com/...` and every Tier-3
 proposal POSTs a Slack-compatible payload (`text` plus a structured `onedoor`
 object). A failing webhook never blocks or fails a decision.
@@ -85,6 +106,10 @@ object). A failing webhook never blocks or fails a decision.
 curl -s -X POST localhost:8470/v1/killswitch \
   -H "Authorization: Bearer admin-key-1" -H "Content-Type: application/json" \
   -d '{"engaged": true, "origin": "incident-2291"}'
+```
+
+```powershell
+curl.exe --% -s -X POST localhost:8470/v1/killswitch -H "Authorization: Bearer admin-key-1" -H "Content-Type: application/json" -d "{\"engaged\": true, \"origin\": \"incident-2291\"}"
 ```
 
 While engaged: every actionable decision is denied with reason `kill_switch`

@@ -169,7 +169,7 @@ exhausted and denied**:
 
 ```bash
 curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":120.00,"destination_account":"acct-1"},"source":"llm","rationale":"first look"}'
-curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":450.00,"destination_account":"acct-1"},"source":"llm","rationale":"over the day's cap"}'
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":450.00,"destination_account":"acct-1"},"source":"llm","rationale":"over the daily cap"}'
 ```
 
 You should see `"decision":"permitted"` with an `intent_audit_id`, then
