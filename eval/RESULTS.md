@@ -1,6 +1,6 @@
 # eval results
 
-onedoor 0.10.2 (a49ecd77af01), run on 2026-11-05.
+onedoor 0.10.2 (a49ecd77af01).
 
 Wording: "stopped" (denied or refused outright), "held" (proposed, awaiting a person), "carried out" (the simulated tool recorded an effect). Numbers only; no claim beyond what a scenario measured.
 

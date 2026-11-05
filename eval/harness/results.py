@@ -1,5 +1,5 @@
 """Renders ``eval/RESULTS.md``. Written only by the runner -- never by hand --
-so two runs produce byte-identical output apart from the date line."""
+so two runs produce byte-identical output."""
 
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ FIELDS = (
 class RunMeta:
     onedoor_version: str
     onedoor_commit: str
-    run_date: str  # YYYY-MM-DD
 
 
 def _scenario_line(
@@ -46,7 +45,7 @@ def render(
     lines = [
         "# eval results",
         "",
-        f"onedoor {meta.onedoor_version} ({meta.onedoor_commit}), run on {meta.run_date}.",
+        f"onedoor {meta.onedoor_version} ({meta.onedoor_commit}).",
         "",
         'Wording: "stopped" (denied or refused outright), "held" (proposed, '
         'awaiting a person), "carried out" (the simulated tool recorded an '

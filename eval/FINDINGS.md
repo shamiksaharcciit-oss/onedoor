@@ -4,7 +4,7 @@
 
 ## `appr_expired_then_retried` (approval)
 
-- what: an approval presented after its own expiry re-proposed a fresh approval instead of resolving denied (ND-009 absent-treatment)
+- what: an approval presented after its own expiry re-proposed a fresh approval instead of resolving denied (an approval presented after its expiry is treated as absent)
 - decision/reason: `held` / `tier_confirm`
 - backlog item: 4
 

@@ -3,7 +3,6 @@ scenarios through onedoor's real API, so each is seconds, not milliseconds."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from eval.harness import cli
@@ -12,8 +11,6 @@ from eval.harness.scenario import CATEGORIES
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 RESULTS_PATH = REPO_ROOT / "eval" / "RESULTS.md"
 FINDINGS_PATH = REPO_ROOT / "eval" / "FINDINGS.md"
-
-_DATE_LINE = re.compile(r"run on \d{4}-\d{2}-\d{2}\.")
 
 
 def test_every_category_runs() -> None:
@@ -24,7 +21,7 @@ def test_every_category_runs() -> None:
     assert "not run" not in text, "a category was parked in a run with nothing to park"
 
 
-def test_two_runs_are_identical_apart_from_the_date() -> None:
+def test_two_runs_are_identical() -> None:
     cli.run(only="ambiguity", record=False)
     first = RESULTS_PATH.read_text(encoding="utf-8")
     first_findings = FINDINGS_PATH.read_text(encoding="utf-8")
@@ -32,7 +29,7 @@ def test_two_runs_are_identical_apart_from_the_date() -> None:
     second = RESULTS_PATH.read_text(encoding="utf-8")
     second_findings = FINDINGS_PATH.read_text(encoding="utf-8")
 
-    assert _DATE_LINE.sub("run on DATE.", first) == _DATE_LINE.sub("run on DATE.", second)
+    assert first == second
     assert first_findings == second_findings
 
 

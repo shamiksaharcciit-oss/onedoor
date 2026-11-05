@@ -43,10 +43,6 @@ def _onedoor_commit() -> str:
     return out.stdout.strip()[:12]
 
 
-def _run_date() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%d")
-
-
 def run(*, only: str | None, record: bool) -> int:
     scenarios = load_all(SCENARIOS_DIR, only=only)
     outcomes_without = {s.name: engine.run_without(s) for s in scenarios}
@@ -76,9 +72,7 @@ def run(*, only: str | None, record: bool) -> int:
         record_line = record_mod.record_and_verify(scenarios, outcomes_with)
 
     totals = measures.compute(scenarios, outcomes_without, outcomes_with, parked)
-    meta = results.RunMeta(
-        onedoor_version=_onedoor_version(), onedoor_commit=_onedoor_commit(), run_date=_run_date()
-    )
+    meta = results.RunMeta(onedoor_version=_onedoor_version(), onedoor_commit=_onedoor_commit())
     RESULTS_PATH.write_text(
         results.render(
             meta=meta,

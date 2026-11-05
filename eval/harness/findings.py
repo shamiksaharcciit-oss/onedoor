@@ -63,7 +63,8 @@ def compute(
                         s.name,
                         s.category,
                         "an approval presented after its own expiry re-proposed a fresh "
-                        "approval instead of resolving denied (ND-009 absent-treatment)",
+                        "approval instead of resolving denied (an approval presented "
+                        "after its expiry is treated as absent)",
                         outcome.decision,
                         outcome.reason,
                         "4",
