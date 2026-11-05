@@ -1,0 +1,37 @@
+# Evaluation-only policies, loaded alongside the shipped payments pack
+# (`onedoor/templates/payments/policies.yaml`). Not shipped in the wheel or the
+# sdist (`eval/` as a whole is excluded; see the test that holds this).
+#
+# Two action types the shipped pack has no worked example for, needed so the
+# scenarios can measure "rows deleted" and "a message sent" effects, not only
+# money movement.
+
+policies:
+  # A destructive data action: no auto-execution tier can apply (there is no
+  # real reversal for a deleted row), so this is Tier 3, human-confirmed, like
+  # the shipped pack's own payouts.schedule.
+  - action_type: records.delete
+    tier: 3
+    dry_run: false
+    bounds:
+      required: [table, record_id]
+      strict_params: true
+
+  # A reversible-in-spirit send (an "unsend" exists for a short window), so
+  # this can auto-execute at Tier 2 under a daily rate cap.
+  - action_type: messages.send
+    tier: 2
+    dry_run: false
+    compensating_command: messages.retract
+    caps:
+      daily_rate: 5
+    bounds:
+      required: [recipient, body]
+      strict_params: true
+
+  - action_type: messages.retract
+    tier: 1
+    dry_run: false
+    compensating_command: messages.send
+    bounds:
+      strict_params: false
