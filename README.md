@@ -294,8 +294,18 @@ detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
   only by a daily rate still sends to whatever recipient the call names,
   including one named by untrusted text.
 
-A longer-standing, measured list -- numeric precision at the wire boundary,
-URL pattern evasion, and the rest -- is in
+## Known limitations
+
+**A decimal string in `params` was refused by a `numeric` bound -- a
+conformance defect, ours, fixed in 0.8.0.** `{"amount_eur": "40.00"}` is
+permitted, exactly like `{"amount_eur": 40.00}`; `{"amount_eur": "abc"}` and
+`{"amount_eur": "1e3"}` are both refused with
+`"decision":"denied","reason":"bounds"`, detail `"param 'amount_eur' must
+be numeric: … (got 'abc')"` (or `'1e3'`) -- exponent notation is a refused
+*spelling*, not merely unparseable.
+
+A longer-standing, measured list -- this defect's own history, numeric
+precision at the wire boundary, URL pattern evasion, and the rest -- is in
 [`CHANGELOG.md`](CHANGELOG.md) and [`CONFORMANCE.md`](CONFORMANCE.md).
 
 ## Roadmap
