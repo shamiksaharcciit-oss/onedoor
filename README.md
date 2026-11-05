@@ -20,8 +20,8 @@ that cannot be undone — and a refusal or an alert written *after* the fact
 does not undo it.
 
 onedoor is a decision **before** the action: written policies with tiers,
-budgets and effect caps; human approval for anything the policy marks
-irreversible; single-use permits bound to one action and recipient; the
+budgets and effect caps; human approval for actions a policy places in its
+approval tier (tier 3); single-use permits bound to one action and recipient; the
 recipient's own signed confirmation that it acted; a kill switch; and a
 signed decision receipt for every verdict. It sits between the agent and the
 systems it acts on:
@@ -98,9 +98,9 @@ python -m eval run
 ## How it works
 
 **A decision.** Every proposed action is checked against the policy table:
-tier, numeric bounds, effect caps, and (for a tier the policy marks
-irreversible) a requirement to hold for a person. A denial always carries a
-reason code.
+tier, numeric bounds, effect caps, and (for an action in the policy's
+approval tier, tier 3) a requirement to hold for a person. A denial always
+carries a reason code.
 
 ```mermaid
 flowchart TD
