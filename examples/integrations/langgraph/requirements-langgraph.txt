@@ -1,0 +1,2 @@
+langgraph==1.2.12 \
+    --hash=sha256:95403af7b510de8d79164742f71daaf866c69ca804a8cb72bef2cc1fa1ab9813

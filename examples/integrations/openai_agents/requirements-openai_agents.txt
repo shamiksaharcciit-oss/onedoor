@@ -1,0 +1,2 @@
+openai-agents==0.24.0 \
+    --hash=sha256:18d4ac34e84ed937333ec8ce46395ed3521ffcbb0a521780a4c2eaa451467f49

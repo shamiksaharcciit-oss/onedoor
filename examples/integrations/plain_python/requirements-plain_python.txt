@@ -1,0 +1,4 @@
+# No framework beyond onedoor itself: a plain Python tool function needs
+# nothing else to be governed. This file exists so the pattern matches every
+# other integration's folder, and so a reader does not have to wonder whether
+# something is missing.
