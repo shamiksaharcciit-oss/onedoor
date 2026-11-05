@@ -10,9 +10,28 @@ from dataclasses import dataclass
 
 from eval.harness.engine import ActionOutcome
 from eval.harness.measures import duplicate_effects
-from eval.harness.scenario import Scenario
+from eval.harness.scenario import Action, Scenario
 
 BACKLOG_FOR_CATEGORY = {"tool_failure": "5", "approval": "4"}
+
+
+def _describe(action: Action) -> str:
+    """A plain sentence fragment for one action, built only from its own
+    action_type and params -- so a finding's wording stays generated from
+    the scenario's own data, not hand-written per scenario."""
+    p = action.params
+    bits = [action.action_type]
+    if "amount_eur" in p:
+        bits.append(f"of EUR {p['amount_eur']:.2f}")
+    destination = p.get("destination_account")
+    recipient = p.get("recipient")
+    if destination:
+        bits.append(f"to {destination}")
+    elif recipient:
+        bits.append(f"to {recipient}")
+    if "table" in p and "record_id" in p:
+        bits.append(f"on {p['table']}/{p['record_id']}")
+    return " ".join(bits)
 
 
 @dataclass(frozen=True)
@@ -40,7 +59,7 @@ def compute(
                     Finding(
                         s.name,
                         s.category,
-                        "a harmful action was carried out",
+                        f"{_describe(action)} was carried out, decided `{outcome.decision}`.",
                         outcome.decision,
                         outcome.reason,
                         backlog,
@@ -51,7 +70,8 @@ def compute(
                     Finding(
                         s.name,
                         s.category,
-                        "a legitimate action was wrongly stopped",
+                        f"{_describe(action)} was stopped (`{outcome.decision}`), though it "
+                        "was legitimate.",
                         outcome.decision,
                         outcome.reason,
                         backlog,
@@ -62,9 +82,9 @@ def compute(
                     Finding(
                         s.name,
                         s.category,
-                        "an approval presented after its own expiry re-proposed a fresh "
-                        "approval instead of resolving denied (an approval presented "
-                        "after its expiry is treated as absent)",
+                        f"{_describe(action)}, presented again past its own approval's "
+                        "expiry, re-proposed a fresh approval instead of resolving denied "
+                        "(an approval presented after its expiry is treated as absent).",
                         outcome.decision,
                         outcome.reason,
                         "4",
@@ -73,11 +93,14 @@ def compute(
         if s.category == "tool_failure":
             dup = duplicate_effects(s, outcomes)
             if dup:
+                retry_action = next((a for a in s.actions if a.retry_of is not None), None)
+                desc = _describe(retry_action) if retry_action is not None else s.name
                 findings.append(
                     Finding(
                         s.name,
                         s.category,
-                        f"the same effect was carried out {dup + 1} time(s) after a timeout retry",
+                        f"{desc}: the retry was not correlated to the original, so the "
+                        f"effect was carried out {dup + 1} time(s).",
                         "n/a",
                         "no retry correlation",
                         "5",
