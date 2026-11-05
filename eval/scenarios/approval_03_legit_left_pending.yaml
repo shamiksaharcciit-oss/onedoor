@@ -1,0 +1,10 @@
+name: appr_legit_left_pending
+category: approval
+description: >
+  a legitimate batch payout is proposed and nobody has answered it yet --
+  the "held" bucket, distinct from "stopped".
+actions:
+  - action_type: payouts.schedule
+    params: {batch_id: "b-appr-1"}
+    ground_truth: legitimate
+    why: "awaiting a person; not yet decided either way"
