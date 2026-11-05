@@ -44,7 +44,7 @@ the real one may be called). Each fits beside onedoor, not instead of it: a
 prompt filter can still catch what a model says before it ever proposes an
 action; a sandbox can still isolate the tool onedoor has permitted to run.
 
-**With [onetrace](https://github.com/shamiksaharcciit-oss/onetrace):**
+**With [onetrace](https://pypi.org/project/onetrace/) ([docs](https://oneproof.dev/onetrace/)):**
 onedoor decides; onetrace records each decision in a signed run that anyone
 can verify offline, with no network call. The two are independent packages
 with one documented seam (`onedoor.guardrail.decision_ref`, `ot.decision`) —
