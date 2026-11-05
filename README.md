@@ -121,7 +121,8 @@ operator recorded. The principal who proposed an action can never also
 approve it.
 
 **Permits.** Where a policy declares one, onedoor issues a single-use,
-signed permit bound to one action and one recipient. The recipient verifies
+signed permit bound to one action and one recipient -- through the library
+today; the decision service doesn't issue them yet. The recipient verifies
 it independently (`onedoor.permit.recipient`) before acting, and a second
 presentation of an already-consumed permit for a different instruction is
 refused, not silently repeated.
@@ -285,7 +286,7 @@ onedoor; it is not a claim about every agent, every tool, or every version.
 A recipient's confirmation shows the recipient said it acted -- not that it
 did, independent of what it says.
 
-Two gaps the evaluation found and kept, open as of this release (full
+Four gaps the evaluation found and kept, open as of this release (full
 detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
 
 - **No retry correlation.** A tool that times out after possibly acting,
@@ -293,6 +294,12 @@ detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
 - **No recipient check beyond rate and budget.** A message action gated
   only by a daily rate still sends to whatever recipient the call names,
   including one named by untrusted text.
+- **An expired approval is proposed again, not denied.** Presenting an
+  approval after its own expiry re-proposes a fresh approval instead of
+  resolving denied.
+- **Bound permits are library-only.** The decision service carries no
+  presenter key thumbprint and configures no permit issuer, so a bound
+  permit is issued through the library today, not over the service.
 
 ## Known limitations
 
