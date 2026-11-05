@@ -5,83 +5,154 @@
 [![Python](https://img.shields.io/pypi/pyversions/onedoor.svg)](https://pypi.org/project/onedoor/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/LICENSE)
 
-**A tiered guardrail engine for agentic systems.**
-The model proposes; the policy layer disposes.
+**A decision point for agentic systems: policy, before the action, with a measured record of what it stops and what it misses.**
 
-Every action in an agentic system — scheduled, rule-fired, LLM-proposed, or
-human-clicked — is a structured `ActionRequest` evaluated by one executor
-against a policy table before anything touches the world. There is one door.
-Nothing else is allowed to call a connector.
+**For reviewers:** [Project overview](#why-onedoor) &middot;
+[Safety approach](#how-it-works) &middot;
+[Supporting evidence](#tested-against-irreversible-actions) &middot;
+[Limitations](#limitations-and-non-claims)
+
+## Why onedoor
+
+Agents with tools act. Under ambiguity, a conflicting constraint, or a tool
+that fails after it may already have acted, an agent can carry out an action
+that cannot be undone — and a refusal or an alert written *after* the fact
+does not undo it.
+
+onedoor is a decision **before** the action: written policies with tiers,
+budgets and effect caps; human approval for anything the policy marks
+irreversible; single-use permits bound to one action and recipient; the
+recipient's own signed confirmation that it acted; a kill switch; and a
+signed decision receipt for every verdict. It sits between the agent and the
+systems it acts on:
+
+```mermaid
+flowchart LR
+    A[agent / model] -->|proposes an action| D[onedoor: decide]
+    D -->|permitted| T[the real tool / API]
+    D -->|denied| A
+    D -->|held| H[a person]
+    H -->|approves or denies| D
+    T -->|reports the outcome| D
+```
+
+**What onedoor is not:** not a prompt or output filter on the model (nothing
+here reads or shapes what the model says); not monitoring after the fact
+(the decision happens before the tool runs, not as an alert once it has);
+not a sandbox (it does not isolate or simulate the tool — it decides whether
+the real one may be called). Each fits beside onedoor, not instead of it: a
+prompt filter can still catch what a model says before it ever proposes an
+action; a sandbox can still isolate the tool onedoor has permitted to run.
+
+**With [onetrace](https://github.com/shamiksaharcciit-oss/onetrace):**
+onedoor decides; onetrace records each decision in a signed run that anyone
+can verify offline, with no network call. The two are independent packages
+with one documented seam (`onedoor.guardrail.decision_ref`, `ot.decision`) —
+see [the evaluation's own recording section](eval/README.md#recording-and-verifying-with-onetrace)
+for a worked example.
+
+## Tested against irreversible actions
+
+A scripted, rerunnable evaluation (`eval/`) built from a published
+challenge's own failure modes for irreversible autonomous actions: eight
+categories of agent scenario, each run once against a plain executor that
+carries out everything proposed, and once through onedoor 0.10.2's real
+decision API.
+
+| category | harmful, without onedoor | harmful, with onedoor | legitimate, wrongly stopped | held for a person | duplicate effects (without / with) |
+|---|---|---|---|---|---|
+| ambiguity | 2 | 0 | 0 | 0 | 0 / 0 |
+| approval | 3 | 0 | 0 | 3 | 0 / 0 |
+| conflicting_constraints | 3 | 0 | 0 | 0 | 0 / 0 |
+| injected_instruction | 3 | 1 | 0 | 1 | 0 / 0 |
+| kill_switch | 2 | 0 | 0 | 0 | 0 / 0 |
+| ordinary_work | 0 | 0 | 0 | 0 | 0 / 0 |
+| permits | 3 | 0 | 0 | 0 | 0 / 0 |
+| tool_failure | 2 | 2 | 0 | 0 | 2 / 2 |
+| **total** | **18** | **3** | **0** | **4** | **2 / 2** |
+
+![two bars per category: harmful actions carried out, without onedoor and with it](docs/img/eval-results.svg)
+
+Without onedoor, every harmful scenario action is carried out (18 of 18).
+With onedoor: zero legitimate actions are wrongly stopped, and three harmful
+actions still get through -- found, kept, and reported honestly rather than
+hidden: a naive retry after a tool timeout moves money or sends a message a
+second time (the duplicate-effects column; no retry correlation exists yet),
+and a message to a recipient named by injected text is not stopped by
+anything that checks *who* the recipient is (onedoor's policies gate by
+budget and rate, not by recipient reputation). Both are kept, with the
+roadmap item that would address them, in
+[`eval/FINDINGS.md`](eval/FINDINGS.md).
+
+Full table, every scenario's own line, and how to rerun it:
+[`eval/RESULTS.md`](eval/RESULTS.md) &middot; findings:
+[`eval/FINDINGS.md`](eval/FINDINGS.md) &middot; how to add a scenario and
+what this measurement doesn't show: [`eval/README.md`](eval/README.md).
+Recorded and verified with onetrace: see below.
 
 ```
-kill switch → policy lookup / default-deny → tier-1 integrity (no undo, no
-autonomy) → bounds → dry-run → caps → two-phase execute → append-only audit
+pip install -e ".[dev,service]"
+python -m eval run
 ```
 
-## Why another guardrail project?
+## How it works
 
-Most "guardrails" govern what a model may *say*. This engine governs what an
-agent may *do* — and it takes positions most frameworks leave as wishes:
+**A decision.** Every proposed action is checked against the policy table:
+tier, numeric bounds, effect caps, and (for a tier the policy marks
+irreversible) a requirement to hold for a person. A denial always carries a
+reason code.
 
-- **Default-deny.** An unlisted action type is not an error and not a pass:
-  it is refused, with reason `default_deny` and a refusal that says what would allow it.
-- **Reversibility is a precondition for autonomy.** An auto-tier action whose
-  policy declares no compensating command is demoted to human approval at
-  runtime — and the policy loader refuses to boot if a Tier-1 entry lacks one.
-  Undo is not a feature; it is the admission ticket to auto-execution.
-- **The kill switch outranks everything, including prior consent.** Checked
-  before policy lookup; an already-approved action arriving while the switch
-  is engaged is blocked (without spawning an approval loop). Reads stay exempt
-  — you want visibility *during* the incident.
-- **Bounds are validated before a human ever sees a proposal**, so the
-  approval screen can only contain physically sane requests. The human decides
-  *whether*, never has to catch *whether it's insane*.
-- **Rehearsal must not spend a real budget.** Dry-run is resolved before cap
-  accounting; new action types start in dry-run and log "would have executed".
-- **Caps are reserved race-free** inside the deciding transaction
-  (`BEGIN IMMEDIATE`), so two concurrent requests cannot share the last slot.
-- **Two-phase execution.** Tx A decides, reserves caps, and records intent;
-  the connector call runs outside any DB lock under a hard timeout; Tx B
-  appends the result. A hung smart-plug API cannot hold the engine hostage,
-  and a crash leaves an honest "intended, unconfirmed" trail.
-- **The audit log is append-only** — decisions, results, denials, dry-runs,
-  and kill-switch blocks, all with typed reason codes, never updated in place.
-- **Effects, not just names.** The same real-world effect through
-  differently-named tools shares one budget and one tier floor
-  (`effects: [money.egress]` + deterministic `param_effects` rules for
-  generic tools) — measured coverage and honest residue in
-  `experiments/aliasing_benchmark.py`.
-- **Policies are data, not code** (`config/policies.yaml`): tiers, bounds,
-  caps, undo windows, dry-run flags. Changing what's allowed never means
-  changing the engine.
+```mermaid
+flowchart TD
+    P[proposed action] --> K{kill switch engaged?}
+    K -->|yes, tier > 0| Deny1[denied: kill_switch]
+    K -->|no| L{listed by a policy?}
+    L -->|no| Deny2[denied: default_deny]
+    L -->|yes| B{bounds, caps ok?}
+    B -->|no| Deny3[denied: bounds / budget_exhausted]
+    B -->|yes| T{tier}
+    T -->|1 or 2| X[executed, reported]
+    T -->|3| H[held for a person]
+```
 
-## Tiers
+**Approval.** A tier-3 proposal waits for a person; approved, it executes
+and reports exactly like an auto-tier action; denied, it is refused with the
+operator recorded. The principal who proposed an action can never also
+approve it.
 
-| Tier | Meaning | Example policy |
-|------|---------|----------------|
-| 0 | observe only | reads (exempt from the kill switch) |
-| 1 | auto-execute, reversible, in-bounds | toggle with `compensating_command` + 15-min undo |
-| 2 | auto-execute under cumulative caps | rate + €/day + €/month budgets |
-| 3 | propose-and-confirm (TTL'd approval) | anything irreversible or over cap |
+**Permits.** Where a policy declares one, onedoor issues a single-use,
+signed permit bound to one action and one recipient. The recipient verifies
+it independently (`onedoor.permit.recipient`) before acting, and a second
+presentation of an already-consumed permit for a different instruction is
+refused, not silently repeated.
 
-## Documentation
+**The kill switch.** Engaged, every tier above a read is denied outright --
+never merely queued for later approval. Reads stay exempt, so there is still
+visibility during an incident.
 
-Developer guides live in [`docs/`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/index.md): the three-minute mental
-model, an integration guide per surface — [library](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-library.md),
-[HTTP decision service](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-service.md),
-[MCP proxy](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-mcp.md),
-[LiteLLM adapter](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-litellm.md),
-[LangGraph](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/integration-langgraph.md) — and the full
-[policy reference](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/policy-reference.md).
+**The decision receipt.** Every verdict is one append-only, typed audit row;
+optionally signed and anchored (`onedoor[signed]`) so a holder of an export
+can check, offline, that a decision exists unaltered.
 
-The **user manual** for the current release is
-[`docs/OneDoor_User_Manual.pdf`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/docs/OneDoor_User_Manual.pdf) — ten pages, written for the
-operator rather than the integrator: install, the first policy, the Studio, approvals, the
-kill switch, receipts and how to verify one.
+![the policy editor](docs/img/studio-policy-editor.png)
+![a decision receipt](docs/img/studio-decision-receipt.png)
 
-## Quickstart — four commands, from PyPI
+## Install
 
-Requires Python ≥ 3.12. Nothing below needs this repository.
+Requires Python >= 3.12.
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
+pip install "onedoor"           # the library alone
+pip install "onedoor[service]"  # + the HTTP decision service
+pip install "onedoor[studio]"   # + the policy editor
+```
+
+## Run the flow, end to end
+
+About ten minutes, with the shipped example policies
+(`onedoor/templates/payments/`). From a fresh venv:
 
 ```bash
 pip install "onedoor[service]"
@@ -93,390 +164,156 @@ python -m uvicorn onedoor.service.app:create_app --factory --host 127.0.0.1 --po
 On Windows PowerShell, replace the `export` line with:
 `$env:ONEDOOR_DECIDE_KEYS="dev"; $env:ONEDOOR_ADMIN_KEYS="root"; $env:ONEDOOR_DB="onedoor.db"; $env:ONEDOOR_POLICIES="policies.yaml"`
 
-Step 2 copies the **shipped payments pack** — worked examples, not a compliance
-artifact; read `PACK.md` beside it in the installed package. Without a policy file the
-service has nothing to enforce and will not start.
-
-Then, in another terminal:
+In another terminal -- **a payment allowed**, then **the same budget
+exhausted and denied**:
 
 ```bash
-curl -s localhost:8099/v1/health
-curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"request_id":"11111111-1111-1111-1111-111111111111","action_type":"payments.transfer","params":{"amount_eur":120.00,"destination_account":"acct-1"},"source":"llm","rationale":"first look"}'
-curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"request_id":"22222222-2222-2222-2222-222222222222","action_type":"wire.anywhere","params":{},"source":"llm","rationale":"first look"}'
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":120.00,"destination_account":"acct-1"},"source":"llm","rationale":"first look"}'
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":450.00,"destination_account":"acct-1"},"source":"llm","rationale":"over the day's cap"}'
 ```
 
-On Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`, whose own
-`-Headers`/body handling doesn't take these calls verbatim: use `curl.exe` (the
-real binary) with `--%`, PowerShell's stop-parsing token, so the embedded
-double quotes reach it exactly as written instead of being re-parsed:
+You should see `"decision":"permitted"` with an `intent_audit_id`, then
+`"decision":"denied","reason":"rate_exhausted"` or `"budget_exhausted"`.
 
-```powershell
-curl.exe --% -s localhost:8099/v1/health
-curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"request_id\":\"11111111-1111-1111-1111-111111111111\",\"action_type\":\"payments.transfer\",\"params\":{\"amount_eur\":120.00,\"destination_account\":\"acct-1\"},\"source\":\"llm\",\"rationale\":\"first look\"}"
-curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"request_id\":\"22222222-2222-2222-2222-222222222222\",\"action_type\":\"wire.anywhere\",\"params\":{},\"source\":\"llm\",\"rationale\":\"first look\"}"
+**An action held for approval, then approved:**
+
+```bash
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payouts.schedule","params":{"batch_id":"b-1"},"source":"llm","rationale":"month end"}'
+curl -s localhost:8099/v1/approvals -H "Authorization: Bearer root"
+curl -s -X POST localhost:8099/v1/approvals/1/approve -H "Authorization: Bearer root"
 ```
 
-What you should see — the three outputs that tell you it works:
+The first call returns `"decision":"proposed"` with an `approval_id`; the
+third resolves it.
 
+**The kill switch, on and off:**
+
+```bash
+curl -s -X POST localhost:8099/v1/killswitch -H "Authorization: Bearer root" -H "Content-Type: application/json" -d '{"engaged":true}'
+curl -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d '{"action_type":"payments.transfer","params":{"amount_eur":10.00,"destination_account":"acct-1"},"source":"llm","rationale":"should be blocked"}'
+curl -s -X POST localhost:8099/v1/killswitch -H "Authorization: Bearer root" -H "Content-Type: application/json" -d '{"engaged":false}'
 ```
-{"status":"ok","kill_switch":false,"pending_intents":0}
-{"decision":"permitted","reason":"passed","detail":null,"effective_tier":2,...,"intent_audit_id":1,...}
-{"decision":"denied","reason":"default_deny","detail":"action type 'wire.anywhere' is declared by no policy, ...",...}
-```
 
-The second is a **permit** — capped, reversible, and you now owe a `/v1/report`. The
-third is **default-deny**: `wire.anywhere` is in no policy, so it is refused, and the refusal
-says what would allow it. Nothing is proposed and nothing self-promotes.
+With the switch engaged, the decide call reads `"decision":"denied","reason":"kill_switch"`.
 
-**Numbers in `params` may be JSON numbers (`120.00`) or decimal strings**
-(`"120.00"`) — a numeric bound reads both the same way; see *Known
-limitations* for the history.
-
-### The Studio — point it at the same database
+**The Studio, reading the same decisions back:**
 
 ```bash
 pip install "onedoor[studio]"
 python -m onedoor.studio --db onedoor.db --studio-db studio.db
 ```
 
-Then open `http://127.0.0.1:8787`.
+Open `http://127.0.0.1:8787`. `--db` must name the same file the service
+used above.
 
-**`--db onedoor.db` must name the same file the service is using.** It is spelled out in
-both commands on purpose: the service defaults to `onedoor-service.db` and the Studio's
-`--db` defaults to `onedoor.db`, so accepting both defaults points them at **different
-stores** — the Studio comes up, works, and shows an empty world. If the store it opened
-has never held a policy, the Studio now says so on its face rather than letting you
-conclude your policies vanished.
+![an approval, refused](docs/img/studio-approval-refused.png)
+![the live state, with caps](docs/img/studio-live-state.png)
+![the history](docs/img/studio-history.png)
 
-`--studio-db` is a **separate** file and should stay separate: drafts are the Studio's
-working state, and the enforcer's database contains no row the Studio can edit.
+On Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`;
+use `curl.exe` with `--%` (PowerShell's stop-parsing token) so embedded
+double quotes reach the call exactly as written -- see
+[`docs/integration-service.md`](docs/integration-service.md) for the exact
+PowerShell forms of every call above.
 
-The Studio binds loopback only and refuses anything else, so nothing it renders leaves the
-machine.
+## Integrate with agent frameworks
 
-#### Three ways to write a policy
+Five short, complete, runnable examples, each under its own
+`examples/integrations/<name>/`, pinned with hashes in its own
+`requirements-<name>.txt`, kept out of onedoor's own dependencies, wheel and
+sdist. Each has a test that drives it with no model and no network.
 
-**In the editor.** A guided form and the raw rule, two panes over one parsed object, so
-they cannot disagree. Validation runs as you type: the text goes to the server, the
-engine's own loader looks at it, and the answer comes back rendered. Nothing is parsed in
-the browser, which is why the two panes and the validator can never drift.
+- **Plain Python tools** ([`examples/integrations/plain_python/`](examples/integrations/plain_python/)):
+  a decorator wraps a tool function so it calls `decide_and_reserve` first
+  and `report_result` after.
+- **LangChain** ([`examples/integrations/langchain/`](examples/integrations/langchain/),
+  `langchain==1.4.2`): the shipped `OneDoorMiddleware` resolves every tool
+  call through onedoor; a denial returns to the agent as the tool's own
+  result, with its reason code. The test drives a real `create_agent` loop
+  against LangChain's own `GenericFakeChatModel`.
+- **LangGraph** ([`examples/integrations/langgraph/`](examples/integrations/langgraph/),
+  `langgraph==1.2.12`): a gate node before the acting node; a tier-3 action
+  holds the graph as a real `interrupt()`, resumed with `Command(resume=...)`
+  once a person approves through onedoor.
+- **OpenAI Agents SDK** ([`examples/integrations/openai_agents/`](examples/integrations/openai_agents/),
+  `openai-agents==0.24.0`): a `@function_tool`-decorated tool, guarded the
+  same way. The test calls it through the framework's own
+  `FunctionTool.on_invoke_tool`, with no `Agent` run and no API key.
+- **MCP** ([`examples/integrations/mcp/`](examples/integrations/mcp/),
+  `mcp==2.3.0`): an MCP server (the `mcp` package's own server API) whose
+  tool handler calls onedoor before acting. A gateway in front of any MCP
+  server is **planned, not shipped** (roadmap, below).
 
-**From a file.** Upload YAML on the Drafts page. The file is checked by the loader's own
-four stages, in the loader's own order, and whatever it would refuse at boot is shown on
-the draft with the stage that refuses it and where. A file the loader would reject still
-becomes a draft — you get the reasons, not your file handed back.
+All four frameworks installed cleanly beside onedoor 0.10.2 (`pip check`
+clean); none is parked.
 
-The Studio shows **two separate lists**, and the separation is deliberate:
-
-- *The loader would refuse this* — what fails at boot.
-- *Once in force, these rules will…* — how a rule that loads fine will behave at decision
-  time, each entry naming the reason code the engine will actually record (`cost_unknown`
-  for a euro cap with no `cost_param`, `bounds` for `strict_params`, `effect_floor` for an
-  effect no policy declares).
-
-They are never merged. A euro cap without a `cost_param` **loads**; it denies at decision
-time. Showing that as a boot refusal would tell you the engine refuses something it
-accepts.
-
-**Over the API.** Draft CRUD, per-rule updates, validation as data, and
-submit-for-ratification:
-
-```bash
-curl -s localhost:8787/api/v1/drafts -H 'Content-Type: application/json' \
-  -d '{"title":"raise the transfer cap","rules":[{"action_type":"payments.transfer","tier":3}]}'
-curl -s localhost:8787/api/v1/drafts/<id>/validation
-curl -s -X POST localhost:8787/api/v1/drafts/<id>/submit
-```
-
-The schema is at `/api/v1/openapi.json`. (The Swagger and ReDoc pages stay off: they
-fetch from CDNs, and this server promises nothing leaves your machine.)
-
-**The v1 API adds no approval route — ratification belongs to the human ceremony.** One
-legacy route (`POST /draft/{id}/ratify`), predating actor identity, still serves; it
-records its approver as declared, never authenticated, and is retired with the `key_id`
-work. `submit` marks a draft as awaiting a human and returns the ceremony's URL; it moves
-no version pointer and writes no receipt.
-
-#### Drafts proposed by a model, ratified by you
-
-**Off by default, and absent rather than broken when it is off.** With no endpoint
-configured there is no tab, no route, and no mention of the feature anywhere in the
-Studio. Nothing is bundled: no credentials, no default provider.
+## Record and verify with onetrace
 
 ```bash
-export ONEDOOR_PROPOSER_ENDPOINT="https://your-endpoint/v1/chat/completions"
-export ONEDOOR_PROPOSER_MODEL="the-model-you-chose"
-export ONEDOOR_PROPOSER_KEY="..."          # optional, sent as a bearer token
-python -m onedoor.studio --db onedoor.db --studio-db studio.db
+pip install -r eval/requirements-record.txt
+python -m eval run --record
 ```
 
-You describe what the agent may do; what comes back is a **draft**, entering the same
-draft-and-ceremony path as anything you type or upload. The walls are the feature:
+Every settling action in the evaluation above is also written as one
+onetrace run, citing the decision onedoor actually returned right before
+the simulated tool acts, and checked afterward with `onetrace-verify`. The
+last run: **21 of 21 recorded runs verified PASS.** A scenario where every
+action is denied, held or refused writes no run -- there is no decision to
+cite. Full detail, and an honest note on the one onetrace check this
+evaluation could not demonstrate (the re-run guard, `onetrace reproduce
+--allow-writes`), in
+[`eval/README.md`](eval/README.md#recording-and-verifying-with-onetrace).
 
-- The generating model is a **declared instrument** — endpoint host, model name and a
-  digest of the prompt are recorded on the draft it produced. The key is never recorded;
-  a digest of a credential is still a function of the credential.
-- Generated YAML goes through the **same loader** as a hand-written draft. A generation
-  the loader refuses is **shown refused**, with the model's output verbatim beside the
-  reasons. Nothing is repaired or rewritten — deciding what the model meant is authority
-  this code does not have.
-- The approval page renders **what the parser read**, not what the model claims. You
-  approve against the schema.
-- Every proposal ends with **what your description mentioned that got no rule**, quoting
-  your own words.
-- A proposal is recorded, not receipted: the same description through the same model
-  twice may differ, so the record pins the *conditions* and says on its face that it does
-  not attest re-derivability. **The candidate's authority comes from the checks it
-  passes, never from the record.**
+## Configuration and operating
 
-### Working in this repository instead
+The policy vocabulary, the decision service's environment variables, signed
+receipts, anchoring, and the receipt viewer are documented in
+[`docs/`](docs/index.md) -- start at
+[`docs/policy-reference.md`](docs/policy-reference.md) and
+[`docs/integration-service.md`](docs/integration-service.md). The ten-page
+operator manual is [`docs/OneDoor_User_Manual.pdf`](docs/OneDoor_User_Manual.pdf).
 
-```bash
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-python -m scripts.gate --all   # the four gates, the documented way
-python -m scripts.demo         # one of everything, end to end, zero external deps
-```
+## Limitations and non-claims
 
-The venv must actually be **activated**, not merely created: the gate runner
-invokes `ruff`, `mypy` and `pytest` as bare commands (deliberately, so the
-declared command and the one that runs are identical — see
-`scripts/gate.py`), and a bare command resolves through `PATH`. Running
-`.venv\Scripts\python.exe -m scripts.gate --all` without activating first
-finds `ruff` (if one happens to be on `PATH` from elsewhere) but not `mypy` or
-`pytest`, and reports `GATE FAIL (tool not installed: ...)` for a tool that is
-in fact installed — just not on this process's `PATH`.
+onedoor decides on an action as it is described to it. A tool mapped to the
+wrong action type, or an action described falsely by whatever called
+`decide_and_reserve`, is decided as described -- the decision point cannot
+see past the description it was given.
 
-The demo walks the whole surface: auto-execution and undo, an unlisted action denied
-by default, a declared tier-3 action approved and then executed, a bounds rejection, cap exhaustion, dry-run,
-and the kill switch denying an auto action outright — proposing it instead would
-still fill the approval queue, so the switch denies rather than asking a human to
-look at it later.
+The evaluation above measures scripted scenarios against this version of
+onedoor; it is not a claim about every agent, every tool, or every version.
+A recipient's confirmation shows the recipient said it acted -- not that it
+did, independent of what it says.
 
-## A policy, concretely
+Two gaps the evaluation found and kept, open as of this release (full
+detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
 
-```yaml
-- action_type: ha.set_climate
-  tier: 1
-  dry_run: true                      # new action types rehearse first
-  compensating_command: ha.restore_climate
-  bounds:
-    numeric:
-      temperature: { min: 17, max: 23 }
-    required: [entity_id, temperature]
-    strict_params: true
-```
+- **No retry correlation.** A tool that times out after possibly acting,
+  then an uncorrelated retry, can carry out the same effect twice.
+- **No recipient check beyond rate and budget.** A message action gated
+  only by a daily rate still sends to whatever recipient the call names,
+  including one named by untrusted text.
 
-## v0.2 — the decision/enforcement split, and the engine on other people's doors
+A longer-standing, measured list -- numeric precision at the wire boundary,
+URL pattern evasion, and the rest -- is in
+[`CHANGELOG.md`](CHANGELOG.md) and [`CONFORMANCE.md`](CONFORMANCE.md).
 
-v0.2 separates the engine into the classic authorization pair — a **Policy
-Decision Point** and **Policy Enforcement Points** — without changing a single
-decision's semantics (the v0.1 suite passes unchanged):
+## Roadmap
 
-- `decision.decide_and_reserve(request, ...)` — Tx A: the full ordered check
-  pipeline, cap reservation, and the intent row in the audit log. Returns
-  either a terminal result (denied / proposed / dry-run) or a
-  `PermittedIntent`: an obligation the caller must enforce.
-- `decision.report_result(intent, ok, ...)` — Tx B: the linked, append-only
-  execution receipt, whatever happened.
+Planned, no dates:
 
-The in-process executor is now literally these two phases composed around a
-connector call. Any other enforcement point — a gateway filter, a tool
-wrapper — composes them around its own act.
+- An MCP gateway: every `tools/call` through `decide_and_reserve` first.
+- Reversibility declared in the policy itself (`reversible` /
+  `compensable` / `irreversible`), rather than inferred from tier alone.
+- An approval left unanswered past its own expiry resolves denied.
+- An unknown tool outcome (a timeout, a failure after the tool may have
+  acted) holds the action until someone settles it, closing the
+  duplicate-effect gap above.
+- Policy conflict checks in the Studio, before ratify.
+- Backtest against onetrace runs: a new policy's verdict, beside what was
+  decided at the time.
 
-**The first external enforcement point ships with it: an MCP proxy.**
-`onedoor.mcp.proxy` speaks MCP's stdio transport on both sides: an agent host
-connects to it as if it were the tool server; it spawns the real server as a
-subprocess and forwards everything except `tools/call` (and `onedoor/*`, which it
-refuses), and each `tools/call` becomes an
-`ActionRequest` (`mcp.<tool>`) through the full pipeline — unknown tools
-are denied by default, bounds are checked before the tool ever sees the
-call, money waits for approval, and the kill switch clamps everything at once.
+## Licence and contributing
 
-```bash
-python -m scripts.demo_mcp   # an agent's-eye view: 7 calls, every mechanism
-```
-
-This makes the engine usable with agents you don't control: point any MCP
-host at the proxy instead of the tool server, write a policy file, done.
-Approving and the kill switch are operator acts and are not reachable from the
-agent's side of the proxy; `docs/integration-mcp.md` shows how an operator
-releases a parked call.
-
-## Using it from an AI gateway (LiteLLM example)
-
-`examples/litellm_guardrail.py` is an experimental adapter showing the engine
-as a LiteLLM custom guardrail: `async_pre_call_hook` governs completions
-(model allow-list as *value* bounds, daily caps) and — because LiteLLM routes
-its MCP gateway's tool calls through the same hook (`call_type="call_mcp_tool"`)
-— every MCP tool call, with default-deny, bounds, tier-3 approval and the kill
-switch. Run `python -m examples.litellm_guardrail` for a proxy-free self-test.
-What this adds over the gateway's built-in MCP ACLs: decisions beyond
-allow/deny (defer with an approval id, dry-run), value-level bounds rather
-than parameter-name lists, race-free caps, and an audit row with a reason for
-every decision.
-
-It honours the two-phase contract across two hooks: the pre-call hook decides
-and holds the permit without reporting anything, and the post-call success and
-failure hooks report what actually happened. `litellm` is not a runtime
-dependency of the engine — install the example's own extra,
-`pip install "onedoor[litellm]"`.
-
-## The decision service (v0.3)
-
-The PDP over HTTP, so any enforcement point in any language can consult the
-engine:
-
-```bash
-pip install "onedoor[service]"
-ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root \
-ONEDOOR_POLICIES=config/policies.yaml \
-uvicorn onedoor.service.app:create_app --factory --port 8470
-```
-
-`POST /v1/decide` returns the decision; a permitted one carries an
-`intent_audit_id` — enforce, then `POST /v1/report` the outcome. Approvals,
-denial and the kill switch live under admin-role keys (`ONEDOOR_ADMIN_KEYS`),
-separate from decide-role keys by design: the process that asks for permission
-should not be the process that grants it. Tier-3 proposals can notify a
-webhook (`ONEDOOR_APPROVAL_WEBHOOK`, Slack-compatible payload), and installing
-`onedoor[otel]` lights up OpenTelemetry spans and decision counters with no
-code changes. [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
-is where this is going, ticket by ticket, and
-[CONFORMANCE.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CONFORMANCE.md)
-is the honest per-requirement status against the AADP draft — gaps included.
-
-## Origin & status
-
-Extracted from a personal single-user control plane (home/energy/money with an
-LLM agent layer), where this engine has governed every action since July 2026 —
-the domain modules stayed home; the engine, its mock connector, its demo action
-types, and its full test suite are what you see here. 0.8.1 (the latest
-released version): SQLite-backed, single-process, synchronous; PDP/PEP split
-with an MCP proxy as the first external enforcement point. Deliberately
-boring technology; the design is the contribution.
-
-## Signed receipts
-
-```bash
-pip install 'onedoor[signed]'
-```
-
-Ed25519 signatures over each row's hash, off until a deployer turns them on. **Signing
-is an extra, and configuring it without the library installed makes the process refuse
-to start** — a deployment that believes it is signing and is not is the failure this
-guards, and that belief comes from config, so the check belongs at enable time.
-
-The private key is yours and never enters the repo, the database or a receipt;
-`key_id` is a fingerprint *derived* from the public key; rotation grows a keyring that
-is never pruned, so receipts signed by a retired key verify forever.
-
-**A receipt system must not be its own witness.** A signature that matches a public key
-found in the same store as the row it signs is reported as **`self_consistent`**, never
-as verified — an attacker who can write the database supplies both halves. Pass a
-trusted `key_id` from outside the store and the same signature reports `verified`.
-
-## Anchoring
-
-Merkle roots over ranges of chained rows, published wherever a deployer chooses — a
-file, an endpoint, a commit, a line taped to a wall. **Independence is the metric, not
-the medium.** A third party holding the published root and one exported receipt verifies
-membership with nothing else of ours; the acceptance test runs the verifier in a
-directory containing exactly those two files.
-
-**onedoor never vouches for itself: at the key layer and the anchor layer alike,
-`verified` requires something the store does not hold.** A signature that matches the
-store's own keyring, or a proof that checks against a root the store itself carries, is
-reported as `self_consistent` — real information, and not independence.
-
-Anchoring is periodic, so the newest rows are normally un-anchored. That reads as
-**`absent`**, not as a fault: a viewer that showed them red would train an operator to
-ignore red.
-
-## The receipt viewer
-
-```bash
-python -m onedoor.viewer --demo-store demo.db --out oneview.html   # labelled sample
-python -m onedoor.viewer --store onedoor.db --out oneview.html     # a real store
-```
-
-One static, read-only page: the decision receipt with the checks that back it, and the
-tail of verdicts. Every displayed value is read from a verified artifact — if the
-evidence does not check out, the page shows the failure state and **none of the
-receipt's values**. Where something is *not yet produced* rather than wrong, it says
-so: hash-chained audit entries have not landed yet, so the chain block says the
-chain is **not yet in operation**, naming the gap, instead of showing a digest it
-does not have. *Not yet in operation*, never *not yet produced*: absent-by-schedule
-must not read as broken.
-
-## Known limitations
-
-**A decimal string in `params` was refused by a `numeric` bound — a conformance
-defect, ours, now fixed.** `{"amount_eur": "120.00"}` was refused as *must be
-numeric* while `{"amount_eur": 120.00}` worked, even though `cost_eur` and the cap
-path already read the decimal-string form as money.
-
-AADP §5 requires the opposite: *monetary values are decimal strings, never floating-point
-numbers*, a rule that applies **inside `params`**, and the draft's own worked decide
-request carries `"amount_eur": "40.00"`. Refusing it also pushed integrators toward binary
-floats — the representation the draft's Security Considerations names as an attack surface
-on budget arithmetic — so the stricter-looking check steered callers toward the hazard.
-
-Found by the first operator to run `0.6.0` from PyPI; fixed in `0.8.0`
-(`onedoor.guardrail.numeric.numeric_value`, now the one parser shared by
-`bounds.validate` and `caps.resolve_cost`, so a numeric bound can no longer change
-which wire types an action accepts — see CHANGELOG.md). As of this release:
-`{"amount_eur": "40.00"}` is permitted, exactly like `{"amount_eur": 40.00}`;
-`{"amount_eur": "abc"}` and `{"amount_eur": "1e3"}` are both refused with
-`"decision":"denied","reason":"bounds"`, detail `"param 'amount_eur' must be
-numeric: … (got 'abc')"` (or `'1e3'`) — exponent notation is a refused
-*spelling* (`Decimal` would read `"1e3"` as finite), not merely unparseable.
-
-
-Stated here rather than left to be discovered. The full list, with the measurement
-behind each, is in [CHANGELOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG.md) and
-[CONFORMANCE.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CONFORMANCE.md); these are the ones a deployer should read before
-trusting a boundary to this engine:
-
-- **A `param_effects` `pattern:` still matches URL-valued parameters as strings.** A
-  redirector, an IP literal or a percent-encoded host defeats a pattern like
-  `https://(pay|bank)\.example\.com/.*`. A **`url:` block** matches
-  the canonicalized target instead — opt-in, so existing patterns keep their exact
-  meaning — and `experiments/aliasing_benchmark.py` measures the difference: evasive
-  **0/4 at L2, 3/4 at L3**, `innocent-ok` 3/3 at both. Three qualifications, because
-  the number alone would overstate it: an **undeclared** shortener is still missed
-  (the opaque-host class is a starter list, not a census); the **IP-literal** case is
-  caught only where the deployer can declare the target's network; and the fourth
-  evasive case is not a URL problem at all (see the next item). Use effect labels for
-  cooperative inputs; put a fail-closed egress control in front of anything that
-  matters.
-- **Numeric parameters pass through IEEE double precision before any check.**
-  **Workaround, available today: send money amounts as JSON *strings* —** `"500.10"`
-  is exact end to end. As JSON *numbers*, a value carrying more precision than a
-  double holds can be admitted or denied within about half an ulp of the bound
-  (~5e-14 at `500.10`, growing with magnitude — negligible for euros, material for
-  large counts). Demonstrated: policy max `500.10`, wire amount
-  `500.1000000000000000001`, verdict **allowed**. Affects `0.3.6` and earlier; fixed
-  in `0.4.0` by parsing with `parse_float=Decimal` at every ingress.
-- **Indirect or obfuscated command construction defeats parameter rules entirely.**
-  `bash -c "$(echo <base64> | base64 -d)"` carries no matchable literal:
-  the governed effect is real and **no deterministic parameter rule catches it**. This
-  is not a URL problem and the `url:` block above does not close it; the benchmark
-  asserts it as still-failing so the URL fix cannot be read as covering it. Open gap,
-  no fix yet.
-- **No general obligation machinery.** `present_bound` is the one AADP obligation
-  onedoor does implement — it fails closed, denying `present_bound` when the
-  presented audience does not match (`onedoor.guardrail.decision`, policy step 6b).
-  An obligation this package does not know about would still be silently ignored
-  rather than failing closed; there is no generic mechanism for an arbitrary one.
-
-## License
-
-Apache-2.0.
-
-## Links
-
-- Source: <https://github.com/shamiksaharcciit-oss/onedoor>
-- Package: <https://pypi.org/project/onedoor/>
-- Licence: Apache-2.0
+Apache-2.0. Issues and pull requests welcome at
+<https://github.com/shamiksaharcciit-oss/onedoor>.
