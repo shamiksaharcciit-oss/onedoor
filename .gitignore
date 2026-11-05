@@ -24,3 +24,6 @@ build/
 # The delivery agent's own instruction file. Stays on disk here, untracked;
 # a tracked-history copy also lives in the private channel repository.
 CLAUDE.md
+# Recorded onetrace runs from `python -m eval run --record`: regenerated every
+# run, never committed.
+eval/runs/

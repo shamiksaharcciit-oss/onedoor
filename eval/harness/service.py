@@ -33,6 +33,7 @@ EVAL_EXTRA = REPO_ROOT / "eval" / "policies" / "eval_extra.yaml"
 
 DECIDE_KEY = "eval-decide-key"
 ADMIN_KEY = "eval-admin-key"
+ISSUER = "https://eval.onedoor.example/issuer"
 
 
 def _free_port() -> int:
@@ -71,7 +72,9 @@ class RunningService:
 
 
 @contextlib.contextmanager
-def start(db_path: str, *, approval_ttl_seconds: int | None = None) -> Iterator[RunningService]:
+def start(
+    db_path: str, *, approval_ttl_seconds: int | None = None, issuer: str | None = ISSUER
+) -> Iterator[RunningService]:
     db = Database(db_path)
     db.init()
     conn = db.connect()
@@ -84,6 +87,10 @@ def start(db_path: str, *, approval_ttl_seconds: int | None = None) -> Iterator[
         os.environ["ONEDOOR_APPROVAL_TTL"] = str(approval_ttl_seconds)
     elif "ONEDOOR_APPROVAL_TTL" in os.environ:
         del os.environ["ONEDOOR_APPROVAL_TTL"]
+    if issuer is not None:
+        os.environ["ONEDOOR_ISSUER"] = issuer
+    elif "ONEDOOR_ISSUER" in os.environ:
+        del os.environ["ONEDOOR_ISSUER"]
     port = _free_port()
     app = create_app(db_path=db_path, policies=str(PAYMENTS_PACK))
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")

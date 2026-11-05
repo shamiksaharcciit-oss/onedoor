@@ -38,11 +38,11 @@ class SimulatedTool:
         "timeout" too (profile: acted, then the response was lost)."""
         if tool_outcome == "failure":
             return "failure"
-        self.effects.append(Effect(action_type, *_effect_of(action_type, params)))
+        self.effects.append(Effect(action_type, *effect_of(action_type, params)))
         return tool_outcome  # "success" or "timeout"
 
 
-def _effect_of(action_type: str, params: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+def effect_of(action_type: str, params: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if action_type in ("payments.transfer", "refunds.issue", "payments.reverse"):
         return "money_moved", {
             "amount_eur": params.get("amount_eur"),

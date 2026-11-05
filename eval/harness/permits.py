@@ -61,6 +61,7 @@ class PermitRun:
     presenter_pub: bytes
     consume_store: InMemoryConsumeStore
     _prior_permit: str | None = None
+    _prior_decision_ref: dict | None = None
 
 
 def start(db_path: str, *, now: datetime) -> PermitRun:
@@ -96,6 +97,7 @@ def start(db_path: str, *, now: datetime) -> PermitRun:
     )
     config = dataclasses.replace(
         base,
+        issuer=ISSUER,
         permit_issuer=ISSUER,
         permit_issuer_key_id="eval-k1",
         permit_issuer_private_key=issuer_priv,
@@ -138,6 +140,9 @@ def propose_and_issue(
             now=now,
         )
         run._prior_permit = outcome.bound_permit
+        run._prior_decision_ref = (
+            outcome.decision_ref.model_dump(mode="json") if outcome.decision_ref else None
+        )
     return outcome
 
 
@@ -146,26 +151,32 @@ def present(
     *,
     shape: str,  # "fresh" | "reuse_prior" | "wrong_recipient" | "expired"
     now: datetime,
-) -> tuple[bool, str]:
-    """Presents a bound permit to the recipient side. Returns (verified, detail).
-    "fresh" issues and presents a brand-new permit, consumed once (the
-    reservation is completed on success, as the profile's own "consume,
-    perform, store the result" sequence requires). "reuse_prior" re-presents
-    the already-consumed permit from the last "fresh" call, for a second,
-    different instruction -- the single-use violation this category measures.
-    "wrong_recipient" presents a fresh permit to a different audience than it
-    names. "expired" issues a permit, then verifies it past its own lifetime."""
+) -> tuple[bool, str, dict | None, str | None]:
+    """Presents a bound permit to the recipient side. Returns (verified, detail,
+    decision_ref, bound_permit). "fresh" issues and presents a brand-new permit,
+    consumed once (the reservation is completed on success, as the profile's own
+    "consume, perform, store the result" sequence requires). "reuse_prior"
+    re-presents the already-consumed permit from the last "fresh" call, for a
+    second, different instruction -- the single-use violation this category
+    measures. "wrong_recipient" presents a fresh permit to a different audience
+    than it names. "expired" issues a permit, then verifies it past its own
+    lifetime."""
+    decision_ref: dict | None = None
     if shape == "reuse_prior":
         if run._prior_permit is None:
             raise RuntimeError("reuse_prior with no prior permit issued yet")
         permit = run._prior_permit
+        decision_ref = run._prior_decision_ref
         audience = AUDIENCE
         body = b'{"executed":true,"reused":true}'  # a different instruction, same permit
     else:
         outcome = propose_and_issue(run, request_id=_fresh_request_id(), now=now)
         if not isinstance(outcome, PermittedIntent) or outcome.bound_permit is None:
-            return False, "no bound permit was issued for this proposal"
+            return False, "no bound permit was issued for this proposal", None, None
         permit = outcome.bound_permit
+        decision_ref = (
+            outcome.decision_ref.model_dump(mode="json") if outcome.decision_ref else None
+        )
         audience = WRONG_AUDIENCE if shape == "wrong_recipient" else AUDIENCE
         body = b'{"executed":true}'
 
@@ -236,7 +247,7 @@ def present(
             content_digest=content_digest,
             confirmation_token=None,
         )
-    return verified, (verification.detail or verification.status.value)
+    return verified, (verification.detail or verification.status.value), decision_ref, permit
 
 
 _counter = 0

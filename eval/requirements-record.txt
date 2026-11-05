@@ -1,0 +1,8 @@
+# An optional extra for `python -m eval run --record`. The plain `python -m
+# eval run` needs none of this and is unchanged. Kept out of onedoor's own
+# dependencies, the wheel and the sdist -- see eval/README.md's recording
+# section.
+onetrace==0.7.0 \
+    --hash=sha256:3df1b042d6f841502548475d522d1b264b6d2736e168ca83c422fcc495591807
+onetrace-verify==0.7.0 \
+    --hash=sha256:03c9b02d043ef11187f6c3ddd62e2737ecacc9a3045ad875b7ffdf49328e90a4

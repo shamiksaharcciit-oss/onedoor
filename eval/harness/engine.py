@@ -15,13 +15,24 @@ answers (or leaves pending) the resulting approval the same way.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from eval.harness import permits as permits_mod
 from eval.harness.scenario import Action, Scenario
 from eval.harness.service import RunningService
 from eval.harness.tool import SimulatedTool
+
+# Called once per action that reaches the simulated tool, only when recording
+# (eval/harness/record.py): (scenario, action_index, action, decision_ref,
+# bound_permit, the zero-arg tool call to make) -> the tool's outcome string.
+# ``None`` (the default, everywhere outside --record) means "call the tool
+# directly, record nothing."
+RecordHook = Callable[
+    [Scenario, int, Action, dict[str, Any] | None, str | None, Callable[[], str]], str
+]
 
 HELD = "held"
 DENIED = "denied"
@@ -45,6 +56,8 @@ class ActionOutcome:
     effect_happened: bool
     held_for_person: bool = False
     approval_id: int | None = None
+    decision_ref: dict[str, Any] | None = None
+    bound_permit: str | None = None
 
 
 def run_without(scenario: Scenario) -> list[ActionOutcome]:
@@ -69,10 +82,15 @@ def run_without(scenario: Scenario) -> list[ActionOutcome]:
 
 
 def run_with(
-    scenario: Scenario, *, svc: RunningService | None, db_path: str, now: datetime
+    scenario: Scenario,
+    *,
+    svc: RunningService | None,
+    db_path: str,
+    now: datetime,
+    record_hook: RecordHook | None = None,
 ) -> list[ActionOutcome]:
     if scenario.category == "permits":
-        return _run_with_permits(scenario, db_path=db_path, now=now)
+        return _run_with_permits(scenario, db_path=db_path, now=now, record_hook=record_hook)
     assert svc is not None, "every category but permits runs through a started service"
     tool = SimulatedTool()
     outcomes: list[ActionOutcome] = []
@@ -84,7 +102,13 @@ def run_with(
             approval_ref = outcomes[action.approval_ref_from].approval_id
         outcomes.append(
             _run_one_with_service(
-                scenario, i, action, svc=svc, tool=tool, approval_ref=approval_ref
+                scenario,
+                i,
+                action,
+                svc=svc,
+                tool=tool,
+                approval_ref=approval_ref,
+                record_hook=record_hook,
             )
         )
     return outcomes
@@ -111,6 +135,7 @@ def _run_one_with_service(
     svc: RunningService,
     tool: SimulatedTool,
     approval_ref: int | None = None,
+    record_hook: RecordHook | None = None,
 ) -> ActionOutcome:
     if action.kill_switch is not None:
         svc.admin_set_killswitch(action.kill_switch)
@@ -135,9 +160,18 @@ def _run_one_with_service(
             held_for_person = True
 
     effect_happened = False
+    decision_ref = reply.get("decision_ref")
+    bound_permit = reply.get("bound_permit")
     if decision in _SETTLES_WITH_A_TOOL_CALL:
         intent_audit_id = reply.get("intent_audit_id")
-        outcome = tool.call(action.action_type, action.params, tool_outcome=action.tool_outcome)
+
+        def _call_tool() -> str:
+            return tool.call(action.action_type, action.params, tool_outcome=action.tool_outcome)
+
+        if record_hook is not None:
+            outcome = record_hook(scenario, index, action, decision_ref, bound_permit, _call_tool)
+        else:
+            outcome = _call_tool()
         effect_happened = outcome != "failure"
         if decision == PERMITTED and intent_audit_id is not None:
             svc.decide.report(
@@ -157,18 +191,33 @@ def _run_one_with_service(
         effect_happened=effect_happened,
         held_for_person=held_for_person,
         approval_id=approval_id,
+        decision_ref=decision_ref,
+        bound_permit=bound_permit,
     )
 
 
-def _run_with_permits(scenario: Scenario, *, db_path: str, now: datetime) -> list[ActionOutcome]:
+def _run_with_permits(
+    scenario: Scenario, *, db_path: str, now: datetime, record_hook: RecordHook | None = None
+) -> list[ActionOutcome]:
     run = permits_mod.start(db_path, now=now)
     tool = SimulatedTool()
     outcomes = []
     for i, action in enumerate(scenario.actions):
         shape = action.permit or "fresh"
-        verified, detail = permits_mod.present(run, shape=shape, now=now)
+        verified, detail, decision_ref, bound_permit = permits_mod.present(
+            run, shape=shape, now=now
+        )
         if verified:
-            outcome = tool.call(action.action_type, action.params, tool_outcome=action.tool_outcome)
+
+            def _call_tool() -> str:
+                return tool.call(
+                    action.action_type, action.params, tool_outcome=action.tool_outcome
+                )
+
+            if record_hook is not None:
+                outcome = record_hook(scenario, i, action, decision_ref, bound_permit, _call_tool)
+            else:
+                outcome = _call_tool()
             effect_happened = outcome != "failure"
             decision = EXECUTED
         else:
@@ -185,6 +234,8 @@ def _run_with_permits(scenario: Scenario, *, db_path: str, now: datetime) -> lis
                 decision=decision,
                 reason=detail,
                 effect_happened=effect_happened,
+                decision_ref=decision_ref,
+                bound_permit=bound_permit,
             )
         )
     return outcomes

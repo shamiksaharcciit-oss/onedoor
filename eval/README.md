@@ -66,6 +66,45 @@ shape uses the optional fields `retry_of`, `approve`, `kill_switch`,
 `permit`, `approval_ref_from` and `wait_seconds` -- see
 `eval/harness/scenario.py` for exactly what each one does.
 
+## Recording and verifying with onetrace
+
+An optional extra, pinned with hashes in `eval/requirements-record.txt`:
+
+```
+pip install -r eval/requirements-record.txt
+python -m eval run --record
+```
+
+For every scenario where at least one action reaches the simulated tool, the
+with-onedoor side is also written as one onetrace run under
+`eval/runs/<scenario>/` (git-ignored, regenerated every run): one stage per
+settling action, labelled by the simulated tool's own effect kind (`write`
+for money moved, rows deleted or a message sent; `read` for a read), citing
+`ot.decision(ref, permit, action)` with the decision onedoor actually
+returned, right before the simulated tool acts. A scenario where every
+action is denied, held or refused outright writes no run -- there is no
+decision to cite. Each written run is checked afterward with
+`onetrace-verify`; `RESULTS.md` gains one line, "Recorded runs verified:
+PASS n of n", naming any run that is not PASS.
+
+A record shows which decision onedoor returned for an action, and that the
+record was not changed after the fact. It does not show that the simulated
+tool's own effect is what a real tool would have done -- that is exactly as
+true here as it is of onetrace recording any other tool.
+
+**The re-run guard was attempted and could not be shown as documented.**
+`onetrace reproduce <run> --allow-writes` is meant to demonstrate the stop-
+before-the-first-write guard by re-executing a run's recorded stages from a
+runner declaration naming the pipeline's code. This harness's recording
+pipeline is one closure per scenario call (parameterized by the scenario and
+the moment's decision), not a stable, independently importable function, so
+`onetrace reproduce` answers every stage "COULD NOT CHECK (the pipeline's
+code is not present)" rather than re-executing anything -- `--runner` takes
+a dedicated `onetrace-runner/0.1`-`0.3` declaration file this harness does
+not build. This is disclosed rather than worked around: the
+decision-citation and verification halves of recording are real and
+checked above; the re-run guard itself is not demonstrated here.
+
 ## What this doesn't show
 
 These scenarios are scripted: the "agent" is fixed data, not a model, so
