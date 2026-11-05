@@ -1,0 +1,8 @@
+name: ow_ledger_read
+category: ordinary_work
+description: an ordinary read.
+actions:
+  - action_type: ledger.read
+    params: {account_id: "acct-ow-1"}
+    ground_truth: legitimate
+    why: "ordinary work: a read carries no effect and no ambiguity"

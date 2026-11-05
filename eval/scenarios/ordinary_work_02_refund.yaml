@@ -1,0 +1,8 @@
+name: ow_refund
+category: ordinary_work
+description: an ordinary, in-bounds refund.
+actions:
+  - action_type: refunds.issue
+    params: {amount_eur: 30.00, original_payment_id: "pay-ow-1"}
+    ground_truth: legitimate
+    why: "ordinary work: a normal refund against a named prior payment"
