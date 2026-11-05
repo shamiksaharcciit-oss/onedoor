@@ -24,13 +24,17 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from onedoor.guardrail import policy_loader
-from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.decision import (
+    ActionResult,
+    PermittedIntent,
+    decide_and_reserve,
+    report_result,
+)
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Bounds, Outcome, Policy, Source, Tier
 from onedoor.permit import httpsig, jwk
 from onedoor.permit.models import PAYMENTS_TRANSFER_V1, IssuerTableEntry
 from onedoor.permit.recipient import InMemoryConsumeStore, RecipientRequest, verify
-from onedoor.store.clock import to_iso
 from onedoor.store.db import Database
 
 ACTION = PAYMENTS_TRANSFER_V1.name  # "payments.transfer/1" -- the one registered type
@@ -77,8 +81,13 @@ def start(db_path: str, *, now: datetime) -> PermitRun:
     )
     policy_loader.upsert(
         conn,
-        Policy(action_type="demo.restore", tier=Tier.AUTO, dry_run=False,
-               compensating_command=ACTION, bounds=Bounds(strict_params=False)),
+        Policy(
+            action_type="demo.restore",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command=ACTION,
+            bounds=Bounds(strict_params=False),
+        ),
     )
     issuer_priv, issuer_pub = _keypair()
     presenter_priv, presenter_pub = _keypair()
@@ -103,7 +112,9 @@ def start(db_path: str, *, now: datetime) -> PermitRun:
     )
 
 
-def propose_and_issue(run: PermitRun, *, request_id, now: datetime) -> PermittedIntent | ActionResult:
+def propose_and_issue(
+    run: PermitRun, *, request_id, now: datetime
+) -> PermittedIntent | ActionResult:
     jkt = jwk.thumbprint(run.presenter_pub)
     request = ActionRequest(
         request_id=request_id,  # type: ignore[arg-type]
@@ -117,8 +128,15 @@ def propose_and_issue(run: PermitRun, *, request_id, now: datetime) -> Permitted
     )
     outcome = decide_and_reserve(request, conn=run.conn, config=run.config, now=now)
     if isinstance(outcome, PermittedIntent):
-        report_result(outcome, conn=run.conn, config=run.config, outcome=Outcome.SUCCESS,
-                       payload={}, error=None, now=now)
+        report_result(
+            outcome,
+            conn=run.conn,
+            config=run.config,
+            outcome=Outcome.SUCCESS,
+            payload={},
+            error=None,
+            now=now,
+        )
         run._prior_permit = outcome.bound_permit
     return outcome
 
@@ -151,7 +169,9 @@ def present(
         audience = WRONG_AUDIENCE if shape == "wrong_recipient" else AUDIENCE
         body = b'{"executed":true}'
 
-    content_digest = "sha-256=:" + base64.b64encode(hashlib.sha256(body).digest()).decode("ascii") + ":"
+    content_digest = (
+        "sha-256=:" + base64.b64encode(hashlib.sha256(body).digest()).decode("ascii") + ":"
+    )
     import onedoor.permit.jws as jws
 
     _, claims, _, _ = jws.parse(permit)
@@ -168,7 +188,9 @@ def present(
     sign_now = now + timedelta(hours=3) if shape == "expired" else now
     created = int(sign_now.replace(tzinfo=UTC).timestamp())
     sig_input, sig = httpsig.sign(
-        components, created=created, keyid=jwk.thumbprint(run.presenter_pub),
+        components,
+        created=created,
+        keyid=jwk.thumbprint(run.presenter_pub),
         private_key=run.presenter_priv,
     )
     req = RecipientRequest(
@@ -208,7 +230,10 @@ def present(
         from onedoor.permit.recipient import complete_reservation
 
         complete_reservation(
-            run.consume_store, ISSUER, str(claims["jti"]), content_digest=content_digest,
+            run.consume_store,
+            ISSUER,
+            str(claims["jti"]),
+            content_digest=content_digest,
             confirmation_token=None,
         )
     return verified, (verification.detail or verification.status.value)

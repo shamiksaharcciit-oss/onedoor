@@ -34,7 +34,10 @@ def _onedoor_version() -> str:
 def _onedoor_commit() -> str:
     out = subprocess.run(
         ["git", "log", "-1", "--format=%H", "--", "onedoor"],
-        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return out.stdout.strip()[:12]
 
@@ -77,8 +80,12 @@ def run(*, only: str | None, record: bool) -> int:
     )
     RESULTS_PATH.write_text(
         results.render(
-            meta=meta, scenarios=scenarios, outcomes_without=outcomes_without,
-            outcomes_with=outcomes_with, totals=totals, record_verify_line=record_line,
+            meta=meta,
+            scenarios=scenarios,
+            outcomes_without=outcomes_without,
+            outcomes_with=outcomes_with,
+            totals=totals,
+            record_verify_line=record_line,
         ),
         encoding="utf-8",
     )

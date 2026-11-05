@@ -48,13 +48,15 @@ def render(
         "",
         f"onedoor {meta.onedoor_version} ({meta.onedoor_commit}), run on {meta.run_date}.",
         "",
-        "Wording: \"stopped\" (denied or refused outright), \"held\" (proposed, "
-        "awaiting a person), \"carried out\" (the simulated tool recorded an "
+        'Wording: "stopped" (denied or refused outright), "held" (proposed, '
+        'awaiting a person), "carried out" (the simulated tool recorded an '
         "effect). Numbers only; no claim beyond what a scenario measured.",
         "",
         "## Totals",
         "",
-        "| category | " + " | ".join(label for _, label in FIELDS) + " | duplicate effects (without / with) |",
+        "| category | "
+        + " | ".join(label for _, label in FIELDS)
+        + " | duplicate effects (without / with) |",
         "|---" * (len(FIELDS) + 2) + "|",
     ]
     categories = sorted(totals.categories)

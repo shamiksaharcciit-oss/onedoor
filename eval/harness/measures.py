@@ -40,9 +40,7 @@ def _stopped(decision: str) -> bool:
     return decision in ("denied", "refused")
 
 
-def duplicate_effects(
-    scenario: Scenario, outcomes: list[ActionOutcome]
-) -> int:
+def duplicate_effects(scenario: Scenario, outcomes: list[ActionOutcome]) -> int:
     chains: dict[int, list[int]] = defaultdict(list)
     for i, (action, outcome) in enumerate(zip(scenario.actions, outcomes)):
         root = action.retry_of if action.retry_of is not None else i

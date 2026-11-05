@@ -106,7 +106,12 @@ def start(db_path: str, *, approval_ttl_seconds: int | None = None) -> Iterator[
     decide = DecideKeyClient.connect(base_url, DECIDE_KEY)
     admin = httpx.Client(base_url=base_url, headers={"Authorization": f"Bearer {ADMIN_KEY}"})
     svc = RunningService(
-        base_url=base_url, db_path=db_path, decide=decide, admin=admin, _server=server, _thread=thread
+        base_url=base_url,
+        db_path=db_path,
+        decide=decide,
+        admin=admin,
+        _server=server,
+        _thread=thread,
     )
     try:
         yield svc

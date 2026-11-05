@@ -54,9 +54,15 @@ def run_without(scenario: Scenario) -> list[ActionOutcome]:
         result = tool.call(action.action_type, action.params, tool_outcome=action.tool_outcome)
         outcomes.append(
             ActionOutcome(
-                scenario=scenario.name, category=scenario.category, action_index=i,
-                action_type=action.action_type, ground_truth=action.ground_truth, mode="without",
-                decision=EXECUTED, reason="no_gate", effect_happened=(result != "failure"),
+                scenario=scenario.name,
+                category=scenario.category,
+                action_index=i,
+                action_type=action.action_type,
+                ground_truth=action.ground_truth,
+                mode="without",
+                decision=EXECUTED,
+                reason="no_gate",
+                effect_happened=(result != "failure"),
             )
         )
     return outcomes
@@ -67,6 +73,7 @@ def run_with(
 ) -> list[ActionOutcome]:
     if scenario.category == "permits":
         return _run_with_permits(scenario, db_path=db_path, now=now)
+    assert svc is not None, "every category but permits runs through a started service"
     tool = SimulatedTool()
     outcomes: list[ActionOutcome] = []
     for i, action in enumerate(scenario.actions):
@@ -76,12 +83,14 @@ def run_with(
         if action.approval_ref_from is not None:
             approval_ref = outcomes[action.approval_ref_from].approval_id
         outcomes.append(
-            _run_one_with_service(scenario, i, action, svc=svc, tool=tool, approval_ref=approval_ref)
+            _run_one_with_service(
+                scenario, i, action, svc=svc, tool=tool, approval_ref=approval_ref
+            )
         )
     return outcomes
 
 
-def _classify_reply(reply: dict) -> tuple[str, str]:
+def _classify_reply(reply: dict[str, object]) -> tuple[str, str]:
     decision = reply["decision"]
     if decision == "permitted":
         return PERMITTED, reply["reason"]
@@ -95,7 +104,12 @@ def _classify_reply(reply: dict) -> tuple[str, str]:
 
 
 def _run_one_with_service(
-    scenario: Scenario, index: int, action: Action, *, svc: RunningService, tool: SimulatedTool,
+    scenario: Scenario,
+    index: int,
+    action: Action,
+    *,
+    svc: RunningService,
+    tool: SimulatedTool,
     approval_ref: int | None = None,
 ) -> ActionOutcome:
     if action.kill_switch is not None:
@@ -132,10 +146,17 @@ def _run_one_with_service(
             )
 
     return ActionOutcome(
-        scenario=scenario.name, category=scenario.category, action_index=index,
-        action_type=action.action_type, ground_truth=action.ground_truth, mode="with",
-        decision=decision, reason=reason, effect_happened=effect_happened,
-        held_for_person=held_for_person, approval_id=approval_id,
+        scenario=scenario.name,
+        category=scenario.category,
+        action_index=index,
+        action_type=action.action_type,
+        ground_truth=action.ground_truth,
+        mode="with",
+        decision=decision,
+        reason=reason,
+        effect_happened=effect_happened,
+        held_for_person=held_for_person,
+        approval_id=approval_id,
     )
 
 
@@ -155,9 +176,15 @@ def _run_with_permits(scenario: Scenario, *, db_path: str, now: datetime) -> lis
             decision = REFUSED
         outcomes.append(
             ActionOutcome(
-                scenario=scenario.name, category=scenario.category, action_index=i,
-                action_type=action.action_type, ground_truth=action.ground_truth, mode="with",
-                decision=decision, reason=detail, effect_happened=effect_happened,
+                scenario=scenario.name,
+                category=scenario.category,
+                action_index=i,
+                action_type=action.action_type,
+                ground_truth=action.ground_truth,
+                mode="with",
+                decision=decision,
+                reason=detail,
+                effect_happened=effect_happened,
             )
         )
     return outcomes
