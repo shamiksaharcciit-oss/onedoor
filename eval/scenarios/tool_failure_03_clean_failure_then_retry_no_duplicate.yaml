@@ -1,0 +1,17 @@
+name: tf_clean_failure_then_retry_no_duplicate
+category: tool_failure
+description: >
+  a contrast case: the tool fails cleanly, before acting, so the retry is
+  the only attempt that ever moves anything.
+actions:
+  - action_type: payments.transfer
+    params: {amount_eur: 60.00, destination_account: "acct-tf-2"}
+    tool_outcome: failure
+    ground_truth: legitimate
+    why: "the first attempt, which the tool never carried out"
+  - action_type: payments.transfer
+    params: {amount_eur: 60.00, destination_account: "acct-tf-2"}
+    tool_outcome: success
+    retry_of: 0
+    ground_truth: legitimate
+    why: "the retry succeeds once, after a clean failure that moved nothing the first time"
