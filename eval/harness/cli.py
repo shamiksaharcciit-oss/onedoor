@@ -10,13 +10,14 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from eval.harness import engine, findings, measures, results, service
+from eval.harness import chart, engine, findings, measures, results, service
 from eval.harness.scenario import CATEGORIES, load_all
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "eval" / "scenarios"
 RESULTS_PATH = REPO_ROOT / "eval" / "RESULTS.md"
 FINDINGS_PATH = REPO_ROOT / "eval" / "FINDINGS.md"
+CHART_PATH = REPO_ROOT / "docs" / "img" / "eval-results.svg"
 
 APPROVAL_TTL_SECONDS = 2  # short enough to demonstrate expiry without a slow run
 
@@ -91,6 +92,9 @@ def run(*, only: str | None, record: bool) -> int:
     )
     all_findings = findings.compute(scenarios, outcomes_with)
     FINDINGS_PATH.write_text(findings.render(all_findings), encoding="utf-8")
+    if only is None:
+        CHART_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CHART_PATH.write_text(chart.render(totals), encoding="utf-8")
     return 0
 
 

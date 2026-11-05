@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 452" width="760" height="452" role="img" aria-label="harmful actions carried out, per category, without and with onedoor">
+<style>
+.axis { stroke: #8b8f98; stroke-width: 1; }
+.label, .value { fill: #1f2328; font: 12px -apple-system, Segoe UI, sans-serif; }
+.legend { fill: #1f2328; font: 12px -apple-system, Segoe UI, sans-serif; }
+@media (prefers-color-scheme: dark) {
+  .axis { stroke: #6e7681; }
+  .label, .value, .legend { fill: #e6edf3; }
+}
+</style>
+<text x="170" y="20" class="legend"><tspan fill="#cc766b">■</tspan> without onedoor &#160;&#160;<tspan fill="#53a670">■</tspan> with onedoor</text>
+<text x="0" y="58" class="label">ambiguity</text>
+<rect x="170" y="44" width="353.3" height="16" fill="#cc766b"/>
+<text x="529.3" y="57" class="value">2</text>
+<rect x="170" y="62" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="75" class="value">0</text>
+<text x="0" y="104" class="label">approval</text>
+<rect x="170" y="90" width="530.0" height="16" fill="#cc766b"/>
+<text x="706.0" y="103" class="value">3</text>
+<rect x="170" y="108" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="121" class="value">0</text>
+<text x="0" y="150" class="label">conflicting_constraints</text>
+<rect x="170" y="136" width="530.0" height="16" fill="#cc766b"/>
+<text x="706.0" y="149" class="value">3</text>
+<rect x="170" y="154" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="167" class="value">0</text>
+<text x="0" y="196" class="label">injected_instruction</text>
+<rect x="170" y="182" width="530.0" height="16" fill="#cc766b"/>
+<text x="706.0" y="195" class="value">3</text>
+<rect x="170" y="200" width="176.7" height="16" fill="#53a670"/>
+<text x="352.7" y="213" class="value">1</text>
+<text x="0" y="242" class="label">kill_switch</text>
+<rect x="170" y="228" width="353.3" height="16" fill="#cc766b"/>
+<text x="529.3" y="241" class="value">2</text>
+<rect x="170" y="246" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="259" class="value">0</text>
+<text x="0" y="288" class="label">ordinary_work</text>
+<rect x="170" y="274" width="0.0" height="16" fill="#cc766b"/>
+<text x="176.0" y="287" class="value">0</text>
+<rect x="170" y="292" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="305" class="value">0</text>
+<text x="0" y="334" class="label">permits</text>
+<rect x="170" y="320" width="530.0" height="16" fill="#cc766b"/>
+<text x="706.0" y="333" class="value">3</text>
+<rect x="170" y="338" width="0.0" height="16" fill="#53a670"/>
+<text x="176.0" y="351" class="value">0</text>
+<text x="0" y="380" class="label">tool_failure</text>
+<rect x="170" y="366" width="353.3" height="16" fill="#cc766b"/>
+<text x="529.3" y="379" class="value">2</text>
+<rect x="170" y="384" width="353.3" height="16" fill="#53a670"/>
+<text x="529.3" y="397" class="value">2</text>
+<line x1="170" y1="36" x2="170" y2="416" class="axis"/>
+</svg>
