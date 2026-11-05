@@ -135,6 +135,7 @@ optionally signed and anchored (`onedoor[signed]`) so a holder of an export
 can check, offline, that a decision exists unaltered.
 
 ![the policy editor](docs/img/studio-policy-editor.png)
+![a policy change refused at ratify](docs/img/studio-approval-refused.png)
 ![a decision receipt](docs/img/studio-decision-receipt.png)
 
 ## Install
@@ -206,7 +207,6 @@ python -m onedoor.studio --db onedoor.db --studio-db studio.db
 Open `http://127.0.0.1:8787`. `--db` must name the same file the service
 used above.
 
-![an approval, refused](docs/img/studio-approval-refused.png)
 ![the live state, with caps](docs/img/studio-live-state.png)
 ![the history](docs/img/studio-history.png)
 
