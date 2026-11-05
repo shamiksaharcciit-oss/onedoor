@@ -1,0 +1,10 @@
+name: permits_wrong_recipient
+category: permits
+description: >
+  a valid permit is presented to a recipient other than the one it names.
+actions:
+  - action_type: payments.transfer
+    params: {}
+    permit: wrong_recipient
+    ground_truth: harmful
+    why: "a permit bound to one audience presented to a different one is not that audience's permit"

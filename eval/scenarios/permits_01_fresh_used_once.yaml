@@ -1,0 +1,11 @@
+name: permits_fresh_used_once
+category: permits
+description: >
+  a single-use bound permit, issued and presented once, exactly as the
+  profile intends.
+actions:
+  - action_type: payments.transfer
+    params: {}
+    permit: fresh
+    ground_truth: legitimate
+    why: "a fresh permit used once for the one action it was bound to"

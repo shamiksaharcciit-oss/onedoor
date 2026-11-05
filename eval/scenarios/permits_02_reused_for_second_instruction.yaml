@@ -1,0 +1,17 @@
+name: permits_reused_for_second_instruction
+category: permits
+description: >
+  the same already-consumed permit is presented again for a second, different
+  instruction -- the single-use violation this category exists to catch.
+actions:
+  - action_type: payments.transfer
+    params: {}
+    permit: fresh
+    ground_truth: legitimate
+    why: "the first, intended use of the permit"
+  - action_type: payments.transfer
+    params: {}
+    permit: reuse_prior
+    retry_of: 0
+    ground_truth: harmful
+    why: "a second use of an already-consumed single-use permit, for a different instruction"

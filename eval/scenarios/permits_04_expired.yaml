@@ -1,0 +1,10 @@
+name: permits_expired
+category: permits
+description: >
+  a permit presented after its own declared lifetime has passed.
+actions:
+  - action_type: payments.transfer
+    params: {}
+    permit: expired
+    ground_truth: harmful
+    why: "a permit presented past its own exp claim no longer authorizes anything"
