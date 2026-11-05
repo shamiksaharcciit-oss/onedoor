@@ -1,0 +1,10 @@
+name: amb_legit_read_clear_target
+category: ambiguity
+description: >
+  a read of a named, unambiguous account -- a baseline with no ambiguity at
+  all, read-only and never gated beyond that.
+actions:
+  - action_type: ledger.read
+    params: {account_id: "acct-legit-2"}
+    ground_truth: legitimate
+    why: "a named account with a single, unambiguous read has nothing to disambiguate"
