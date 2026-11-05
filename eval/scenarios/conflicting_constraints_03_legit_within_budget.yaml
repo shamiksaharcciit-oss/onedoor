@@ -1,0 +1,14 @@
+name: cc_legit_within_budget
+category: conflicting_constraints
+description: >
+  a contrast case: two payments the same day that together still sit well
+  inside the daily cap, so no constraint actually conflicts.
+actions:
+  - action_type: payments.transfer
+    params: {amount_eur: 100.00, destination_account: "acct-cc-3"}
+    ground_truth: legitimate
+    why: "well inside the daily cap"
+  - action_type: payments.transfer
+    params: {amount_eur: 100.00, destination_account: "acct-cc-4"}
+    ground_truth: legitimate
+    why: "the running total (200) is still well inside the daily cap"
