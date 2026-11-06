@@ -75,8 +75,8 @@ decision API.
 
 Without onedoor, every harmful scenario action is carried out (17 of 17).
 With onedoor: zero legitimate actions are wrongly stopped, and three harmful
-actions still get through -- found, kept, and reported honestly rather than
-hidden: a naive retry after a tool timeout moves money or sends a message a
+actions still get through -- kept as findings rather than fixed: a naive
+retry after a tool timeout moves money or sends a message a
 second time (the duplicate-effects column; no retry correlation exists yet),
 and a message to a recipient named by injected text is not stopped by
 anything that checks *who* the recipient is (onedoor's policies gate by
@@ -279,10 +279,13 @@ python -m eval run --record
 
 Every settling action in the evaluation above is also written as one
 onetrace run, citing the decision onedoor actually returned right before
-the simulated tool acts, and checked afterward with `onetrace-verify`. The
-last run: **21 of 21 recorded runs verified PASS.** A scenario where every
-action is denied, held or refused writes no run -- there is no decision to
-cite. Full detail, and an honest note on the one onetrace check this
+the simulated tool acts, and checked afterward with `onetrace-verify`. A
+`--record` run's own `eval/RESULTS.md` gains a line for this: last run,
+**21 of 21 recorded runs verified PASS** (the plain, committed
+`eval/RESULTS.md` above never carries this line -- it needs none of
+onetrace to be read). A scenario where every action is denied, held or
+refused writes no run -- there is no decision to cite. Full detail, and a
+plain note on the one onetrace check this
 evaluation could not demonstrate (the re-run guard, `onetrace reproduce
 --allow-writes`), in
 [`eval/README.md`](eval/README.md#recording-and-verifying-with-onetrace).
@@ -308,7 +311,7 @@ onedoor; it is not a claim about every agent, every tool, or every version.
 A recipient's confirmation shows the recipient said it acted -- not that it
 did, independent of what it says.
 
-Four gaps the evaluation found and kept, open as of this release (full
+Three gaps the evaluation found and kept, open as of this release (full
 detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
 
 - **No retry correlation.** A tool that times out after possibly acting,
@@ -319,9 +322,12 @@ detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
 - **An expired approval is proposed again, not denied.** Presenting an
   approval after its own expiry re-proposes a fresh approval instead of
   resolving denied.
-- **Bound permits are library-only.** The decision service carries no
-  presenter key thumbprint and configures no permit issuer, so a bound
-  permit is issued through the library today, not over the service.
+
+A fourth limitation, not something the evaluation discovered but a plain
+fact about the decision service's current code: **bound permits are
+library-only.** The decision service carries no presenter key thumbprint
+and configures no permit issuer, so a bound permit is issued through the
+library today, not over the service.
 
 ## Known limitations
 

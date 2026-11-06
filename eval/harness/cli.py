@@ -83,12 +83,13 @@ def run(*, only: str | None, record: bool) -> int:
             record_verify_line=record_line,
         ),
         encoding="utf-8",
+        newline="\n",
     )
     all_findings = findings.compute(scenarios, outcomes_with)
-    FINDINGS_PATH.write_text(findings.render(all_findings), encoding="utf-8")
+    FINDINGS_PATH.write_text(findings.render(all_findings), encoding="utf-8", newline="\n")
     if only is None:
         CHART_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CHART_PATH.write_text(chart.render(totals), encoding="utf-8")
+        CHART_PATH.write_text(chart.render(totals), encoding="utf-8", newline="\n")
     return 0
 
 
