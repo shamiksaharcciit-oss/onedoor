@@ -211,11 +211,30 @@ used above.
 ![the live state, with caps](docs/img/studio-live-state.png)
 ![the history](docs/img/studio-history.png)
 
-On Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`;
-use `curl.exe` with `--%` (PowerShell's stop-parsing token) so embedded
-double quotes reach the call exactly as written -- see
-[`docs/integration-service.md`](docs/integration-service.md) for the exact
-PowerShell forms of every call above.
+### The same walkthrough, in PowerShell 5.1
+
+`curl` is an alias for `Invoke-WebRequest` there; use `curl.exe` (the real
+binary) with `--%`, PowerShell's stop-parsing token, so embedded double
+quotes reach the call exactly as written. Run fresh against a live service
+from the commands above:
+
+```powershell
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"action_type\":\"payments.transfer\",\"params\":{\"amount_eur\":120.00,\"destination_account\":\"acct-1\"},\"source\":\"llm\",\"rationale\":\"first look\"}"
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"action_type\":\"payments.transfer\",\"params\":{\"amount_eur\":450.00,\"destination_account\":\"acct-1\"},\"source\":\"llm\",\"rationale\":\"over the daily cap\"}"
+
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"action_type\":\"payouts.schedule\",\"params\":{\"batch_id\":\"b-1\"},\"source\":\"llm\",\"rationale\":\"month end\"}"
+curl.exe --% -s localhost:8099/v1/approvals -H "Authorization: Bearer root"
+curl.exe --% -s -X POST localhost:8099/v1/approvals/1/approve -H "Authorization: Bearer root"
+
+curl.exe --% -s -X POST localhost:8099/v1/killswitch -H "Authorization: Bearer root" -H "Content-Type: application/json" -d "{\"engaged\":true}"
+curl.exe --% -s -X POST localhost:8099/v1/decide -H "Authorization: Bearer dev" -H "Content-Type: application/json" -d "{\"action_type\":\"payments.transfer\",\"params\":{\"amount_eur\":10.00,\"destination_account\":\"acct-1\"},\"source\":\"llm\",\"rationale\":\"should be blocked\"}"
+curl.exe --% -s -X POST localhost:8099/v1/killswitch -H "Authorization: Bearer root" -H "Content-Type: application/json" -d "{\"engaged\":false}"
+```
+
+Each reads the same decision as the bash form above. `docs/integration-service.md`
+shows the request shapes for the full decide/report/approve/kill-switch API,
+in both forms, with its own illustrative values -- not this walkthrough's
+own ten-minute sequence.
 
 ## Integrate with agent frameworks
 
