@@ -135,8 +135,8 @@ visibility during an incident.
 optionally signed and anchored (`onedoor[signed]`) so a holder of an export
 can check, offline, that a decision exists unaltered.
 
-![the policy editor](docs/img/studio-policy-editor.png)
-![a policy change refused at ratify](docs/img/studio-approval-refused.png)
+![the policies list](docs/img/studio-policy-editor.png)
+![an uploaded draft the loader would refuse, stopped at the per-rule checks](docs/img/studio-approval-refused.png)
 ![a decision receipt](docs/img/studio-decision-receipt.png)
 
 ## Install
@@ -148,7 +148,7 @@ python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install "onedoor"           # the library alone
 pip install "onedoor[service]"  # + the HTTP decision service
-pip install "onedoor[studio]"   # + the policy editor
+pip install "onedoor[studio]"   # + the Studio
 ```
 
 ## Run the flow, end to end
