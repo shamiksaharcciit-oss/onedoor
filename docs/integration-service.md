@@ -141,8 +141,8 @@ clean no-op.
 ## Operational notes (v0.3)
 
 - Single-process service, one SQLite writer behind an internal lock. Run one
-  instance per policy domain; Postgres + multi-instance are `ND-019`, listed
-  in the [roadmap](../README.md#roadmap).
+  instance per policy domain; Postgres and multi-instance (`ND-019`) are not
+  supported yet.
 - Pending intents are held in memory between decide and report. A restart
   in that window leaves the honest "intended, unconfirmed" audit row; `ND-010`
   rebuilds intents from the audit log instead of memory.
