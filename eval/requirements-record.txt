@@ -2,7 +2,9 @@
 # eval run` needs none of this and is unchanged. Kept out of onedoor's own
 # dependencies, the wheel and the sdist -- see eval/README.md's recording
 # section.
-onetrace==0.7.0 \
-    --hash=sha256:3df1b042d6f841502548475d522d1b264b6d2736e168ca83c422fcc495591807
-onetrace-verify==0.7.0 \
-    --hash=sha256:03c9b02d043ef11187f6c3ddd62e2737ecacc9a3045ad875b7ffdf49328e90a4
+onetrace==0.7.1 \
+    --hash=sha256:889ef744a23c3a5ce05489bfe3a0c75ffbc3f97f46e9e28815f6012637f2f995 \
+    --hash=sha256:62c3effa214ea40977ebeb7748208a0ce4c7e6d837083532b8e54d1752eb57f2
+onetrace-verify==0.7.1 \
+    --hash=sha256:912a1111840a5ad1206385186e2808e1af0fa380406ace7c3b28d9bac92bc05c \
+    --hash=sha256:fc0a38ab636f2cf5f9253140e5f5e5bcd4a03a2d887631dff8a6ee4a83bcc03c
