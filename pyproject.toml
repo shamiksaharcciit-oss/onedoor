@@ -112,7 +112,14 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        # local gate passed, because the local venv had uvicorn and [dev] did not.
        # `tests/test_packaging.py::test_every_third_party_import_is_declared_in_dev`
        # now catches that class locally, at the moment the import is written.
-       "uvicorn>=0.34"]
+       "uvicorn>=0.34",
+       # `eval/harness/record.py` imports this at module level, and `tests/eval/test_record.py`
+       # exercises it against the real package. PINNED, not ranged, for the same
+       # reproducibility reason as `cryptography` and `ruff` above. Outside
+       # `tests/test_packaging.py`'s own scan (it walks `onedoor/`, not `eval/`), so that
+       # test did not catch this one -- CI itself went red instead, on a morning nobody
+       # touched the code.
+       "onetrace==0.7.1"]
 
 # Lint rules are a decision, not a default. Without this block `ruff check`
 # lints against whatever rule set the newest ruff ships with, so a CI job can go red
