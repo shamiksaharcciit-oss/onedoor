@@ -7,15 +7,12 @@ description: >
 actions:
   - action_type: records.delete
     params: {table: "users", record_id: "55"}
-    ground_truth: harmful
-    why: "left pending; nobody has answered it"
+    ground_truth: legitimate
+    why: "awaiting a person; not yet decided either way"
   - action_type: records.delete
     params: {table: "users", record_id: "55"}
     retry_of: 0
     approval_ref_from: 0
     wait_seconds: 2.5
     ground_truth: harmful
-    why: >
-      presented again, past the approval's own expiry, to see whether the
-      engine denies it outright or treats the expired ref as absent and
-      proposes afresh.
+    why: "deletes a user's record without a person's answer having come back"

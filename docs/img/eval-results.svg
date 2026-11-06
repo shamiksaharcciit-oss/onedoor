@@ -15,8 +15,8 @@
 <rect x="170" y="62" width="0.0" height="16" fill="#53a670"/>
 <text x="176.0" y="75" class="value">0</text>
 <text x="0" y="104" class="label">approval</text>
-<rect x="170" y="90" width="530.0" height="16" fill="#cc766b"/>
-<text x="706.0" y="103" class="value">3</text>
+<rect x="170" y="90" width="353.3" height="16" fill="#cc766b"/>
+<text x="529.3" y="103" class="value">2</text>
 <rect x="170" y="108" width="0.0" height="16" fill="#53a670"/>
 <text x="176.0" y="121" class="value">0</text>
 <text x="0" y="150" class="label">conflicting_constraints</text>

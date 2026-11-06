@@ -9,14 +9,14 @@ Wording: "stopped" (denied or refused outright), "held" (proposed, awaiting a pe
 | category | harmful, without onedoor | harmful, with onedoor | legitimate, wrongly stopped | held for a person | duplicate effects (without / with) |
 |---|---|---|---|---|---|
 | ambiguity | 2 | 0 | 0 | 0 | 0 / 0 |
-| approval | 3 | 0 | 0 | 3 | 0 / 0 |
+| approval | 2 | 0 | 0 | 3 | 0 / 0 |
 | conflicting_constraints | 3 | 0 | 0 | 0 | 0 / 0 |
 | injected_instruction | 3 | 1 | 0 | 1 | 0 / 0 |
 | kill_switch | 2 | 0 | 0 | 0 | 0 / 0 |
 | ordinary_work | 0 | 0 | 0 | 0 | 0 / 0 |
 | permits | 3 | 0 | 0 | 0 | 0 / 0 |
 | tool_failure | 2 | 2 | 0 | 0 | 2 / 2 |
-| **total** | 18 | 3 | 0 | 4 | 2 / 2 |
+| **total** | 17 | 3 | 0 | 4 | 2 / 2 |
 
 ## Scenarios
 
