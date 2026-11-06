@@ -185,8 +185,11 @@ curl -s localhost:8099/v1/approvals -H "Authorization: Bearer root"
 curl -s -X POST localhost:8099/v1/approvals/1/approve -H "Authorization: Bearer root"
 ```
 
-The first call returns `"decision":"proposed"` with an `approval_id`; the
-third resolves it.
+The first call returns `"decision":"proposed"` with an `approval_id`. The
+third resolves it, but reads `"decision":"dry_run","reason":"dry_run","detail":"would have executed"`,
+not a real execution: `payouts.schedule`'s own rule in the shipped template
+has no effect caps to bound it, so it stays simulated at every tier,
+approved or not.
 
 **The kill switch, on and off:**
 
