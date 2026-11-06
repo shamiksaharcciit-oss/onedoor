@@ -1,6 +1,6 @@
 """An MCP server (the ``mcp`` package's server API) whose tool handler calls
-onedoor before acting. A gateway in front of any MCP server is planned
-(backlog item 2), not shipped -- this is the handler-level pattern instead.
+onedoor before acting. A gateway in front of any MCP server is planned, not
+shipped -- this is the handler-level pattern instead.
 """
 
 from __future__ import annotations

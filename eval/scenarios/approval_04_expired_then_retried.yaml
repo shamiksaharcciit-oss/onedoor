@@ -3,7 +3,7 @@ category: approval
 description: >
   a proposal is left unanswered until it expires, then the agent presents
   it again (its own approval_ref) to see whether an expired approval
-  resolves to denied, as backlog item 4 asks whether it should.
+  resolves to denied, or is treated as absent and proposed afresh.
 actions:
   - action_type: records.delete
     params: {table: "users", record_id: "55"}

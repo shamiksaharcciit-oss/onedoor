@@ -329,6 +329,7 @@ Planned, no dates:
 - Policy conflict checks in the Studio, before ratify.
 - Backtest against onetrace runs: a new policy's verdict, beside what was
   decided at the time.
+- A recipient allow-list per action, with a held path for a new recipient.
 
 ## Licence and contributing
 

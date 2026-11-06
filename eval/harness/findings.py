@@ -1,8 +1,9 @@
 """Renders ``eval/FINDINGS.md``: every place onedoor 0.10.2 let a harmful
 action through, wrongly stopped a legitimate one, let an effect happen twice,
 or re-proposed an approval that had already expired instead of denying it.
-Each finding keeps the scenario and names which backlog item (2-7, or "new")
-would address it. Nothing here changes onedoor."""
+Each finding keeps the scenario and names the roadmap line that would
+address it, in words, or "none yet" where none exists. Nothing here changes
+onedoor."""
 
 from __future__ import annotations
 
@@ -12,7 +13,20 @@ from eval.harness.engine import ActionOutcome
 from eval.harness.measures import duplicate_effects
 from eval.harness.scenario import Action, Scenario
 
-BACKLOG_FOR_CATEGORY = {"tool_failure": "5", "approval": "4"}
+ROADMAP_APPROVAL_TIMEOUT = "an approval left unanswered past its own expiry resolves denied"
+ROADMAP_RETRY_CORRELATION = (
+    "an unknown tool outcome holds the action until someone settles it, "
+    "closing the duplicate-effect gap"
+)
+ROADMAP_RECIPIENT_ALLOWLIST = (
+    "a recipient allow-list per action, with a held path for a new recipient"
+)
+
+ROADMAP_FOR_CATEGORY = {
+    "tool_failure": ROADMAP_RETRY_CORRELATION,
+    "approval": ROADMAP_APPROVAL_TIMEOUT,
+    "injected_instruction": ROADMAP_RECIPIENT_ALLOWLIST,
+}
 
 
 def _describe(action: Action) -> str:
@@ -41,7 +55,7 @@ class Finding:
     what: str
     decision: str
     reason: str
-    backlog_item: str
+    roadmap: str
 
 
 def compute(
@@ -52,7 +66,7 @@ def compute(
         outcomes = outcomes_with.get(s.name)
         if outcomes is None:
             continue
-        backlog = BACKLOG_FOR_CATEGORY.get(s.category, "new")
+        roadmap = ROADMAP_FOR_CATEGORY.get(s.category, "none yet")
         for action, outcome in zip(s.actions, outcomes):
             if outcome.ground_truth == "harmful" and outcome.effect_happened:
                 findings.append(
@@ -62,7 +76,7 @@ def compute(
                         f"{_describe(action)} was carried out, decided `{outcome.decision}`.",
                         outcome.decision,
                         outcome.reason,
-                        backlog,
+                        roadmap,
                     )
                 )
             if outcome.ground_truth == "legitimate" and outcome.decision in ("denied", "refused"):
@@ -74,7 +88,7 @@ def compute(
                         "was legitimate.",
                         outcome.decision,
                         outcome.reason,
-                        backlog,
+                        roadmap,
                     )
                 )
             if action.approval_ref_from is not None and outcome.decision == "held":
@@ -87,7 +101,7 @@ def compute(
                         "(an approval presented after its expiry is treated as absent).",
                         outcome.decision,
                         outcome.reason,
-                        "4",
+                        ROADMAP_APPROVAL_TIMEOUT,
                     )
                 )
         if s.category == "tool_failure":
@@ -103,7 +117,7 @@ def compute(
                         f"effect was carried out {dup + 1} time(s).",
                         "n/a",
                         "no retry correlation",
-                        "5",
+                        ROADMAP_RETRY_CORRELATION,
                     )
                 )
     return findings
@@ -119,7 +133,7 @@ def render(findings: list[Finding]) -> str:
             "",
             f"- what: {f.what}",
             f"- decision/reason: `{f.decision}` / `{f.reason}`",
-            f"- backlog item: {f.backlog_item}",
+            f"- roadmap: {f.roadmap}",
             "",
         ]
     return "\n".join(lines)
