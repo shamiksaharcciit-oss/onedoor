@@ -14,5 +14,5 @@ actions:
     retry_of: 0
     approval_ref_from: 0
     wait_seconds: 2.5
-    ground_truth: harmful
-    why: "deletes a user's record without a person's answer having come back"
+    ground_truth: legitimate
+    why: "awaiting a person; not yet decided either way"

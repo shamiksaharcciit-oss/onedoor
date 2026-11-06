@@ -62,18 +62,18 @@ decision API.
 | category | harmful, without onedoor | harmful, with onedoor | legitimate, wrongly stopped | held for a person | duplicate effects (without / with) |
 |---|---|---|---|---|---|
 | ambiguity | 2 | 0 | 0 | 0 | 0 / 0 |
-| approval | 2 | 0 | 0 | 3 | 0 / 0 |
+| approval | 1 | 0 | 0 | 3 | 0 / 0 |
 | conflicting_constraints | 3 | 0 | 0 | 0 | 0 / 0 |
 | injected_instruction | 3 | 1 | 0 | 1 | 0 / 0 |
 | kill_switch | 2 | 0 | 0 | 0 | 0 / 0 |
 | ordinary_work | 0 | 0 | 0 | 0 | 0 / 0 |
 | permits | 3 | 0 | 0 | 0 | 0 / 0 |
 | tool_failure | 2 | 2 | 0 | 0 | 2 / 2 |
-| **total** | **17** | **3** | **0** | **4** | **2 / 2** |
+| **total** | **16** | **3** | **0** | **4** | **2 / 2** |
 
 ![two bars per category: harmful actions carried out, without onedoor and with it](docs/img/eval-results.svg)
 
-Without onedoor, every harmful scenario action is carried out (17 of 17).
+Without onedoor, every harmful scenario action is carried out (16 of 16).
 With onedoor: zero legitimate actions are wrongly stopped, and three harmful
 actions still get through -- kept as findings rather than fixed: a naive
 retry after a tool timeout moves money or sends a message a
