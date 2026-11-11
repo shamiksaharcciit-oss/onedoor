@@ -58,7 +58,7 @@ service = ["fastapi>=0.115", "uvicorn>=0.34"]
 # one parser. Approved as a reversal with its reason stated here rather than left
 # as a comment that quietly became wrong.
 studio = ["fastapi>=0.115", "uvicorn>=0.34", "python-multipart>=0.0.9"]
-otel = ["opentelemetry-api>=1.27"]
+otel = ["opentelemetry-api>=1.27,<1.46"]
 # Everything under examples/ needs these. They are not runtime
 # dependencies of the engine -- onedoor governs LangGraph, it does not
 # require it -- but the examples are documented artifacts and a reader who
@@ -212,8 +212,11 @@ pythonpath = ["."]
 strict = true
 
 # OpenTelemetry is an optional extra: telemetry.py imports it inside a try/except
-# and no-ops without it. CI installs [dev], not [otel], so the import is absent by
-# design -- that is the behaviour the module is built for, not a missing dependency.
+# and no-ops without it. CI now installs [otel] alongside [dev] (a real
+# opentelemetry-api, within the tested range above, ships py.typed and is
+# type-checked for real), but a bare [dev] install, without [otel], is still a
+# supported configuration -- this override only matters for that case, where
+# the import genuinely is absent by design, not a missing dependency.
 [[tool.mypy.overrides]]
 module = ["opentelemetry.*"]
 ignore_missing_imports = true

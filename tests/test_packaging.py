@@ -39,11 +39,13 @@ PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 DECLARED_ELSEWHERE = {
     "opentelemetry": (
-        "the [otel] extra, with a `tool.mypy.overrides` entry setting "
-        "`ignore_missing_imports`. Declared here so the exception stays ONE exception "
-        "rather than becoming the habit: OpenTelemetry ships no stubs mypy can use, so "
-        "installing it would not buy the checking that installing `cryptography` and "
-        "`uvicorn` does."
+        "the [otel] extra, kept deliberately separate from [dev] since telemetry.py's "
+        "own try/except must still no-op cleanly on a bare [dev] install -- that is "
+        "the configuration this test's own [dev]-completeness check is about. CI "
+        "installs [otel] alongside [dev] so the real package (which does ship "
+        "`py.typed`, unlike when the `tool.mypy.overrides` entry for it was first "
+        "written) is actually type-checked, not waved through by "
+        "`ignore_missing_imports`, which now only matters for a bare [dev] install."
     ),
 }
 """Modules deliberately absent from `[dev]`, each with the reason it is absent.
@@ -89,7 +91,8 @@ def _declared_distributions() -> set[str]:
 
 
 def test_every_third_party_import_is_declared_in_dev() -> None:
-    """CI installs `.[dev]` and nothing else — so `[dev]` is what the gates can see.
+    """CI installs `.[dev]` (plus `[otel]`, declared elsewhere below) and nothing
+    else — so `[dev]` is what the gates can see for everything not declared there.
 
     An import missing from here fails `mypy onedoor` in CI while passing on any
     developer machine that happens to have the package for another reason. That is a
@@ -230,3 +233,15 @@ def test_build_release_accepts_the_pinned_versions() -> None:
     import build_release  # noqa: PLC0415
 
     build_release.check_pinned_versions()  # must not raise
+
+
+def test_the_otel_extra_is_pinned_to_a_tested_range() -> None:
+    """backlog 10: an unbounded lower-only pin (`>=1.27`) is never actually
+    exercised against anything but whatever the latest release happens to be
+    on a given day -- a real upper bound, matching the one CI actually
+    installs and type-checks against, is what makes "tested" true."""
+    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    (requirement,) = data["project"]["optional-dependencies"]["otel"]
+    assert requirement.startswith("opentelemetry-api")
+    assert ">=" in requirement, f"no lower bound: {requirement!r}"
+    assert "<" in requirement, f"no upper bound: {requirement!r}"
