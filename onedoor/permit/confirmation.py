@@ -102,6 +102,12 @@ _DEPENDENCIES = frozenset({"consume-store", "presenter-key-directory", "status"}
 
 _PERMIT_MEMBERS = frozenset({"iss", "jti", "digest"})
 _REQUEST_MEMBERS = frozenset({"content_digest", "signature_base_digest"})
+_PERMIT_MEMBERS_ORDERED: tuple[str, ...] = ("iss", "jti", "digest")
+_REQUEST_MEMBERS_ORDERED: tuple[str, ...] = ("content_digest", "signature_base_digest")
+"""Section 2.1's own declared order for each nested object's members --
+iteration order for the checks below, so two problems found together are
+always named in this fixed order, never in a frozenset's/dict's own
+unspecified iteration order."""
 
 
 def _is_int(value: object) -> bool:
@@ -142,14 +148,28 @@ def _shape_problem(payload: dict[str, object]) -> str | None:
                 return "reason missing"
         elif payload.get("dependency") not in _DEPENDENCIES:
             return "a refusal with neither step and reason nor a known dependency"
-    for key, members in (("permit", _PERMIT_MEMBERS), ("request", _REQUEST_MEMBERS)):
+    for key, ordered_members in (
+        ("permit", _PERMIT_MEMBERS_ORDERED),
+        ("request", _REQUEST_MEMBERS_ORDERED),
+    ):
         nested = payload.get(key)
         if key in payload:
             if not isinstance(nested, dict):
                 return f"{key} is not an object"
-            for member in members:
-                if member in nested and not isinstance(nested[member], str):
-                    return f"{key}.{member} not a string"
+            not_string = [
+                m for m in ordered_members if m in nested and not isinstance(nested[m], str)
+            ]
+            if not_string:
+                if len(not_string) == 1:
+                    return f"{key}.{not_string[0]} not a string"
+                names = ", ".join(f"{key}.{m}" for m in not_string)
+                return f"{key} members not a string: {names}"
+            if key == "permit":
+                missing = [m for m in ordered_members if m not in nested]
+                if missing:
+                    if len(missing) == 1:
+                        return f"permit.{missing[0]} missing"
+                    return f"permit members missing: {', '.join(f'permit.{m}' for m in missing)}"
     if outcome == "refused" and "step" in payload:
         step = payload["step"]
         assert isinstance(step, int)
@@ -253,7 +273,7 @@ def build(
         payload["permit"] = {
             "iss": claims.get("iss"),
             "jti": claims.get("jti"),
-            "digest": _structured_digest(permit_token.encode("ascii")),
+            "digest": _structured_digest(permit_token.strip().encode("ascii")),
         }
 
     if step_reached >= 7:
@@ -299,9 +319,15 @@ def build(
         payload["step"] = result.step
     elif result.status is VerificationStatus.COULD_NOT_CHECK:
         dependency = result.dependency
-        payload["dependency"] = (
+        translated = (
             _DEPENDENCY_PAYLOAD_NAME.get(dependency, dependency) if dependency is not None else None
         )
+        if translated not in _DEPENDENCIES:
+            raise ConfirmationError(
+                f"could not check for an unrecognised dependency {dependency!r}; "
+                "cannot build a confirmation the format note's §2.1 would accept"
+            )
+        payload["dependency"] = translated
 
     header = {"alg": "EdDSA", "kid": recipient_key_id, "typ": CONFIRMATION_TYP}
     return jws.encode(header, payload, recipient_private_key)
@@ -359,6 +385,13 @@ def check(
         )
 
     unknown = sorted(set(payload) - _KNOWN_PAYLOAD_FIELDS)
+    for _nested_key, _nested_members in (
+        ("permit", _PERMIT_MEMBERS),
+        ("request", _REQUEST_MEMBERS),
+    ):
+        _nested = payload.get(_nested_key)
+        if isinstance(_nested, dict):
+            unknown += [f"{_nested_key}.{m}" for m in sorted(set(_nested) - _nested_members)]
 
     # --- 1. key and typ ---
     if header.get("typ") != CONFIRMATION_TYP:
@@ -411,6 +444,14 @@ def check(
             else f"recipient {iss!r} is not on the list",
         )
     public_key = recipient_keys.get(kid) if isinstance(kid, str) else None
+    if public_key is not None:
+        from onedoor.permit.jwk import thumbprint
+
+        try:
+            if thumbprint(public_key) != kid:
+                public_key = None
+        except ValueError:
+            public_key = None
     if public_key is None:
         return VerificationResult(
             status=VerificationStatus.COULD_NOT_CHECK,
@@ -433,7 +474,7 @@ def check(
     # --- 2. permit ---
     permit = payload.get("permit")
     if isinstance(permit, dict):
-        expected_permit_digest = _structured_digest(permit_token.encode("ascii"))
+        expected_permit_digest = _structured_digest(permit_token.strip().encode("ascii"))
         expected_iss: object = None
         expected_jti: object = None
         try:

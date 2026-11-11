@@ -171,6 +171,40 @@ def test_build_on_a_step_10_could_not_check_writes_dependency_status() -> None:
     assert "action_digest" in payload
 
 
+def test_build_refuses_a_dependency_check_would_itself_call_malformed() -> None:
+    """`build()` must not sign a confirmation that `check()`'s own
+    `_shape_problem` would refuse the moment it is read back -- an
+    unrecognised dependency string (format note Sec2.1 names exactly three)
+    is refused at build time instead."""
+    fx = _build()
+    result = VerificationResult(
+        status=VerificationStatus.COULD_NOT_CHECK, dependency="not-a-real-dependency"
+    )
+    kid, priv = _recipient_identity()
+
+    with pytest.raises(confirmation.ConfirmationError):
+        confirmation.build(
+            fx.request, result, recipient_key_id=kid, recipient_private_key=priv, now=NOW
+        )
+
+
+def test_permit_digest_strips_incidental_whitespace_both_sides() -> None:
+    """Settled: `permit.digest` is computed over the token trimmed of
+    incidental leading/trailing whitespace, on both `build()`'s and
+    `check()`'s own call -- a compact JWS never legitimately contains
+    whitespace, so trimming is a no-op for any valid token and only matters
+    for one that picked up incidental whitespace in transport. Tested at the
+    digest helper directly: `jws.parse` is already strict about a token's
+    own bytes (a separate, unrelated concern), so a whitespace-padded token
+    cannot reach either call site's `jws.parse` step in a round trip, only
+    the trimming behaviour itself is in scope here."""
+    token = "a.b.c"
+    padded = " \n" + token + " \t\n"
+    assert confirmation._structured_digest(
+        padded.strip().encode("ascii")
+    ) == confirmation._structured_digest(token.encode("ascii"))
+
+
 def test_sabotage_an_unrecognised_dependency_is_treated_conservatively() -> None:
     """If the step-in-progress mapping were missing an entry, the conservative
     default (step 1: nothing established) is what stands between an unmapped
@@ -461,6 +495,99 @@ def test_check_refuses_a_present_but_non_string_nested_member_as_not_a_string() 
     assert result.status is VerificationStatus.REFUSED
     assert result.reason is RefusalReason.MALFORMED
     assert "request.content_digest not a string" in result.detail
+
+
+def test_check_refuses_a_kid_whose_claimed_thumbprint_does_not_match_its_key() -> None:
+    """A dict lookup by `kid` is not itself proof the returned key's own
+    thumbprint is `kid` -- the entry's own position in `recipients` must not
+    be trusted blindly; recomputing and comparing closes a kid-confusion gap
+    a mis-populated or attacker-influenced table could otherwise exploit."""
+    _, priv = _recipient_identity()
+    _, other_priv = _recipient_identity()
+    fake_kid = "not-the-real-thumbprint"
+    recipients = {
+        "https://r.example": {
+            fake_kid: other_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        }
+    }
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    header = {"alg": "EdDSA", "kid": fake_kid, "typ": "aadp-confirmation+jwt"}
+    token = jws.encode(header, payload, other_priv)
+    result = _check(token, recipients=recipients)
+    assert result.status is VerificationStatus.COULD_NOT_CHECK
+    assert result.dependency == "recipient-trust-list"
+
+
+def test_check_flags_an_unknown_member_inside_a_nested_object() -> None:
+    """An unknown member inside `request` (or `permit`) must be surfaced the
+    same way a top-level unknown member already is -- silently dropping it
+    would let a reader miss an additive field the payload actually carries."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "malformed",
+            "request": {"mystery_field": "x"},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.VERIFIED
+    assert "request.mystery_field" in result.detail
+
+
+def test_check_refuses_a_permit_object_missing_a_required_member_as_malformed() -> None:
+    """A `permit` object present but incomplete is a shape problem, not a
+    permit-identity mismatch -- `build()` never emits a partial permit claim
+    (always all three members together), so one can only arrive by
+    construction, and the detail must say so rather than "cites another
+    permit", which implies a real, different, identifiable permit."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 2,
+            "reason": "x",
+            "permit": {"iss": "https://ledger.example", "jti": "J1"},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "permit.digest missing" in result.detail
+
+
+def test_check_refuses_two_non_string_nested_members_both_named_in_order() -> None:
+    """Two problems found together must both be named, in section 2.1's own
+    declared order -- never silently reporting only the first, and never in
+    a frozenset's/dict's own unspecified iteration order."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 2,
+            "reason": "x",
+            "permit": {"iss": 1, "jti": 2, "digest": "sha-256=:AAAA:"},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert "permit.iss" in result.detail
+    assert "permit.jti" in result.detail
+    assert result.detail.index("permit.iss") < result.detail.index("permit.jti")
 
 
 # ---------------------------------------------------------------------------
