@@ -2,8 +2,9 @@
 profile §10 (bound-permit profile, "The Recipient Confirmation"), per the gaps
 a separate, not-yet-public format note closes (§§1-5; cited by
 section number in this module's docstrings, the same convention `recipient.py`
-uses for the profile itself). Appendix B lists this as V22, not implemented;
-this module implements it.
+uses for the profile itself). Appendix B names this V22; it originally
+listed it as not implemented, a disclosed gap this module has since closed,
+and the appendix has caught up to say so.
 
 Importable without onedoor's engine, store or service -- the same standalone
 promise `recipient.py` makes. Two sides, kept separate for the same reason
