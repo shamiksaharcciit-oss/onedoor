@@ -369,8 +369,15 @@ def check(
             detail=f"not a recipient confirmation (typ {header.get('typ')!r})",
         )
     crit = header.get("crit")
-    if crit:
-        names = ", ".join(str(c) for c in crit) if isinstance(crit, list) else str(crit)
+    if crit is not None:
+        if not isinstance(crit, list) or not crit:
+            return VerificationResult(
+                status=VerificationStatus.REFUSED,
+                step=1,
+                reason=RefusalReason.MALFORMED,
+                detail="crit must be a non-empty array",
+            )
+        names = ", ".join(str(c) for c in crit)
         return VerificationResult(
             status=VerificationStatus.REFUSED,
             step=1,

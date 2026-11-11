@@ -13,11 +13,18 @@ onedoor is the reference implementation of the AADP Internet-Draft
 `tests/vectors/confirmation_vectors_4.json` and its reference checker
 (`tests/vectors/check_confirmation_rows_4.py`) join `confirmation_vectors_3.json`
 and its own checker, which stay as the record of what 0.10.0 and 0.10.1 claimed.
-C01-C29 are unchanged from draft 3; C30-C54 exercise, one by one, every
-malformed and unreadable problem the format note's own table names, each
-against `onedoor.permit.confirmation.check`'s exact detail text.
+C01-C29 are unchanged from draft 3; C23, C24 and C32 to C54 exercise, one by
+one, every malformed and unreadable problem the format note's own table
+names, each against `onedoor.permit.confirmation.check`'s exact detail text.
 `docs/confirmation.md` and `CONFORMANCE.md` now name draft 4 as the format
 implemented.
+
+### Fixed — a crit header naming an unimplemented extension read the draft's words
+
+`check` read a `crit` header's unimplemented-extension names into jws's own
+format of the value, rather than the format note's own wording. The detail
+now reads "unknown critical header parameter(s): <names>", matching the
+note's table (C22).
 
 ### Fixed — a duplicate confirmation payload member read `jws`'s own wording
 

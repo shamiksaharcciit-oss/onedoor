@@ -316,6 +316,50 @@ def test_check_refuses_alg_other_than_eddsa() -> None:
         assert result.step == 1, header
 
 
+def test_check_refuses_an_empty_crit() -> None:
+    """An empty `crit` is falsy, not absent -- the array naming no critical
+    extension is itself malformed (RFC 7515 ss4.1.11), not a pass-through to
+    the alg/shape checks that follow."""
+    kid, priv = _recipient_identity()
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    header = {"alg": "EdDSA", "kid": kid, "typ": "aadp-confirmation+jwt", "crit": []}
+    token = jws.encode(header, payload, priv)
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+    assert "crit" in result.detail
+
+
+def test_check_refuses_a_crit_that_is_not_an_array() -> None:
+    """A scalar `crit` must not be stringified into the same detail a real
+    unknown-extension list gets -- it is its own malformed shape, not an
+    extension named "<the scalar>"."""
+    kid, priv = _recipient_identity()
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    header = {"alg": "EdDSA", "kid": kid, "typ": "aadp-confirmation+jwt", "crit": "x-ext"}
+    token = jws.encode(header, payload, priv)
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.step == 1
+    assert "crit" in result.detail
+    assert "x-ext" not in result.detail
+
+
+def test_check_still_refuses_a_real_crit_list_by_its_unknown_names() -> None:
+    """Unaffected regression: a real, non-empty crit list of unimplemented
+    extensions keeps its own existing wording and verdict (C22)."""
+    kid, priv = _recipient_identity()
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    header = {"alg": "EdDSA", "kid": kid, "typ": "aadp-confirmation+jwt", "crit": ["x-ext"]}
+    token = jws.encode(header, payload, priv)
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "unknown critical header parameter(s): x-ext"
+
+
 def test_check_refuses_a_string_iat() -> None:
     kid, priv = _recipient_identity()
     token = _signed(
