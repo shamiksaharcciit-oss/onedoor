@@ -236,10 +236,10 @@ def test_build_release_accepts_the_pinned_versions() -> None:
 
 
 def test_the_otel_extra_is_pinned_to_a_tested_range() -> None:
-    """backlog 10: an unbounded lower-only pin (`>=1.27`) is never actually
-    exercised against anything but whatever the latest release happens to be
-    on a given day -- a real upper bound, matching the one CI actually
-    installs and type-checks against, is what makes "tested" true."""
+    """An unbounded lower-only pin (`>=1.27`) is never actually exercised
+    against anything but whatever the latest release happens to be on a
+    given day -- a real upper bound, matching the one CI actually installs
+    and type-checks against, is what makes "tested" true."""
     data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     (requirement,) = data["project"]["optional-dependencies"]["otel"]
     assert requirement.startswith("opentelemetry-api")
