@@ -252,7 +252,9 @@ def build(
     that permit, and `recipient_action_id` when `outcome="effected"`.
 
     Raises `ConfirmationError` for a missing/invalid `outcome` on a `VERIFIED`
-    result, or for `effected` with no `recipient_action_id`.
+    result, for `effected` with no `recipient_action_id`, or for a
+    `COULD_NOT_CHECK` result whose `dependency` is not one of the three the
+    format note names.
     """
     if result.status is VerificationStatus.REFUSED:
         step_reached = result.step - 1  # type: ignore[operator]

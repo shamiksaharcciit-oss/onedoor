@@ -26,22 +26,21 @@ different key under a borrowed label. An unknown member inside a nested
 top-level unknown member; it is now named the same way. A `permit` object
 present but missing one of its three members read as citing a different
 permit instead of being refused as malformed -- `build()` never emits a
-partial permit claim, so a partial one only arrives by construction. Two
-non-string nested members present together were named only by whichever a
-frozenset's own iteration order found first; both are now named, in a
-fixed declared order. `build()` wrote an unrecognised dependency string
-straight into a signed payload that `check()`'s own shape rule would then
-refuse to read back; it now refuses to build that confirmation at all.
+partial permit claim, so a partial one only arrives by construction, named
+in the format note's own declared member order, and only after the step
+table has had its own say about whether `permit` should be present at
+all. `build()` wrote an unrecognised dependency string straight into a
+signed payload that `check()`'s own shape rule would then refuse to read
+back; it now refuses to build that confirmation at all.
 `permit.digest` is now computed over the token trimmed of incidental
 leading/trailing whitespace, on both sides.
 
 ### Fixed — the otel extra is pinned to a tested range, and CI installs it
 
-`opentelemetry-api>=1.27` had no upper bound, so nothing about it was ever
-actually "tested", and CI never installed `[otel]` at all. Pinned to
-`>=1.27,<1.46`, and CI now installs `[otel]` alongside `[dev]`, so
-`telemetry.py`'s own optional wiring is type-checked against a real
-package, not merely exercised by its own absence.
+`opentelemetry-api` is pinned to `>=1.27,<1.46`, the range this release is
+actually built and tested against, and CI installs `[otel]` alongside
+`[dev]`, so `telemetry.py`'s own optional wiring is type-checked against a
+real package.
 
 ### Changed — the recipient confirmation's own docstring names the closed gap
 
@@ -52,9 +51,8 @@ reading as though the gap it once disclosed were still open.
 ### Not done
 
 Draft 5 of the confirmation format does not yet exist (checked against the
-format note's own pack and this machine; neither holds it), so this
-release ships without adopting it. Named here rather than guessed at;
-moved to 0.11.
+format note's own pack; it does not hold it), so this release ships
+without adopting it. Named here rather than guessed at; moved to 0.11.
 
 ## 0.10.2 — 2026-11-01
 

@@ -212,11 +212,10 @@ pythonpath = ["."]
 strict = true
 
 # OpenTelemetry is an optional extra: telemetry.py imports it inside a try/except
-# and no-ops without it. CI now installs [otel] alongside [dev] (a real
+# and no-ops without it. CI installs [otel] alongside [dev] (a real
 # opentelemetry-api, within the tested range above, ships py.typed and is
-# type-checked for real), but a bare [dev] install, without [otel], is still a
-# supported configuration -- this override only matters for that case, where
-# the import genuinely is absent by design, not a missing dependency.
+# type-checked for real); this override is for an install that leaves [otel]
+# out, where the import is absent by design, not a missing dependency.
 [[tool.mypy.overrides]]
 module = ["opentelemetry.*"]
 ignore_missing_imports = true

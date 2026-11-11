@@ -39,13 +39,12 @@ PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 DECLARED_ELSEWHERE = {
     "opentelemetry": (
-        "the [otel] extra, kept deliberately separate from [dev] since telemetry.py's "
-        "own try/except must still no-op cleanly on a bare [dev] install -- that is "
-        "the configuration this test's own [dev]-completeness check is about. CI "
+        "the [otel] extra, kept deliberately separate from [dev] -- that is the "
+        "configuration this test's own [dev]-completeness check is about. CI "
         "installs [otel] alongside [dev] so the real package (which does ship "
         "`py.typed`, unlike when the `tool.mypy.overrides` entry for it was first "
         "written) is actually type-checked, not waved through by "
-        "`ignore_missing_imports`, which now only matters for a bare [dev] install."
+        "`ignore_missing_imports`."
     ),
 }
 """Modules deliberately absent from `[dev]`, each with the reason it is absent.
