@@ -454,7 +454,7 @@ def check(
         try:
             if thumbprint(public_key) != kid:
                 public_key = None
-        except ValueError:
+        except (ValueError, TypeError):
             public_key = None
     if public_key is None:
         return VerificationResult(

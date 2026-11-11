@@ -518,6 +518,23 @@ def test_check_refuses_a_kid_whose_claimed_thumbprint_does_not_match_its_key() -
     assert result.dependency == "recipient-trust-list"
 
 
+def test_check_refuses_rather_than_raises_on_a_str_entry_in_the_recipient_table() -> None:
+    """A 32-character `str` passes `thumbprint`'s own length check (`len`
+    does not care whether it is counting bytes or characters) but fails at
+    `base64.urlsafe_b64encode`, which refuses a `str` outright -- a
+    `TypeError`, not the `ValueError` the length check raises. `check` must
+    catch both and refuse the same way 0.10.2 refused an unresolvable key,
+    never let either escape as a raised exception."""
+    kid, priv = _recipient_identity()
+    recipients = {"https://r.example": {kid: "x" * 32}}  # type: ignore[dict-item]
+    payload = {"iss": "https://r.example", "outcome": "refused", "iat": 1, "step": 1, "reason": "x"}
+    header = {"alg": "EdDSA", "kid": kid, "typ": "aadp-confirmation+jwt"}
+    token = jws.encode(header, payload, priv)
+    result = _check(token, recipients=recipients)
+    assert result.status is VerificationStatus.COULD_NOT_CHECK
+    assert result.dependency == "recipient-trust-list"
+
+
 def test_check_flags_an_unknown_member_inside_a_nested_object() -> None:
     """An unknown member inside `request` (or `permit`) must be surfaced the
     same way a top-level unknown member already is -- silently dropping it
