@@ -205,6 +205,61 @@ def test_permit_digest_strips_incidental_whitespace_both_sides() -> None:
     ) == confirmation._structured_digest(token.encode("ascii"))
 
 
+def test_build_then_check_both_use_the_trimmed_token_for_permit_digest() -> None:
+    """The unit test above proves the helper strips before digesting; this
+    proves `build()`'s own call site and `check()`'s own call site are
+    actually wired to it, through a real round trip rather than a bare
+    function call. A whitespace-padded token cannot be used here to force
+    the point further: `jws.parse` (called by both `build()`, for the
+    permit's own claims, and `check()`, for the same reason) refuses ANY
+    padding around a real compact JWS before either ever reaches the digest
+    -- confirmed directly, not assumed -- so the trim is only ever
+    observable on a clean token, where it is a no-op. What this test shows
+    is that the round trip still verifies cleanly with the trim-aware code
+    in place, not a behavioural difference a padded token could reveal."""
+    fx = _build()
+    result = _verify(fx)
+    assert result.status is VerificationStatus.VERIFIED
+    kid, priv = _recipient_identity()
+
+    token = confirmation.build(
+        fx.request,
+        result,
+        recipient_key_id=kid,
+        recipient_private_key=priv,
+        now=NOW,
+        outcome="effected",
+        recipient_action_id="TX-1",
+    )
+    _, payload = jws.verify(token, priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+    expected_digest = confirmation._structured_digest(
+        fx.request.permit_token.strip().encode("ascii")
+    )
+    assert payload["permit"]["digest"] == expected_digest
+
+    content_digest = confirmation._structured_digest(fx.request.body)
+    signature_base = _signature_base_for(fx)
+    action_digest = fx.claims["action_digest"]
+    recipients = {
+        fx.request.recipient_audience: {
+            kid: priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        }
+    }
+    checked = confirmation.check(
+        token,
+        permit_token=fx.request.permit_token,
+        permit_aud=AUDIENCE,
+        content_digest=content_digest,
+        signature_base=signature_base,
+        action_digest=action_digest,
+        step_started=0,
+        step_ended=NOW.timestamp() + 1,
+        step_outcome_ok=True,
+        recipients=recipients,
+    )
+    assert checked.status is VerificationStatus.VERIFIED
+
+
 def test_sabotage_an_unrecognised_dependency_is_treated_conservatively() -> None:
     """If the step-in-progress mapping were missing an entry, the conservative
     default (step 1: nothing established) is what stands between an unmapped
