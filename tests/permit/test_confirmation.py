@@ -565,10 +565,11 @@ def test_check_refuses_a_permit_object_missing_a_required_member_as_malformed() 
     assert "permit.digest missing" in result.detail
 
 
-def test_check_refuses_two_non_string_nested_members_both_named_in_order() -> None:
-    """Two problems found together must both be named, in section 2.1's own
-    declared order -- never silently reporting only the first, and never in
-    a frozenset's/dict's own unspecified iteration order."""
+def test_check_names_only_the_first_of_two_non_string_nested_members() -> None:
+    """Draft 4's table gives a single-problem wording; two problems found
+    together are never both named -- only the first, in section 2.1's own
+    declared order (`iss` before `jti`), matching the table's own
+    discipline of stopping at the first failure."""
     kid, priv = _recipient_identity()
     token = _signed(
         kid,
@@ -585,9 +586,82 @@ def test_check_refuses_two_non_string_nested_members_both_named_in_order() -> No
     result = _check(token, recipients=_listed(kid, priv))
     assert result.status is VerificationStatus.REFUSED
     assert result.reason is RefusalReason.MALFORMED
-    assert "permit.iss" in result.detail
-    assert "permit.jti" in result.detail
-    assert result.detail.index("permit.iss") < result.detail.index("permit.jti")
+    assert result.detail == "malformed confirmation (permit.iss not a string)"
+    assert "jti" not in result.detail
+
+
+def test_check_names_only_the_first_of_two_missing_permit_members() -> None:
+    """The same single-problem discipline for missing members: `iss` and
+    `jti` both absent, step 2 requires `permit` -- only `permit.iss`, the
+    first in declared order, is named."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 2,
+            "reason": "x",
+            "permit": {"digest": "sha-256=:AAAA:"},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "malformed confirmation (permit.iss missing)"
+    assert "jti" not in result.detail
+
+
+def test_check_refuses_a_step_1_refusal_with_a_partial_permit_as_premature() -> None:
+    """A step-1 refusal has not reached step 2, so `permit` must not be
+    present AT ALL yet -- a PARTIAL permit is still present, and the step
+    table's own "present before its step passed" check must fire before
+    the new completeness check ever gets a look, not report a missing
+    member instead."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 1,
+            "reason": "x",
+            "permit": {"iss": "https://ledger.example", "jti": "J1"},
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "malformed confirmation (permit present before its step passed)"
+
+
+def test_check_names_the_requests_own_problem_over_a_partial_permit() -> None:
+    """A partial `permit` and a `request` that is not an object at all --
+    the completeness check runs only after the per-key shape loop, so
+    `request`'s own, more fundamental problem is reached and named first,
+    never pre-empted by the permit's own incompleteness."""
+    kid, priv = _recipient_identity()
+    token = _signed(
+        kid,
+        priv,
+        {
+            "iss": "https://r.example",
+            "outcome": "refused",
+            "iat": 1,
+            "step": 9,
+            "reason": "x",
+            "permit": {"iss": "https://ledger.example", "jti": "J1"},
+            "request": "not-an-object",
+        },
+    )
+    result = _check(token, recipients=_listed(kid, priv))
+    assert result.status is VerificationStatus.REFUSED
+    assert result.reason is RefusalReason.MALFORMED
+    assert result.detail == "malformed confirmation (request is not an object)"
 
 
 # ---------------------------------------------------------------------------

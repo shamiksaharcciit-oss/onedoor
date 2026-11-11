@@ -106,9 +106,11 @@ _REQUEST_MEMBERS = frozenset({"content_digest", "signature_base_digest"})
 _PERMIT_MEMBERS_ORDERED: tuple[str, ...] = ("iss", "jti", "digest")
 _REQUEST_MEMBERS_ORDERED: tuple[str, ...] = ("content_digest", "signature_base_digest")
 """Section 2.1's own declared order for each nested object's members --
-iteration order for the checks below, so two problems found together are
-always named in this fixed order, never in a frozenset's/dict's own
-unspecified iteration order."""
+iteration order for the checks below, so the FIRST problem found is always
+the one in this fixed order, never whichever a frozenset's/dict's own
+unspecified iteration order happened to reach first. Only the first problem
+is ever named -- the table's own single-problem wordings, matching draft
+4's own discipline of stopping at the first failure."""
 
 
 def _is_int(value: object) -> bool:
@@ -161,16 +163,7 @@ def _shape_problem(payload: dict[str, object]) -> str | None:
                 m for m in ordered_members if m in nested and not isinstance(nested[m], str)
             ]
             if not_string:
-                if len(not_string) == 1:
-                    return f"{key}.{not_string[0]} not a string"
-                names = ", ".join(f"{key}.{m}" for m in not_string)
-                return f"{key} members not a string: {names}"
-            if key == "permit":
-                missing = [m for m in ordered_members if m not in nested]
-                if missing:
-                    if len(missing) == 1:
-                        return f"permit.{missing[0]} missing"
-                    return f"permit members missing: {', '.join(f'permit.{m}' for m in missing)}"
+                return f"{key}.{not_string[0]} not a string"
     if outcome == "refused" and "step" in payload:
         step = payload["step"]
         assert isinstance(step, int)
@@ -201,6 +194,16 @@ def _shape_problem(payload: dict[str, object]) -> str | None:
                 return f"{key} missing"
             if not required and have[key]:
                 return f"{key} present before its step passed"
+    # Only now, after the step table has had its own say about whether
+    # `permit` should be present at all (so a partial permit present before
+    # its step passed is still named that way, not as a missing member) --
+    # a permit that IS present is checked for completeness. `build()` never
+    # emits a partial permit claim, so one can only arrive by construction.
+    permit = payload.get("permit")
+    if isinstance(permit, dict):
+        missing = [m for m in _PERMIT_MEMBERS_ORDERED if m not in permit]
+        if missing:
+            return f"permit.{missing[0]} missing"
     return None
 
 
