@@ -6,6 +6,56 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
 (not shipped in the package itself).
 
+## 0.10.3
+
+### Fixed — the two crit shapes `check` had never been asked to refuse
+
+An empty `crit` array was read as though no `crit` header were present at
+all; a `crit` that is not an array was stringified into the same wording a
+real unimplemented-extension list gets. Both are now their own malformed
+shape (§1), refused before the extension-names branch; a real non-empty
+list keeps its existing wording and verdict.
+
+### Fixed — five places the recipient confirmation was looser than the format note
+
+A recipient key was trusted by a dict lookup on `kid` alone, with no check
+that the returned key's own thumbprint is in fact `kid` -- closed, so a
+mis-populated or attacker-influenced recipient table cannot substitute a
+different key under a borrowed label. An unknown member inside a nested
+`permit` or `request` object was silently dropped with no detail, unlike a
+top-level unknown member; it is now named the same way. A `permit` object
+present but missing one of its three members read as citing a different
+permit instead of being refused as malformed -- `build()` never emits a
+partial permit claim, so a partial one only arrives by construction. Two
+non-string nested members present together were named only by whichever a
+frozenset's own iteration order found first; both are now named, in a
+fixed declared order. `build()` wrote an unrecognised dependency string
+straight into a signed payload that `check()`'s own shape rule would then
+refuse to read back; it now refuses to build that confirmation at all.
+`permit.digest` is now computed over the token trimmed of incidental
+leading/trailing whitespace, on both sides.
+
+### Fixed — the otel extra is pinned to a tested range, and CI installs it
+
+`opentelemetry-api>=1.27` had no upper bound, so nothing about it was ever
+actually "tested", and CI never installed `[otel]` at all. Pinned to
+`>=1.27,<1.46`, and CI now installs `[otel]` alongside `[dev]`, so
+`telemetry.py`'s own optional wiring is type-checked against a real
+package, not merely exercised by its own absence.
+
+### Changed — the recipient confirmation's own docstring names the closed gap
+
+Reworded to say the format note's appendix has caught up to list this
+module as the thing that closes bound-permit profile §10, instead of still
+reading as though the gap it once disclosed were still open.
+
+### Not done
+
+Draft 5 of the confirmation format does not yet exist (checked against the
+format note's own pack and this machine; neither holds it), so this
+release ships without adopting it. Named here rather than guessed at;
+moved to 0.11.
+
 ## 0.10.2 — 2026-11-01
 
 ### Added — the confirmation format's draft 4
