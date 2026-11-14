@@ -54,7 +54,7 @@ def _swap_token(fx, token: str):  # type: ignore[no-untyped-def]
     return replace(fx, request=replace(fx.request, permit_token=token))
 
 
-# --- Item 1: alg: none ------------------------------------------------------------
+# --- alg: none ------------------------------------------------------------
 
 
 def test_alg_none_with_no_signature_is_refused() -> None:
@@ -81,7 +81,7 @@ def test_alg_is_never_consulted_a_real_signature_is_still_required() -> None:
     assert result.step == 2
 
 
-# --- Item 2: alg other than EdDSA, including HS256 keyed with the public key ------
+# --- alg other than EdDSA, including HS256 keyed with the public key ------
 
 
 def test_hs256_keyed_with_the_issuers_public_key_is_refused() -> None:
@@ -151,7 +151,7 @@ def test_an_alg_other_than_eddsa_with_a_real_eddsa_signature_still_verifies_the_
     assert result.status is VerificationStatus.VERIFIED
 
 
-# --- Item 3: a missing or wrong typ -------------------------------------------------
+# --- a missing or wrong typ -------------------------------------------------
 
 
 def test_a_wrong_typ_is_malformed() -> None:
@@ -172,7 +172,7 @@ def test_a_missing_typ_entirely_is_malformed() -> None:
     assert result.step == 1
 
 
-# --- Item 4: an unknown crit header --------------------------------------------------
+# --- an unknown crit header --------------------------------------------------
 
 
 def test_an_unknown_crit_is_malformed() -> None:
@@ -182,7 +182,7 @@ def test_an_unknown_crit_is_malformed() -> None:
     assert result.step == 1
 
 
-# --- Item 5: not exactly three segments, and empty segments -------------------------
+# --- not exactly three segments, and empty segments -------------------------
 
 
 def test_two_segments_is_malformed() -> None:
@@ -232,7 +232,7 @@ def test_an_empty_signature_segment_parses_but_never_verifies() -> None:
     assert result.step == 2
 
 
-# --- Item 6: non-canonical base64url; the same permit in two encodings ----------------
+# --- non-canonical base64url; the same permit in two encodings ----------------
 
 
 def test_non_canonical_base64_with_padding_is_rejected() -> None:
@@ -324,7 +324,7 @@ def test_jws_parse_rejects_a_non_canonical_segment_directly() -> None:
         raise AssertionError(f"non-canonical signature segment {variant!r} was accepted")
 
 
-# --- Item 7: a signature of the wrong length ----------------------------------------
+# --- a signature of the wrong length ----------------------------------------
 
 
 def test_a_zero_length_signature_is_refused() -> None:
@@ -354,7 +354,7 @@ def test_a_too_long_signature_is_refused() -> None:
     assert result.reason is RefusalReason.SIGNATURE_INVALID
 
 
-# --- Item 8: a key of the wrong type or curve behind cnf.jkt -------------------------
+# --- a key of the wrong type or curve behind cnf.jkt -------------------------
 
 
 def test_a_wrong_length_resolved_key_is_refused_not_a_crash() -> None:
@@ -405,7 +405,7 @@ def test_a_valid_length_but_wrong_curve_key_fails_verification_cleanly() -> None
     assert result.reason is RefusalReason.PRESENTER_KEY_MISMATCH
 
 
-# --- Item 9: JCS given duplicate keys, lone surrogates, non-integer numbers -----------
+# --- JCS given duplicate keys, lone surrogates, non-integer numbers -----------
 
 
 def test_jcs_refuses_a_lone_surrogate_cleanly() -> None:

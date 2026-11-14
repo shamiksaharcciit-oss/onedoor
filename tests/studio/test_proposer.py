@@ -67,7 +67,9 @@ def test_a_proposer_with_an_empty_instrument_is_refused() -> None:
         def identity(self) -> dict:
             return {}
 
-        def propose(self, description: str) -> proposer.Proposal:
+        def propose(
+            self, description: str, *, known_action_types: frozenset[str] | None = None
+        ) -> proposer.Proposal:
             return proposer.Proposal(policies=[])
 
     with pytest.raises(proposer.ProposerUnavailable) as caught:
@@ -82,11 +84,102 @@ def test_an_unknown_provenance_is_refused() -> None:
         def identity(self) -> dict:
             return {"kind": "odd"}
 
-        def propose(self, description: str) -> proposer.Proposal:
+        def propose(
+            self, description: str, *, known_action_types: frozenset[str] | None = None
+        ) -> proposer.Proposal:
             return proposer.Proposal(policies=[])
 
     with pytest.raises(proposer.ProposerUnavailable):
         proposer.derive(Odd(), DESCRIPTION, now=NOW)
+
+
+def test_an_old_style_one_argument_proposer_still_works() -> None:
+    """A proposer written against the protocol's own older shape --
+    `propose(self, description)`, no `known_action_types` -- never declared
+    the new keyword and never asked for it. `derive` must not hand it one."""
+
+    class OldStyle:
+        provenance = proposer.FIXTURE
+
+        def identity(self) -> dict:
+            return {"kind": "old-style"}
+
+        def propose(self, description: str) -> proposer.Proposal:
+            return proposer.Proposal(policies=[])
+
+    proposal, record = proposer.derive(
+        OldStyle(), DESCRIPTION, now=NOW, known_action_types=frozenset({"demo.confirm"})
+    )
+    assert proposal.policies == []
+    assert record.proposer_provenance == proposer.FIXTURE
+
+
+def test_a_keyword_only_propose_receives_known_action_types() -> None:
+    """`propose(self, description, *, known_action_types=None)` names the
+    keyword explicitly -- `derive` must pass the real set, not `None`."""
+    received: list[frozenset[str] | None] = []
+
+    class KeywordOnly:
+        provenance = proposer.FIXTURE
+
+        def identity(self) -> dict:
+            return {"kind": "keyword-only"}
+
+        def propose(
+            self, description: str, *, known_action_types: frozenset[str] | None = None
+        ) -> proposer.Proposal:
+            received.append(known_action_types)
+            return proposer.Proposal(policies=[])
+
+    known = frozenset({"demo.confirm"})
+    proposer.derive(KeywordOnly(), DESCRIPTION, now=NOW, known_action_types=known)
+    assert received == [known]
+
+
+def test_a_positional_or_keyword_propose_receives_known_action_types() -> None:
+    """`propose(self, description, known_action_types=None)` -- no `*` --
+    names the keyword too, just not keyword-only. `derive` must pass the
+    real set here as well."""
+    received: list[frozenset[str] | None] = []
+
+    class PositionalOrKeyword:
+        provenance = proposer.FIXTURE
+
+        def identity(self) -> dict:
+            return {"kind": "positional-or-keyword"}
+
+        def propose(
+            self, description: str, known_action_types: frozenset[str] | None = None
+        ) -> proposer.Proposal:
+            received.append(known_action_types)
+            return proposer.Proposal(policies=[])
+
+    known = frozenset({"demo.confirm"})
+    proposer.derive(PositionalOrKeyword(), DESCRIPTION, now=NOW, known_action_types=known)
+    assert received == [known]
+
+
+def test_a_kwargs_propose_receives_known_action_types_too() -> None:
+    """The regression this test exists to pin: `propose(self, description,
+    **kwargs)` never names `known_action_types`, but declares it takes any
+    keyword -- exactly the shape a proposer forwarding what it is handed
+    onward uses. `derive` must pass the keyword here too, not only when the
+    name appears literally in the signature."""
+    received: list[dict[str, object]] = []
+
+    class KwargsForwarding:
+        provenance = proposer.FIXTURE
+
+        def identity(self) -> dict:
+            return {"kind": "kwargs-forwarding"}
+
+        def propose(self, description: str, **kwargs: object) -> proposer.Proposal:
+            received.append(kwargs)
+            return proposer.Proposal(policies=[])
+
+    known = frozenset({"demo.confirm"})
+    proposer.derive(KwargsForwarding(), DESCRIPTION, now=NOW, known_action_types=known)
+    assert received == [{"known_action_types": known}]
 
 
 def test_there_is_no_silent_fallback_to_the_fixture() -> None:

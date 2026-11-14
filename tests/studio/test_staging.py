@@ -45,6 +45,49 @@ def test_a_clean_candidate_runs_every_stage_and_refuses_nothing() -> None:
     assert [e.effect for e in result.effects] == ["money.egress"]
 
 
+DANGLING = """
+policies:
+  - action_type: ok.f
+    tier: 2
+    compensating_command: ok.ghost2
+    cost_param: amount_eur
+    bounds:
+      required: [amount_eur]
+"""
+
+
+def test_an_undeclared_reversal_runs_clean_with_no_known_action_types() -> None:
+    """The documented limitation, unchanged: with nothing to check against,
+    the rules stage cannot see a `compensating_command` naming an action
+    the candidate does not define -- the default, for every caller before
+    this parameter existed."""
+    result = staging.staged(DANGLING)
+    assert result.refusals == ()
+    assert result.stopped_at is None
+
+
+def test_an_undeclared_reversal_is_refused_with_load_files_exact_sentence() -> None:
+    """A caller that built `known_action_types` from its own connection (see
+    `onedoor.studio.validate.known_action_types_for`) gets the rules stage
+    to refuse it with `load_file`'s own wording -- the same candidate,
+    refused the same way, whether staged or actually loaded."""
+    result = staging.staged(DANGLING, known_action_types=frozenset({"ok.f"}))
+    assert result.stopped_at == staging.STAGE_RULES
+    assert len(result.refusals) == 1
+    assert "ok.ghost2" in result.refusals[0].message
+    assert "ok.f" in result.refusals[0].message
+
+
+def test_a_mutual_pair_still_runs_clean_with_known_action_types() -> None:
+    """The common shape -- two policies in the same file naming each other
+    -- must still validate when `known_action_types` is given, since
+    `_stage_rules` unions it with this batch's own policies the same way
+    `load_file` does."""
+    result = staging.staged(GOOD, known_action_types=frozenset())
+    assert result.refusals == ()
+    assert result.stopped_at is None
+
+
 # --- one case per stage, each stopping the rest ------------------------------------
 
 

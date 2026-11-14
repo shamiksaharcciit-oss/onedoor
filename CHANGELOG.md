@@ -2,9 +2,338 @@
 
 onedoor is the reference implementation of the AADP Internet-Draft
 (`draft-saha-aadp`). Per-requirement conformance status, gaps included, lives in
-[CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket plan is in
-[BACKLOG.md](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
-(not shipped in the package itself).
+[CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
+not in this repository.
+
+## 0.11.0 — 2026-11-14
+
+### Added — shadow policy evaluation and policy tests
+
+A candidate policy's own verdict for a request actually decided under the
+live policy, recorded for later comparison, never affecting a live
+decision: `onedoor.guardrail.shadow.evaluate` answers what a policy's own
+default-deny, bounds, caps and tier (clamped by the kill switch) would have
+decided — not what the live engine's further escalation paths (effect-level
+tier floors, sequence policies, approval-ref/mandate resumption, dry-run,
+the compensating-command check) would have done; a live decision reached
+through one of those paths is recorded as outside this coverage, never
+folded into agreement or disagreement with a check it was never put
+through. `onedoor.guardrail.policy_tests.compare` runs the same evaluation
+against an old and a candidate policy over a batch of requests and reports
+which decisions the candidate moves. See
+`docs/design/shadow_policy_evaluation.md`.
+
+### Added — the two-person rule and its escalation
+
+- **A policy can now require two different approvers above an amount, and
+  assign a backup approver when neither answers in time.**
+  `Policy.approval.two_person_above_eur` turns on the stricter rule for one
+  action type: above that amount, `cas_approve` records a first approver
+  and raises `NeedsMoreApprovers` (an `ApprovalError` subclass, so an
+  existing caller that catches only the parent class already handles it)
+  until a second, different identity approves too — the proposer's own
+  identity never counts, and the same identity approving twice does not
+  count as two. An amount that cannot be resolved at all is treated as
+  needing the stronger protection, not the weaker one, the same "unknown is
+  never a free pass" rule `caps.resolve_cost` already applies. The HTTP
+  service's `/approve`, `/grant` and the two by-link routes (below) all
+  answer a recorded-but-insufficient vote with `202` and the vote's own
+  count, not a `409` refusal — `409` stays for an actual refusal (the
+  proposer, the same identity twice, expired, not pending). Below
+  `two_person_above_eur`, or with it unset, every policy decides exactly as
+  it always has.
+  `Policy.approval.escalate_after_seconds` turns on escalation separately: a
+  still-pending approval whose wait exceeds it gets a backup approver
+  assigned from `EngineConfig.escalation_resolver` (`None` by default, the
+  same shape `mandate_resolver` already has), checked lazily the same way
+  the approval's own full-TTL expiry already is, never on a timer of its
+  own. A backup approver who happens to be the proposer is excluded, the
+  same as any other approver identity.
+- **Each approver's vote is now tagged by which identity space it came
+  from, and a mixed pair is refused.** An admin key's own fingerprint, a
+  signed approval link's own recipient, and a direct library call each
+  carry their own channel (`"key"`, `"link"`, `"library"`); once an
+  approval has a vote recorded through a known channel, a second vote
+  through a *different* known channel is refused as a mixed pair rather
+  than counted — without this, one person voting once by key and once by
+  link completed a two-person approval alone, since the two identity spaces
+  can never be equal as strings. Two different votes through the *same*
+  channel still complete it; an approval with no channel recorded at all
+  (every approval from before this feature, and any caller with no channel
+  concept to report) still pairs freely with anything, unaffected.
+- **The two-person threshold applied is now the stricter of the policy as
+  it read at proposal time and as it reads now.** `cas_approve` previously
+  read only the live policy at approval time, so a policy edited between
+  proposal and approval — the threshold raised, or the two-person rule
+  added — let an action proposed under a looser rule complete with fewer
+  approvers than the policy in force at approval time would have asked
+  for. `required_approvers_at_proposal` now snapshots the answer when a
+  proposal is created; approval takes whichever of the two reads is
+  stricter. `None` (every row from before this migration) falls back to
+  the current policy alone, the same behaviour this program always had.
+
+### Added — plans
+
+- **A human can now pre-approve a bounded batch of future actions once,
+  instead of approving each one as it arrives.** `onedoor.guardrail.plans`
+  proposes a plan — a set of covered action types, a count ceiling, an
+  amount ceiling, an expiry and, where a covered action declares one, a
+  recipient list — and activates it only once a *different* identity
+  approves it, the same self-approval exclusion `cas_approve` already
+  enforces. A plan whose own `amount_ceiling` crosses a covered action's
+  own two-person threshold needs a second, different approver too,
+  mirroring that rule exactly, including taking the stricter of the policy
+  as it read at proposal time and as it reads now.
+- **A live request can name an active plan instead of going through an
+  ordinary approval, and the plan replaces only that one step.** `plan_ref`
+  resolves (`onedoor.guardrail.plan_ref.resolve_match`) against a plan's own
+  remaining count and amount room, its recipient list, and whether the
+  covered action's *current* policy still accepts the plan's own declared
+  `amount_param`/`recipient_param` for it — a bad, expired, exhausted,
+  mismatched or no-longer-accepted reference evaluates as absent, the same
+  anti-probing shape `approval_ref` already has, and the action simply
+  proposes again on its own merits. Every other check — bounds, caps, the
+  kill switch, untrusted-input, sequence rules, a bound permit — still
+  decides fully on its own, before and after this ever runs. Matching and
+  spending are two separate steps: `resolve_match` only reads, answering
+  whether the call fits with room left; `apply_match` writes, called only
+  once a caller has independently confirmed the call is actually going to
+  execute, never for a dry run or a call caps or a budget goes on to deny.
+  Both run inside the one transaction a decision already holds for its
+  whole duration, so nothing else can observe or change the plan's row in
+  between.
+
+### Added — marking a parameter as untrusted
+
+- **A caller can now mark which of a request's own parameters are derived
+  from content it does not control, and a policy can deny or hold on
+  exactly those paths.** `ActionRequest.untrusted` carries dotted paths
+  into `params`; `Policy.untrusted_params.deny`/`.hold` lists which of them
+  stop this action type, and how — a path in `deny` wins over the same path
+  in `hold`, and a path in neither has no effect whether or not a caller
+  marked it. Checked before bounds and caps. The decision records which
+  marked paths actually matched (`untrusted_matched`): `[]` when the policy
+  declares `untrusted_params` and nothing matched, `None` when the policy
+  declares no `untrusted_params` at all — the one case this check never ran.
+
+### Added — rules across a sequence
+
+- **A policy can now hold or deny an action based on what already happened
+  earlier in the same session.** `Policy.sequence` tags a settled action
+  under `tag_as` and/or declares `rules` checked against that session's own
+  prior settled actions before this one is decided — before bounds and
+  caps, the same placement the untrusted-input check above already has. A
+  rule is either `after_tag` (matches if a given tag appears within
+  `within_seconds`) or `count_over` (matches once a session's own history
+  already holds `max_count` prior actions of a type, optionally gated to
+  only those whose own `amount_param` exceeded `threshold_eur`, and then
+  only when the action being decided right now also exceeds it); each
+  rule's own `effect` is `hold` (escalates to confirmation, non-terminally)
+  or `deny` (terminal, before bounds and caps are even reached).
+- **A policy with rules refuses to run with no session to check them
+  against, unless it explicitly says it can live without one.**
+  `ActionRequest.session_id` is what the rules read; a policy whose
+  `sequence.rules` is non-empty but presented with no `session_id` at all
+  is held, not silently evaluated as though no rule existed, unless the
+  policy declares `session_optional: true`.
+- `sequence_events` is append-only, bounded by a per-session cap and a
+  cross-session prune to the longest window any loaded policy's rule
+  actually uses (30 days when none declares one). A rule whose own window
+  reaches further back than a session's pruned history still applies its
+  effect, but the receipt says the answer was not a complete one
+  (`sequence_history_incomplete`).
+
+### Added — signed approval links
+
+- **A Tier-3 approval can now be answered by a signed, single-use link
+  instead of only the admin API.** `onedoor.guardrail.approval_link` issues
+  and verifies a compact, HMAC-SHA256-signed token — a deliberately
+  separate, simpler artifact from a bound permit's own JWS, with its own
+  signing keys and rotation — that carries the approval id, the identity it
+  was issued to, an absolute expiry and a random single-use nonce; the
+  action it performs (approve or deny) is baked into which token it is,
+  never a parameter a presenter chooses, so a forwarded or logged link
+  cannot have its action changed by whoever reads it.
+  `onedoor.integrations.approval_notify` builds the approve and deny links
+  for one approval and dispatches them through a deployment-supplied
+  `send_email`/`send_webhook` callable — this module never opens a socket
+  of its own. A policy opts in with `Policy.approval_notify` (`channel`:
+  `email` or `webhook`, plus the recipient); left unset, nothing changes.
+- **`GET /v1/approvals/by-link/{token}` is a confirmation page only;
+  `POST` to the same path is what acts.** The `GET` route is deliberately
+  unauthenticated and never consumes the token's own nonce, so a mail
+  scanner or link-preview fetch cannot approve or deny anything by itself;
+  `POST` consumes it, and re-checks the token's own issuer, its claimed
+  recipient against the policy's currently configured one, and its claimed
+  request digest against the approval it names, refusing on any of the
+  three regardless of whether the signature itself still verifies. Neither
+  route answers which check failed, or whether a token is simply unknown —
+  the same anti-probing posture `approval_ref`/`plan_ref` already have; the
+  real reason is logged, never returned to the caller.
+- **A by-link token never reaches a log in the clear.** The service's own
+  by-link logger redacts it on every line it writes; a separate filter
+  installed on uvicorn's own access logger does the same for the request
+  line uvicorn writes on its own. A deployment using signed links should
+  still pass `--no-access-log` to uvicorn, since a reverse proxy or load
+  balancer outside this process sees the real request line regardless of
+  what either filter catches.
+
+### Added — an MCP tool-to-action mapping, and a second, HTTP transport for the gateway
+
+- **A tool-to-action mapping file can now bridge an MCP tool's own call
+  shape to onedoor's action vocabulary, and the gateway refuses anything
+  the mapping does not name.** Each mapped tool names the onedoor action
+  type it becomes, a free-text effect label for the receipt only, and a
+  dotted path per onedoor param name into the tool's own arguments. A tool
+  absent from the mapping still runs through the ordinary decision-and-audit
+  pipeline, under a synthesized `mcp.unmapped.<tool>` action type, so it
+  stays audited exactly like anything else this gateway ever decides — but
+  the gateway never forwards it, whatever the engine decides, a
+  gateway-level guarantee that does not depend on how any policy happens to
+  be written. With no mapping file at all, every tool is still implicitly
+  mapped to `mcp.<tool>` with its arguments passed through verbatim, the
+  0.10.x behaviour, unaffected. The call this gateway forwards downstream
+  still carries the tool's own original argument shape, never the mapped
+  projection a policy's decision was actually made against.
+  `tools_list_filter` can additionally narrow what `tools/list` reports to
+  only the mapping's own named tools.
+- **The same proxy now also speaks streamable HTTP, on a strictly limited
+  surface.** `POST /mcp` carries one JSON-RPC message per request, answered
+  with one JSON object — the same `handle_message` the stdio transport
+  already calls, so this adds no guardrail behaviour of its own, only a
+  second way to reach it. It binds to `127.0.0.1` only, refusing to start
+  against any other host; it refuses any request carrying an `Origin`
+  header unless that origin is in an allow-list that is empty by default
+  (`403`); it refuses a `Content-Type` other than `application/json`
+  (`415`), which is what forces a browser to preflight a cross-origin
+  request rather than send it as one this gateway would never see coming;
+  and it requires a bearer token, compared in constant time, whenever one
+  is configured (`401` without one or with the wrong one) — a non-empty
+  allow-list requires a token to be configured at all, refused at start-up
+  rather than discovered at the first request.
+- A caller can mark which of a tool's own arguments are untrusted, and
+  which audience it will present a bound permit to, through the gateway
+  too, not only through a direct decision call. A marked tool-argument path
+  resolves to the onedoor param name the mapping already maps that same
+  path onto, read in reverse, so a caller's mark lines up with the mapping
+  even though the two name the value differently; a mark on a path the
+  mapping does not know about is simply inert, the same way an
+  unrecognised policy path already is. A declared audience does not let
+  this gateway forward an audience-bound permit itself — it only lets the
+  match succeed so the refusal that follows reports the real reason instead
+  of one that could never have matched in the first place.
+
+### Upgrading
+
+- **A 0.10.3 store applies 18 new migrations (`0033` through `0050`) the
+  first time it opens under 0.11.0.** This runs inside the ordinary
+  migration step `Database.init()` already performs on open, in one
+  transaction per file, the same as every migration before it — no
+  separate command to run. They add the tables and columns the features
+  above need: untrusted-parameter marking, plans, sequence rules, the
+  two-person rule (and its escalation, channel tracking and
+  stricter-of-two-reads threshold), signed approval links, and
+  shadow-decision coverage. Nothing already in a 0.10.3 database is altered
+  or removed; a store that never opens under 0.11.0 is unaffected.
+
+### Changed
+
+- **A policy file naming an undeclared reversal, which loaded successfully
+  before, is now refused on load.** `compensating_command` was checked only
+  for presence on an auto-executing policy, never checked to actually name a
+  real, registered action type — a typo'd or retired reversal target loaded
+  clean, and the gap surfaced only when an operator actually attempted an
+  undo and found nowhere to go. The batch loader (`load_file`, run at boot)
+  now refuses such a policy up front, naming the policy, the undeclared
+  target, and the remedy. **Upgrading:** if boot now fails with
+  `declares compensating_command '...', which names no known action type`,
+  declare a policy for that action type — in the same file or one already
+  loaded — the same shape `config/policies.yaml` already uses for every one
+  of its own reversal pairs (one policy's own `compensating_command` names
+  another policy already present). A single ad-hoc policy loaded through
+  `upsert` directly is unaffected, since it has no view of the rest of the
+  policy set to check against.
+
+- **The Studio's own API and its live proposer now refuse a dangling
+  reversal too, not only `load_file`.** `api.parse_rule` (behind the JSON
+  draft routes) and the live proposer's `parse`/`propose` gained a
+  `known_action_types` check, the same one `load_file` and the editor's
+  own multi-rule staging already perform -- a rule naming a reversal
+  nothing declares is refused at draft creation, a single-rule edit, or a
+  live-generated proposal, not only discovered later at ratification or a
+  batch load.
+
+- **`Proposer.propose` grew a `known_action_types` keyword, and `derive`
+  passes it only to a proposer that declares it or takes `**kwargs`.** A
+  proposer written against the older, one-argument shape
+  (`propose(self, description)`) keeps working unchanged -- `derive`
+  checks the proposer's own signature before deciding whether to pass
+  the new keyword at all, naming it literally or forwarding it on
+  through `**kwargs` either way.
+
+- **`fastapi` gets a tested upper bound: `>=0.115,<0.163`.** The full suite
+  passes under 0.141.1, 0.162.4, and 0.162.7, the oldest and the two newest
+  versions this release has actually been tested against; the bound sits
+  above the newest of the three, not just above whichever version happened
+  to be installed when it was first written.
+
+- **`uvicorn` gets an upper bound too: `>=0.34,<0.55`.** It stands on the
+  same footing as the otel extra: this engine's own code imports it
+  directly, and the service's by-link token redaction hooks its own
+  access logger, so an unbounded uvicorn could change underneath both
+  unchecked. Set above 0.54.0, the newest tested here.
+
+- **Documented, not changed: when a nested `permit`/`request` object has more
+  than one member that is not a string, `check` names the first one in the
+  format note's own §2.1 declared member order, not whichever one a dict
+  happens to iterate to first.** This was already `_shape_problem`'s own
+  behavior (it walks `_PERMIT_MEMBERS_ORDERED`/`_REQUEST_MEMBERS_ORDERED`);
+  named here because 0.10.1's own entry for the not-a-string detail never
+  said which member wins when more than one qualifies.
+
+- **The README and `[project.urls]` now link onedoor's hosted page.** The
+  README names onedoor as part of [oneproof](https://oneproof.dev/onedoor/)
+  and gains a short "onedoor and onetrace" section; `pyproject.toml`'s own
+  `[project.urls]` gains `Documentation`, pointing at the same page.
+
+### Fixed
+
+- **An OBSERVE read (tier 0) through the MCP gateway is now forwarded and
+  its result returned.** Before this, it was reported as denied and never
+  forwarded — every such call fell into the gateway's own generic "denied"
+  branch, which reports any decision it does not otherwise recognize as a
+  refusal. Affects a gateway deployment with a tier-0 policy.
+
+### Known gaps
+
+- **`crit: null` reads as absent, not as a malformed non-array.** `check`
+  tests presence with `header.get("crit") is not None`, so an explicit
+  `{"crit": null}` takes the same path as a header with no `crit` member at
+  all, rather than failing the array-shape check the way `{"crit": []}` and
+  `{"crit": "x"}` already do. The format note's own reference checker
+  diverges here too, the opposite way: it tests presence with `"crit" in h`,
+  which is true for an explicit `null` and would then try to join `None` as
+  though it were a list of unknown extension names. Neither side was built
+  to agree with the other on this one shape. Named here rather than fixed,
+  since fixing it well means picking which of the two readings is right
+  against the format note's own text, not a one-line change.
+- **The reference checker's own `cited` set, used when reporting which
+  members a confirmation's own citations covered, is a plain `set()` — no
+  guaranteed order.** Cosmetic (it affects only the order names are listed
+  in a report line, never the pass/fail verdict), but worth naming since a
+  reader comparing two runs' own output could otherwise mistake a reordering
+  for a real difference.
+- **The streamable-HTTP transport's own `session: per_connection` support
+  hashes the bearer token, and this gateway supports exactly one configured
+  token at a time.** Every request authenticated by that one token
+  therefore hashes to the same session, so multiple MCP hosts sharing one
+  deployment's token are tracked by sequence rules as a single session
+  rather than one each — a real limit of a single-tenant token today, not a
+  flaw in the hash itself. One host's calls, merged into the session this
+  way, count toward another host's own sequence-rule history too, so they
+  can cause it to be held or denied — never the reverse, since a sequence
+  rule only ever holds or denies, never grants an exception a rule would
+  otherwise refuse.
 
 ## 0.10.3
 
@@ -704,7 +1033,7 @@ same draft-and-ceremony path as anything typed or uploaded. Six walls hold it th
 5. The capability language is exact everywhere, held by a forbidden-phrase test.
 6. Every proposal ends with **what the description mentioned that got no rule**, quoting
    the operator's own words — the constitution's fourth principle, which the directive had
-   omitted and which core confirmed was always binding.
+   omitted and which was confirmed to have always been binding.
 
 A proposal is **recorded, not receipted**: the same description through the same model
 twice may differ, so the record pins the conditions and states on its face that it does not
@@ -724,7 +1053,7 @@ reads the document.
 
 Ships in `0.7.0`, after Sept 12. Additive; no engine, schema or wire change.
 
-The Studio's own design tokens, vendored from the mockup core named as binding design
+The Studio's own design tokens, vendored from the mockup named as binding design
 authority and pinned by digest — a warm umber ground, a serif for ceremony, mono with
 tabular numerals for digests, and a `review` state colour oneview has no name for. The
 palette diverges from oneview's deliberately: the design note says *"warm charcoal/umber,
@@ -954,7 +1283,8 @@ guidance actually asks for. The contrast and separation figures now print in CI.
 
 ### Changed — the brand accent no longer carries state, anywhere
 
-Core superseded R049 §3's `--seal` clause: the rule binds everywhere, with no
+This closes the earlier exemption that let an already-shipped screen keep
+using gold as a state color: the rule binds everywhere, with no
 grandfathered screens. Seven rules across the coverage map and the proposal page marked
 a state or a classification in seal gold; all seven now distinguish by size, position,
 weight and texture instead — three mechanisms, and three are enough.
@@ -1178,7 +1508,7 @@ reads a decimal string as money. Measuring it found something sharper than the r
 `caps.resolve_cost` accepts `str` and `bounds` does not.
 
 The failing direction is closed — a denial, never a permit — and the fix **changes a
-verdict**, which makes it core's call rather than a maintainer's. Escalated as
+verdict**, which makes it a design-authority call rather than a maintainer's. Escalated as
 `escalations/ESCALATION-20260827-006.md`; named in *Known limitations* meanwhile, so an
 integrator meets it in documentation rather than in a refusal.
 
@@ -2115,10 +2445,9 @@ Ten new tests, including the regression that fails against the old behaviour.
   --strict` and `pytest` run on a 3.12/3.13 matrix; `ruff` is **pinned**, because an
   unpinned linter makes CI non-deterministic. All four now pass; none of them did
   before.
-- **`ND-036`** — `ROADMAP.md` is a pointer to the live documents rather than a
+- `ROADMAP.md` is a pointer to the live documents rather than a
   stale feature list. Eleven work items that lived only in it were migrated into
-  [`BACKLOG.md`](https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md)
-  rather than deleted.
+  the project's own privately-kept backlog rather than deleted.
 - **Packaging:** a `[litellm]` extra. The LiteLLM example imported a package no
   extra installed, so anyone following the docs hit `ModuleNotFoundError`.
 - **Repository integrity:** `.gitattributes` forces LF and freezes the vendored,

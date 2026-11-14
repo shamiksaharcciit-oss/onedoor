@@ -367,7 +367,7 @@ def verify(
     except (ValueError, TypeError) as exc:
         # A directory is free to be wrong, but it must never crash the
         # recipient: a key of the wrong length or type behind cnf.jkt is a
-        # refusal, not an uncaught exception (profile item 8's wrong-key-type
+        # refusal, not an uncaught exception (the profile's wrong-key-type
         # case -- `jwk.thumbprint` itself raises for anything that is not a
         # 32-byte value, by design; this is the boundary that must not let it
         # propagate).

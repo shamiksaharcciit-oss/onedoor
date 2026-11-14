@@ -1,5 +1,7 @@
 # onedoor
 
+onedoor is part of [oneproof](https://oneproof.dev/onedoor/).
+
 [![CI](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shamiksaharcciit-oss/onedoor/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/onedoor.svg)](https://pypi.org/project/onedoor/)
 [![Python](https://img.shields.io/pypi/pyversions/onedoor.svg)](https://pypi.org/project/onedoor/)
@@ -23,8 +25,8 @@ onedoor is a decision **before** the action: written policies with tiers,
 budgets and effect caps; human approval for actions a policy places in its
 approval tier (tier 3); single-use permits bound to one action and recipient; the
 recipient's own signed confirmation that it acted; a kill switch; and a
-signed decision receipt for every verdict. It sits between the agent and the
-systems it acts on:
+decision receipt for every verdict, signed when a key is configured. It
+sits between the agent and the systems it acts on:
 
 ```mermaid
 flowchart LR
@@ -45,8 +47,9 @@ prompt filter can still catch what a model says before it ever proposes an
 action; a sandbox can still isolate the tool onedoor has permitted to run.
 
 **With [onetrace](https://pypi.org/project/onetrace/) ([docs](https://oneproof.dev/onetrace/)):**
-onedoor decides; onetrace records each decision in a signed run that anyone
-can verify offline, with no network call. The two are independent packages
+onedoor decides; a step that takes the action can record which decision
+allowed it, in a run that anyone can verify offline, signed when a key
+is configured, with no network call. The two are independent packages
 with one documented seam (`onedoor.guardrail.decision_ref`, `ot.decision`) —
 see [the evaluation's own recording section](eval/README.md#recording-and-verifying-with-onetrace)
 for a worked example.
@@ -264,11 +267,24 @@ sdist. Each has a test that drives it with no model and no network.
   `FunctionTool.on_invoke_tool`, with no `Agent` run and no API key.
 - **MCP** ([`examples/integrations/mcp/`](examples/integrations/mcp/),
   `mcp==2.3.0`): an MCP server (the `mcp` package's own server API) whose
-  tool handler calls onedoor before acting. A gateway in front of any MCP
-  server is **planned, not shipped** (roadmap, below).
+  tool handler calls onedoor before acting. `onedoor.mcp` ships a separate
+  gateway that puts every `tools/call` through `decide_and_reserve` on its
+  own, through a tool-to-action mapping, over stdio or a scoped
+  streamable-HTTP transport (one JSON-RPC message per request; no session
+  negotiation or server-initiated stream yet).
 
 All four frameworks installed cleanly beside onedoor 0.10.2 (`pip check`
 clean); none is parked.
+
+## onedoor and onetrace
+
+onedoor decides **before** an action: policy, tiers, budgets, approvals, a
+permit. A step that takes an action can record *which* onedoor
+decision allowed it. `onetrace-verify` then checks both sides together —
+the decision export and the run's own citations of it — with no network
+call. Full detail on the onedoor side of that record, including the
+exact shape a citation and a checked permit take, is in
+[`docs/onetrace.md`](docs/onetrace.md).
 
 ## Record and verify with onetrace
 
@@ -306,8 +322,8 @@ wrong action type, or an action described falsely by whatever called
 `decide_and_reserve`, is decided as described -- the decision point cannot
 see past the description it was given.
 
-The evaluation above measures scripted scenarios against this version of
-onedoor; it is not a claim about every agent, every tool, or every version.
+The evaluation above measures scripted scenarios against onedoor 0.10.2;
+it is not a claim about every agent, every tool, or every version.
 A recipient's confirmation shows the recipient said it acted -- not that it
 did, independent of what it says.
 
@@ -318,7 +334,10 @@ detail in [`eval/FINDINGS.md`](eval/FINDINGS.md)):
   then an uncorrelated retry, can carry out the same effect twice.
 - **No recipient check beyond rate and budget.** A message action gated
   only by a daily rate still sends to whatever recipient the call names,
-  including one named by untrusted text.
+  including one named by untrusted text. A policy can now list that
+  parameter in `untrusted_params` and deny or hold the call when the
+  caller marks it untrusted (0.11.0); a call the caller does not mark, or
+  a policy that lists nothing, is unaffected.
 - **An expired approval is proposed again, not denied.** Presenting an
   approval after its own expiry re-proposes a fresh approval instead of
   resolving denied.
@@ -347,7 +366,6 @@ precision at the wire boundary, URL pattern evasion, and the rest -- is in
 
 Planned, no dates:
 
-- An MCP gateway: every `tools/call` through `decide_and_reserve` first.
 - Reversibility declared in the policy itself (`reversible` /
   `compensable` / `irreversible`), rather than inferred from tier alone.
 - An approval left unanswered past its own expiry resolves denied.
@@ -358,6 +376,9 @@ Planned, no dates:
 - Backtest against onetrace runs: a new policy's verdict, beside what was
   decided at the time.
 - A recipient allow-list per action, with a held path for a new recipient.
+  A plan can already declare a recipient list for the actions it covers
+  (0.11.0), but only while a plan is active, not as a standing per-action
+  rule.
 
 ## Licence and contributing
 

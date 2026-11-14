@@ -185,7 +185,21 @@ def _apply(
 
     One function, used by the preview and by the real ratification, so the two cannot
     diverge in what they apply or in the order they apply it.
+
+    A ratification is a whole policy set, applied with the live table already in
+    view -- unlike `upsert`'s own direct call, which validates one policy with no
+    view of what else exists and so cannot check this. Here that view exists, so
+    `known_action_types` (the live table's own action types, plus the candidate's)
+    is built and checked -- the same `compensating_command` refusal `load_file`
+    would give, before any write happens, not only when an operator later uploads
+    the same candidate as a file.
     """
+    known_action_types = frozenset(
+        {row["action_type"] for row in conn.execute("SELECT action_type FROM policies")}
+        | {item.action_type for item in candidate}
+    )
+    for item in candidate:  # validate all first, fail-closed -- no partial population
+        policy_loader.validate_policy(item, known_action_types=known_action_types)
     for effect in effects or []:
         policy_loader.upsert_effect(conn, effect)
     for item in candidate:

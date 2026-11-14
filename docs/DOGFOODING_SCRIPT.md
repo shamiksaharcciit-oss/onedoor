@@ -48,8 +48,8 @@ build state the rest of the pass depends on — those are named, not guessed at,
 question never has to come back up to whoever is running the pass. It came up three times
 on the first attempt at this script; it should not need to again.
 
-**For Shamik, on a machine that has never run this.** This is the operator pass R066 §2
-made a condition of the tag: no pass, no tag. It runs against a store this script creates
+**For the operator, on a machine that has never run this.** This is the operator pass
+a release's own tag is conditioned on: no pass, no tag. It runs against a store this script creates
 — `pass.db` / `pass-studio.db` — never against whatever a previous pass or the README
 quickstart left behind. A re-walk from section A is deterministic because of that.
 
@@ -241,7 +241,7 @@ and pause again.
 more correct than the first, because the check that cleared both is
 `not policy.compensating_command` in `onedoor/guardrail/policy_loader.py` — truthiness
 only. Neither string is resolved against the policy set, at load time or at decision
-time; that gap is tracked as `ND-057` in `BACKLOG.md` and is not fixed in this release.
+time; that gap is not fixed in this release.
 **Do:** save from the raw pane. This is the one real, saved change this section makes —
 everything in C1b and up to here was live-checked and never written.
 **Expect:** the draft's own page now shows `payouts.schedule` at tier 2 with this
@@ -656,4 +656,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = 0a158be9f9bf3075dcb70969e35ab80455270888380b6850f6cba76fc09a1dd9
+Integrity: sha256(body) = b041494a3303d4c40d67f9e29ae97ce913ada10449a20f536a4229b0e2e6dce9

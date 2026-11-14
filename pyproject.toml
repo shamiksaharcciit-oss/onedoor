@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.10.3"
+version = "0.11.0"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,6 +19,7 @@ Homepage = "https://github.com/shamiksaharcciit-oss/onedoor"
 Repository = "https://github.com/shamiksaharcciit-oss/onedoor"
 Issues = "https://github.com/shamiksaharcciit-oss/onedoor/issues"
 Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG.md"
+Documentation = "https://oneproof.dev/onedoor/"
 
 [project.optional-dependencies]
 # Ed25519 signing. An EXTRA rather than a hard requirement, by design:
@@ -38,7 +39,18 @@ Changelog = "https://github.com/shamiksaharcciit-oss/onedoor/blob/main/CHANGELOG
 # because Ed25519's OUTPUT cannot change with the library (RFC 8032), so a version in
 # per-row evidence would assert a dependence that does not exist.
 signed = ["cryptography>=42,<48"]
-service = ["fastapi>=0.115", "uvicorn>=0.34"]
+# fastapi's own upper bound: 0.141.1, 0.162.4, and 0.162.7 (the oldest and
+# the two newest tested here) pass the full suite under it; set above the
+# newest of the three rather than just above whichever version happened
+# to be installed when this bound was first written.
+#
+# uvicorn's own upper bound: this engine's own code imports it
+# directly (mcp/http_transport.py, studio/server.py), and the service's
+# by-link token redaction hooks uvicorn's own access logger -- the same
+# "a real package is type-checked and exercised against, not just
+# assumed" reasoning the otel extra's own pin already applies. Set
+# above 0.54.0, the newest tested here.
+service = ["fastapi>=0.115,<0.163", "uvicorn>=0.34,<0.55"]
 # The Policy Studio's canvas. Its own extra rather than part of [service], because they
 # are separate PROCESSES on purpose: onedoor.service is the PDP, and an operator GUI
 # that changes the rules must not ride on the credential that answers decisions. Sharing
@@ -57,7 +69,7 @@ service = ["fastapi>=0.115", "uvicorn>=0.34"]
 # second implementation of a parser in a codebase whose whole doctrine is that there is
 # one parser. Approved as a reversal with its reason stated here rather than left
 # as a comment that quietly became wrong.
-studio = ["fastapi>=0.115", "uvicorn>=0.34", "python-multipart>=0.0.9"]
+studio = ["fastapi>=0.115,<0.163", "uvicorn>=0.34,<0.55", "python-multipart>=0.0.9"]
 otel = ["opentelemetry-api>=1.27,<1.46"]
 # Everything under examples/ needs these. They are not runtime
 # dependencies of the engine -- onedoor governs LangGraph, it does not
@@ -83,7 +95,7 @@ litellm = ["litellm>=1.60"]
 # unpinned linter makes CI non-deterministic: the job can go red on a morning
 # nobody touched the code. Bump it deliberately, as its own commit.
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
-       "fastapi>=0.115", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
+       "fastapi>=0.115,<0.163", "httpx>=0.27", "langchain>=1.0", "langgraph>=1.0",
        # Declared here as well as in [studio] for the reason stated two entries down
        # about langchain-core: the upload tests exercise a multipart route, and a
        # dependency that reaches CI only because something else happens to pull it is a
@@ -112,7 +124,7 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "mypy>=1.14,<2", "ruff==0.16.4",
        # local gate passed, because the local venv had uvicorn and [dev] did not.
        # `tests/test_packaging.py::test_every_third_party_import_is_declared_in_dev`
        # now catches that class locally, at the moment the import is written.
-       "uvicorn>=0.34",
+       "uvicorn>=0.34,<0.55",
        # `eval/harness/record.py` imports this at module level, and `tests/eval/test_record.py`
        # exercises it against the real package. PINNED, not ranged, for the same
        # reproducibility reason as `cryptography` and `ruff` above. Outside

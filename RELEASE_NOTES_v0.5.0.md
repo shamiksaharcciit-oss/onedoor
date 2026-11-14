@@ -2,8 +2,7 @@
 
 Notes drawn **verbatim** from [CHANGELOG.md](CHANGELOG.md)'s `0.5.0` section (R011:
 release notes are a slice of the changelog, never a rewrite of it). Conformance status
-with every gap named lives in [CONFORMANCE.md](CONFORMANCE.md); the ticket-by-ticket
-plan is in [BACKLOG.md](BACKLOG.md).
+with every gap named lives in [CONFORMANCE.md](CONFORMANCE.md).
 
 ---
 

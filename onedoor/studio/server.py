@@ -406,7 +406,8 @@ def validation_for_rule(state: StudioState, text: str) -> tuple[Any, Any]:
     differently — the same reason V7 syncs the panes through the server. Two callers
     computing "the same" validation two ways is the two-parser defect with extra steps.
     """
-    result = staging.staged_rule(text)
+    known_action_types = validate.known_action_types_for(state.enforcer, [])
+    result = staging.staged_rule(text, known_action_types=known_action_types)
     items = forecast.build(result.policies, result.effects, known_effects=known_effects(state))
     return result, items
 
@@ -630,7 +631,9 @@ def create_app(state: StudioState) -> Any:
                 status_code=400,
             )
 
-        result = staging.staged(text)
+        result = staging.staged(
+            text, known_action_types=validate.known_action_types_for(state.enforcer, [])
+        )
         with state.lock:
             # The frozen bytes are the link. `freeze` returns the digest, the redirect
             # carries it, and the draft page re-stages that exact text to render the
@@ -707,7 +710,10 @@ def create_app(state: StudioState) -> Any:
             if uploaded:
                 frozen = descriptions.load(state.studio, uploaded)
                 if frozen is not None:
-                    upload_result = staging.staged(frozen)
+                    upload_result = staging.staged(
+                        frozen,
+                        known_action_types=validate.known_action_types_for(state.enforcer, []),
+                    )
             return shell.render(
                 body=screens.draft_body(
                     view, derivation_for(state, draft_id), upload=upload_result
@@ -1179,7 +1185,12 @@ def create_app(state: StudioState) -> Any:
                     status_code=400,
                 )
             try:
-                proposal, record = studio_proposer.derive(configured, description, now=now_utc())
+                proposal, record = studio_proposer.derive(
+                    configured,
+                    description,
+                    now=now_utc(),
+                    known_action_types=validate.known_action_types_for(state.enforcer, []),
+                )
             except live_proposer.ProposalRefused as exc:
                 # The parser refused it. Shown with reasons, never auto-repaired.
                 return HTMLResponse(
@@ -1253,7 +1264,20 @@ def create_app(state: StudioState) -> Any:
                 raise api.ApiRefusal(
                     api.MALFORMED_REQUEST, "`rules` must be a list of rule objects"
                 )
-            policies = [api.parse_rule(r) for r in rules]
+            # A batch's own rules may name each other's reversal -- RULE's
+            # compensating_command naming REFUND_RULE, submitted in the same
+            # call -- so the names IN THIS BATCH join the live table's own,
+            # the same union `_stage_rules` already builds for a multi-rule
+            # load.
+            batch_action_types = frozenset(
+                r["action_type"]
+                for r in rules
+                if isinstance(r, dict) and isinstance(r.get("action_type"), str)
+            )
+            known_action_types = (
+                validate.known_action_types_for(state.enforcer, []) | batch_action_types
+            )
+            policies = [api.parse_rule(r, known_action_types=known_action_types) for r in rules]
         except api.ApiRefusal as exc:
             return _refused(exc)
         with state.lock:
@@ -1302,12 +1326,20 @@ def create_app(state: StudioState) -> Any:
                     f"{action_type!r}. A rename is a different act from an edit, so this "
                     "is refused rather than guessed.",
                 )
-            rule = api.parse_rule({**payload, "action_type": action_type})
         except api.ApiRefusal as exc:
             return _refused(exc)
         with state.lock:
             try:
                 draft = _draft_or_refuse(draft_id)
+                # This rule's own reversal may name a sibling already in the
+                # draft, not yet in the live table -- the same union
+                # `_stage_rules` builds for a multi-rule load.
+                rule = api.parse_rule(
+                    {**payload, "action_type": action_type},
+                    known_action_types=validate.known_action_types_for(
+                        state.enforcer, draft.policies
+                    ),
+                )
             except api.ApiRefusal as exc:
                 return _refused(exc)
             kept = [p for p in draft.policies if p.action_type != action_type]
@@ -1349,8 +1381,10 @@ def create_app(state: StudioState) -> Any:
                 draft = _draft_or_refuse(draft_id)
             except api.ApiRefusal as exc:
                 return _refused(exc)
+            known_action_types = validate.known_action_types_for(state.enforcer, draft.policies)
+            found = validate.problems(draft.policies, known_action_types=known_action_types)
             result = staging.StagedResult(
-                stopped_at=staging.STAGE_RULES if validate.problems(draft.policies) else None,
+                stopped_at=staging.STAGE_RULES if found else None,
                 refusals=tuple(
                     staging.Refusal(
                         stage=staging.STAGE_RULES,
@@ -1358,7 +1392,7 @@ def create_app(state: StudioState) -> Any:
                         message=p.message,
                         position=staging.Position(staging.ABSENT),
                     )
-                    for p in validate.problems(draft.policies)
+                    for p in found
                 ),
                 policies=tuple(draft.policies),
                 effects=tuple(draft.effects),

@@ -1,6 +1,7 @@
 # Design note: multi-threaded and multi-process callers
 
-Covers ruling item 4 (OD1) for 0.8.2. Note only — no code, now or in this release. The
+Covers the multi-threaded and multi-process callers limitation for
+0.8.2. Note only — no code, now or in this release. The
 limitation stays stated, not fixed, in 0.8.2.
 
 ## What the existing limitation means, precisely

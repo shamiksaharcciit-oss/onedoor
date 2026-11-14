@@ -3,7 +3,7 @@
 **Status: design note only. No code in this file's tree changes wire-observable
 behaviour.** Both features add a new reason code / a new obligation type — that is a
 wire change onedoor does not make on its own authority (CLAUDE.md's standing
-boundary). This note exists so core can rule on the open questions before either
+boundary). This note exists so the open questions can be ruled on before either
 becomes a ticket.
 
 Source: `draft-saha-aadp-03.txt` §8.1 (mandate-layer deferral) and §6 (obligations,

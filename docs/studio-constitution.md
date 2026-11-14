@@ -2,9 +2,9 @@
 
 **Status:** normative for `ND-052`. This is the **living** text of the five principles.
 
-**Origin:** `Policy_Studio_Design_Note_2026-08-22.md` §2, delivered by core on
-2026-08-22. Correspondence with core is process, not product, and lives
-outside this public repository; this constitution is what is in force, and
+**Origin:** a design note's own §2. The
+correspondence around it is process, not product, and lives outside this
+public repository; this constitution is what is in force, and
 does not depend on a reader being able to fetch the memo.
 
 **Origin pinned by digest** (R054 §2), so *"this document faithfully descends from that
@@ -25,7 +25,7 @@ a claim nobody made, which is the one thing a provenance document must never do.
 
 **Why this document exists at all.** R053 §1 amended principle 5 and directed that *"the
 amendment is recorded in the constitution's own change history."* The constitution had no
-change history — it lives inside an **archived core memo**, and archived memos are
+change history — it lives inside an **archived design memo**, and archived memos are
 immutable on this programme: an annotation changes `body` and breaks the digest, so
 provenance notes go in `INTEGRITY.md` and never into the memo file. Editing the design
 note to amend a principle would have been the very thing the archive rule forbids.
@@ -89,8 +89,8 @@ could not keep it. `ND-052`/S6 — the LLM proposer — is the first thing that 
 the same description through the same model twice and the output may differ, and recording
 the instrument pins the **conditions**, never the output.
 
-Delivery flagged the contradiction rather than resolving it locally, and core amended the
-constitution rather than stretching it, on a law the programme already owned: **a ruling's
+Delivery flagged the contradiction rather than resolving it locally, and the
+constitution was amended rather than stretched, on a law the programme already owned: **a ruling's
 own vocabulary is not exempt from the ruling's law** (R051 §1). A constitution whose own
 noun outruns the computation is R050 §4's defect installed at the top of the document.
 

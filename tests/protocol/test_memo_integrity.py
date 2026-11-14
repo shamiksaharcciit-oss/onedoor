@@ -47,7 +47,7 @@ def test_memo_integrity_footer(memo: Path) -> None:
     assert result, (
         f"{memo.name} does not match its claimed digest. Either it was damaged in "
         f"relay or it was edited after archiving. Do not 'fix' the footer -- get "
-        f"core's original bytes. {result.detail}"
+        f"the sender's original bytes. {result.detail}"
     )
 
 
@@ -150,7 +150,7 @@ def test_our_own_documents_satisfy_the_producer_obligation() -> None:
     Response 010: exactly one line of a memo may begin with `Integrity:`, and a
     verifier seeing more than one MUST reject the file. That binds producers, and
     this repository quotes the convention in a dozen places -- .gitattributes,
-    CLAUDE.md, CONFORMANCE.md, BACKLOG.md, pyproject.toml, the checker, this file,
+    CLAUDE.md, CONFORMANCE.md, pyproject.toml, the checker, this file,
     the archive sidecar. All mid-line, which was luck rather than a property.
 
     The forensics session tripped exactly this on itself within hours of arguing for
@@ -345,8 +345,9 @@ def test_no_gate_command_of_ours_spells_python3() -> None:
     the check passes for the person running it and attests nothing. Verified live on
     this host: `python3 -c "print(...)"` prints "Python was not found" and exits 0.
 
-    So no command WE publish or run may spell it. Excluded: `reference/` (core's
-    vendored artifact, not ours to edit) and `docs/from_core/` (received memos).
+    So no command WE publish or run may spell it. Excluded: `reference/` (an
+    upstream vendored artifact, not ours to edit) and the archive of memos
+    received from outside this repository.
     A `#!/usr/bin/env python3` shebang is fine and is not a gate invocation -- it is
     correct on POSIX and inert on Windows -- so only command-position uses count.
     """

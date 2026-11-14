@@ -62,3 +62,22 @@ def test_a_populated_chaining_row_and_a_null_chaining_row_get_different_digests(
     off = decision_digest({"id": 1, "row_hash": None, "seq": None})
     on = decision_digest({"id": 1, "row_hash": "abc123", "seq": 1})
     assert off != on
+
+
+def test_a_none_valued_two_person_receipt_hashes_the_same_as_absent() -> None:
+    """`approvers_json`/`escalated_to`/`escalated_at` (migration 0041)
+    are the same OMIT_WHEN_NONE exception as the plan and
+    sequence receipt columns before them: a row sealed before this migration,
+    and an ordinary non-resumption decision today, must hash identically to
+    one that never had these columns at all."""
+    with_columns = decision_digest(
+        {"id": 1, "approvers_json": None, "escalated_to": None, "escalated_at": None}
+    )
+    without_columns = decision_digest({"id": 1})
+    assert with_columns == without_columns
+
+
+def test_a_real_two_person_receipt_value_is_included_in_the_digest() -> None:
+    absent = decision_digest({"id": 1, "approvers_json": None})
+    present = decision_digest({"id": 1, "approvers_json": '["op-1","op-2"]'})
+    assert absent != present

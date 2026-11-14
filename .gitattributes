@@ -22,21 +22,21 @@
 # side, which is where the corruption actually happens.
 * text=auto eol=lf
 
-# The vendored, digest-pinned artifact from core (pinned at v3). These bytes are
-# not ours to normalise: they are verbatim as core shipped them, and validate.py
+# The vendored, digest-pinned artifact from upstream (pinned at v3). These bytes are
+# not ours to normalise: they are verbatim as the sender shipped them, and validate.py
 # recomputes SHA-256 over them. `-text` disables conversion in BOTH directions,
 # so no filter -- present or future, ours or a contributor's -- can touch them.
 #
 # Deliberately `-text` rather than `text eol=lf`: the vendoring guarantee is
-# "the bytes core shipped, unaltered", and a future artifact revision may carry
+# "the bytes as shipped, unaltered", and a future artifact revision may carry
 # a fixture that legitimately contains CR (the canonicalisation rules cover
 # string handling). Normalising would eat it. This directory is replaced
 # wholesale at each revision, never hand-edited, so self-healing normalisation
 # buys nothing here and could corrupt a deliberate byte.
 #
-# Do not "tidy" this into `text eol=lf`. Named by core in Response 007: this is
-# E10's two-discipline rule operating at the version-control layer. The vendored
-# artifact is RECEIVED data -- core's bytes, frozen verbatim, never normalised --
+# Do not "tidy" this into `text eol=lf`: this is E10's two-discipline rule
+# operating at the version-control layer. The vendored
+# artifact is RECEIVED data -- the sender's bytes, frozen verbatim, never normalised --
 # exactly as params_json/payload_json are frozen verbatim at ingress. Our own
 # source above is GENERATED data, and generated data normalises. Same rule, two
 # layers.
@@ -46,39 +46,39 @@ reference/rederivable-manifest/** -text
 # or, worse, apply a subtly different hunk.
 patches/*.patch -text
 
-# Core's memo archive. Received data, same as the vendored artifact -- and from
+# The sender's own memo archive. Received data, same as the vendored artifact -- and from
 # Response 008 these files carry `Integrity: sha256(body) = <hex>` over their own
 # bytes, so version control joined their trust path the moment the footer shipped.
 # Prose was exempt only while nothing depended on its bytes; that ended retroactively.
 #
-# Found by the forensics session and relayed (Core to Forensics 009 section 3): this
+# Found by the forensics session and relayed: this
 # directory was falling under `* text=auto eol=lf` while reference/ and patches/ were
 # already fenced. Everything here is LF today so nothing was corrupted, but the first
-# CRLF memo would fail its own digest and present as CORE SENDING A BAD DIGEST -- the
+# CRLF memo would fail its own digest and present as THE SENDER TRANSMITTING A BAD DIGEST -- the
 # same tampering-shaped diagnosis as the artifact, aimed at the wrong party.
 docs/from_core/** -text
 
 # The relay's byte-preserving drop point. Disk-copying the file is what finally
-# delivered Core->Forensics 010 intact after two renderings of it arrived corrupted,
+# delivered the relay intact after two renderings of it arrived corrupted,
 # so this path is now part of the received-data trust path and is fenced before it is
 # used again rather than after.
 docs/incoming/** -text
 
 # The oneview design spec, vendored into the package so the token block travels in
 # the wheel (spec section 7: "vendor the token block + this spec into each repo,
-# digest-pinned"). Core's bytes, digest-pinned by onedoor/viewer/tokens.py, and
+# digest-pinned"). The source's bytes, digest-pinned by onedoor/viewer/tokens.py, and
 # therefore RECEIVED data under E10's two-discipline rule -- exactly like
 # docs/from_core/ above. A CRLF rewrite here would fail the pin and present as a
 # design-system tamper rather than as an encoding bug.
 #
-# docs/oneview/** is fenced for the same reason: it is core's delivery, and a test
+# docs/oneview/** is fenced for the same reason: it is the upstream delivery, and a test
 # asserts the vendored copy is byte-identical to it. Normalising one side and not
 # the other would break that test in a way that looks like a vendoring error.
 docs/oneview/** -text
 onedoor/viewer/_vendor/** -text
 
 # onedoor/studio/_vendor/** is the Policy Studio v2 token block, extracted verbatim
-# from the mockup core named as binding design authority in R055 (artifact
+# from the mockup named as binding design authority (artifact
 # ee38c587-7761-4773-881a-764d21c0abdc, approved by Shamik 2026-08-28). Same
 # discipline as the oneview spec above and for the same reason: `studio/tokens.py`
 # pins its SHA-256, so a CRLF rewrite here would present as a design tamper rather

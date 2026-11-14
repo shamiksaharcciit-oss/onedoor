@@ -61,9 +61,9 @@ a store written by version 1 and read by a build expecting version 3 must be
 recognisable as such, and `open_store` already refuses a store from the FUTURE for the
 same reason.
 
-**No enforcer migration number is claimed** (BACKLOG.md's register, at
-https://github.com/shamiksaharcciit-oss/onedoor/blob/main/BACKLOG.md, says
-`0019`+ is released for exactly this): the main store's numbered migrations are the
+**No enforcer migration number is claimed** (the enforcer's own migration
+history, as `CHANGELOG.md` records it, already accounts for `0019`+): the main
+store's numbered migrations are the
 enforcer's history, and a column in a different file that a different process owns does
 not belong in it. Spending `0019` on one would have written the boundary this split
 exists to draw straight back out of the record.

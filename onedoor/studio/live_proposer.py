@@ -323,26 +323,44 @@ class HttpProposer:
     def identity(self) -> dict[str, Any]:
         return self.instrument.identity()
 
-    def propose(self, description: str) -> proposer.Proposal:
+    def propose(
+        self, description: str, *, known_action_types: frozenset[str] | None = None
+    ) -> proposer.Proposal:
         """Ask the endpoint, then hand what comes back to the ONE parser.
 
         Everything between those two acts is transport. There is deliberately no step
         that inspects the text and decides whether it looks like policy: that judgement
         belongs to `staging`, which is the loader, and a second opinion here would be the
         second validator wearing a client's clothes.
+
+        `known_action_types`, when the caller has a connection to build it from, is
+        passed straight to `parse` below. A caller with no connection in reach (the
+        benchmark's own path) leaves it unset, and the refusal this would have caught
+        is simply not checked here -- the same disclosed gap the benchmark's own
+        `NO_LIVE_TABLE_CHECK` caveat already names.
         """
         text = self._ask(PROMPT_TEMPLATE.format(description=description))
-        return self.parse(text, description)
+        return self.parse(text, description, known_action_types=known_action_types)
 
-    def parse(self, text: str, description: str) -> proposer.Proposal:
+    def parse(
+        self,
+        text: str,
+        description: str,
+        *,
+        known_action_types: frozenset[str] | None = None,
+    ) -> proposer.Proposal:
         """The model's text through the loader's own stages. No repair, ever.
 
         A generation the parser refuses is REFUSED — shown with reasons, never quietly
         rewritten into something that parses. Stripping a stray fence or fixing an indent
         would be this module deciding what the model meant, which is exactly the
         authority it does not have.
+
+        `known_action_types` reaches the same check `load_file` and the editor's own
+        staging already perform, so a generated rule naming a dangling reversal is
+        refused here too, not only once it reaches a batch loader.
         """
-        result = staging.staged(text)
+        result = staging.staged(text, known_action_types=known_action_types)
         if not result.loads:
             raise ProposalRefused("the loader would refuse the generated policy set", result, text)
         mentions = _mentions_for(result.policies, description)

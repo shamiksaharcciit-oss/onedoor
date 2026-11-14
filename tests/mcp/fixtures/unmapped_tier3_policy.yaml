@@ -1,0 +1,11 @@
+# Same edge case as unmapped_tier0_policy.yaml, at tier 3: a policy that
+# would otherwise propose-and-confirm `mcp.unmapped.<tool>` and answer
+# "requires approval". The gateway must still answer the one consistent
+# refusal, never forward, and -- the sharper case -- never let a presented
+# approval_ref for this synthetic type be consumed.
+policies:
+  - action_type: mcp.unmapped.delete_everything
+    tier: 3
+    dry_run: false
+    bounds:
+      strict_params: false

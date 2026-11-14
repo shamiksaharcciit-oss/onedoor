@@ -31,6 +31,35 @@ class ApprovalError(GuardrailError):
     """An approval could not be transitioned (expired, already decided, unauthorized)."""
 
 
+class NeedsMoreApprovers(ApprovalError):
+    """`approvals.cas_approve` or `plans.approve` recorded this approver, but
+    the policy's own two-person rule needs at least one more, different,
+    identity before the row flips to approved/active -- a subclass of
+    `ApprovalError`, so every caller that already catches the parent class
+    handles this the same way it handles any other "not ready yet" CAS
+    outcome. The approver's own call still succeeded (recorded); only
+    resumption is not yet due. `subject_id` is the approval or plan id,
+    whichever raised this."""
+
+    def __init__(
+        self, subject_id: int, *, required: int, recorded: int, kind: str = "approval"
+    ) -> None:
+        super().__init__(
+            f"{kind} {subject_id} recorded {recorded} of {required} required "
+            f"approvers; needs a different identity to approve as well"
+        )
+        self.subject_id = subject_id
+        self.required = required
+        self.recorded = recorded
+
+
+class PlanError(GuardrailError):
+    """A plan's own shape does not match what it claims to cover -- e.g. it
+    names no `amount_param`/`recipient_param` for an action whose policy
+    bounds that amount or recipient, which would let the plan's own ceiling
+    apply to nothing."""
+
+
 class UndoError(GuardrailError):
     """An undo could not be performed (window expired, already undone, no reversal)."""
 

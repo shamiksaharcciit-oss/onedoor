@@ -174,7 +174,11 @@ def build(
         raise store.StudioStoreError(f"no draft {draft_id} in this studio store")
 
     pin = pin_of(draft, policy_loader.current_version(enforcer))
-    found = validate.problems(draft.policies, draft.effects)
+    found = validate.problems(
+        draft.policies,
+        draft.effects,
+        known_action_types=validate.known_action_types_for(enforcer, draft.policies),
+    )
 
     panels = None
     if not pin.has_moved:

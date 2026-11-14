@@ -31,10 +31,22 @@ statement than *nothing is wrong*.
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 
 from onedoor.guardrail import policy_loader
 from onedoor.guardrail.models import EffectPolicy, Policy
+
+
+def known_action_types_for(conn: sqlite3.Connection, candidate: list[Policy]) -> frozenset[str]:
+    """The live table's own action types, plus the candidate's -- the same union
+    `load_file` builds from a connection and a batch, for a caller of `problems`
+    that has a connection to build it from."""
+    return frozenset(
+        {row["action_type"] for row in conn.execute("SELECT action_type FROM policies")}
+        | {item.action_type for item in candidate}
+    )
+
 
 FOUND_WORDING = "problems found"
 """The exact words, referenced by the renderer and by the tests that hold them.
@@ -62,7 +74,12 @@ class Problem:
         return {"action_type": self.action_type, "message": self.message}
 
 
-def problems(candidate: list[Policy], effects: list[EffectPolicy] | None = None) -> list[Problem]:
+def problems(
+    candidate: list[Policy],
+    effects: list[EffectPolicy] | None = None,
+    *,
+    known_action_types: frozenset[str] | None = None,
+) -> list[Problem]:
     """Every problem `validate_policy` raises, one rule at a time, collected.
 
     The engine keeps raising; the Studio gets a list. Ordered by action type so the same
@@ -75,12 +92,19 @@ def problems(candidate: list[Policy], effects: list[EffectPolicy] | None = None)
     second validator this module exists not to be. They are still part of the candidate
     the caller passes on, so the parameter stays rather than making callers remember
     which half of a candidate this function wanted.
+
+    `known_action_types`, when a caller has a live connection to build it from (the
+    live table's own action types, plus the candidate's), is passed straight through to
+    `validate_policy` — the same opt-in `load_file` itself uses, so a dangling
+    `compensating_command` is a problem here too, not only when the same candidate is
+    later loaded as a file. `None` (the default, for a caller with no connection to
+    build it from) skips that one check, the same way `validate_policy` itself does.
     """
     _ = effects
     found: list[Problem] = []
     for policy in sorted(candidate, key=lambda p: p.action_type):
         try:
-            policy_loader.validate_policy(policy)
+            policy_loader.validate_policy(policy, known_action_types=known_action_types)
         except ValueError as exc:
             found.append(Problem(action_type=policy.action_type, message=str(exc)))
     return found

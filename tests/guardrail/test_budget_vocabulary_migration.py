@@ -245,7 +245,7 @@ def test_a_fresh_database_leaves_nothing_to_retire(conn: Connection) -> None:
 
 
 def test_07_style_rows_survive_the_upgrade_as_retired_vocabulary(conn: Connection) -> None:
-    """The scenario item 2 is about, not a synthetic stand-in for it: a real
+    """A real pre-0.8.0 database, not a synthetic stand-in for one: a real
     database already holding `cap_value`/`cap_rate` denials from before
     `0.8.0`, migrating forward. `_undo_migration_0024` puts this connection's
     database back to exactly that state -- rows already written, `0024`

@@ -299,6 +299,12 @@ def test_step_8_the_verify_command_runs_on_a_receipt_this_walkthrough_produced(
                     compensating_command="payments.reverse",
                     bounds=Bounds(strict_params=False),
                 ),
+                Policy(
+                    action_type="payments.reverse",
+                    tier=Tier.CONFIRM,
+                    dry_run=False,
+                    bounds=Bounds(strict_params=False),
+                ),
             ],
             effects=list(draft.effects),
         )

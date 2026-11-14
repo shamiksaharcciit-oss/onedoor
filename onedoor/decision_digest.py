@@ -24,6 +24,16 @@ OMIT_WHEN_NONE: tuple[str, ...] = (
     "resume_digest_expected",
     "resume_digest_actual",
     "permit_jti",
+    "untrusted_matched_json",
+    "sequence_events_considered",
+    "sequence_rule_matched",
+    "sequence_history_incomplete",
+    "plan_ref",
+    "plan_consumed_count_after",
+    "plan_consumed_amount_after",
+    "approvers_json",
+    "escalated_to",
+    "escalated_at",
 )
 """Columns omitted from `canonical_row_record` when `None`, each because a row
 sealed before the column existed must not change digest the moment `ALTER
@@ -70,6 +80,31 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     before or after -- only a row that actually issued one sets a real value,
     which IS included (and tampering with it moves the digest, same as any
     other column).
+
+    `untrusted_matched_json` (migration `0034`) is the same exception again:
+    `None` on every row before `0034`, and `None` on every row whose policy
+    carries no `untrusted_params` block at all, before or after -- a row
+    whose policy DOES declare one sets a real value (including an empty list,
+    when nothing matched), which IS included.
+
+    `sequence_events_considered`/`sequence_rule_matched`/`sequence_history_incomplete`
+    (migration `0037`) are the same exception again: `None` on every row before
+    `0037`, and `None` on every row whose policy carries no `sequence` block,
+    before or after -- a row whose policy DOES declare one sets real values
+    (including zero/False, when nothing matched), which ARE included.
+
+    `plan_ref`/`plan_consumed_count_after`/`plan_consumed_amount_after`
+    (migration `0039`) are the same exception again: `None` on every row
+    before `0039`, and `None` on every decision a plan did not satisfy,
+    before or after -- only a row a plan match actually produced sets real
+    values, which ARE included.
+
+    `approvers_json`/`escalated_to`/`escalated_at` (migration `0041`) are the
+    same exception again: `None` on every row before `0041`, and `None` on
+    every decision that did not resume an approval at all, before or after --
+    only a row that DID resume one sets a real value for `approvers_json`
+    (even `[]`, for a mandate-only resumption with no approver), which IS
+    included.
     """
     keys = row.keys()
     record: dict[str, object] = {}

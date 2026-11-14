@@ -1,0 +1,31 @@
+# Maps tests/mcp/fixtures/mismatched_demo_server.py's own argument shapes onto
+# onedoor's existing action types in config/mcp_policies.yaml -- this file's whole
+# point is that a tool's own argument names and nesting need not match onedoor's.
+tools:
+  check_weather:
+    action_type: mcp.get_weather
+    effect: read
+    params:
+      city: location
+  adjust_temp:
+    action_type: mcp.set_thermostat
+    effect: write
+    params:
+      temperature: settings.target_c
+  wire_transfer:
+    action_type: mcp.send_payment
+    effect: write
+    params:
+      payee: to
+      amount_eur: amount.value
+      # fee/fee_eur: supports a regression test for a plan whose amount_param
+      # names an incidental "fee" field instead of the policy's real
+      # cost_param. Omitted from a call's arguments means omitted here too
+      # (apply_mapping's own rule), so no other test using this fixture is
+      # affected.
+      fee: fee
+      fee_eur: fee_eur
+
+# delete_everything is deliberately absent: unmapped, denied, never forwarded.
+
+tools_list_filter: true

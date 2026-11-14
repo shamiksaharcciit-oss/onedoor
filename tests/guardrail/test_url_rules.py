@@ -8,7 +8,7 @@ of the canonicalizer would not notice.
 
 Two behaviours are asserted here that the function-level tests cannot reach:
 
-1. **Both directions on every concern** (acceptance item 6). An evasion is caught
+1. **Both directions on every concern.** An evasion is caught
    *and* the legitimate spelling still matches. A matcher that catches every evasion
    by matching nothing is not a fix.
 2. **A target the canonicalizer refuses is a denial, not a crash and not a bypass**

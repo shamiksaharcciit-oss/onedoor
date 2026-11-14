@@ -11,7 +11,18 @@ import json
 import sqlite3
 from decimal import Decimal
 
-from onedoor.guardrail.models import Bounds, Caps, EffectPolicy, ParamEffectRule, Policy, Tier
+from onedoor.guardrail.models import (
+    ApprovalNotify,
+    ApprovalPolicy,
+    Bounds,
+    Caps,
+    EffectPolicy,
+    ParamEffectRule,
+    Policy,
+    SequencePolicy,
+    Tier,
+    UntrustedParams,
+)
 from onedoor.store.clock import from_iso
 
 
@@ -46,6 +57,26 @@ def _row_to_policy(row: sqlite3.Row) -> Policy:
         present_bound=row["present_bound"] if "present_bound" in row.keys() else None,
         bound_permit_action_type=(
             row["bound_permit_action_type"] if "bound_permit_action_type" in row.keys() else None
+        ),
+        untrusted_params=(
+            UntrustedParams.model_validate_json(row["untrusted_params_json"])
+            if "untrusted_params_json" in row.keys() and row["untrusted_params_json"]
+            else None
+        ),
+        sequence=(
+            SequencePolicy.model_validate_json(row["sequence_json"])
+            if "sequence_json" in row.keys() and row["sequence_json"]
+            else None
+        ),
+        approval=(
+            ApprovalPolicy.model_validate_json(row["approval_json"])
+            if "approval_json" in row.keys() and row["approval_json"]
+            else None
+        ),
+        approval_notify=(
+            ApprovalNotify.model_validate_json(row["approval_notify_json"])
+            if "approval_notify_json" in row.keys() and row["approval_notify_json"]
+            else None
         ),
         is_default_deny=False,
     )

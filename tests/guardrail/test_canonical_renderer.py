@@ -55,7 +55,7 @@ def _equal_value_spellings(rng: random.Random) -> list[tuple[str, list[str]]]:
 
 
 def test_equal_values_render_to_identical_bytes_however_they_are_spelled() -> None:
-    """The core of E8: scale and notation are authoring choices, not value."""
+    """The heart of E8: scale and notation are authoring choices, not value."""
     rng = random.Random(SEED)
     checked = 0
     for _, spellings in _equal_value_spellings(rng):

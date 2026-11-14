@@ -4,9 +4,12 @@ from datetime import timedelta
 from decimal import Decimal
 from sqlite3 import Connection
 
+from onedoor.guardrail import caps as caps_mod
 from onedoor.guardrail import policy_loader
+from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
 from onedoor.guardrail.executor import EngineConfig, evaluate_and_execute
 from onedoor.guardrail.models import Bounds, Caps, Decision, Policy, Tier
+from onedoor.guardrail.policy import PolicyStore
 from onedoor.guardrail.registry import ConnectorRegistry
 from tests.conftest import make_request
 
@@ -109,3 +112,143 @@ def test_daily_rate_rolls_over_at_local_midnight(
     # Next calendar day (Europe/Amsterdam) resets the window.
     day2 = day1 + timedelta(days=1)
     assert _run(conn, registry, config, "demo.capped", now=day2).executed is True
+
+
+# ---------------------------------------------------------------------------
+# check_only: check_and_reserve's own read-and-check half, with no reservation.
+# ---------------------------------------------------------------------------
+
+
+def test_check_only_denies_the_same_way_check_and_reserve_does(
+    conn: Connection, config: EngineConfig
+) -> None:
+    policy = PolicyStore().get(conn, "demo.capped")
+    req = make_request("demo.capped")
+    # Exhaust the real cap first, through the real path.
+    caps_mod.check_and_reserve(conn, policy, req, req.created_at, config.tz)
+    caps_mod.check_and_reserve(conn, policy, req, req.created_at, config.tz)
+    result = caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+    assert result.exceeded is True
+    assert result.reason is not None
+    assert result.reason.value == "rate_exhausted"
+
+
+def test_check_only_reserves_nothing(conn: Connection, config: EngineConfig) -> None:
+    policy = PolicyStore().get(conn, "demo.capped")
+    req = make_request("demo.capped")
+    result = caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+    assert result.exceeded is False
+    assert result.deltas == ()
+    row = conn.execute(
+        "SELECT count FROM cap_counters WHERE action_type='demo.capped' AND window_kind='rate'"
+    ).fetchone()
+    assert row is None  # nothing written at all, not even a zero row
+
+
+def test_check_only_does_not_block_a_later_real_reservation(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A read-only check must never consume the budget it is only looking at --
+    two check_only calls followed by the real cap's own two-per-day limit must
+    still allow exactly two real reservations."""
+    policy = PolicyStore().get(conn, "demo.capped")
+    req = make_request("demo.capped")
+    caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+    caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+    caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+    first = caps_mod.check_and_reserve(conn, policy, req, req.created_at, config.tz)
+    second = caps_mod.check_and_reserve(conn, policy, req, req.created_at, config.tz)
+    assert first.exceeded is False
+    assert second.exceeded is False
+
+
+def test_reservation_reclaim(
+    conn: Connection, registry: ConnectorRegistry, config: EngineConfig
+) -> None:
+    """A real decision reclaims an expired reservation before it ever checks
+    a cap (`reclaim_expired_reservations`, called at the top of a decide).
+    `check_only` has no write access to do that same reclaim, so it must
+    count an expired-but-still-held reservation as reclaimed anyway --
+    without writing anything -- or it denies on a budget a real decision,
+    right now, would see as free."""
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="demo.reclaim",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.restore",
+            caps=Caps(daily_rate=1),
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    policy = PolicyStore().get(conn, "demo.reclaim")
+    req0 = make_request("demo.reclaim")
+    # decide_and_reserve, not evaluate_and_execute: the permit is never
+    # reported, so the reservation stays `held` -- exactly the state a
+    # report-less caller (or an outright-abandoned permit) leaves behind.
+    first = decide_and_reserve(req0, conn=conn, config=config, now=req0.created_at)
+    assert isinstance(first, PermittedIntent)
+
+    reservation = conn.execute(
+        "SELECT status, deadline_utc FROM cap_reservations WHERE request_id=?",
+        (str(req0.request_id),),
+    ).fetchone()
+    assert reservation["status"] == "held"
+
+    past_deadline = req0.created_at + timedelta(seconds=config.reservation_ttl_seconds + 1)
+    req = make_request("demo.reclaim", now=past_deadline)
+
+    # Without the fix this denies: the reservation is still `held` in
+    # cap_counters, which a live decide would have already reclaimed.
+    result = caps_mod.check_only(conn, policy, req, past_deadline, config.tz)
+    assert result.exceeded is False
+    assert result.deltas == ()
+
+    # And it still wrote nothing -- the reservation itself is untouched.
+    unchanged = conn.execute(
+        "SELECT status FROM cap_reservations WHERE request_id=?", (str(req0.request_id),)
+    ).fetchone()
+    assert unchanged["status"] == "held"
+    row = conn.execute(
+        "SELECT count FROM cap_counters WHERE action_type='demo.reclaim' AND window_kind='rate'"
+    ).fetchone()
+    assert row["count"] == 1  # the real counter is untouched too
+
+
+def test_check_only_still_reserves_nothing_across_many_calls(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A stress case: many `check_only` calls around real, still-`held`
+    reservations (so a `cap_reservations` row exists for the new
+    expired-reservation accounting to read, not just `cap_counters`)
+    must still never themselves write."""
+    policy = PolicyStore().get(conn, "demo.capped")
+    req1 = make_request("demo.capped", {}, cost_eur=Decimal(0))
+    req2 = make_request("demo.capped", {}, cost_eur=Decimal(0))
+    assert isinstance(
+        decide_and_reserve(req1, conn=conn, config=config, now=req1.created_at), PermittedIntent
+    )
+    assert isinstance(
+        decide_and_reserve(req2, conn=conn, config=config, now=req2.created_at), PermittedIntent
+    )
+    req = make_request("demo.capped")
+    for _ in range(1000):
+        result = caps_mod.check_only(conn, policy, req, req.created_at, config.tz)
+        assert result.exceeded is True
+        assert result.deltas == ()
+    row = conn.execute(
+        "SELECT count, eur_total FROM cap_counters WHERE action_type='demo.capped' "
+        "AND window_kind='rate'"
+    ).fetchone()
+    assert row["count"] == 2  # untouched by any of the 1000 calls
+    reservation_count = conn.execute("SELECT COUNT(*) c FROM cap_reservations").fetchone()["c"]
+    assert reservation_count == 2  # one per real reservation, none added by check_only
+    still_held = conn.execute(
+        "SELECT COUNT(*) c FROM cap_reservations WHERE status='held'"
+    ).fetchone()["c"]
+    assert still_held == 2  # none marked expired by a call that must not write
+    still_held = conn.execute(
+        "SELECT COUNT(*) c FROM cap_reservations WHERE status='held'"
+    ).fetchone()["c"]
+    assert still_held == 2  # none marked expired by a call that must not write

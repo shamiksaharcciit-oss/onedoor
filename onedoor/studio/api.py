@@ -207,13 +207,21 @@ def validation_object(
     }
 
 
-def parse_rule(payload: Any) -> Policy:
+def parse_rule(payload: Any, *, known_action_types: frozenset[str] | None = None) -> Policy:
     """One rule, through the ONE parser, with the staged refusals on failure.
 
     The API does not get its own validator any more than the editor does. A payload that
     `Policy` will not validate comes back as a `422` carrying exactly what the staged
     checker produced for it, so an API caller and a person at the editor are told the
     same thing about the same bytes.
+
+    `known_action_types`, when a caller has a connection to build it from (the same
+    `validate.known_action_types_for` every other entry point here already calls),
+    lets this rule's own `compensating_command` be checked against the live table the
+    same way `load_file` already checks it -- a dangling reversal refused here, not
+    discovered only once this rule reaches a batch loader. Left unset, this parses
+    the rule exactly as it always has: the check staging already performs with no
+    live table in view.
     """
     if not isinstance(payload, dict):
         raise ApiRefusal(
@@ -222,7 +230,7 @@ def parse_rule(payload: Any) -> Policy:
         )
     import json
 
-    result = staging.staged_rule(json.dumps(payload))
+    result = staging.staged_rule(json.dumps(payload), known_action_types=known_action_types)
     if result.refusals or not result.policies:
         raise ApiRefusal(
             CANDIDATE_REFUSED,

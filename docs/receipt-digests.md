@@ -122,8 +122,8 @@ The anchor object, published outside the store:
  "cadence": "<declared>", "sealed_at": "<RFC3339 UTC>"}
 ```
 
-See [`TICKETS-ND-017.md`](../TICKETS-ND-017.md) for the export path and the third-party
-membership check that this object is half of.
+The export path and the third-party membership check that this object is
+half of are tracked separately, out of scope here.
 
 ## 7b. Inclusion proofs: the degenerate empty path
 

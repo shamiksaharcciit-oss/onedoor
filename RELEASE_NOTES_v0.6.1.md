@@ -58,7 +58,7 @@ reads a decimal string as money. Measuring it found something sharper than the r
 `caps.resolve_cost` accepts `str` and `bounds` does not.
 
 The failing direction is closed — a denial, never a permit — and the fix **changes a
-verdict**, which makes it core's call rather than a maintainer's. Escalated as
+verdict**, which makes it a design-authority call rather than a maintainer's. Escalated as
 `escalations/ESCALATION-20260827-006.md`; named in *Known limitations* meanwhile, so an
 integrator meets it in documentation rather than in a refusal.
 

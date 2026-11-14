@@ -143,6 +143,19 @@ def test_no_case_produces_a_candidate_the_engine_would_refuse() -> None:
         assert problems == [], f"{case.name} produced a candidate the engine refuses: {problems}"
 
 
+def test_every_result_discloses_it_does_not_check_the_live_table() -> None:
+    """`benchmark.check` has no connection of its own, so it cannot build
+    `known_action_types` the way `validate.known_action_types_for` does for
+    a caller that has one -- a candidate naming an undeclared reversal can
+    still pass here. Named in every result's own `caveats`, not left for a
+    reader to assume from the absence of a problem."""
+    instrument = proposer.FixtureProposer()
+    case = benchmark.CORPUS[0]
+    result = benchmark.check(case, instrument.propose(case.description))
+    assert benchmark.NO_LIVE_TABLE_CHECK in result.caveats
+    assert "caveats" in result.to_object()
+
+
 def test_no_case_produces_an_undeclared_effect_label() -> None:
     """The no-silent-permit law against every description in the corpus, adversarial ones included."""
     instrument = proposer.FixtureProposer()

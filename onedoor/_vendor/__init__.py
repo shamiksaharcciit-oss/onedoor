@@ -1,7 +1,7 @@
 """Vendored third-party sources, kept byte-identical to their origin.
 
-Nothing here is onedoor's to edit, reformat or annotate. `canonical.py` is core's
-receipt artifact module, pinned at v3 and copied verbatim from
+Nothing here is onedoor's to edit, reformat or annotate. `canonical.py` is the
+upstream receipt artifact module, pinned at v3 and copied verbatim from
 `reference/rederivable-manifest/canonical.py`: onedoor **never reimplements the
 canonical form**, because two implementations of a preimage that have not been
 checked against each other will disagree, silently and in the permissive direction.

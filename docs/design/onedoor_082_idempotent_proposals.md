@@ -1,7 +1,7 @@
 # Design note: idempotent proposals on (thread_id, tool_call_id)
 
-Covers ruling item 2 (OD2+OD3) for 0.8.2. Amended with the decided digest check below; moves
-to code next.
+Covers idempotent proposals on (thread_id, tool_call_id) for 0.8.2.
+Amended with the decided digest check below; moves to code next.
 
 ## The bug this closes
 
@@ -79,7 +79,7 @@ moment `0031` runs, breaking the stated invariant that an existing row's digest 
 
 **0029 is already taken** — `onedoor/store/migrations/0029_decide_principal.sql` shipped in
 0.8.1 (`ALTER TABLE actions_audit ADD COLUMN decide_principal TEXT`). The ruling's own text
-names 0029 as "the enforcer's next"; that was accurate when 29vb was written and is stale now.
+names 0029 as "the enforcer's next"; that was accurate when this was written and is stale now.
 **The next free number is 0030.** `approvals` is defined in `0001_init.sql`, not a Studio
 table (Studio's own tables — `ratifications`, `backtest_receipts`, `kill_switch_episodes`, and
 others — are added starting at `0016`/`0017`/`0018`), so `0030_approval_resume_key.sql`

@@ -43,7 +43,11 @@ def _onedoor_commit() -> str:
     return out.stdout.strip()[:12]
 
 
-def run(*, only: str | None, record: bool) -> int:
+def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
+    """``out_dir``, test-only: write ``RESULTS.md``/``FINDINGS.md``/the chart under
+    this directory instead of the tracked `eval/` and `docs/img/` paths. ``python -m
+    eval run`` itself never passes this -- a real run still writes the tracked files,
+    exactly as before."""
     scenarios = load_all(SCENARIOS_DIR, only=only)
     outcomes_without = {s.name: engine.run_without(s) for s in scenarios}
 
@@ -73,7 +77,12 @@ def run(*, only: str | None, record: bool) -> int:
 
     totals = measures.compute(scenarios, outcomes_without, outcomes_with, parked)
     meta = results.RunMeta(onedoor_version=_onedoor_version(), onedoor_commit=_onedoor_commit())
-    RESULTS_PATH.write_text(
+    results_path = out_dir / "RESULTS.md" if out_dir else RESULTS_PATH
+    findings_path = out_dir / "FINDINGS.md" if out_dir else FINDINGS_PATH
+    chart_path = out_dir / "eval-results.svg" if out_dir else CHART_PATH
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    results_path.write_text(
         results.render(
             meta=meta,
             scenarios=scenarios,
@@ -86,10 +95,10 @@ def run(*, only: str | None, record: bool) -> int:
         newline="\n",
     )
     all_findings = findings.compute(scenarios, outcomes_with)
-    FINDINGS_PATH.write_text(findings.render(all_findings), encoding="utf-8", newline="\n")
+    findings_path.write_text(findings.render(all_findings), encoding="utf-8", newline="\n")
     if only is None:
-        CHART_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CHART_PATH.write_text(chart.render(totals), encoding="utf-8", newline="\n")
+        chart_path.parent.mkdir(parents=True, exist_ok=True)
+        chart_path.write_text(chart.render(totals), encoding="utf-8", newline="\n")
     return 0
 
 

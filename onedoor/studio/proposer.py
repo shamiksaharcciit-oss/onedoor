@@ -30,6 +30,7 @@ is a receipt; a record that cannot promise it says so on its face.* The face sta
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -147,7 +148,9 @@ class Proposer(Protocol):
 
     def identity(self) -> dict[str, Any]: ...
 
-    def propose(self, description: str) -> Proposal: ...
+    def propose(
+        self, description: str, *, known_action_types: frozenset[str] | None = None
+    ) -> Proposal: ...
 
 
 def _prompt_digest(text: str) -> str:
@@ -191,18 +194,48 @@ class DerivationRecord:
 
 
 def derive(
-    proposer: Proposer, description: str, *, now: datetime
+    proposer: Proposer,
+    description: str,
+    *,
+    now: datetime,
+    known_action_types: frozenset[str] | None = None,
 ) -> tuple[Proposal, DerivationRecord]:
     """Draft a candidate and record the derivation. Writes nothing anywhere.
 
     The description is hashed **as received bytes** (E10) — see `studio.descriptions`,
     which stores it without normalising a single byte.
+
+    `known_action_types`, when a caller has a connection to build it from, is passed
+    straight through to `proposer.propose` -- the same dangling-reversal check
+    `load_file` and the editor's own staging already perform. Left unset (the
+    benchmark's own path, which has no live table to check against), a proposer
+    checks what it can and discloses the rest, exactly as today.
+
+    Passed only to a `propose` that actually accepts it: a proposer written
+    against the protocol's own older, one-argument shape (`propose(self,
+    description)`) keeps working unchanged, rather than this call handing it a
+    keyword it never declared and never asked for. A `propose` that takes
+    `**kwargs` (`VAR_KEYWORD`) accepts it too, by the same rule Python's own
+    call syntax already applies: it never names the keyword, but declares
+    that it takes any, so a caller forwarding it onward is exactly what this
+    shape exists for.
     """
     if proposer.provenance not in (LIVE, FIXTURE):
         raise ProposerUnavailable(
             f"proposer_provenance must be {LIVE!r} or {FIXTURE!r}, not {proposer.provenance!r}"
         )
-    proposal = proposer.propose(description)
+    try:
+        propose_params = inspect.signature(proposer.propose).parameters
+        accepts_known_action_types = "known_action_types" in propose_params or any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in propose_params.values()
+        )
+    except (TypeError, ValueError):
+        accepts_known_action_types = False
+    proposal = (
+        proposer.propose(description, known_action_types=known_action_types)
+        if accepts_known_action_types
+        else proposer.propose(description)
+    )
     instrument = dict(proposer.identity())
     if not instrument:
         raise ProposerUnavailable(
@@ -284,13 +317,21 @@ class FixtureProposer:
             "pack_digest": self._pack_digest,
         }
 
-    def propose(self, description: str) -> Proposal:
+    def propose(
+        self, description: str, *, known_action_types: frozenset[str] | None = None
+    ) -> Proposal:
         """Draft from the shipped pack, keeping only what the description mentions.
 
         Every rule it emits comes from `templates.PAYMENTS` — a set already asserted to
         satisfy the law family — so the stand-in cannot invent a shape the pack's own
         tests never checked. What it *can* get wrong is which rules to include, which is
         the interesting failure and the one the benchmark publishes.
+
+        `known_action_types` is accepted, for the `Proposer` protocol's sake, and never
+        consulted: every reversal this stand-in could possibly name is already a
+        declared policy inside `templates.PAYMENTS` itself, so there is no dangling
+        target for it to catch here that the pack's own tests would not already have
+        caught.
         """
         from onedoor import templates
 

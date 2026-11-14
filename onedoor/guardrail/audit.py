@@ -336,6 +336,16 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "resume_digest_expected",
     "resume_digest_actual",
     "permit_jti",
+    "untrusted_matched_json",
+    "sequence_events_considered",
+    "sequence_rule_matched",
+    "sequence_history_incomplete",
+    "plan_ref",
+    "plan_consumed_count_after",
+    "plan_consumed_amount_after",
+    "approvers_json",
+    "escalated_to",
+    "escalated_at",
 )
 """Every column an append writes.
 
@@ -534,6 +544,40 @@ def _row_values(
             "budget_json": (
                 None if decision.budget is None else dumps_json_value(decision.budget.model_dump())
             ),
+            # `None` means the check never ran at all (the policy carries no
+            # `untrusted_params`/`sequence` block); a real value -- including an
+            # empty list, zero, or False -- means it ran and this is what it
+            # found. Gated on `decision.X is not None`, never on truthiness: a
+            # policy that DOES use a check gets a real value even when that
+            # value is itself falsy, so the record of an allowed action can
+            # show its checks were evaluated, not merely omitted.
+            "untrusted_matched_json": (
+                None
+                if decision.untrusted_matched is None
+                else dumps_json_value(decision.untrusted_matched)
+            ),
+            "sequence_events_considered": decision.sequence_events_considered,
+            "sequence_rule_matched": decision.sequence_rule_matched,
+            "sequence_history_incomplete": (
+                None
+                if decision.sequence_history_incomplete is None
+                else int(decision.sequence_history_incomplete)
+            ),
+            "plan_ref": decision.plan_ref,
+            "plan_consumed_count_after": decision.plan_consumed_count_after,
+            "plan_consumed_amount_after": (
+                None
+                if decision.plan_consumed_amount_after is None
+                else canon_decimal(decision.plan_consumed_amount_after)
+            ),
+            # `None` means this decision did not resume an approval at all; a real
+            # value -- even `[]` for a mandate-only resumption with no approver --
+            # means it did.
+            "approvers_json": (
+                None if decision.approvers is None else dumps_json_value(decision.approvers)
+            ),
+            "escalated_to": decision.escalated_to,
+            "escalated_at": to_iso(decision.escalated_at) if decision.escalated_at else None,
             "outcome": outcome,
             "params_provenance": params_provenance,
             # A payload is produced by the enforcement point after acting, and every
@@ -668,8 +712,17 @@ def find_rows(conn: sqlite3.Connection, request_id: UUID) -> list[sqlite3.Row]:
     )
 
 
-def _row_decision(row: sqlite3.Row) -> PolicyDecision:
+def _row_decision(row: sqlite3.Row, *, facts_row: sqlite3.Row | None = None) -> PolicyDecision:
     decision = Decision(row["decision"])
+    # The resumption facts, read back the same way `report_result` reads
+    # them for its returned decision -- a replay must reconstruct the same
+    # decision the original call actually made, resumption facts included,
+    # not one with them silently dropped. Those facts live durably on the
+    # INTENT row only: the `exec_result` row never carries them, so
+    # `facts_row` lets a caller point this at the intent row specifically
+    # rather than at whichever row's verdict/detail this decision otherwise
+    # reflects.
+    facts = facts_row if facts_row is not None else row
     return PolicyDecision(
         decision=decision,
         effective_tier=Tier(row["effective_tier"]),
@@ -678,11 +731,20 @@ def _row_decision(row: sqlite3.Row) -> PolicyDecision:
         detail=row["detail"],
         dry_run=decision == Decision.DRY_RUN,
         requires_approval=decision == Decision.PROPOSED,
+        approvers=(
+            None if facts["approvers_json"] is None else json.loads(facts["approvers_json"])
+        ),
+        escalated_to=facts["escalated_to"],
+        escalated_at=from_iso(facts["escalated_at"]) if facts["escalated_at"] else None,
     )
 
 
 def result_for_request_id(
-    conn: sqlite3.Connection, request_id: UUID, *, issuer: str | None = None
+    conn: sqlite3.Connection,
+    request_id: UUID,
+    *,
+    issuer: str | None = None,
+    approved_override: bool = False,
 ) -> ActionResult | None:
     """Reconstruct the prior :class:`ActionResult` for a replayed request, if any.
 
@@ -691,6 +753,12 @@ def result_for_request_id(
     row `audit_id` already names, never from `primary`, whose own `decision`
     column can be `FAILED` for an executed-then-failed request and has no
     defined decision_ref verdict.
+
+    `approved_override`, when true and no row this replay reads from carries
+    `approvers`, marks the reconstructed decision `[]` the same way
+    `report_result` marks its own returned decision for a bare override --
+    recognised from the replay CALL, same as the original call, never from
+    anything a row stored.
     """
     rows = find_rows(conn, request_id)
     if not rows:
@@ -721,9 +789,16 @@ def result_for_request_id(
     # Report the intent row's id when the action executed, matching what the
     # executor returned on the original run (so replays are identical).
     anchor = intent or primary
+    # The resumption facts live durably on the INTENT row only -- the
+    # `exec_result` row never carries them -- so read them from there
+    # specifically, whichever row `primary` is otherwise reflecting for
+    # the verdict/detail.
+    decision = _row_decision(primary, facts_row=intent or primary)
+    if decision.approvers is None and approved_override:
+        decision = decision.model_copy(update={"approvers": []})
     return ActionResult(
         request_id=request_id,
-        decision=_row_decision(primary),
+        decision=decision,
         executed=executed,
         connector_ok=connector_ok,
         connector_payload=payload,

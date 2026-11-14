@@ -12,13 +12,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import unicodedata
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 from onedoor._vendor.canonical import digest_obj
 from onedoor.guardrail import audit
-from onedoor.guardrail.errors import ApprovalError
+from onedoor.guardrail.caps import resolve_cost
+from onedoor.guardrail.errors import ApprovalError, NeedsMoreApprovers
 from onedoor.guardrail.models import (
     ActionRequest,
     Approval,
@@ -27,9 +30,30 @@ from onedoor.guardrail.models import (
     Decision,
     JsonValue,
 )
+from onedoor.guardrail.policy import PolicyStore
 from onedoor.store.clock import from_iso, to_iso
 
 RESUME_DIGEST_KIND = "onedoor/resume-request-digest/1"
+
+
+def normalize_identity(identity: str) -> str:
+    """An approver identity compared the same way
+    regardless of case, edge whitespace, or a Unicode format character
+    hidden inside it -- "alice", "Alice", "alice " and "alice" followed by
+    a zero-width space were four different identities to an exact-string
+    comparison, each counted as its own approver. NFKC normalization,
+    then casefolding, then trimming closes the first three; a format
+    character (Unicode category `Cf` -- a zero-width space, a
+    left-to-right override, and similarly invisible codepoints) surviving
+    that is refused outright rather than silently accepted, since nothing
+    about its presence can be display-verified by a human reading a log.
+    """
+    normalized = unicodedata.normalize("NFKC", identity).casefold().strip()
+    if any(unicodedata.category(ch) == "Cf" for ch in normalized):
+        raise ApprovalError(
+            f"identity {identity!r} holds a Unicode format character, which is refused"
+        )
+    return normalized
 
 
 def resume_digest(action_type: str, params: dict[str, JsonValue]) -> str:
@@ -64,6 +88,7 @@ def _canon(value: object) -> object:
 
 
 def _row_to_approval(row: sqlite3.Row) -> Approval:
+    keys = row.keys()
     return Approval(
         approval_id=int(row["id"]),
         request=loads_request(row["request_json"]),
@@ -73,6 +98,24 @@ def _row_to_approval(row: sqlite3.Row) -> Approval:
         decided_at=from_iso(row["decided_at"]) if row["decided_at"] else None,
         decided_by_session=row["decided_by_session"],
         resulting_audit_id=row["resulting_audit_id"],
+        approvers=(
+            json.loads(row["approvers_json"])
+            if "approvers_json" in keys and row["approvers_json"]
+            else []
+        ),
+        backup_approver=row["backup_approver"] if "backup_approver" in keys else None,
+        escalated_at=(
+            from_iso(row["escalated_at"])
+            if "escalated_at" in keys and row["escalated_at"]
+            else None
+        ),
+        link_used_at=(
+            from_iso(row["link_used_at"])
+            if "link_used_at" in keys and row["link_used_at"]
+            else None
+        ),
+        link_sent=bool(row["link_sent"]) if "link_sent" in keys else False,
+        link_channel=row["link_channel"] if "link_channel" in keys else None,
     )
 
 
@@ -109,6 +152,7 @@ def create(
     proposed_by: str | None = None,
     thread_id: str | None = None,
     tool_call_id: str | None = None,
+    policy_store: PolicyStore | None = None,
 ) -> int:
     """Create a pending approval.
 
@@ -132,18 +176,26 @@ def create(
     resume key and no reason to canonicalise anything. Computing it unconditionally
     would make an ordinary, non-resumable propose fail on a param shape every other
     path on this route already tolerates.
+
+    `required_approvers_at_proposal` (migration `0042`) is
+    `required_approvers` evaluated against the policy AS IT STANDS RIGHT NOW,
+    frozen into the row -- the snapshot `cas_approve` later compares against
+    the then-current policy, taking whichever is stricter.
     """
     digest = (
         resume_digest(request.action_type, request.params)
         if thread_id is not None and tool_call_id is not None
         else None
     )
+    snapshot_required = required_approvers(
+        conn, request, policy_store=policy_store or PolicyStore()
+    )
     cur = conn.execute(
         "INSERT INTO approvals "
         "(request_json, action_type, state, created_at, expires_at, "
         "mandate_authority, mandate_core_digest, proposed_by, "
-        "thread_id, tool_call_id, request_digest) "
-        "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)",
+        "thread_id, tool_call_id, request_digest, required_approvers_at_proposal) "
+        "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             dumps_request(request),
             request.action_type,
@@ -155,6 +207,7 @@ def create(
             thread_id,
             tool_call_id,
             digest,
+            snapshot_required,
         ),
     )
     return int(cur.lastrowid or 0)
@@ -267,14 +320,53 @@ def _refuse_if_mandate_gated(
         )
 
 
+def required_approvers(
+    conn: sqlite3.Connection, request: ActionRequest, *, policy_store: PolicyStore
+) -> int:
+    """How many distinct approvers this request's own policy needs before an
+    approval resumes it, AS THE POLICY READS RIGHT NOW -- 1 unless the
+    policy declares `approval.two_person_above_eur` and this request is
+    above it. An amount that cannot be resolved at all never reads as the
+    lower requirement: the same "unknown is never a free pass" rule
+    `caps.resolve_cost`'s own docstring states for a euro cap applies here
+    too.
+
+    Public (not `_required_approvers`) since `create` now calls this too, to
+    snapshot the answer at proposal time -- `cas_approve` uses this same
+    function again at approval time, and takes the stricter of the two:
+    a policy edited between proposal and approval
+    must not let an action proposed under the stricter rule complete with
+    only one approver, nor hold a proposal to a rule that was tightened
+    specifically to catch it.
+    """
+    policy = policy_store.get(conn, request.action_type)
+    if policy.approval is None or policy.approval.two_person_above_eur is None:
+        return 1
+    cost = resolve_cost(policy, request)
+    if cost is None or cost > policy.approval.two_person_above_eur:
+        return 2
+    return 1
+
+
 def cas_approve(
-    conn: sqlite3.Connection, approval_id: int, session_id: str, now: datetime
+    conn: sqlite3.Connection,
+    approval_id: int,
+    session_id: str,
+    now: datetime,
+    *,
+    policy_store: PolicyStore | None = None,
+    channel: str | None = None,
 ) -> ActionRequest:
-    """Flip pending -> approved iff still pending and unexpired. Returns the request.
+    """Flip pending -> approved iff still pending, unexpired, and (above the
+    request's own policy's two-person threshold) a second, DIFFERENT
+    identity has now approved too. Returns the request once truly approved.
 
     The principal that proposed the action can never approve it: refused here, in the
     store, so the rule holds for every caller rather than only for the enforcement
-    points that choose not to offer an approve method.
+    points that choose not to offer an approve method. The same identity approving
+    twice does not count as two: a repeat call from an identity already recorded in
+    `approvers_json` is refused the same way -- never silently a no-op, and never
+    double-counted.
 
     A combined approval (`mandate_authority=2`) only reaches here from
     `state='ratified'` -- stated limit, not an oversight: the mandate authority must
@@ -282,27 +374,173 @@ def cas_approve(
     approval that is still merely `pending`. The requirement this satisfies is
     narrower than "either order works" -- it is that neither authority alone resumes
     the action, which this still holds regardless of the ordering restriction.
+
+    Below its own policy's two-person threshold -- the common case, and every
+    policy before this feature existed -- this behaves exactly as before: one
+    approver, any identity but the proposer, flips the state straight to
+    approved. `NeedsMoreApprovers` (an `ApprovalError`, so every existing caller
+    that already catches the parent class handles this the same way) is raised
+    instead when this approver was validly recorded but the policy needs at
+    least one more, different, identity first -- the row stays `pending`, with
+    this approver now in `approvers_json`, ready for the next one.
+
+    `channel` names which identity space this
+    approver's vote was recorded through -- `"key"` for an admin key's
+    fingerprint, `"link"` for a signed approval link's recipient, `"library"`
+    for a vote through `executor.resume_approval` with no key or link
+    involved at all. These three spaces can never be equal as strings, so
+    without this a vote through one space and a vote through another from
+    "the same person" counted as two different ones. Once any vote on this
+    approval carries a known channel, a new vote through a DIFFERENT known
+    channel is refused as a mixed pair, not counted -- see the table in
+    `docs/integration-service.md` and the design note for exactly which
+    pairs complete an approval and which don't. `None` (only a pre-7a4 row,
+    since every caller now names its own channel) means no channel is
+    tracked for this approval at all -- the check is skipped entirely, the
+    same "nothing recorded, current behaviour" fallback this engine's other
+    migrations already use.
+
+    Do not wrap this call in `onedoor.store.db.tx` (`with tx(conn): ...`): the
+    mutation is already one atomic `UPDATE`, self-contained exactly like every
+    other CAS in this module, and commits on its own under the store's
+    autocommit connection the moment it runs. Wrapping it in an *explicit*
+    transaction defers that commit to the `with` block's own exit -- and
+    `NeedsMoreApprovers` would then roll back the very approver this call
+    just recorded, along with it, which is not "not approved yet", it is
+    "the vote was lost".
     """
     _refuse_if_mandate_gated(conn, approval_id, session_id=session_id, now=now)
-    proposer = conn.execute(
-        "SELECT proposed_by FROM approvals WHERE id=?", (approval_id,)
+    normalized_session_id = normalize_identity(session_id)
+    row = conn.execute(
+        "SELECT proposed_by, state, expires_at, request_json, mandate_authority, "
+        "approvers_json, approver_channels_json, decided_at, decided_by_session, "
+        "required_approvers_at_proposal "
+        "FROM approvals WHERE id=?",
+        (approval_id,),
     ).fetchone()
-    if proposer is not None and proposer["proposed_by"] == session_id:
+    if row is None:
+        raise ApprovalError(f"approval {approval_id} not pending or already expired")
+    if row["proposed_by"] is not None and normalize_identity(row["proposed_by"]) == (
+        normalized_session_id
+    ):
         raise ApprovalError(
             f"approval {approval_id} was proposed by {session_id!r}; the principal that "
             f"proposed an action cannot approve it"
         )
+    valid_state = (row["state"] == "pending" and row["mandate_authority"] is None) or (
+        row["state"] == "ratified" and row["mandate_authority"] == 2
+    )
+    if not valid_state or str(row["expires_at"]) <= to_iso(now):
+        raise ApprovalError(f"approval {approval_id} not pending or already expired")
+    current_json = row["approvers_json"] or "[]"
+    current_approvers: list[str] = json.loads(current_json)
+    if normalized_session_id in {normalize_identity(a) for a in current_approvers}:
+        raise ApprovalError(
+            f"approval {approval_id} was already approved by {session_id!r}; the same "
+            f"identity approving twice does not count as two"
+        )
+    current_channels_json = row["approver_channels_json"] or "[]"
+    current_channels: list[str | None] = json.loads(current_channels_json)
+    known_channels = {c for c in current_channels if c is not None}
+    if channel is not None and known_channels and channel not in known_channels:
+        raise ApprovalError(
+            f"approval {approval_id} already has a vote recorded through a different "
+            f"channel; a vote through one identity space and a vote through another "
+            "do not count as two people"
+        )
+    request = loads_request(row["request_json"])
+    store = policy_store or PolicyStore()
+    current_required = required_approvers(conn, request, policy_store=store)
+    # The stricter of the two: a policy edited between
+    # proposal and approval must not let an action proposed under the
+    # stricter rule complete with only one approver (loosened since), nor
+    # hold a proposal to a rule tightened specifically to catch it (the
+    # CURRENT policy is then the stricter one). `None` -- a row from before
+    # this migration, with no snapshot recorded -- falls back to the current
+    # policy alone, the same behaviour this program always had.
+    snapshot_required = row["required_approvers_at_proposal"]
+    required = (
+        current_required
+        if snapshot_required is None
+        else max(current_required, int(snapshot_required))
+    )
+    new_approvers = [*current_approvers, normalized_session_id]
+    new_channels = [*current_channels, channel]
+    fully_approved = len(new_approvers) >= required
+    new_state = "approved" if fully_approved else row["state"]
     cur = conn.execute(
-        "UPDATE approvals SET state='approved', decided_at=?, decided_by_session=? "
+        "UPDATE approvals SET approvers_json=?, approver_channels_json=?, state=?, "
+        "decided_at=?, decided_by_session=? "
         "WHERE id=? AND expires_at > ? AND (proposed_by IS NULL OR proposed_by != ?) "
+        "AND approvers_json=? "
         "AND ((state='pending' AND mandate_authority IS NULL) "
         "OR (state='ratified' AND mandate_authority=2))",
-        (to_iso(now), session_id, approval_id, to_iso(now), session_id),
+        (
+            json.dumps(new_approvers),
+            json.dumps(new_channels),
+            new_state,
+            to_iso(now) if fully_approved else row["decided_at"],
+            normalized_session_id if fully_approved else row["decided_by_session"],
+            approval_id,
+            to_iso(now),
+            session_id,
+            current_json,
+        ),
     )
     if cur.rowcount == 0:
         raise ApprovalError(f"approval {approval_id} not pending or already expired")
-    row = conn.execute("SELECT request_json FROM approvals WHERE id=?", (approval_id,)).fetchone()
-    return loads_request(row["request_json"])
+    if not fully_approved:
+        raise NeedsMoreApprovers(approval_id, required=required, recorded=len(new_approvers))
+    row2 = conn.execute("SELECT request_json FROM approvals WHERE id=?", (approval_id,)).fetchone()
+    return loads_request(row2["request_json"])
+
+
+def escalate_if_due(
+    conn: sqlite3.Connection,
+    approval_id: int,
+    *,
+    resolver: Callable[[str], str | None] | None,
+    now: datetime,
+) -> str | None:
+    """Set `backup_approver` once the policy's own `approval.
+    escalate_after_seconds` has elapsed since this still-pending approval
+    was created, if it has not already been set and a resolver is
+    configured. Returns the backup approver -- whether just assigned or
+    already set from an earlier check -- or `None` when escalation never
+    fires (no resolver, the policy sets no `escalate_after_seconds`, the
+    window has not elapsed yet, or the row is no longer pending).
+
+    This is the "new step inserted before the existing expiry" the design
+    note describes: called from `approval_ref.resolve`, the same lazy,
+    checked-only-when-touched way expiry already is. Nothing here ever
+    flips `state` or extends `expires_at` -- the existing full-TTL expiry
+    fires exactly as before, on schedule, whether or not escalation did.
+    """
+    if resolver is None:
+        return None
+    row = conn.execute(
+        "SELECT state, created_at, backup_approver, action_type FROM approvals WHERE id=?",
+        (approval_id,),
+    ).fetchone()
+    if row is None or row["state"] != "pending":
+        return None
+    if row["backup_approver"] is not None:
+        return str(row["backup_approver"])
+    policy = PolicyStore().get(conn, row["action_type"])
+    if policy.approval is None or policy.approval.escalate_after_seconds is None:
+        return None
+    created_at = from_iso(row["created_at"])
+    if (now - created_at).total_seconds() < policy.approval.escalate_after_seconds:
+        return None
+    backup = resolver(row["action_type"])
+    if backup is None:
+        return None
+    conn.execute(
+        "UPDATE approvals SET backup_approver=?, escalated_at=? "
+        "WHERE id=? AND state='pending' AND backup_approver IS NULL",
+        (backup, to_iso(now), approval_id),
+    )
+    return backup
 
 
 def cas_resume_ratified(conn: sqlite3.Connection, approval_id: int, now: datetime) -> ActionRequest:

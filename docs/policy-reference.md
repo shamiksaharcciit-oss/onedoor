@@ -1,6 +1,6 @@
 # Policy reference
 
-**Superseded in place** (R086 §2E, Finding 8): the prior text said
+**Superseded in place:** the prior text said
 `compensating_command` "must name another registered action type." Nothing in
 the loader or the engine checks that — the field is stored and never resolved
 against the policy set. The corrected field note is below; the whole-file
@@ -12,9 +12,8 @@ uses for its origin pin:
 sha256(policy-reference.md, prior) = fa0dca42416792c9e45814d80114797add62a9b4a57a01a3fc36620ca6aa0da0
 ```
 
-The missing check itself is filed as a backlog item (see `BACKLOG.md`) and is
-**not built here** — this correction only brings the doc into line with what
-the code already does.
+The missing check itself is **not built here** — this correction only brings
+the doc into line with what the code already does.
 
 Policies are data, not code: a YAML file loaded at startup (and re-loadable).
 Numeric limits, tiers, undo windows — all live here. Unknown action types are
@@ -59,14 +58,23 @@ policies:
   decision is `dry_run`, no connector runs, no budget is reserved, and the
   approval is used up. To have approved actions execute, set `dry_run: false`.
 - **compensating_command** — the reversibility rule. A non-empty value is
-  required for tiers 1 and 2; **the named action type is not checked to exist,
-  at load time or at decision time** — the loader stores the string and
-  neither the loader nor the engine resolves it against the policy set. The
-  undo is submitted through the same pipeline when a real reversal runs,
-  linked to its parent in the audit log, but nothing here guarantees the name
-  resolves to anything. **Every auto-executing tier needs a non-empty value**
-  — tier 1 and tier 2 alike, since a budget does not make an irreversible action
-  safe to automate. An empty or absent value fails at load; an auto action that
+  required for tiers 1 and 2. **`load_file` — the batch loader run at boot —
+  refuses a policy whose compensating_command names no action type anywhere
+  in the table or the same file**, naming the policy, the undeclared target,
+  and the remedy (declare a policy for it, in this file or already loaded).
+  A direct `upsert` call — one policy, no view of the rest of the policy set
+  — does **not** check this: it has no way to know what else exists, so it
+  cannot reject a policy for a fact nobody gave it the means to see. At
+  decision time, if a reversal target somehow still does not exist (only
+  reachable by loading through `upsert` directly, bypassing `load_file`), an
+  actual undo attempt is denied exactly like any other unregistered action
+  type — `default_deny` — with nothing in that denial pointing at the real
+  cause being a dangling reversal rather than an ordinary unknown action.
+  The undo itself is submitted through the same pipeline a real reversal
+  always runs through, linked to its parent in the audit log.
+  **Every auto-executing tier needs a non-empty value** — tier 1 and tier 2
+  alike, since a budget does not make an irreversible action safe to
+  automate. An empty or absent value fails at load; an auto action that
   loses its reversal demotes to Tier 3 at runtime.
 - **bounds** — validated for *every* tier before proposals are created, so
   approvers only ever see sane requests. `strict_params: true` rejects any
@@ -161,7 +169,8 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 `passed` · `default_deny` · `tier_confirm` · `no_compensating_command` · `bounds` ·
 `dry_run` · `budget_exhausted` · `rate_exhausted` · `cost_unknown` · `kill_switch` ·
 `observe` · `effect_floor` · `malformed` · `expired` · `external_authorization` ·
-`present_bound` · `resume_request_mismatch`
+`present_bound` · `resume_request_mismatch` · `untrusted_input` · `sequence_rule` ·
+`sequence_no_session` · `plan_ref`
 
 `external_authorization` (AADP -03 §8.1) is the reason on a `denied` or
 `proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
@@ -214,3 +223,57 @@ digests are recorded on the audit row (`resume_digest_expected`,
 `resume_digest_actual`), so the evidence states what differed rather than only
 that something did. An approval is for one exact request; a resume does not
 widen it.
+
+`untrusted_input` (onedoor 0.11, onedoor's own extension) is the reason on a
+`denied` or `proposed` verdict produced by `Policy.untrusted_params`: a path
+the caller marked `untrusted` matched the action type's own `deny` or `hold`
+list. Checked before bounds and caps — a refusal here is about where a value
+came from, not what it is. A path named in `deny` wins over the same path
+named in `hold`; a path named in neither has no effect, whether or not the
+caller marked it. An action type with no `untrusted_params` set never carries
+this check at all, and nothing about `untrusted` on the request changes its
+decision.
+
+`sequence_rule` (onedoor 0.11, onedoor's own extension) is the reason on a
+`denied` or `proposed` verdict produced by `Policy.sequence.rules`: an
+`after_tag` rule found a matching tagged read earlier in this session within
+its own window, or a `count_over` rule found this session's own history
+already holding as many prior over-threshold actions of some action type as
+its own `max_count` tolerates. Checked before bounds and caps, the same
+placement as `untrusted_input` — a stop here is about what already happened
+in this session, not about this action's own value. An action type with no
+`sequence` block set never carries this check at all. When the rule's own
+window reaches further back than this session's history still holds, the
+rule's configured effect still fires (fail closed) and the receipt's
+`sequence_history_incomplete` says the answer was not a complete one.
+
+`sequence_no_session` (onedoor 0.11, onedoor's own extension) is the reason
+on a `proposed` verdict when a policy's own `sequence.rules` is non-empty
+and the request carries no `session_id` — there is no session history to
+check a rule against, so the call is held for a human rather than silently
+let through as though no rule existed (a caller could otherwise avoid every
+sequence rule just by leaving `session_id` out). A policy that declares
+`sequence.session_optional: true` is exempt; a policy whose `sequence` block
+carries only `tag_as` (no `rules`) never carries this check at all, since
+there is nothing to evaluate a session against.
+
+`plan_ref` (onedoor 0.11, onedoor's own extension) names the internal
+check that matched a presented `ActionRequest.plan_ref` against an active
+plan (see "Approving a plan once") and satisfied the approval step this
+action's own nominal tier would otherwise have required. Every other
+check still decided fully on its own merits beforehand — a plan replaces
+exactly the approval step, nothing else. A bad, expired, exhausted or
+mismatched `plan_ref` evaluates as absent, never as an error; the action
+then decides exactly as if no plan had been presented.
+
+**This is not the `reason` a caller
+actually receives.** A matched plan does not change what the HTTP
+service or the library report back: `/v1/decide`'s own reply names its
+`reason` literally `"passed"` for a permitted call either way, whether or
+not a plan matched it. Where `plan_ref` IS recorded is a separate field,
+present alongside that reason wherever the call matched one: the
+decision row (`actions_audit.plan_ref`), on the outcome object a library
+caller gets back (`PermittedIntent.plan_ref`, or `PolicyDecision.plan_ref`
+on an `ActionResult.decision` for a call that needed a report), and on
+`DecideReply.plan_ref` for an HTTP caller. A caller that wants to know
+whether a plan satisfied this call reads that field, not `reason`.

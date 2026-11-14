@@ -30,6 +30,18 @@ def state(tmp_path):
             bounds=Bounds(strict_params=False),
         ),
     )
+    # `_draft_with_a_new_rule`'s own new rule names this as its reversal --
+    # already in force here, not added by the draft, so a ratification of
+    # that one new rule still sees exactly one change.
+    policy_loader.upsert(
+        st.enforcer,
+        Policy(
+            action_type="payments.reverse",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            bounds=Bounds(strict_params=False),
+        ),
+    )
     return st
 
 

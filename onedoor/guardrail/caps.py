@@ -7,6 +7,7 @@ IMMEDIATE transaction serializes them.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -16,6 +17,7 @@ from zoneinfo import ZoneInfo
 from onedoor._vendor.canonical import canon_datetime, canon_decimal
 from onedoor.guardrail.models import ActionRequest, Budget, Caps, CheckId, Policy
 from onedoor.guardrail.numeric import numeric_value
+from onedoor.store.clock import to_iso
 
 
 @dataclass(frozen=True)
@@ -335,3 +337,88 @@ def check_and_reserve(
             return result
     deltas = _reserve_all(conn, counters, sources, amount, day, month)  # then reserve everything
     return CapResult(False, deltas=deltas)
+
+
+def _expired_reservation_deltas(
+    conn: sqlite3.Connection, now: datetime
+) -> list[tuple[str, str, str, int, str]]:
+    """The deltas of every reservation past its own deadline, still held --
+    a read-only mirror of what `onedoor.guardrail.decision.
+    reclaim_expired_reservations` would subtract and mark `expired`,
+    without writing either. A real decision always reclaims before it ever
+    checks a cap; `check_only` has no write access to this table at all, so
+    it accounts for the same reservations in memory instead, over exactly
+    the same `status='held' AND deadline_utc <= now` rows.
+    """
+    rows = conn.execute(
+        "SELECT deltas_json FROM cap_reservations WHERE status='held' AND deadline_utc <= ?",
+        (to_iso(now),),
+    ).fetchall()
+    deltas: list[tuple[str, str, str, int, str]] = []
+    for r in rows:
+        deltas.extend(tuple(d) for d in json.loads(r["deltas_json"], parse_float=Decimal))
+    return deltas
+
+
+def _release_in_memory(
+    counters: dict[tuple[str, str, str], tuple[int, Decimal]],
+    deltas: list[tuple[str, str, str, int, str]],
+) -> None:
+    """`release`'s own arithmetic (subtract, clamp at zero), applied to the
+    `counters` dict in place rather than written to the table -- the same
+    reason `_expired_reservation_deltas` reads rather than reclaims."""
+    for key, kind, wkey, count_delta, eur_delta in deltas:
+        if (key, kind, wkey) not in counters:
+            continue  # irrelevant to the caps actually being checked
+        count, total = counters[(key, kind, wkey)]
+        new_total = total - Decimal(str(eur_delta))
+        counters[(key, kind, wkey)] = (
+            max(0, count - int(count_delta)),
+            new_total if new_total > 0 else Decimal(0),
+        )
+
+
+def check_only(
+    conn: sqlite3.Connection,
+    policy: Policy,
+    request: ActionRequest,
+    now: datetime,
+    tz: ZoneInfo,
+    effect_caps: list[tuple[str, Caps]] | None = None,
+) -> CapResult:
+    """`check_and_reserve`'s own read-and-check half, with no reservation --
+    for a caller that needs to know whether a request fits a policy's caps
+    without that request itself ever happening (shadow evaluation, a policy
+    test over a candidate policy). Reads the same counters a real decision
+    for this exact action right now would see -- including treating a
+    reservation already past its own deadline as reclaimed, the same way a
+    real decision's own reclaim step would leave it, but without writing
+    that reclaim -- and writes nothing itself: the returned `CapResult`
+    never carries `deltas`, since nothing was reserved to release later.
+    """
+    day = _day_key(now, tz)
+    month = _month_key(now, tz)
+    sources: list[tuple[str, Caps, str]] = [(policy.action_type, policy.caps, "")]
+    for name, ecaps in effect_caps or []:
+        sources.append((f"effect:{name}", ecaps, f" (effect {name})"))
+
+    cost = resolve_cost(policy, request)
+    if cost is None and any(_has_euro_cap(caps) for _, caps, _ in sources):
+        where = (
+            f"policy declares cost_param '{policy.cost_param}' but the request "
+            "carries no usable value for it"
+            if policy.cost_param is not None
+            else "no cost_param declared and the request carries no cost_eur"
+        )
+        return CapResult(
+            True, CheckId.COST_UNKNOWN, f"euro cap applies but the amount is unknown ({where})"
+        )
+    amount = cost if cost is not None else Decimal(0)
+
+    counters = _read_all(conn, [k for k, _, _ in sources], day, month)
+    _release_in_memory(counters, _expired_reservation_deltas(conn, now))
+    for key, caps, label in sources:
+        result = _check_one(counters, key, caps, amount, day, month, label, now, tz)
+        if result.exceeded:
+            return result
+    return CapResult(False)

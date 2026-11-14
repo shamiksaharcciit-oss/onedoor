@@ -6,7 +6,7 @@ or a self-hosted decision service, with the enterprise features expected of
 infrastructure: authentication and authorization, auditability, observability,
 and a scalable persistence layer. Self-hosted, open source, Apache-2.0.
 
-**The strategy:** the moat is semantics, not surface area. The decision core
+**The strategy:** the moat is semantics, not surface area. The decision engine
 (tiers, default-deny, reversibility-as-precondition, ordered checks) changes
 rarely and carefully; enforcement surfaces and integrations grow demand-driven
 — ideally contributed by the people who need them. onedoor composes with
@@ -19,7 +19,7 @@ the live plan moved into two working documents that are updated with every chang
 
 | Document | Answers |
 |---|---|
-| **[BACKLOG.md](BACKLOG.md)** | What is being built: every ticket, its size, its sequencing, the migration-number register, and the release mapping. |
+| **[CHANGELOG.md](CHANGELOG.md)** | What shipped, release by release, and each release's own known gaps. |
 | **[CONFORMANCE.md](CONFORMANCE.md)** | What conforms to [AADP](https://datatracker.ietf.org/doc/draft-saha-aadp/) today: requirement by requirement, with the test that holds each one in place, and every gap named. |
 
 Nothing is marked done in either without a passing test. Read those for anything

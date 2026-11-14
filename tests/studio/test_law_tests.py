@@ -63,6 +63,18 @@ def populated(tmp_path):
             ),
         ),
     )
+    # payments.transfer's own reversal -- a later ratification revalidates
+    # the whole candidate, including this already-upserted policy, so its
+    # own compensating_command must resolve too.
+    policy_loader.upsert(
+        state.enforcer,
+        Policy(
+            action_type="payments.reverse",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            bounds=Bounds(strict_params=False),
+        ),
+    )
     request = ActionRequest(
         request_id=uuid4(),
         action_type="payments.transfer",

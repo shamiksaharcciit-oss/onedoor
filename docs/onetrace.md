@@ -7,11 +7,10 @@ and, where a bound permit was used, that the permit covered exactly the action t
 step sent.
 
 **This page shows the onedoor side only.** The onetrace side — declaring a step
-gated, `ctx.decision(...)`, the `authorization` receipt block, onetrace-verify's new
-rows — arrives in onetrace 0.5; `tests/vectors/` is published now so that work can
-vendor against stable values ahead of it. See
-[`onetrace_onedoor_integration_design.md`](../onetrace_onedoor_integration_design.md)
-for the whole shape across both projects.
+gated, `ctx.decision(...)`, the `authorization` receipt block, onetrace-verify's own
+rows for both — shipped in onetrace 0.5 and is current through onetrace 0.8.0.
+`tests/vectors/` here is what that side vendors against, for stable values across
+both projects' own releases.
 
 ## One gated step, end to end
 

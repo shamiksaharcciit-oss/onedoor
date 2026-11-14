@@ -30,7 +30,7 @@ Every run prints **what it ran, where, and with which versions**, so its output 
 distinguishable from a hand-run transcript. R049 §2: *a control that is
 indistinguishable from its own absence is not yet a control.*
 
-The honest limit, which core ratified as the right standard: this helps only when it is
+The honest limit, ratified as the right standard: this helps only when it is
 **called**. It does not eliminate what must be remembered; it reduces it to one atom —
 *use the runner* — instead of per-command vigilance about pipes, `PIPESTATUS`, and which
 process `$?` is carrying. *An irreducible remainder is not a failure of the tool; it is
@@ -68,8 +68,14 @@ GATES: tuple[Gate, ...] = (
         "types", ("mypy", "onedoor"), r"Success: no issues found in [1-9]\d* source files", "mypy"
     ),
     Gate("tests", ("pytest", "-q"), r"[1-9]\d* passed", "pytest"),
+    Gate(
+        "shipped_text",
+        ("python", "-m", "scripts.check_shipped_text", "--skip-build"),
+        r"(?s)scanned: [1-9]\d* tracked file\(s\).*CHECK OK",
+        "onedoor",
+    ),
 )
-r"""The four gates, declared once.
+r"""The five gates, declared once.
 
 **The contracts are patterns, not substrings, and that is the fifth proxy-for-contract
 instance being paid for.** The first draft of this table declared the tests gate as the

@@ -46,6 +46,31 @@ policies:
     tier: 2
 """
 
+DANGLING_REVERSAL_YAML = """
+policies:
+  - action_type: payments.refund
+    tier: 2
+    compensating_command: payments.nonexistent
+"""
+
+
+class _KwargsForwardingProposer:
+    """A proposer that forwards whatever keyword it is handed straight on
+    to the real one behind it -- the shape `derive`'s own signature
+    inspection must still recognise, since it never names
+    `known_action_types` itself, only declares that it takes any keyword
+    at all."""
+
+    def __init__(self, inner: proposer.Proposer) -> None:
+        self._inner = inner
+        self.provenance = inner.provenance
+
+    def identity(self) -> dict:
+        return self._inner.identity()
+
+    def propose(self, description: str, **kwargs: object) -> proposer.Proposal:
+        return self._inner.propose(description, **kwargs)  # type: ignore[arg-type]
+
 
 class _StubEndpoint(live_proposer.HttpProposer):
     """The HTTP proposer with only the socket replaced.
@@ -220,6 +245,24 @@ def test_a_generation_the_parser_refuses_is_refused(state) -> None:
     assert "The loader would refuse what came back" in response.text
     assert "compensating_command" in response.text
     # And no draft was created from it.
+    assert store.listing(state.studio) == []
+
+
+def test_a_kwargs_forwarding_proposer_still_refuses_a_dangling_reversal(state) -> None:
+    """The regression this test pins: a proposer that forwards every
+    keyword it is handed onward to the live one -- never naming
+    `known_action_types` itself -- must still get `derive`'s own
+    `known_action_types`, and the route must still refuse a generated
+    rule naming a reversal nothing declares, through the same route the
+    live proposer alone already refuses it through. Before the fix this
+    pins, such a proposer received nothing, and the route saved the
+    dangling reversal as a draft instead of refusing it."""
+    state.proposer = _KwargsForwardingProposer(_StubEndpoint(DANGLING_REVERSAL_YAML))
+    client = TestClient(server.create_app(state))
+    response = client.post("/propose", data={"description": "refunds"})
+
+    assert response.status_code == 422
+    assert "names no known action type" in response.text
     assert store.listing(state.studio) == []
 
 

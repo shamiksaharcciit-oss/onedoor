@@ -170,6 +170,20 @@ CORPUS: tuple[Case, ...] = (
 )
 
 
+NO_LIVE_TABLE_CHECK = (
+    "does not check a compensating_command against the live policy table or against "
+    "the rest of this candidate -- this check has no connection to build that view "
+    "from (unlike validate.problems with known_action_types, or load_file); a "
+    "candidate naming an undeclared reversal can still pass here"
+)
+"""This module's own disclosed limitation, named rather than left silent: it has
+no connection at all, so it cannot build `known_action_types` the way
+`validate.known_action_types_for` does for callers that have one. A candidate
+`validate.problems` would refuse, or `load_file`/a ratification would refuse,
+can still `pass` here -- stated in every `Result`'s own `caveats`, not a gap this
+check claims to have closed."""
+
+
 @dataclass
 class Result:
     """One case's outcome, with the reason it missed rather than a bare boolean."""
@@ -178,6 +192,10 @@ class Result:
     passed: bool
     reasons: list[str] = field(default_factory=list)
     actions: frozenset[str] = frozenset()
+    caveats: tuple[str, ...] = (NO_LIVE_TABLE_CHECK,)
+    """What this one check does not cover, named rather than left silent --
+    today, exactly `NO_LIVE_TABLE_CHECK` (see its own docstring). A result
+    with no reasons is still only as complete as what was actually checked."""
 
     def to_object(self) -> dict[str, Any]:
         return {
@@ -187,6 +205,7 @@ class Result:
             "passed": self.passed,
             "reasons": self.reasons,
             "actions": sorted(self.actions),
+            "caveats": list(self.caveats),
         }
 
 

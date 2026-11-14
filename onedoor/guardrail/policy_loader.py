@@ -28,13 +28,36 @@ def _policy_from_entry(entry: dict[str, Any]) -> Policy:
     return Policy.model_validate(entry)
 
 
-def validate_policy(policy: Policy) -> None:
+def validate_policy(policy: Policy, *, known_action_types: frozenset[str] | None = None) -> None:
     # Every tier that executes without a human needs a registered reversal, not
     # just Tier 1. A budget does not make an irreversible action safe to automate.
     if policy.tier in (Tier.AUTO, Tier.AUTO_CAPPED) and not policy.compensating_command:
         raise ValueError(
             f"policy '{policy.action_type}' is Tier {int(policy.tier)} (auto-executing) "
             "but has no compensating_command (no reversal => cannot auto-execute)"
+        )
+    # A compensating_command that names nothing is a fiction: the policy loads
+    # clean, and nothing notices until an actual undo is attempted and finds
+    # nowhere to go. `known_action_types`, when given, is every action type
+    # this load already knows about -- the ones already in the table, and
+    # every other policy in the same file, so a pair of policies that name
+    # each other's own action type as their own reversal (the common shape)
+    # validates regardless of which one is checked first. `None` (every
+    # caller before this check existed, and `upsert`'s own direct calls,
+    # which validate one policy with no view of what else exists) skips the
+    # check entirely rather than rejecting a policy for a fact nobody gave it
+    # the means to know.
+    if (
+        known_action_types is not None
+        and policy.compensating_command  # same falsy check as the presence rule above --
+        # an empty string means "no reversal" here too, not a target to resolve
+        and policy.compensating_command not in known_action_types
+    ):
+        raise ValueError(
+            f"policy '{policy.action_type}' declares compensating_command "
+            f"'{policy.compensating_command}', which names no known action "
+            "type -- declare a policy for it (in this file, or already "
+            "loaded) before an undo of this action has anywhere to go"
         )
     # A euro cap needs a resolvable amount. Declaring `cost_param` is the only
     # way policy can supply one, and a parameter that may be absent is not a
@@ -126,8 +149,9 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
         " dry_run, dry_run_until,"
         " compensating_command, cost_param, undo_window_seconds, requires_step_up,"
         " requires_external_authorization, present_bound, bound_permit_action_type,"
+        " untrusted_params_json, sequence_json, approval_json, approval_notify_json,"
         " updated_at"
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(action_type) DO UPDATE SET "
         " tier=excluded.tier, bounds_json=excluded.bounds_json, caps_json=excluded.caps_json,"
         " effects_json=excluded.effects_json, param_effects_json=excluded.param_effects_json,"
@@ -139,6 +163,10 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
         " requires_external_authorization=excluded.requires_external_authorization,"
         " present_bound=excluded.present_bound,"
         " bound_permit_action_type=excluded.bound_permit_action_type,"
+        " untrusted_params_json=excluded.untrusted_params_json,"
+        " sequence_json=excluded.sequence_json,"
+        " approval_json=excluded.approval_json,"
+        " approval_notify_json=excluded.approval_notify_json,"
         " updated_at=excluded.updated_at",
         (
             policy.action_type,
@@ -156,6 +184,10 @@ def upsert(conn: sqlite3.Connection, policy: Policy) -> None:
             int(policy.requires_external_authorization),
             policy.present_bound,
             policy.bound_permit_action_type,
+            policy.untrusted_params.model_dump_json() if policy.untrusted_params else None,
+            policy.sequence.model_dump_json() if policy.sequence else None,
+            policy.approval.model_dump_json() if policy.approval else None,
+            policy.approval_notify.model_dump_json() if policy.approval_notify else None,
             to_iso(now_utc()),
         ),
     )
@@ -206,8 +238,12 @@ def load_file(conn: sqlite3.Connection, path: str | Path) -> int:
     raw = _safe_load_decimal(Path(path).read_text(encoding="utf-8")) or {}
     entries = raw.get("policies", [])
     policies = [_policy_from_entry(e) for e in entries]
+    known_action_types = frozenset(
+        {row["action_type"] for row in conn.execute("SELECT action_type FROM policies")}
+        | {p.action_type for p in policies}
+    )
     for policy in policies:  # validate all first
-        validate_policy(policy)
+        validate_policy(policy, known_action_types=known_action_types)
     effect_entries = raw.get("effects", {}) or {}
     effect_policies = [
         EffectPolicy(

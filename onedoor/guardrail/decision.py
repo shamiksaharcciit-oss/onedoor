@@ -43,6 +43,10 @@ from onedoor.guardrail import (
     killswitch,
     mandate,
     opaque_hosts,
+    sequence,
+)
+from onedoor.guardrail import (
+    plan_ref as plan_ref_mod,
 )
 from onedoor.guardrail.audit import RowSource
 from onedoor.guardrail.models import (
@@ -67,7 +71,7 @@ from onedoor.guardrail.urlcanon import (
     url_rule_matches,
 )
 from onedoor.store import bus
-from onedoor.store.clock import to_iso
+from onedoor.store.clock import from_iso, to_iso
 from onedoor.store.db import tx
 
 # EngineConfig lives in executor.py for backwards compatibility; import lazily
@@ -125,6 +129,16 @@ class PermittedIntent:
     `PermittedIntent` exists with `present_bound` set and `bound_permit_action_type`
     configured, this is always populated. `None` when the policy asked for no bound
     permit at all -- unchanged from before this obligation existed."""
+    sequence_tagged: bool = False
+    """Whether the policy carried a `sequence` block at all (`tag_as` set or
+    not) -- `report_result` only ever appends a `sequence_events` row when this
+    is true, whatever `sequence_tag` itself holds."""
+    sequence_tag: str | None = None
+    """The policy's own `sequence.tag_as`, resolved once at decide time so
+    `report_result` need not re-look up the policy later -- `None` either when
+    `sequence_tagged` is false (nothing recorded at all) or when it is true but
+    the policy declared no tag (recorded, untagged -- `count_over` still
+    matches it by `action_type` alone)."""
     decision_ref: DecisionRef | None = None
     """A reference to this intent's own `exec_intent` row (ruling on joining a
     onedoor decision to a onetrace run), `verdict="permit"`. Present iff
@@ -133,6 +147,20 @@ class PermittedIntent:
     copies this same reference onto the final `ActionResult` unchanged -- a
     connector failure after this permit is granted does not change what was
     decided."""
+    plan_ref: int | None = None
+    """The plan (onedoor 0.11) whose match satisfied this
+    permit's own approval step -- `None` when no plan decided this call.
+    Surfaced here (unlike the untrusted/sequence receipt fields, which a live
+    caller reads back from the audit row or a later terminal `ActionResult`)
+    because a caller presenting `plan_ref` needs to know, at the moment of
+    the call, how much of the plan it just spent."""
+    plan_consumed_count_after: int | None = None
+    """The matched plan's own `consumed_count` immediately after this call --
+    `None` unless `plan_ref` is set."""
+    plan_consumed_amount_after: Decimal | None = None
+    """The matched plan's own `consumed_amount` immediately after this call --
+    `None` unless `plan_ref` is set, or the matched action name declares no
+    `amount_param`."""
 
 
 def decide_and_reserve(
@@ -198,6 +226,26 @@ def decide_and_reserve(
     audit_id = outcome.intent_audit_id if isinstance(outcome, PermittedIntent) else outcome.audit_id
     for approval_id in consumed:
         approvals.record_result(conn, approval_id, audit_id)
+    if (
+        isinstance(outcome, ActionResult)
+        and outcome.decision.approvers is None
+        and approved_override
+    ):
+        # A bare override `_decide_and_reserve` resolves to a TERMINAL
+        # outcome directly (denied, proposed, awaiting a mandate -- anything
+        # that never becomes a `PermittedIntent` for `report_result` to
+        # report on later): the decision it built and already wrote to its
+        # own audit row carries no approvers, matching the executed-path
+        # row's own normal shape for a bare override. Mark only the
+        # in-memory copy a caller is handed back --
+        # never the row, already written -- the same way `report_result`
+        # marks its own returned decision for the executed path. Without
+        # this, a bare override that is denied before anything executes is
+        # indistinguishable here from a decision that never resumed
+        # anything.
+        outcome = outcome.model_copy(
+            update={"decision": outcome.decision.model_copy(update={"approvers": []})}
+        )
     return outcome
 
 
@@ -219,12 +267,30 @@ def _decide_and_reserve(
     """The body of :func:`decide_and_reserve`, which documents every parameter.
 
     `consumed` collects the approvals this decision uses up, for the caller to link."""
+
+    def _decision(**kwargs: object) -> PolicyDecision:
+        """The one place every `PolicyDecision` this function returns is built --
+        so `approvers`/`escalated_to`/`escalated_at`
+        are read once, from whichever approval row this call resumes (if any),
+        and applied to every decision this function returns, rather than
+        edited into each construction site individually. `setdefault` rather
+        than an unconditional set: no call site here ever passes these three
+        itself, but a future one that did would not be silently overridden.
+        """
+        kwargs.setdefault("approvers", resumed_approvers)
+        kwargs.setdefault("escalated_to", resumed_escalated_to)
+        kwargs.setdefault("escalated_at", resumed_escalated_at)
+        return PolicyDecision(**kwargs)  # type: ignore[arg-type]
+
     store = policy_store or PolicyStore()
     undo_of = request.parent_audit_id if request.source == Source.UNDO else None
 
     # --- Idempotency / replay guard (no transaction) ---
     prior = audit.result_for_request_id(
-        conn, request.request_id, issuer=getattr(config, "issuer", None)
+        conn,
+        request.request_id,
+        issuer=getattr(config, "issuer", None),
+        approved_override=approved_override,
     )
     if prior is not None:
         return prior
@@ -252,7 +318,12 @@ def _decide_and_reserve(
         #     The kill switch is read FIRST and clamps below regardless: a valid ref
         #     resumes an approval, it does not overrule a stop (§invariants #1).
         resolution = approval_ref.resolve(
-            conn, approval_ref=request.approval_ref, presented=request, now=now, principal=principal
+            conn,
+            approval_ref=request.approval_ref,
+            presented=request,
+            now=now,
+            principal=principal,
+            escalation_resolver=getattr(config, "escalation_resolver", None),
         )
         ref_status = resolution.status.value
         if resolution.authorised:
@@ -269,6 +340,34 @@ def _decide_and_reserve(
         if consumes_approval is not None:
             approvals.consume(conn, consumes_approval)
             consumed.append(consumes_approval)
+
+        # 1d. TWO-PERSON RECEIPT. Read once, from whichever
+        #     approval row this call resumes -- by a presented ref (`resolution.
+        #     authorised`) or by `consumes_approval` (an admin resume) -- never
+        #     both, since the resumed request `resume_approval`/`resume_ratification`
+        #     build carries no `approval_ref` of its own. `_decision()` applies these
+        #     to every decision this call returns. `None` stays `None` when this call
+        #     does not resume an approval at all; a row that IS resumed gets a real
+        #     value, even `[]` for a mandate-only resumption that no approver acted
+        #     on (`cas_resume_ratified` never writes `approvers_json`, so it reads
+        #     back as the column's own `'[]'` default) -- the same "never None on a
+        #     decision that did, even with only one approver" rule the model's own
+        #     `approvers` docstring states.
+        resumed_approval_id = request.approval_ref if resolution.authorised else consumes_approval
+        resumed_approvers: list[str] | None = None
+        resumed_escalated_to: str | None = None
+        resumed_escalated_at: datetime | None = None
+        if resumed_approval_id is not None:
+            approval_row = conn.execute(
+                "SELECT approvers_json, backup_approver, escalated_at FROM approvals WHERE id=?",
+                (resumed_approval_id,),
+            ).fetchone()
+            if approval_row is not None:
+                resumed_approvers = json.loads(approval_row["approvers_json"] or "[]")
+                resumed_escalated_to = approval_row["backup_approver"]
+                resumed_escalated_at = (
+                    from_iso(approval_row["escalated_at"]) if approval_row["escalated_at"] else None
+                )
 
         # 2. POLICY LOOKUP / DEFAULT-DENY.
         policy = store.get(conn, request.action_type)
@@ -327,7 +426,7 @@ def _decide_and_reserve(
                     # EXISTING `malformed` -- no new wire vocabulary -- with
                     # the failure recorded distinctly in evidence so an operator can
                     # tell a probe of the effect matcher from a broken client.
-                    decision = PolicyDecision(
+                    decision = _decision(
                         decision=Decision.DENIED,
                         effective_tier=Tier.CONFIRM,
                         nominal_tier=nominal_tier,
@@ -370,6 +469,10 @@ def _decide_and_reserve(
         # 3/4. Resolve effective tier (+ Tier-1 integrity, kill-switch clamp).
         reason_confirm = CheckId.TIER_CONFIRM
         confirm_detail = ""
+        untrusted_matched_hold: list[str] = []
+        sequence_rule_matched_hold: str | None = None
+        sequence_events_considered = 0
+        sequence_history_incomplete = False
         # The kill switch is exempt for OBSERVE (reads are exempt from it entirely,
         # by the same rule §5 below states), so recording a fail/pass for it there
         # would assert a check ran against a request the switch never gates.
@@ -393,7 +496,7 @@ def _decide_and_reserve(
                 request.action_type,
                 "fail",
             )
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.DENIED,
                 effective_tier=Tier.CONFIRM,
                 nominal_tier=nominal_tier,
@@ -439,7 +542,7 @@ def _decide_and_reserve(
                 "pass",
             )
             if kill:
-                decision = PolicyDecision(
+                decision = _decision(
                     decision=Decision.DENIED,
                     effective_tier=Tier.CONFIRM,
                     nominal_tier=nominal_tier,
@@ -610,7 +713,7 @@ def _decide_and_reserve(
                 "pass" if mandate_verdict is mandate.MandateVerdict.PERMIT else "fail",
             )
             if mandate_verdict is mandate.MandateVerdict.DENY:
-                decision = PolicyDecision(
+                decision = _decision(
                     decision=Decision.DENIED,
                     effective_tier=effective_tier,
                     nominal_tier=nominal_tier,
@@ -659,9 +762,171 @@ def _decide_and_reserve(
                     request.request_id, request.action_type, request.params
                 )
 
-        # 5. OBSERVE — audit a no-op read and return.
+        # 5c. UNTRUSTED-INPUT — checked before bounds and caps, and before step 5
+        #     (observe) exits: a refusal here is about where a value came from, not
+        #     what it is, or what tier the action nominally runs at, and a
+        #     denied-for-provenance call should never execute, not even a tier-0
+        #     read -- step 5's own early return used to run before this and 5d,
+        #     so a tier-0 read with a marked, denied path executed unchecked. A
+        #     path named in `deny` wins over the same path named in `hold`; a
+        #     path named in neither has no effect, whether or not the caller
+        #     marked it.
+        untrusted_denied_matched: list[str] = []
+        if policy.untrusted_params is not None:
+            untrusted_denied_matched = [
+                p for p in request.untrusted if p in policy.untrusted_params.deny
+            ]
+            untrusted_held_matched = [
+                p for p in request.untrusted if p in policy.untrusted_params.hold
+            ]
+        else:
+            untrusted_held_matched = []
+        trace.add(
+            "untrusted_input",
+            "a caller-marked path matching this policy's own deny/hold list is "
+            "stopped before bounds and caps are ever consulted",
+            "no caller-marked path matches this policy's own untrusted_params",
+            ",".join(request.untrusted) if request.untrusted else "none marked",
+            "fail" if (untrusted_denied_matched or untrusted_held_matched) else "pass",
+        )
+        if untrusted_denied_matched:
+            decision = _decision(
+                decision=Decision.DENIED,
+                effective_tier=effective_tier,
+                nominal_tier=nominal_tier,
+                reason_code=CheckId.UNTRUSTED_INPUT,
+                detail=(
+                    f"caller-marked path(s) {', '.join(untrusted_denied_matched)} "
+                    "match this policy's own untrusted_params.deny"
+                ),
+                untrusted_matched=untrusted_denied_matched,
+            )
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                approval_ref_status=ref_status,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
+            )
+            bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
+        if untrusted_held_matched and int(effective_tier) < int(Tier.CONFIRM):
+            effective_tier = Tier.CONFIRM
+            reason_confirm = CheckId.UNTRUSTED_INPUT
+            untrusted_matched_hold = untrusted_held_matched
+            confirm_detail = (
+                f"caller-marked path(s) {', '.join(untrusted_held_matched)} match "
+                "this policy's own untrusted_params.hold"
+            )
+        elif untrusted_held_matched:
+            # Already at or past CONFIRM for another reason (kill switch, effect
+            # floor, ...) -- still worth recording on the receipt even though it
+            # did not itself need to escalate anything.
+            untrusted_matched_hold = untrusted_held_matched
+
+        # 5d. SEQUENCE_RULE — checked before bounds and caps, the same placement
+        #     as untrusted-input: a stop here is about what already happened in
+        #     this session, not this action's own value.
+        seq_result = sequence.evaluate(conn, request, policy, now=now)
+        sequence_events_considered = seq_result.events_considered
+        sequence_history_incomplete = seq_result.history_incomplete
+        trace.add(
+            "sequence_rule",
+            "a policy's own sequence.rules must not match this session's prior settled history",
+            "no rule matches, or the policy declares none",
+            "no session_id presented"
+            if seq_result.no_session
+            else (seq_result.matched_rule or "no match"),
+            "fail" if (seq_result.matched_effect or seq_result.no_session) else "pass",
+        )
+        if seq_result.no_session:
+            # Reason set unconditionally (not only when it has to RAISE the
+            # tier): a policy whose own nominal tier is already 3 must still
+            # report this as the reason, not fall silent behind
+            # `tier_confirm`, the same way `opaque_host`'s own escalation
+            # already does above.
+            if int(effective_tier) < int(Tier.CONFIRM):
+                effective_tier = Tier.CONFIRM
+            reason_confirm = CheckId.SEQUENCE_NO_SESSION
+            confirm_detail = (
+                "policy.sequence.rules is non-empty and no session_id was presented; "
+                "declare sequence.session_optional: true to allow this"
+            )
+        elif seq_result.matched_effect == "deny":
+            decision = _decision(
+                decision=Decision.DENIED,
+                effective_tier=effective_tier,
+                nominal_tier=nominal_tier,
+                reason_code=CheckId.SEQUENCE_RULE,
+                detail=(
+                    f"sequence rule {seq_result.matched_rule} matched this "
+                    "session's prior settled history"
+                ),
+                sequence_events_considered=sequence_events_considered,
+                sequence_rule_matched=seq_result.matched_rule,
+                sequence_history_incomplete=sequence_history_incomplete,
+            )
+            aid = audit.append(
+                conn,
+                request,
+                decision,
+                kind="decision",
+                now=now,
+                approval_ref_status=ref_status,
+                undo_of=undo_of,
+                opaque_class=opaque_class,
+                evaluation_trace_json=trace.to_json(),
+                resumes_audit_id=resumes_audit_id,
+            )
+            bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+            return ActionResult(
+                request_id=request.request_id,
+                decision=decision,
+                audit_id=aid,
+                decision_ref=_decision_ref(
+                    conn,
+                    audit_id=aid,
+                    request_id=request.request_id,
+                    decision=decision.decision,
+                    config=config,
+                ),
+            )
+        if seq_result.matched_effect == "hold" and int(effective_tier) < int(Tier.CONFIRM):
+            effective_tier = Tier.CONFIRM
+            reason_confirm = CheckId.SEQUENCE_RULE
+            sequence_rule_matched_hold = seq_result.matched_rule
+            confirm_detail = (
+                f"sequence rule {seq_result.matched_rule} matched this session's "
+                "prior settled history"
+            )
+        elif seq_result.matched_effect == "hold":
+            sequence_rule_matched_hold = seq_result.matched_rule
+
+        # 5. OBSERVE — audit a no-op read and return. Reached only when 5c/5d
+        #    above did not themselves deny the call or raise effective_tier past
+        #    OBSERVE (a hold from either still applies to a tier-0 read) -- a
+        #    nominal tier-0 action that passes both still records its own
+        #    `sequence.tag_as` here, since it has no later settlement step (no
+        #    `PermittedIntent`, no `report_result` call) the
+        #    way a tier-1+ permit's own tagging rides on.
         if effective_tier == Tier.OBSERVE:
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.EXECUTED,
                 effective_tier=Tier.OBSERVE,
                 nominal_tier=nominal_tier,
@@ -680,6 +945,16 @@ def _decide_and_reserve(
                 resumes_audit_id=resumes_audit_id,
             )
             bus.publish(conn, "action.observed", {"request_id": str(request.request_id)})
+            if policy.sequence is not None and request.session_id is not None:
+                sequence.record_event(
+                    conn,
+                    session_id=request.session_id,
+                    action_type=request.action_type,
+                    tag=policy.sequence.tag_as,
+                    at=now,
+                    audit_id=aid,
+                    max_events_per_session=config.sequence_max_events_per_session,
+                )
             return ActionResult(
                 request_id=request.request_id,
                 decision=decision,
@@ -705,12 +980,26 @@ def _decide_and_reserve(
             "pass" if bounds_result.ok else "fail",
         )
         if not bounds_result.ok:
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.DENIED,
                 effective_tier=effective_tier,
                 nominal_tier=nominal_tier,
                 reason_code=CheckId.BOUNDS,
                 detail=bounds_result.detail,
+                # A hold from 5c/5d is kept in the receipt even though a later,
+                # different check is the one that actually denies -- the record
+                # of what already matched should not disappear just because
+                # something else denied the call first.
+                untrusted_matched=(
+                    untrusted_matched_hold if policy.untrusted_params is not None else None
+                ),
+                sequence_events_considered=(
+                    sequence_events_considered if policy.sequence is not None else None
+                ),
+                sequence_rule_matched=sequence_rule_matched_hold,
+                sequence_history_incomplete=(
+                    sequence_history_incomplete if policy.sequence is not None else None
+                ),
             )
             aid = audit.append(
                 conn,
@@ -754,7 +1043,7 @@ def _decide_and_reserve(
                 "pass" if audience_matches else "fail",
             )
             if not audience_matches:
-                decision = PolicyDecision(
+                decision = _decision(
                     decision=Decision.DENIED,
                     effective_tier=effective_tier,
                     nominal_tier=nominal_tier,
@@ -762,6 +1051,16 @@ def _decide_and_reserve(
                     detail=(
                         f"presented_audience {request.presented_audience!r} does not "
                         f"match the declared audience {policy.present_bound!r}"
+                    ),
+                    untrusted_matched=(
+                        untrusted_matched_hold if policy.untrusted_params is not None else None
+                    ),
+                    sequence_events_considered=(
+                        sequence_events_considered if policy.sequence is not None else None
+                    ),
+                    sequence_rule_matched=sequence_rule_matched_hold,
+                    sequence_history_incomplete=(
+                        sequence_history_incomplete if policy.sequence is not None else None
                     ),
                 )
                 aid = audit.append(
@@ -826,12 +1125,22 @@ def _decide_and_reserve(
                     unmet = "no issuer is configured for this deployment"
                 else:
                     unmet = "the request carries no presenter key thumbprint"
-                decision = PolicyDecision(
+                decision = _decision(
                     decision=Decision.DENIED,
                     effective_tier=effective_tier,
                     nominal_tier=nominal_tier,
                     reason_code=CheckId.PRESENT_BOUND,
                     detail=f"policy requires a bound permit (bound-permit profile §§3-4) but {unmet}",
+                    untrusted_matched=(
+                        untrusted_matched_hold if policy.untrusted_params is not None else None
+                    ),
+                    sequence_events_considered=(
+                        sequence_events_considered if policy.sequence is not None else None
+                    ),
+                    sequence_rule_matched=sequence_rule_matched_hold,
+                    sequence_history_incomplete=(
+                        sequence_history_incomplete if policy.sequence is not None else None
+                    ),
                 )
                 aid = audit.append(
                     conn,
@@ -871,12 +1180,22 @@ def _decide_and_reserve(
         #    it is the reason all the way to here. The tier-0 read exemption above
         #    is unaffected: an OBSERVE action never reaches this branch engaged.
         if effective_tier == Tier.CONFIRM and reason_confirm is CheckId.KILL_SWITCH:
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.DENIED,
                 effective_tier=Tier.CONFIRM,
                 nominal_tier=nominal_tier,
                 reason_code=CheckId.KILL_SWITCH,
                 detail="kill switch engaged; not proposed",
+                untrusted_matched=(
+                    untrusted_matched_hold if policy.untrusted_params is not None else None
+                ),
+                sequence_events_considered=(
+                    sequence_events_considered if policy.sequence is not None else None
+                ),
+                sequence_rule_matched=sequence_rule_matched_hold,
+                sequence_history_incomplete=(
+                    sequence_history_incomplete if policy.sequence is not None else None
+                ),
             )
             aid = audit.append(
                 conn,
@@ -903,6 +1222,37 @@ def _decide_and_reserve(
                     config=config,
                 ),
             )
+        # 7a. PLAN_REF (onedoor 0.11) — resolved only at the one
+        #     point a plan can ever matter: the ordinary Tier-3 propose this
+        #     action's own nominal tier would otherwise require, with nothing
+        #     else (a hold, the kill switch, a mandate deferral) having already
+        #     raised the tier for its own reason -- those are occasions for a
+        #     human beyond what any plan was ever scoped to answer. A match
+        #     satisfies exactly this one approval step; every other check above
+        #     and below still decided (or still will) fully on its own merits.
+        #     `reason_confirm is TIER_CONFIRM` alone is not a strong enough
+        #     guard for a policy whose own NOMINAL tier is already 3: an
+        #     untrusted-input or sequence hold only overwrites `reason_confirm`
+        #     when it has to RAISE the tier to reach CONFIRM, which a nominal
+        #     Tier-3 policy is already at -- so a hold match or a no-session
+        #     stop on a Tier-3 policy would otherwise leave `reason_confirm`
+        #     unchanged at `TIER_CONFIRM` even though it fired. Checked
+        #     explicitly here rather than trusted to the tier arithmetic alone.
+        plan_match: plan_ref_mod.PlanMatch | None = None
+        if (
+            effective_tier == Tier.CONFIRM
+            and reason_confirm is CheckId.TIER_CONFIRM
+            and not untrusted_matched_hold
+            and sequence_rule_matched_hold is None
+            and not seq_result.no_session
+            and request.plan_ref is not None
+        ):
+            plan_match = plan_ref_mod.resolve_match(
+                conn, plan_ref=request.plan_ref, request=request, now=now, policy_store=store
+            )
+            if plan_match is not None:
+                effective_tier = Tier.AUTO
+
         if effective_tier == Tier.CONFIRM:
             # A resume (matched by thread_id/tool_call_id) is CHECKED against the
             # approval row it would reuse, never trusted to match just because the
@@ -917,7 +1267,7 @@ def _decide_and_reserve(
                     if expected_digest == actual_digest:
                         reused_approval_id = int(existing["id"])
                     else:
-                        decision = PolicyDecision(
+                        decision = _decision(
                             decision=Decision.DENIED,
                             effective_tier=Tier.CONFIRM,
                             nominal_tier=nominal_tier,
@@ -964,8 +1314,9 @@ def _decide_and_reserve(
                 proposed_by=principal,
                 thread_id=thread_id,
                 tool_call_id=tool_call_id,
+                policy_store=store,
             )
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.PROPOSED,
                 effective_tier=Tier.CONFIRM,
                 nominal_tier=nominal_tier,
@@ -973,6 +1324,16 @@ def _decide_and_reserve(
                 requires_approval=True,
                 compensating_command=policy.compensating_command,
                 detail=confirm_detail,
+                untrusted_matched=(
+                    untrusted_matched_hold if policy.untrusted_params is not None else None
+                ),
+                sequence_events_considered=(
+                    sequence_events_considered if policy.sequence is not None else None
+                ),
+                sequence_rule_matched=sequence_rule_matched_hold,
+                sequence_history_incomplete=(
+                    sequence_history_incomplete if policy.sequence is not None else None
+                ),
             )
             aid = audit.append(
                 conn,
@@ -1019,13 +1380,24 @@ def _decide_and_reserve(
             "fail" if is_dry else "pass",
         )
         if is_dry:
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.DRY_RUN,
                 effective_tier=effective_tier,
                 nominal_tier=nominal_tier,
                 reason_code=CheckId.DRY_RUN,
                 dry_run=True,
                 detail="would have executed",
+                # A dry run never spends a plan's own ceilings -- it reports what
+                # resolve_match already found room for, without ever calling
+                # apply_match, the same "rehearsal must not spend a real budget"
+                # reasoning this step already applies to caps.
+                plan_ref=plan_match.plan_id if plan_match is not None else None,
+                plan_consumed_count_after=(
+                    plan_match.consumed_count_after if plan_match is not None else None
+                ),
+                plan_consumed_amount_after=(
+                    plan_match.consumed_amount_after if plan_match is not None else None
+                ),
             )
             aid = audit.append(
                 conn,
@@ -1085,7 +1457,7 @@ def _decide_and_reserve(
                 cap_result.detail,
                 "unresolved" if cap_result.reason == CheckId.COST_UNKNOWN else "fail",
             )
-            decision = PolicyDecision(
+            decision = _decision(
                 decision=Decision.DENIED,
                 effective_tier=effective_tier,
                 nominal_tier=nominal_tier,
@@ -1095,6 +1467,16 @@ def _decide_and_reserve(
                 # `cost_unknown` also arrives here and carries no budget -- there is
                 # no budget state to report when the amount could not be resolved.
                 budget=cap_result.budget,
+                untrusted_matched=(
+                    untrusted_matched_hold if policy.untrusted_params is not None else None
+                ),
+                sequence_events_considered=(
+                    sequence_events_considered if policy.sequence is not None else None
+                ),
+                sequence_rule_matched=sequence_rule_matched_hold,
+                sequence_history_incomplete=(
+                    sequence_history_incomplete if policy.sequence is not None else None
+                ),
             )
             aid = audit.append(
                 conn,
@@ -1129,17 +1511,52 @@ def _decide_and_reserve(
             "pass",
         )
 
+        # A plan is spent only once the call is actually going to execute --
+        # not a dry run (already returned above), not then denied by caps
+        # (already returned above either). This is the first point reached
+        # only by a call that passed everything a plan does not itself
+        # decide; `apply_match` writes back exactly what `resolve_match`
+        # already computed at 7a, inside this same transaction.
+        if plan_match is not None:
+            plan_ref_mod.apply_match(conn, plan_match)
+
         # 10. INTENT — record that we are about to execute. Set the undo window
         #     for reversible Tier-1 actions.
         undo_until = None
         if effective_tier == Tier.AUTO and not approved_override and policy.compensating_command:
             undo_until = now + timedelta(seconds=policy.undo_window_seconds)
-        intent_decision = PolicyDecision(
+        intent_decision = _decision(
             decision=Decision.EXECUTED,
             effective_tier=effective_tier,
             nominal_tier=nominal_tier,
-            reason_code=CheckId.PASSED,
+            reason_code=CheckId.PLAN_REF if plan_match is not None else CheckId.PASSED,
             compensating_command=policy.compensating_command,
+            # A decision records what a check found, including "nothing",
+            # wherever the policy actually uses it -- `None` (not an empty/
+            # zero/false value) is reserved for a policy that carries no
+            # `untrusted_params`/`sequence` block at all, the one case
+            # neither check ever ran. By this point in the pipeline both
+            # untrusted_matched_hold and sequence_rule_matched_hold are
+            # guaranteed empty/None -- a non-empty hold would already have
+            # escalated to CONFIRM and returned through the propose branch
+            # above, never reaching here.
+            untrusted_matched=(
+                untrusted_matched_hold if policy.untrusted_params is not None else None
+            ),
+            sequence_events_considered=(
+                sequence_events_considered if policy.sequence is not None else None
+            ),
+            sequence_rule_matched=sequence_rule_matched_hold,
+            sequence_history_incomplete=(
+                sequence_history_incomplete if policy.sequence is not None else None
+            ),
+            plan_ref=plan_match.plan_id if plan_match is not None else None,
+            plan_consumed_count_after=(
+                plan_match.consumed_count_after if plan_match is not None else None
+            ),
+            plan_consumed_amount_after=(
+                plan_match.consumed_amount_after if plan_match is not None else None
+            ),
         )
         # Minted here, independently of the row it is about to be stamped on:
         # a bound permit's `jti` must not be guessable from, or reducible to,
@@ -1218,6 +1635,15 @@ def _decide_and_reserve(
         undo_of=undo_of,
         present_bound=policy.present_bound,
         bound_permit=bound_permit_token,
+        sequence_tagged=policy.sequence is not None,
+        sequence_tag=policy.sequence.tag_as if policy.sequence is not None else None,
+        plan_ref=plan_match.plan_id if plan_match is not None else None,
+        plan_consumed_count_after=(
+            plan_match.consumed_count_after if plan_match is not None else None
+        ),
+        plan_consumed_amount_after=(
+            plan_match.consumed_amount_after if plan_match is not None else None
+        ),
         decision_ref=_decision_ref(
             conn,
             audit_id=intent_id,
@@ -1289,9 +1715,30 @@ def report_result(
     payload: dict[str, JsonValue] | None,
     error: str | None,
     no_effect: bool = False,
+    approved_override: bool = False,
     now: datetime,
 ) -> ActionResult:
     """Phase B: append the linked execution result for a permitted intent.
+
+    The executed decision this RETURNS carries `approvers`/`escalated_to`/
+    `escalated_at` read back from the intent's own audit row -- whatever
+    resumption the intent itself resolved is still true of the action this
+    call is reporting for, and a caller holding this result (or anything,
+    like `onedoor.guardrail.shadow`, comparing against it later) must see
+    the same resumption facts the intent's own decision already carried,
+    not a fresh decision with them stripped out.
+
+    **This never changes what gets WRITTEN.** The `exec_result` row this
+    appends carries none of those three fields -- exactly as it always has
+    -- because this call reports an outcome, not a resumption; a
+    resumption's own facts are already durable on the intent's own row, and
+    writing them a second time here would be recording the same fact twice,
+    under a second row whose own digest was never meant to carry it.
+    `approved_override`, when true and the intent's own row carries no
+    `approvers` to read back (a bare admin override with no approval row to
+    look up), marks the RETURNED decision `[]` the same way a resumption
+    with no approver on record already reads -- recognized from the call,
+    never written as a stored `[]` the digest would then carry.
 
     Must be called exactly once per :class:`PermittedIntent`, whatever happened.
     The audit log stays append-only: this adds a second row linked to the intent,
@@ -1399,7 +1846,34 @@ def report_result(
                         kind="reservation_released",
                     )
 
-    result_decision = PolicyDecision(
+    # The intent's own decision carried `approvers`/`escalated_to`/`escalated_at`,
+    # read back from its audit row, never recomputed, since the
+    # resumption this executed decision is reporting for is whatever the intent
+    # itself already resolved, not something this call re-derives. Without this,
+    # the decision a caller is handed looks exactly like one that never resumed
+    # anything, for every resumption this engine actually has.
+    intent_decision_row = conn.execute(
+        "SELECT approvers_json, escalated_to, escalated_at FROM actions_audit WHERE id=?",
+        (intent.intent_audit_id,),
+    ).fetchone()
+    result_approvers = (
+        json.loads(intent_decision_row["approvers_json"])
+        if intent_decision_row is not None and intent_decision_row["approvers_json"] is not None
+        else None
+    )
+    result_escalated_to = intent_decision_row["escalated_to"] if intent_decision_row else None
+    result_escalated_at = (
+        from_iso(intent_decision_row["escalated_at"])
+        if intent_decision_row and intent_decision_row["escalated_at"]
+        else None
+    )
+
+    # `stored_decision` is what the `exec_result` row records -- exactly the
+    # executed-path row's own shape, with no resumption facts on it. Those facts are
+    # not this row's to carry a second time: the intent's own row already
+    # carries them durably, and writing them again here would change this
+    # row's `decision_digest` for a fact this row never asserted.
+    stored_decision = PolicyDecision(
         decision=Decision.EXECUTED if outcome is Outcome.SUCCESS else Decision.FAILED,
         effective_tier=intent.effective_tier,
         nominal_tier=intent.nominal_tier,
@@ -1410,6 +1884,23 @@ def report_result(
             if no_effect_ignored
             else ""
         ),
+    )
+    # `returned_decision` is what the caller gets back. It carries the same
+    # facts `stored_decision` does, plus the resumption facts read above --
+    # in memory only, never written to any row. `approved_override`, when
+    # the intent's own row had no approvers to read back, marks this one
+    # `[]` the same way a resumption with no approver on record already
+    # reads, so a bare override is not indistinguishable from a decision
+    # that never resumed anything -- recognised from the call, not stored.
+    returned_approvers = result_approvers
+    if returned_approvers is None and approved_override:
+        returned_approvers = []
+    result_decision = stored_decision.model_copy(
+        update={
+            "approvers": returned_approvers,
+            "escalated_to": result_escalated_to,
+            "escalated_at": result_escalated_at,
+        }
     )
     topic = "action.executed" if outcome is Outcome.SUCCESS else "action.failed"
     event: dict[str, object] = {
@@ -1429,7 +1920,7 @@ def report_result(
         audit.append_buffered(
             conn,
             row_source,
-            result_decision,
+            stored_decision,
             kind="exec_result",
             now=now,
             parent_id=intent.intent_audit_id,
@@ -1449,7 +1940,7 @@ def report_result(
             audit.append(
                 conn,
                 row_source,
-                result_decision,
+                stored_decision,
                 kind="exec_result",
                 now=now,
                 parent_id=intent.intent_audit_id,
@@ -1461,6 +1952,26 @@ def report_result(
                 frozen=frozen,
             )
             bus.publish(conn, topic, event)
+
+    if (
+        outcome is Outcome.SUCCESS
+        and isinstance(intent, PermittedIntent)
+        and intent.sequence_tagged
+        and intent.request.session_id is not None
+    ):
+        # A rebuilt intent (ND-010) carries no `session_id` of its own to key
+        # this on -- not recorded for that case, a narrow, disclosed gap, not
+        # an oversight (a restart-surviving permit's settlement still releases
+        # its budget correctly; only this table's own view of it is missed).
+        sequence.record_event(
+            conn,
+            session_id=intent.request.session_id,
+            action_type=intent.request.action_type,
+            tag=intent.sequence_tag,
+            at=now,
+            audit_id=intent.intent_audit_id,
+            max_events_per_session=int(getattr(config, "sequence_max_events_per_session", 500)),
+        )
 
     return ActionResult(
         request_id=UUID(str(row_source.request_id)),

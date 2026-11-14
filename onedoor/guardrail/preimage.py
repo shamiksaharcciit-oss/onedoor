@@ -241,6 +241,50 @@ EXCLUDED: dict[str, str] = {
         "assigned after anchoring, which happens only after verification, "
         "so it is later than the hash by construction"
     ),
+    "untrusted_matched_json": (
+        "a 0.11 feature's own receipt member, deliberately outside the frozen "
+        "preimage this version seals -- the same reason every 0.11 feature's new "
+        "columns stay out of it: each is an addition a 0.10.x reader already "
+        "ignores, not a new obligation on a verifier that has never heard of it. "
+        "Bumping the preimage version per feature round would make every one of "
+        "them a breaking change instead of the additive one each is meant to be"
+    ),
+    "sequence_events_considered": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "sequence_rule_matched": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "sequence_history_incomplete": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "plan_ref": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "plan_consumed_count_after": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "plan_consumed_amount_after": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "approvers_json": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "escalated_to": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
+    "escalated_at": (
+        "a 0.11 feature's own receipt member, the same reason and the same "
+        "treatment as untrusted_matched_json just above"
+    ),
 }
 """Every column NOT in the preimage, each with the reason.
 

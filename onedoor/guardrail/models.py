@@ -160,6 +160,30 @@ class CheckId(StrEnum):
     # outright rather than silently reusing that row or silently proposing a new
     # one -- an approval is for one exact request, and a resume does not widen it.
     RESUME_REQUEST_MISMATCH = "resume_request_mismatch"
+    # onedoor's own extension: a caller-marked `untrusted` path matched a
+    # policy's own `untrusted_params.deny`/`hold` list. Checked before bounds
+    # and caps -- a refusal here is about where a value came from, not what
+    # it is.
+    UNTRUSTED_INPUT = "untrusted_input"
+    # onedoor's own extension: a policy's own `sequence.rules` matched this
+    # session's prior settled history -- an `after_tag` rule (a read tagged
+    # earlier in this session) or a `count_over` rule (too many prior matching
+    # actions already over a threshold). Checked before bounds and caps, the
+    # same placement as untrusted-input, for the same reason: a stop here is
+    # about what already happened, not about this action's own value.
+    SEQUENCE_RULE = "sequence_rule"
+    # onedoor's own extension: a policy's own `sequence.rules` is non-empty, and
+    # the request carries no `session_id` -- there is no session history to check
+    # a rule against, so the call is held for a human rather than silently let
+    # through as though no rule existed. A policy that declares
+    # `sequence.session_optional: true` is exempt.
+    SEQUENCE_NO_SESSION = "sequence_no_session"
+    # onedoor's own extension: a presented `ActionRequest.plan_ref` matched an
+    # active plan (onedoor 0.11) and satisfied the approval
+    # step that action's own nominal tier would otherwise have required. Every
+    # other check still ran and still decided on its own merits -- a plan
+    # replaces exactly the approval step, nothing else.
+    PLAN_REF = "plan_ref"
 
 
 class ApprovalState(StrEnum):
@@ -326,6 +350,136 @@ class EffectPolicy(BaseModel):
     caps: Caps = Field(default_factory=Caps)
 
 
+class UntrustedParams(BaseModel):
+    """`Policy.untrusted_params`: which marked argument paths stop an action,
+    and how. A path in `deny` wins over the same path in `hold`; a path in
+    neither has no effect, whether or not the caller marked it."""
+
+    model_config = ConfigDict(extra="forbid")
+    deny: list[str] = Field(default_factory=list)
+    hold: list[str] = Field(default_factory=list)
+
+
+class CountOverSpec(BaseModel):
+    """`SequenceRule.count_over`: stop when this session's own settled history
+    already holds `max_count` prior actions of `action_type` whose own
+    `amount_param` exceeded `threshold_eur` -- counted only when the action
+    being decided right now also exceeds it (`amount_param`/`threshold_eur`
+    given together or not at all; absent, every matching `action_type` counts,
+    regardless of amount)."""
+
+    model_config = ConfigDict(extra="forbid")
+    action_type: str
+    amount_param: str | None = None
+    threshold_eur: Decimal | None = None
+    max_count: int
+    within_seconds: int
+
+    @model_validator(mode="after")
+    def _amount_param_and_threshold_together(self) -> CountOverSpec:
+        if (self.amount_param is None) != (self.threshold_eur is None):
+            raise ValueError("count_over needs amount_param and threshold_eur together, or neither")
+        return self
+
+
+class SequenceRule(BaseModel):
+    """One rule inside `SequencePolicy.rules`: exactly one of `after_tag` (with
+    its own `within_seconds`) or `count_over` (whose own `within_seconds` is
+    nested inside it), plus the `effect` this action gets when the rule
+    matches -- `hold` (escalates to `Tier.CONFIRM`, non-terminally, the same
+    way the untrusted-input check's own hold does) or `deny` (terminal,
+    stopped before bounds and caps are ever consulted)."""
+
+    model_config = ConfigDict(extra="forbid")
+    after_tag: str | None = None
+    within_seconds: int | None = None
+    count_over: CountOverSpec | None = None
+    effect: Literal["hold", "deny"]
+
+    @model_validator(mode="after")
+    def _exactly_one_shape(self) -> SequenceRule:
+        if (self.after_tag is not None) == (self.count_over is not None):
+            raise ValueError("a sequence rule needs exactly one of after_tag or count_over")
+        if self.after_tag is not None and self.within_seconds is None:
+            raise ValueError("after_tag needs its own within_seconds")
+        if self.count_over is not None and self.within_seconds is not None:
+            raise ValueError("within_seconds belongs inside count_over for a count_over rule")
+        return self
+
+
+class SequencePolicy(BaseModel):
+    """`Policy.sequence`: this action type's own label in `sequence_events`
+    once it settles (`tag_as`, absent means it is recorded untagged -- still
+    recorded, since `count_over` matches by `action_type` alone), plus the
+    rules checked against this session's prior settled actions before this one
+    is decided. `None` (the default) means this action type neither tags
+    itself nor checks any history -- unaffected, the same opt-in default every
+    field here has."""
+
+    model_config = ConfigDict(extra="forbid")
+    tag_as: str | None = None
+    rules: list[SequenceRule] = Field(default_factory=list)
+    session_optional: bool = False
+    """`False` (the default): a request with no `session_id` presented against
+    a policy whose own `rules` is non-empty is held (`CheckId.
+    SEQUENCE_NO_SESSION`) rather than silently evaluated as though no rule
+    existed -- a caller could otherwise avoid every sequence rule just by
+    leaving `session_id` out, which is the case these rules exist for. `True`
+    opts a policy out of that hold for callers that genuinely have no session
+    concept; `rules` empty (tagging only, no history check) is never held
+    either way, since there is nothing to evaluate a session for."""
+
+
+class ApprovalPolicy(BaseModel):
+    """`Policy.approval`: the two-person rule and its escalation. `None` (the
+    default, on `Policy.approval`) means neither applies -- a proposal for
+    this action type decides identically to before this feature existed."""
+
+    model_config = ConfigDict(extra="forbid")
+    two_person_above_eur: Decimal | None = None
+    """Above this amount, two different recorded approver identities are
+    required before a proposal's state flips to approved -- the same
+    identity approving twice does not count twice, and the proposer's own
+    identity never counts as an approver, as already true for a single
+    approver. The amount is read exactly as `caps.resolve_cost` reads one
+    for a euro cap: the policy's own `cost_param`, or the request's own
+    `cost_eur`. An amount that cannot be resolved at all never reads as
+    the lower requirement -- `caps.resolve_cost`'s own "unknown is never a
+    free pass" rule applies here too, so an unresolvable amount needs two
+    approvers, not one. `None` means every proposal for this action type
+    needs only one approver, whatever it is worth."""
+    escalate_after_seconds: int | None = None
+    """How long an unanswered pending approval waits before escalation sets
+    a backup approver (`EngineConfig.escalation_resolver`), checked the
+    same lazy way an approval's own full-TTL expiry already is. Shorter
+    than the approval's own TTL to mean anything. `None` means escalation
+    never fires for this action type, whatever the resolver says."""
+
+    @field_serializer("two_person_above_eur")
+    def _canonical(self, value: Decimal | None) -> str | None:
+        """Same reason as `NumericBound`/`Caps`: `approval_json` is part of
+        the policy snapshot, hashed into `version_hash` (E8/S3) -- one
+        canonical form, or `100` and `100.00` would hash differently while
+        meaning the same rule."""
+        return None if value is None else canon_decimal(value)
+
+
+class ApprovalNotify(BaseModel):
+    """`Policy.approval_notify`: signed approval links (onedoor 0.11).
+    `None` (the default, on `Policy.approval_notify`)
+    means no link is ever built or sent for this action type's approvals --
+    they still propose and wait exactly as today, reachable by Studio or a
+    direct API call, the same as every account that predates this
+    feature."""
+
+    model_config = ConfigDict(extra="forbid")
+    channel: Literal["email", "webhook"]
+    recipient: str
+    """An email address (`channel: email`) or a webhook URL (`channel:
+    webhook`) -- the identity the approve/deny links are sent to, and the
+    same identity recorded as having approved once a link is presented."""
+
+
 class Policy(BaseModel):
     """One row of the policy table."""
 
@@ -371,6 +525,24 @@ class Policy(BaseModel):
     says -- both must be set for issuance to happen at all (see
     `onedoor.guardrail.bound_permit.issue`), and a policy with neither is
     unaffected."""
+    untrusted_params: UntrustedParams | None = None
+    """A path named in `deny` or `hold`, matched against the request's own
+    `untrusted` list by exact string equality. `None` (the default) means this
+    action type never checks provenance at all, whatever the caller marks --
+    unaffected, the same opt-in default every field here has."""
+    sequence: SequencePolicy | None = None
+    """This action type's own tag and the rules checked against its session's
+    prior settled actions. `None` (the default) means this action type is
+    invisible to sequence tracking entirely -- unaffected, the same opt-in
+    default every field here has."""
+    approval: ApprovalPolicy | None = None
+    """The two-person rule and its escalation. `None` (the default) means
+    neither applies -- unaffected, the same opt-in default every field
+    here has."""
+    approval_notify: ApprovalNotify | None = None
+    """Signed approval links (onedoor 0.11). `None` (the
+    default) means no link is ever built or sent -- unaffected, the same
+    opt-in default every field here has."""
 
 
 def _reject_non_json(value: object, path: str = "params") -> None:
@@ -435,6 +607,16 @@ class ActionRequest(BaseModel):
     is what makes the two cases distinguishable in the evidence row rather than
     guessed at. Never derived from `params`: a value reconstructed here would be a
     PDP serialization wearing the label "received"."""
+    forward_arguments: dict[str, JsonValue] | None = None
+    """MCP-gateway-only: the tool's own original `arguments` object, exactly as the
+    host first sent it -- used only to rebuild the downstream tool call on an
+    approved retry, never compared by `approval_ref.equivalent` and never written
+    to `actions_audit` (no preimage or digest treatment needed; it rides only
+    inside the approval's own stored request). Distinct from `params`/`params_raw`,
+    which are the *decision's* own evidence fields and may be a mapped projection
+    of these same arguments, not their original shape. `None` for every caller but
+    the MCP proxy, and for an unmapped or no-mapping-configured call, where
+    `params` already equals this verbatim (nothing to re-derive)."""
     presenter_id: str | None = None
     """The bound-permit profile's `sub`: who the enforcement point says will present
     the permit. Informational only -- nothing in onedoor's own pipeline compares it
@@ -447,6 +629,23 @@ class ActionRequest(BaseModel):
     across the trust boundary `present_bound` names, and a permit issued without one
     would be exactly the bearer permit profile §4.2 forbids there. `None` means no
     bound permit is issued for this request, whatever the policy asks for."""
+    untrusted: list[str] = Field(default_factory=list)
+    """Dotted paths into `params` the caller asserts are derived from content it
+    does not control (a web page, an email body, a tool's own prior result).
+    Caller-declared only; never inferred from `params`' own content. Absent
+    means nothing is marked -- the default, and the only state a 0.10.x caller
+    can produce."""
+    plan_ref: int | None = None
+    """A reference to an active plan (onedoor 0.11) this call
+    claims to fall inside. The same reference semantics `approval_ref` already
+    has: a bad, expired, exhausted or mismatched reference evaluates as if
+    absent, never as an error -- the action re-evaluates on its own merits and
+    a Tier-3 action simply proposes again. Consulted only at the one point a
+    plan can ever matter: where the action's own nominal tier would otherwise
+    require a fresh approval. Every other check (bounds, caps, the kill
+    switch, untrusted-input, sequence rules, a bound permit,
+    `irreversible_requires`) is unaffected -- a plan replaces exactly the
+    approval step, nothing else."""
 
     @field_validator("params", mode="before")
     @classmethod
@@ -583,6 +782,57 @@ class PolicyDecision(BaseModel):
     budget: Budget | None = None
     """Set iff `decision` is a denial and `reason_code` is `budget_exhausted`/
     `rate_exhausted`."""
+    untrusted_matched: list[str] | None = None
+    """Which of the request's own `untrusted` paths actually matched this
+    policy's own `untrusted_params.deny`/`hold` -- `[]` when the policy
+    declares `untrusted_params` and nothing matched, even if `untrusted`
+    itself was non-empty (a caller marking paths this policy does not check
+    about is not itself news). `None`, not `[]`, when the policy carries no
+    `untrusted_params` at all -- that is the one case this check never ran,
+    and the receipt says so by recording nothing rather than an empty result."""
+    sequence_events_considered: int | None = None
+    """How many of this session's own `sequence_events` rows this decision's
+    own sequence check actually read, across every rule evaluated -- a real
+    count, including zero, whenever the policy carries a `sequence` block.
+    `None`, not zero, when the policy carries no `sequence` block at all --
+    that is the one case this check never ran."""
+    sequence_rule_matched: str | None = None
+    """Which rule matched, plainly described (`"after_tag:<tag>"` or
+    `"count_over:<action_type>"`) -- `None` when no rule matched, whether
+    because the policy carries a `sequence` block that ran clean or because it
+    carries none at all; `sequence_events_considered` is what distinguishes
+    the two (a real number vs `None`)."""
+    sequence_history_incomplete: bool | None = None
+    """A matched or unmatched rule's own window reached further back than this
+    session's history still holds (`onedoor.guardrail.sequence`'s own
+    `evicted_through` marker) -- the rule's configured `effect` still applied,
+    fail closed, but this says the answer was not a complete one. A real
+    `False`, not `None`, whenever the policy carries a `sequence` block;
+    `None` only when it carries none at all."""
+    plan_ref: int | None = None
+    """The plan (onedoor 0.11) whose match satisfied this
+    decision's own approval step -- `None` on every decision a plan did not
+    decide, including every decision before this feature existed."""
+    plan_consumed_count_after: int | None = None
+    """The matched plan's own `consumed_count` immediately after this call's
+    reservation -- `None` unless `plan_ref` is set."""
+    plan_consumed_amount_after: Decimal | None = None
+    """The matched plan's own `consumed_amount` immediately after this call's
+    reservation -- `None` unless `plan_ref` is set, or the matched action name
+    declares no `amount_param` to add."""
+    approvers: list[str] | None = None
+    """Every distinct identity that approved the proposal this decision
+    resumes, in the order recorded -- `None` on a decision that did not
+    resume an approval at all (a fresh propose, a denial, anything not a
+    Tier-3 resumption), never on one that did, even with only one approver
+    (then `[<that approver>]`)."""
+    escalated_to: str | None = None
+    """The backup approver escalation assigned to the proposal this
+    decision resumes, if escalation ever fired for it -- `None` if it
+    never did, or the decision did not resume an approval."""
+    escalated_at: datetime | None = None
+    """When escalation set `escalated_to` -- `None` under the same
+    conditions as `escalated_to`."""
 
 
 class ActionResult(BaseModel):
@@ -633,6 +883,28 @@ class Approval(BaseModel):
     decided_at: datetime | None = None
     decided_by_session: str | None = None
     resulting_audit_id: int | None = None
+    approvers: list[str] = Field(default_factory=list)
+    """Every distinct identity recorded as having approved this proposal,
+    in the order recorded -- `[]` before the first approver. One entry is
+    the ordinary single-approver case; two means a two-person rule has been
+    satisfied."""
+    backup_approver: str | None = None
+    """The identity escalation assigned, once due -- `None` until it fires,
+    or if it never does."""
+    escalated_at: datetime | None = None
+    """When escalation set `backup_approver` -- `None` under the same
+    conditions as `backup_approver`."""
+    link_used_at: datetime | None = None
+    """When a presented signed approval link (onedoor 0.11)
+    was resolved and acted on -- `None` until one is, or if none ever
+    is."""
+    link_sent: bool = False
+    """Whether a signed approval link was ever built and dispatched for
+    this approval -- `False` unless the policy declares `approval_notify`
+    and the propose path's own notify step ran."""
+    link_channel: Literal["email", "webhook"] | None = None
+    """Which channel a link was sent over -- `None` until `link_sent` is
+    true."""
 
 
 class EngineConfigLike(Protocol):
@@ -664,3 +936,6 @@ class EngineConfigLike(Protocol):
 
     @property
     def reservation_ttl_seconds(self) -> int: ...
+
+    @property
+    def sequence_max_events_per_session(self) -> int: ...

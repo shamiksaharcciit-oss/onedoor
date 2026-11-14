@@ -29,12 +29,14 @@ from __future__ import annotations
 import hmac
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 
 from onedoor._vendor.canonical import canon_decimal, canonical_bytes
+from onedoor.guardrail import approvals
 from onedoor.guardrail.models import ActionRequest, JsonValue
 from onedoor.store.clock import to_iso
 
@@ -170,6 +172,7 @@ def resolve(
     presented: ActionRequest,
     now: datetime,
     principal: str | None = None,
+    escalation_resolver: Callable[[str], str | None] | None = None,
 ) -> RefResolution:
     """Resolve a presented ref. Consumes it on success, atomically.
 
@@ -179,6 +182,17 @@ def resolve(
     `principal` is the consuming caller's own identity, as authenticated by whoever
     called `decide_and_reserve` -- compared against the approval's recorded
     `proposed_by`, never against anything the presented request carries.
+
+    `escalation_resolver`, when given, is the two-person rule's own escalation
+    step (`EngineConfig.escalation_resolver`), checked here -- the "new step
+    inserted before that existing expiry" the design note describes -- as soon
+    as a row for this ref is found, whether or not it ultimately authorises
+    anything this call. A caller presenting a ref at all is, in effect,
+    checking in on it, which is exactly the lazy, checked-only-when-touched
+    moment escalation needs; it never changes anything this function itself
+    reads (`state`, `expires_at`, equivalence), so it cannot change the
+    outcome below, only `approvals.backup_approver`/`escalated_at` as a side
+    effect.
     """
     if approval_ref is None:
         return RefResolution(False, ApprovalRefStatus.ABSENT)
@@ -186,6 +200,9 @@ def resolve(
         # No approval id can be this large: the store's integers are 64-bit. Evaluated
         # as a reference to nothing, never raised out of the decision.
         return RefResolution(False, ApprovalRefStatus.UNKNOWN)
+
+    if escalation_resolver is not None:
+        approvals.escalate_if_due(conn, approval_ref, resolver=escalation_resolver, now=now)
 
     row = conn.execute(
         "SELECT id, state, expires_at, request_json, proposed_by FROM approvals WHERE id=?",

@@ -1,0 +1,23 @@
+# Same as mismatched_mapping.yaml, plus `session: per_connection`:
+# each stdio connection -- one `Proxy` instance -- is
+# its own sequence-tracking session, with no `_meta` value needed.
+tools:
+  check_weather:
+    action_type: mcp.get_weather
+    effect: read
+    params:
+      city: location
+  adjust_temp:
+    action_type: mcp.set_thermostat
+    effect: write
+    params:
+      temperature: settings.target_c
+  wire_transfer:
+    action_type: mcp.send_payment
+    effect: write
+    params:
+      payee: to
+      amount_eur: amount.value
+
+tools_list_filter: true
+session: per_connection

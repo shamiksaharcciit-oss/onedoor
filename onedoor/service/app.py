@@ -8,6 +8,10 @@ Any enforcement point in any language can now consult the engine:
     POST /v1/approvals/{id}/approve   approve -> permitted intent  (admin)
     POST /v1/approvals/{id}/grant      approve only, no resume      (admin)
     POST /v1/approvals/{id}/deny      deny                         (admin)
+    GET  /v1/approvals/by-link/{token}  confirmation page only, never acts
+    POST /v1/approvals/by-link/{token}  acts -- approve or deny, by the
+                                         token's own claim  (unauthenticated;
+                                         the signed token is the credential)
     POST /v1/killswitch        engage/release the kill switch      (admin)
     GET  /v1/health            liveness + engine state
 
@@ -31,34 +35,91 @@ collector.
 
 Run:  ONEDOOR_DECIDE_KEYS=dev ONEDOOR_ADMIN_KEYS=root \\
       uvicorn onedoor.service.app:create_app --factory --port 8470
+
+A deployment using signed approval links (below) should also consider
+``--no-access-log``: this module installs a filter on uvicorn's own
+access logger that redacts a by-link token from every line it writes,
+but a log sink outside this process -- a reverse
+proxy, a load balancer -- sees the real request line regardless, which
+this process has no way to filter. ``--no-access-log`` removes the
+request-line log at its source instead of relying on a filter catching
+every path that writes it.
 """
 
 from __future__ import annotations
 
 import hmac
+import logging
 import os
+import re
 import threading
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail import approval_link, approvals, audit, killswitch, policy_loader
 from onedoor.guardrail import rebuild as rebuild_module
+from onedoor.guardrail.approval_link import LinkVerifyStatus, NotifyConfig
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve, report_result
-from onedoor.guardrail.errors import ApprovalError, ReportError
+from onedoor.guardrail.errors import ApprovalError, NeedsMoreApprovers, ReportError
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionRequest, Budget, Decision, DecisionRef, Outcome, Source
+from onedoor.guardrail.policy import PolicyStore
 from onedoor.guardrail.received import extract_raw_member
+from onedoor.integrations import approval_notify
 from onedoor.service import keys
 from onedoor.service.notify import Notifier, build_notifier
 from onedoor.service.telemetry import record_decision, span
-from onedoor.store.clock import now_utc
+from onedoor.store.clock import now_utc, to_iso
 from onedoor.store.db import Database
+
+log = logging.getLogger("onedoor.service.approval_link")
+"""The signed-approval-link routes' own access/error logger. Every line this module writes through it names the route with the
+token replaced by the literal text `<token>` -- never the real value,
+whether the request succeeded, was refused, or crashed."""
+
+_BY_LINK_TOKEN_RE = re.compile(r"(/v1/approvals/by-link/)([^\s\"?]+)")
+
+
+class _ByLinkTokenRedactingFilter(logging.Filter):
+    """This module's own `log` already redacts, but
+    uvicorn's OWN `uvicorn.access` logger is a separate
+    logger this module never writes to -- it logs the real request line,
+    token included, regardless of what this module's handlers do. Installed
+    on that logger (see `create_app`), this filter rewrites a by-link
+    token out of a record's own args (uvicorn's `AccessFormatter` reads
+    `record.args` as `(client_addr, method, full_path, http_version,
+    status_code)`) before formatting, so the real token never reaches
+    wherever the access log is written."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _BY_LINK_TOKEN_RE.sub(r"\1<token>", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        elif isinstance(record.msg, str):
+            record.msg = _BY_LINK_TOKEN_RE.sub(r"\1<token>", record.msg)
+        return True
+
+
+def _set_link_page_headers(response: Response) -> None:
+    """Both by-link routes carry this: no referrer leaves the page, no
+    cache stores it, and its own CSP loads nothing from another origin --
+    the page's whole body is already in this one JSON response, and it has
+    no reason to fetch, script, or link out anywhere."""
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = "default-src 'none'"
+
 
 # ----------------------------- auth ------------------------------------------
 
@@ -118,6 +179,24 @@ class DecideBody(BaseModel):
     """Same field as `ActionRequest.presented_audience` -- the
     audience URI this enforcement point declares it will present the permit to,
     compared against the action type's `present_bound` when one is declared."""
+    untrusted: list[str] = Field(default_factory=list)
+    """Same field as `ActionRequest.untrusted` -- dotted paths into `params`
+    this enforcement point asserts are derived from content it does not
+    control. Absent means nothing is marked, the same default a 0.10.x caller
+    already produces."""
+    session_id: str | None = None
+    """Same field as `ActionRequest.session_id` -- the sequence-tracking key
+    (onedoor 0.11). Absent means no sequence tracking for this call, the same
+    default a 0.10.x caller already produces."""
+    plan_ref: int | None = Field(default=None, strict=True)
+    """Same field as `ActionRequest.plan_ref` (onedoor 0.11). Absent,
+    invalid, expired, exhausted or mismatched all evaluate as
+    absent; the engine, never this route, decides which.
+    `strict=True` so this takes a plain integer only -- `true`, `"1"`
+    and other JSON shapes pydantic's own lax `int` coercion would
+    otherwise accept (including a bool, itself an `int` subclass) are
+    refused with `422`, matching what the MCP proxy's own `isinstance(x,
+    int) and not isinstance(x, bool)` check already enforces."""
 
 
 class DecideReply(BaseModel):
@@ -153,6 +232,34 @@ class DecideReply(BaseModel):
     is a short-lived, one-time credential, and reissuing one for an old call
     would be handing out a credential that already expired or was already
     presented, not reporting what was decided."""
+    untrusted_matched: list[str] = Field(default_factory=list)
+    """Which of `DecideBody.untrusted`'s own paths actually matched this
+    action type's own `untrusted_params.deny`/`hold` -- empty when none did."""
+    sequence_events_considered: int = 0
+    """Same field as `PolicyDecision.sequence_events_considered` (onedoor
+    0.11) -- how many of this session's own settled events the sequence check
+    read. Present only on the decision the sequence check itself produced
+    (its own deny, or the confirm it escalated to), the same as every other
+    per-check field here -- zero on a decision this check did not itself
+    decide or escalate."""
+    sequence_rule_matched: str | None = None
+    """Same field as `PolicyDecision.sequence_rule_matched` -- which rule
+    matched, or `None`."""
+    sequence_history_incomplete: bool = False
+    """Same field as `PolicyDecision.sequence_history_incomplete` -- the
+    matched (or evaluated) rule's own window reached further back than this
+    session's retained history."""
+    plan_ref: int | None = None
+    """Same field as `PolicyDecision.plan_ref` (onedoor 0.11) -- the
+    plan whose match satisfied this decision's own approval
+    step. `None` when no plan decided this call."""
+    plan_consumed_count_after: int | None = None
+    """Same field as `PolicyDecision.plan_consumed_count_after` -- `None`
+    unless `plan_ref` is set."""
+    plan_consumed_amount_after: Decimal | None = None
+    """Same field as `PolicyDecision.plan_consumed_amount_after` -- `None`
+    unless `plan_ref` is set, or the matched action name declares no
+    `amount_param`."""
 
 
 class ReportBody(BaseModel):
@@ -193,7 +300,15 @@ class ApprovalView(BaseModel):
 class EngineState:
     """Single-process engine state: one connection, one intent registry."""
 
-    def __init__(self, db_path: str, policies: Path) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        policies: Path,
+        *,
+        notify_config: NotifyConfig | None = None,
+        send_email: approval_notify.EmailSender | None = None,
+        send_webhook: approval_notify.WebhookSender | None = None,
+    ) -> None:
         db = Database(db_path)
         db.init()
         self.conn = db.connect(check_same_thread=False)
@@ -209,6 +324,13 @@ class EngineState:
         self.lock = threading.Lock()
         self.notifier: Notifier = build_notifier()
         self.key_secret = keys.load_secret(db_path)
+        # Signed approval links (onedoor 0.11). None (absent, the
+        # default) means the by-link routes refuse everything with 404, and
+        # the propose path's own notify step never fires -- the feature is
+        # off, unaffected, the same opt-in default every 0.11 feature has.
+        self.notify_config = notify_config
+        self.send_email = send_email
+        self.send_webhook = send_webhook
 
     def principal(self, key: str) -> str:
         """How a key is recorded: a keyed fingerprint, never any part of the key."""
@@ -263,6 +385,9 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
             present_bound=outcome.present_bound,
             decision_ref=outcome.decision_ref,
             bound_permit=outcome.bound_permit,
+            plan_ref=outcome.plan_ref,
+            plan_consumed_count_after=outcome.plan_consumed_count_after,
+            plan_consumed_amount_after=outcome.plan_consumed_amount_after,
         )
     d = outcome.decision
     # A replayed answer to a request_id that was permitted reconstructs an
@@ -287,17 +412,65 @@ def _decide_reply(outcome: Any, state: EngineState) -> DecideReply:
         intent_audit_id=replayed_intent_audit_id,
         budget=d.budget,
         decision_ref=outcome.decision_ref,
+        untrusted_matched=d.untrusted_matched if d.untrusted_matched is not None else [],
+        sequence_events_considered=d.sequence_events_considered or 0,
+        sequence_rule_matched=d.sequence_rule_matched,
+        sequence_history_incomplete=bool(d.sequence_history_incomplete),
+        plan_ref=d.plan_ref,
+        plan_consumed_count_after=d.plan_consumed_count_after,
+        plan_consumed_amount_after=d.plan_consumed_amount_after,
     )
 
 
-def create_app(db_path: str | None = None, policies: str | None = None) -> FastAPI:
+def create_app(
+    db_path: str | None = None,
+    policies: str | None = None,
+    *,
+    notify_config: NotifyConfig | None = None,
+    send_email: approval_notify.EmailSender | None = None,
+    send_webhook: approval_notify.WebhookSender | None = None,
+) -> FastAPI:
     _refuse_overlapping_roles()
+    # Installed once per app, not per request -- uvicorn's own access
+    # logger is a module-level singleton, and a second create_app() call in
+    # the same process (as tests do) must not stack duplicate filters.
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _ByLinkTokenRedactingFilter) for f in access_logger.filters):
+        access_logger.addFilter(_ByLinkTokenRedactingFilter())
     state = EngineState(
         db_path or os.environ.get("ONEDOOR_DB", "onedoor-service.db"),
         Path(policies or os.environ.get("ONEDOOR_POLICIES", "config/policies.yaml")),
+        notify_config=notify_config,
+        send_email=send_email,
+        send_webhook=send_webhook,
     )
     app = FastAPI(title="onedoor decision service", version="0.3.0")
     app.state.engine = state
+
+    @app.middleware("http")
+    async def _link_leak_safety_middleware(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """The two by-link handlers' own
+        `_set_link_page_headers(response)` call only reaches the client on
+        the path where the handler returns normally -- every
+        `HTTPException` it raises, and any unhandled exception, builds an
+        entirely separate response that never carried it, and a path under
+        this prefix no route even matches (a plain 404) never reached a
+        handler to set anything at all. Applied here instead, to every
+        response under the prefix regardless of how it was built,
+        including an unhandled exception this process turns into its own
+        plain 500 rather than letting Starlette's own debug/default page
+        answer without the headers."""
+        if not request.url.path.startswith("/v1/approvals/by-link/"):
+            return await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            log.error("by-link request failed before a response was built")
+            response = JSONResponse(status_code=500, content={"detail": "internal error"})
+        _set_link_page_headers(response)
+        return response
 
     @app.get("/v1/health")
     def health() -> dict[str, Any]:
@@ -321,9 +494,20 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             params_raw=params_raw,
             approval_ref=body.approval_ref,
             presented_audience=body.presented_audience,
+            untrusted=body.untrusted,
+            session_id=body.session_id,
+            plan_ref=body.plan_ref,
             created_at=now,
         )
         with span("onedoor.decide", body.action_type), state.lock:
+            # Whether this exact request_id already has a prior
+            # audit row -- decide_and_reserve's own idempotency guard (see
+            # its docstring) reuses that prior result rather than
+            # proposing again, but this route's own notify step below
+            # does not otherwise know that, and would mint and send a
+            # brand new link pair for an approval this presentation did
+            # not actually create.
+            was_replay = audit.result_for_request_id(state.conn, request.request_id) is not None
             outcome = decide_and_reserve(
                 request,
                 conn=state.conn,
@@ -333,10 +517,37 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             )
         reply = _decide_reply(outcome, state)
         record_decision(body.action_type, reply.decision, reply.reason, reply.effective_tier)
-        if reply.decision == Decision.PROPOSED.value and reply.approval_id is not None:
+        if (
+            not was_replay
+            and reply.decision == Decision.PROPOSED.value
+            and reply.approval_id is not None
+        ):
             state.notifier.proposed(
                 reply.approval_id, body.action_type, body.params, body.rationale
             )
+            policy = PolicyStore().get(state.conn, body.action_type)
+            if policy.approval_notify is not None and state.notify_config is not None:
+                notify_result = approval_notify.notify(
+                    approval_id=reply.approval_id,
+                    notify_policy=policy.approval_notify,
+                    config=state.notify_config,
+                    now=now,
+                    ttl_seconds=state.config.approval_ttl_seconds,
+                    request_digest=approvals.resume_digest(body.action_type, body.params),
+                    send_email=state.send_email,
+                    send_webhook=state.send_webhook,
+                )
+                # link_sent records what notify() actually did --
+                # the design note's own receipt wording promises a link
+                # "built and dispatched", not merely attempted. Left at
+                # its default (0, NULL) for a failed issue or a failed
+                # or never-configured send, rather than always writing 1.
+                if notify_result is not None and notify_result.sent:
+                    with state.lock:
+                        state.conn.execute(
+                            "UPDATE approvals SET link_sent=1, link_channel=? WHERE id=?",
+                            (policy.approval_notify.channel, reply.approval_id),
+                        )
         return reply
 
     @app.post("/v1/report", response_model=DecideReply)
@@ -406,14 +617,33 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             for a in rows
         ]
 
+    def _recorded_reply(approval_id: int, exc: NeedsMoreApprovers) -> JSONResponse:
+        """A recorded-but-insufficient two-person vote is its own result, not a
+        refusal: `202`, not `409` -- `409` stays for an actual refusal (the
+        proposer, the same identity twice, expired, not pending)."""
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "recorded",
+                "approval_id": approval_id,
+                "recorded": exc.recorded,
+                "required": exc.required,
+            },
+        )
+
     @app.post("/v1/approvals/{approval_id}/approve", response_model=DecideReply)
-    def approve(approval_id: int, _key: str = Depends(require_admin)) -> DecideReply:
+    def approve(approval_id: int, _key: str = Depends(require_admin)) -> Any:
         now = now_utc()
         with state.lock:
             try:
                 original = approvals.cas_approve(
-                    state.conn, approval_id, state.principal(_key), now
+                    state.conn, approval_id, state.principal(_key), now, channel="key"
                 )
+            except NeedsMoreApprovers as exc:
+                return _recorded_reply(approval_id, exc)
+            except ApprovalError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            try:
                 proposal_audit_id = approvals.proposed_audit_id(state.conn, approval_id)
                 proposer_principal = approvals.proposed_decide_principal(state.conn, approval_id)
                 resumed = original.model_copy(update={"request_id": uuid4(), "created_at": now})
@@ -437,7 +667,7 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         return _decide_reply(outcome, state)
 
     @app.post("/v1/approvals/{approval_id}/grant")
-    def grant(approval_id: int, _key: str = Depends(require_admin)) -> dict[str, Any]:
+    def grant(approval_id: int, _key: str = Depends(require_admin)) -> Any:
         """Approve only: leaves the row `approved`, resumes nothing.
 
         For an integration with no persistent "approved but not yet executed"
@@ -449,7 +679,11 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
         """
         with state.lock:
             try:
-                approvals.cas_approve(state.conn, approval_id, state.principal(_key), now_utc())
+                approvals.cas_approve(
+                    state.conn, approval_id, state.principal(_key), now_utc(), channel="key"
+                )
+            except NeedsMoreApprovers as exc:
+                return _recorded_reply(approval_id, exc)
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"status": "approved", "approval_id": approval_id}
@@ -462,6 +696,173 @@ def create_app(db_path: str | None = None, policies: str | None = None) -> FastA
             except ApprovalError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"status": "denied"}
+
+    @app.get("/v1/approvals/by-link/{token}")
+    def approval_link_confirm(token: str) -> dict[str, Any]:
+        """A confirmation page only -- never acts. Deliberately
+        unauthenticated (the token itself is the credential): a mail
+        scanner or link-preview generator fetching this GET by itself,
+        before any person sees it, must never approve or deny anything,
+        so this route never calls `resolve` (which consumes the nonce),
+        only `verify` (which never touches the database).
+
+        No referrer, no cache, no cross-origin load, on every response
+        under this prefix, by middleware; the access log and
+        any error path name the route with the
+        token replaced by the literal text `<token>`, never the real
+        value."""
+        log.info("GET /v1/approvals/by-link/<token>")
+        try:
+            if state.notify_config is None:
+                raise HTTPException(status_code=404, detail="not found")
+            result = approval_link.verify(
+                token, signing_keys=state.notify_config.approval_link_signing_keys, now=now_utc()
+            )
+            if result.status == LinkVerifyStatus.VALID:
+                assert result.claims is not None
+                if approval_link.is_consumed(state.conn, result.claims.nonce):
+                    # "used" is the one distinct reason a GET
+                    # states -- unlike the key/signature distinctions kept
+                    # opaque, telling a human their OWN link was
+                    # already used does not help anyone enumerate a
+                    # different key or token.
+                    return {"valid": False, "status": "consumed"}
+                return {
+                    "valid": True,
+                    "action": result.claims.action,
+                    "approval_id": result.claims.approval_id,
+                }
+            # The design note and migration 0045 already say a
+            # failed link states no reason beyond that -- the same
+            # anti-probing posture approval_ref/plan_ref already have.
+            # The real status (which of unknown_key/bad_signature/
+            # expired) is not returned; it is logged here, never in the
+            # response, so it cannot be used to enumerate key ids.
+            log.info("GET /v1/approvals/by-link/<token> invalid: %s", result.status.value)
+            return {"valid": False}
+        except HTTPException:
+            raise
+        except Exception:
+            log.error("GET /v1/approvals/by-link/<token> failed")
+            raise
+
+    @app.post("/v1/approvals/by-link/{token}", response_model=None)
+    def approval_link_act(token: str) -> dict[str, Any] | JSONResponse:
+        """Acts -- approves or denies, whichever the token itself names.
+        Deliberately unauthenticated; the signed, single-use token is the
+        credential. The identity the link was sent to is the identity
+        recorded as having approved or denied -- `cas_approve`/`deny`'s own
+        self-approval and same-identity-twice refusals apply to it exactly
+        as they do to any other approver identity.
+
+        No referrer, no cache, no cross-origin load, on every response
+        under this prefix, by middleware; the access log and
+        any error path name the route with the
+        token replaced by the literal text `<token>`, never the real
+        value."""
+        log.info("POST /v1/approvals/by-link/<token>")
+        try:
+            if state.notify_config is None:
+                raise HTTPException(status_code=404, detail="not found")
+            now = now_utc()
+            with state.lock:
+                result = approval_link.resolve(
+                    state.conn,
+                    token,
+                    signing_keys=state.notify_config.approval_link_signing_keys,
+                    now=now,
+                )
+                if result.status != LinkVerifyStatus.VALID:
+                    # The same anti-probing posture as the GET route
+                    # above -- the real status is logged, never answered.
+                    log.info("POST /v1/approvals/by-link/<token> invalid: %s", result.status.value)
+                    raise HTTPException(status_code=409, detail="link can't be used")
+                claims = result.claims
+                assert claims is not None
+                if claims.issuer != state.notify_config.approval_link_issuer:
+                    # A token issued by a different deployment (one
+                    # replayed from a restored backup of a different
+                    # deployment that happens to share a signing key, for
+                    # instance) is refused regardless of its signature.
+                    log.info("POST /v1/approvals/by-link/<token> invalid: issuer_mismatch")
+                    raise HTTPException(status_code=409, detail="link can't be used")
+                action_row = state.conn.execute(
+                    "SELECT action_type, request_json FROM approvals WHERE id=?",
+                    (claims.approval_id,),
+                ).fetchone()
+                policy = (
+                    PolicyStore().get(state.conn, action_row["action_type"])
+                    if action_row is not None
+                    else None
+                )
+                expected_recipient = (
+                    policy.approval_notify.recipient
+                    if policy is not None and policy.approval_notify is not None
+                    else None
+                )
+                if expected_recipient is not None and claims.recipient != expected_recipient:
+                    # A token whose own claimed recipient no longer matches
+                    # the policy's configured one (the key it was signed under
+                    # leaked, or the policy's approval_notify.recipient changed
+                    # since) is refused -- never acted on just because the
+                    # signature itself still verifies. The reason
+                    # (recipient mismatch, specifically) is logged, not
+                    # answered, the same posture as every other reason a
+                    # link can fail for.
+                    log.info("POST /v1/approvals/by-link/<token> invalid: recipient_mismatch")
+                    raise HTTPException(status_code=409, detail="link can't be used")
+                if action_row is not None:
+                    # A token whose own claimed request digest no
+                    # longer matches the approval it names (a different
+                    # approval id reused after a restore, for instance) is
+                    # refused regardless of its signature or issuer.
+                    current_request = approvals.loads_request(action_row["request_json"])
+                    expected_digest = approvals.resume_digest(
+                        current_request.action_type, current_request.params
+                    )
+                    if claims.request_digest != expected_digest:
+                        log.info("POST /v1/approvals/by-link/<token> invalid: digest_mismatch")
+                        raise HTTPException(status_code=409, detail="link can't be used")
+                # The FIRST link vote sets link_used_at, not every
+                # one -- set here, once, as soon as a presented link is
+                # confirmed valid and about to be acted on, guarded by
+                # "only if still NULL" so a second vote through the
+                # approval's other token (e.g. a recorded-but-insufficient
+                # approve vote, followed later by its separate deny token)
+                # never overwrites the first timestamp.
+                state.conn.execute(
+                    "UPDATE approvals SET link_used_at=? WHERE id=? AND link_used_at IS NULL",
+                    (to_iso(now), claims.approval_id),
+                )
+                try:
+                    if claims.action == "approve":
+                        try:
+                            approvals.cas_approve(
+                                state.conn,
+                                claims.approval_id,
+                                claims.recipient,
+                                now,
+                                channel="link",
+                            )
+                            outcome = "approved"
+                        except NeedsMoreApprovers as exc:
+                            # A recorded-but-insufficient vote
+                            # answers 202, matching /grant's own answer
+                            # for the exact same NeedsMoreApprovers case
+                            # -- it used to answer 200 here, as though
+                            # fully decided.
+                            return _recorded_reply(claims.approval_id, exc)
+                    else:
+                        approvals.deny(state.conn, claims.approval_id, claims.recipient, now)
+                        outcome = "denied"
+                except ApprovalError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except HTTPException:
+            raise
+        except Exception:
+            log.error("POST /v1/approvals/by-link/<token> failed")
+            raise
+        return {"status": outcome, "approval_id": claims.approval_id}
 
     @app.post("/v1/killswitch")
     def kill(body: KillBody, _key: str = Depends(require_admin)) -> dict[str, Any]:

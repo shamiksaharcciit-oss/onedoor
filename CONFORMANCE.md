@@ -30,6 +30,9 @@ whose deadline has passed unreported. Inside the transaction:
   read and before policy lookup.
 - `1c` the approval a resumption resumes is consumed, in the same
   transaction, right after.
+- `1d` the two-person receipt (`approvers`/`escalated_to`/`escalated_at`) is
+  read once from whichever approval row this call resumes, right after it is
+  consumed -- `None` on a call that does not resume an approval at all.
 - `2` policy lookup, which does not itself exit.
 - `2b` effect resolution (declared labels plus deterministic parameter
   rules), which exits `malformed`.
@@ -42,8 +45,29 @@ whose deadline has passed unreported. Inside the transaction:
 - `4b` external authorization: consulted only when a policy declares it and
   a resolver is configured; denies outright, or escalates a `PENDING`
   verdict to the approval step; never re-consulted on resumption.
+- `5c` untrusted input (onedoor 0.11): checked before step `5` itself, so a
+  nominal tier-0 (observe) action is covered too, not only a tier that would
+  otherwise reach bounds or caps. A caller-marked path matching the policy's
+  own `untrusted_params.deny` exits `untrusted_input` here, before bounds,
+  caps or `5` are ever reached; a path matching `hold` instead escalates to
+  `CONFIRM` (like `3/4`'s other escalations) without exiting, so a later
+  `bounds`/`caps` denial can still take precedence over merely proposing, and
+  a tier-0 action it escalates no longer reaches `5` as an observe at all.
+- `5d` sequence rule (onedoor 0.11): checked before step `5` for the same
+  reason `5c` is. A policy's own `sequence.rules` matching this session's
+  prior settled history exits `sequence_rule` here on a `deny` rule, before
+  bounds, caps or `5` are ever reached; a `hold` rule instead escalates to
+  `CONFIRM`, the same non-terminal way `5c` does. A policy whose own `rules`
+  is non-empty, presented with no `session_id` and no `sequence.session_
+  optional: true`, escalates to `CONFIRM` the same non-terminal way, with
+  its own reason (`sequence_no_session`) — there is no session history to
+  check a rule against, so this is held rather than silently treated as
+  though no rule existed.
 - `5` observe: a read, audited and returned, never a proposal or a
-  reservation.
+  reservation. Reached only when `5c`/`5d` did not themselves deny the call
+  or raise its effective tier past observe; a tier-0 action that passes both
+  still records its own `sequence.tag_as` here, having no later settlement
+  step of its own to ride on.
 - `6` bounds, which can exit `bounds`.
 - `6b` `present_bound`'s audience match, which can exit `present_bound`.
 - `6c` the bound permit's own issuance preconditions, which can also exit
@@ -51,6 +75,12 @@ whose deadline has passed unreported. Inside the transaction:
 - `7` the approval step: a fresh request's kill-switch denial lands here if
   nothing above already exited; a resumption's own resume-key check can
   exit `resume_request_mismatch` here too; otherwise a proposal is created.
+- `7a` plan match (onedoor 0.11): consulted only when `7` would otherwise
+  propose for the plainest reason (the action's own nominal tier, nothing
+  else having already escalated it) and the request presents a `plan_ref`.
+  A match satisfies that one approval step and the auto path below proceeds
+  instead of `7`'s proposal; a non-match (or no `plan_ref` at all) falls
+  through to `7` unchanged.
 - `8` dry-run (terminal).
 - `9` caps, checked and reserved inside this same deciding transaction.
 - `10` the intent is recorded, minting the bound permit's `jti` where one is

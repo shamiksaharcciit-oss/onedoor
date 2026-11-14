@@ -89,6 +89,39 @@ def test_effect_cap_is_shared_across_aliased_actions(
     assert "money.egress" in (r3.decision.detail or "")
 
 
+def test_shadow_evaluate_sees_the_shared_effect_cap_too(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """Live reserves the action's own caps AND its effects' shared caps
+    together (`effect_caps=` at step 9) -- `evaluate` passed none, so a
+    candidate sharing `money.egress` with two already-executed payments
+    read "executed" where live would deny by the same shared cap."""
+    from onedoor.guardrail import shadow
+
+    _seed_effects(conn)
+    r1 = decide_and_reserve(
+        make_request("demo.pay_direct"), conn=conn, config=config, now=FROZEN_NOW
+    )
+    r2 = decide_and_reserve(make_request("demo.pay_http"), conn=conn, config=config, now=FROZEN_NOW)
+    assert isinstance(r1, PermittedIntent) and isinstance(r2, PermittedIntent)
+
+    candidate = Policy(
+        action_type="demo.pay_direct",
+        tier=Tier.AUTO,
+        dry_run=False,
+        compensating_command="demo.restore",
+        effects=["money.egress"],
+        bounds=Bounds(strict_params=False),
+    )
+    req = make_request("demo.pay_direct")
+    result = shadow.evaluate(
+        conn, candidate, req, now=FROZEN_NOW, tz=config.tz, kill_switch_engaged=False
+    )
+    assert result.decision == Decision.DENIED
+    assert result.reason_code == CheckId.RATE_EXHAUSTED
+    assert "money.egress" in (result.detail or "")
+
+
 def test_param_rule_gives_generic_tool_the_effect(conn: Connection, config: EngineConfig) -> None:
     _seed_effects(conn)
     # A generic http call to the bank domain carries money.egress: it shares

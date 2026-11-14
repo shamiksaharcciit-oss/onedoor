@@ -200,6 +200,83 @@ def test_a_clean_candidate_carries_no_refusal(conn: Connection) -> None:
     assert shown.to_version is not None
 
 
+def test_a_dangling_reversal_is_refused_the_same_way_load_file_refuses_it(
+    conn: Connection,
+) -> None:
+    """A Studio ratification is a whole policy set, applied with the live table
+    already in view -- unlike a direct `upsert`, which has no such view and so cannot
+    check this. `_apply` now builds that view and checks before it writes anything, so
+    a candidate naming a reversal nothing declares is refused here too, not only when
+    the same candidate is later loaded as a file."""
+    expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
+    candidate = [
+        Policy(
+            action_type="demo.ghost",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.nowhere",
+            bounds=Bounds(strict_params=False),
+        )
+    ]
+
+    shown = ratify.preview(conn, candidate)
+    assert shown.to_version is None
+    assert shown.refusal is not None
+    assert "demo.nowhere" in shown.refusal
+    assert "demo.ghost" in shown.refusal
+    assert policy_loader.current_version(conn) == expected  # untouched
+
+
+def test_the_real_ratification_also_refuses_a_dangling_reversal(conn: Connection) -> None:
+    """The real path, not only the preview: `_apply` is shared between them by design,
+    so a ratification attempt writes nothing either."""
+    expected = _in_force(conn, _policy("demo.spend", cap="500"), _restore())
+    candidate = [
+        Policy(
+            action_type="demo.ghost",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.nowhere",
+            bounds=Bounds(strict_params=False),
+        )
+    ]
+    with pytest.raises(ValueError, match="demo.nowhere"):
+        ratify.ratify(
+            conn,
+            candidate,
+            expected_version=expected,
+            ratified_by_session=SESSION,
+            now=FROZEN_NOW,
+        )
+    assert policy_loader.current_version(conn) == expected  # untouched
+
+
+def test_a_mutual_pair_in_the_same_candidate_is_not_refused(conn: Connection) -> None:
+    """The common shape -- A's reversal is B, B's reversal is A -- must ratify
+    regardless of which one happens to be checked first, matching `load_file`'s own
+    whole-batch behavior, not a one-policy-at-a-time view of the candidate."""
+    _in_force(conn, _restore())
+    candidate = [
+        Policy(
+            action_type="demo.forward",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.reverse",
+            bounds=Bounds(strict_params=False),
+        ),
+        Policy(
+            action_type="demo.reverse",
+            tier=Tier.AUTO,
+            dry_run=False,
+            compensating_command="demo.forward",
+            bounds=Bounds(strict_params=False),
+        ),
+    ]
+    shown = ratify.preview(conn, candidate)
+    assert shown.refusal is None
+    assert shown.to_version is not None
+
+
 def test_the_real_ratification_still_refuses_the_identical_candidate(
     conn: Connection,
 ) -> None:

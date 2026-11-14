@@ -20,6 +20,15 @@ RULE = {
     "bounds": {"strict_params": False},
 }
 
+# RULE's own reversal target -- never ratified alone: a ratification checks
+# the whole candidate's own action types, and a reversal naming nothing
+# the candidate declares is refused before anything is written.
+REFUND_RULE = {
+    **RULE,
+    "action_type": "payments.refund",
+    "compensating_command": "payments.transfer",
+}
+
 
 @pytest.fixture
 def state(tmp_path):
@@ -47,7 +56,9 @@ def test_submit_is_not_approval(client, state) -> None:
     pointer, so "nothing moved" is a fact about `submit` rather than a fact about a
     fixture that could never have moved anything.
     """
-    created = client.post(api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE]})
+    created = client.post(
+        api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE, REFUND_RULE]}
+    )
     draft_id = created.json()["draft_id"]
 
     before_version = policy_loader.current_version(state.enforcer)
@@ -122,7 +133,9 @@ def test_the_legacy_ratify_route_behaves_exactly_as_it_does_today(client, state)
     receipt's keys, and the recorded approver. When the actor-identity work retires this
     route, this test fails and someone has to decide — which is the whole point.
     """
-    created = client.post(api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE]})
+    created = client.post(
+        api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE, REFUND_RULE]}
+    )
     draft_id = created.json()["draft_id"]
 
     response = client.post(f"/draft/{draft_id}/ratify", params={"session": "desk-1"})
@@ -137,7 +150,9 @@ def test_the_legacy_ratify_route_behaves_exactly_as_it_does_today(client, state)
 
 def test_the_legacy_route_declares_its_own_deprecation(client) -> None:
     """A caller is told what this is BY THE THING ITSELF, not by docs they never read."""
-    created = client.post(api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE]})
+    created = client.post(
+        api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE, REFUND_RULE]}
+    )
     draft_id = created.json()["draft_id"]
 
     body = client.post(f"/draft/{draft_id}/ratify", params={"session": "desk-1"}).json()
@@ -154,7 +169,9 @@ def test_the_deprecation_notice_sits_beside_the_receipt_and_not_inside_it(client
     annotate evidence; they do not rewrite it — the beside-not-into doctrine, applied to
     a JSON body instead of a palette.
     """
-    created = client.post(api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE]})
+    created = client.post(
+        api.API_ROOT + "/drafts", json={"title": "t", "rules": [RULE, REFUND_RULE]}
+    )
     draft_id = created.json()["draft_id"]
     body = client.post(f"/draft/{draft_id}/ratify", params={"session": "d"}).json()
 
@@ -181,12 +198,17 @@ def test_the_deprecation_notice_sits_beside_the_receipt_and_not_inside_it(client
 
 
 def test_create_read_list_and_delete(client) -> None:
-    created = client.post(api.API_ROOT + "/drafts", json={"title": "mine", "rules": [RULE]})
+    created = client.post(
+        api.API_ROOT + "/drafts", json={"title": "mine", "rules": [RULE, REFUND_RULE]}
+    )
     assert created.status_code == 201
     draft_id = created.json()["draft_id"]
     assert created.json()["title"] == "mine"
     assert created.json()["state"] == store.DRAFT
-    assert [r["action_type"] for r in created.json()["rules"]] == ["payments.transfer"]
+    assert sorted(r["action_type"] for r in created.json()["rules"]) == [
+        "payments.refund",
+        "payments.transfer",
+    ]
 
     got = client.get(f"{api.API_ROOT}/drafts/{draft_id}")
     assert got.status_code == 200
@@ -217,17 +239,29 @@ def test_put_a_rule_keeps_every_other_rule(client) -> None:
     assert by_action["payments.refund"]["compensating_command"] == "payments.transfer"
 
 
-def test_put_a_rule_adds_it_when_the_draft_does_not_have_it(client) -> None:
+def test_put_a_rule_adds_it_when_the_draft_does_not_have_it(client, state) -> None:
     # A new draft opens from the ACTIVE set, so it already carries `seed.action`. Adding
     # a rule must leave that one alone -- which is the same law as the test above, met
-    # from the adding side rather than the updating side.
+    # from the adding side rather than the updating side. RULE's own reversal target is
+    # declared live too, ahead of the draft that uses it, so adding RULE itself does not
+    # name a dangling reversal.
+    policy_loader.upsert(
+        state.enforcer,
+        Policy(
+            action_type="payments.refund", tier=Tier.CONFIRM, bounds=Bounds(strict_params=False)
+        ),
+    )
     created = client.post(api.API_ROOT + "/drafts", json={})
     draft_id = created.json()["draft_id"]
-    assert [r["action_type"] for r in created.json()["rules"]] == ["seed.action"]
+    assert sorted(r["action_type"] for r in created.json()["rules"]) == [
+        "payments.refund",
+        "seed.action",
+    ]
 
     added = client.put(f"{api.API_ROOT}/drafts/{draft_id}/rules/payments.transfer", json=RULE)
     assert added.status_code == 200
     assert sorted(r["action_type"] for r in added.json()["rules"]) == [
+        "payments.refund",
         "payments.transfer",
         "seed.action",
     ]
@@ -243,7 +277,7 @@ def test_delete_a_rule_that_is_not_there_is_an_absence(client) -> None:
 
 def test_editing_a_submitted_draft_returns_it_to_draft(client) -> None:
     """A submission is about a specific candidate; changing it un-asks the question."""
-    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE]})
+    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE, REFUND_RULE]})
     draft_id = created.json()["draft_id"]
     assert client.post(f"{api.API_ROOT}/drafts/{draft_id}/submit").json()["state"] == "submitted"
 
@@ -281,6 +315,35 @@ def test_a_candidate_the_loader_refuses_is_422_carrying_the_staged_reasons(clien
     assert body["incomplete_notice"]
 
 
+def test_creating_a_draft_with_a_dangling_reversal_is_422(client) -> None:
+    """`api.parse_rule` now carries the same `known_action_types` check
+    `load_file` already performs -- a rule naming a reversal nothing
+    declares is refused HERE, at creation, never only discovered once the
+    draft reaches ratification."""
+    response = client.post(
+        api.API_ROOT + "/drafts",
+        json={"rules": [{**RULE, "compensating_command": "payments.nonexistent"}]},
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["reason"] == api.CANDIDATE_REFUSED
+    assert any("payments.nonexistent" in r["message"] for r in body["refusals"])
+
+
+def test_putting_a_rule_with_a_dangling_reversal_is_422(client) -> None:
+    """The same check, through the single-rule PUT route."""
+    created = client.post(api.API_ROOT + "/drafts", json={})
+    draft_id = created.json()["draft_id"]
+    response = client.put(
+        f"{api.API_ROOT}/drafts/{draft_id}/rules/payments.transfer",
+        json={**RULE, "compensating_command": "payments.nonexistent"},
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["reason"] == api.CANDIDATE_REFUSED
+    assert any("payments.nonexistent" in r["message"] for r in body["refusals"])
+
+
 def test_a_body_that_is_not_json_is_400(client) -> None:
     created = client.post(api.API_ROOT + "/drafts", json={})
     draft_id = created.json()["draft_id"]
@@ -305,7 +368,7 @@ def test_a_renaming_body_is_refused_rather_than_guessed(client) -> None:
 
 
 def test_submitting_twice_is_409(client) -> None:
-    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE]})
+    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE, REFUND_RULE]})
     draft_id = created.json()["draft_id"]
     assert client.post(f"{api.API_ROOT}/drafts/{draft_id}/submit").status_code == 200
     again = client.post(f"{api.API_ROOT}/drafts/{draft_id}/submit")
@@ -314,7 +377,7 @@ def test_submitting_twice_is_409(client) -> None:
 
 
 def test_submitting_a_stale_draft_is_409_and_says_which_versions(client, state) -> None:
-    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE]})
+    created = client.post(api.API_ROOT + "/drafts", json={"rules": [RULE, REFUND_RULE]})
     draft_id = created.json()["draft_id"]
 
     # Move the world underneath the draft.

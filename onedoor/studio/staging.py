@@ -340,19 +340,35 @@ def _stage_rules(
     entries: list[Any],
     prefix: tuple[str | int, ...],
     policies: list[Policy],
+    known_action_types: frozenset[str] | None,
 ) -> tuple[Refusal, ...]:
     """`validate.problems` — the existing wrapper — with a position added per rule.
 
     No effects are passed, because `load_file` has not built any at this point either,
     and `problems` documents that it does not consult them.
+
+    `known_action_types`, when a caller passes one, is the live table's own
+    action types -- built by the caller from its own connection, this module
+    still touching none itself. Unioned here with this batch's own policies
+    (the same split `load_file` makes between what a connection already
+    knows and what the current file adds), so a candidate naming an
+    undeclared reversal target is caught here too, not only once it reaches
+    `load_file` or a ratification -- and the common shape, two policies in
+    the same file naming each other, still validates. The rule this checks
+    for belongs entirely to `validate_policy`; nothing here restates it.
     """
     index_by_action = {
         str(entry.get("action_type")): i
         for i, entry in enumerate(entries)
         if isinstance(entry, dict)
     }
+    full_known_action_types = (
+        None
+        if known_action_types is None
+        else known_action_types | {p.action_type for p in policies}
+    )
     out = []
-    for problem in validate.problems(policies):
+    for problem in validate.problems(policies, known_action_types=full_known_action_types):
         if problem.action_type in index_by_action:
             index = index_by_action[problem.action_type]
             at = prefix + ((index,) if prefix else ())
@@ -370,12 +386,15 @@ def _stage_rules(
     return tuple(out)
 
 
-def staged_rule(text: str) -> StagedResult:
+def staged_rule(text: str, *, known_action_types: frozenset[str] | None = None) -> StagedResult:
     """Stage ONE rule — the editor's raw pane, which holds a rule and not a file.
 
     Three stages, not four: a rule declares no effect policies, so `effects` is not
     applicable rather than passed (`RULE_STAGES`). Positions are relative to the text the
     operator is actually looking at, because the rule is the whole document here.
+
+    `known_action_types`: see `staged`'s own docstring -- the same optional,
+    caller-built set, forwarded the same way.
     """
     root = _compose(text)
     try:
@@ -414,7 +433,7 @@ def staged_rule(text: str) -> StagedResult:
             stages=RULE_STAGES,
         )
 
-    rule_refusals = _stage_rules(root, entries, (), policies)
+    rule_refusals = _stage_rules(root, entries, (), policies, known_action_types)
     return StagedResult(
         stopped_at=STAGE_RULES if rule_refusals else None,
         refusals=rule_refusals,
@@ -424,10 +443,21 @@ def staged_rule(text: str) -> StagedResult:
     )
 
 
-def staged(text: str) -> StagedResult:
+def staged(text: str, *, known_action_types: frozenset[str] | None = None) -> StagedResult:
     """Run the loader's boot path over `text` and report at the stage that refused.
 
     Never writes, never touches a connection, and never constructs a verdict of its own.
+
+    `known_action_types`, when given, is forwarded to the rules stage's own
+    `validate.problems` call -- a caller with a connection (see
+    `onedoor.studio.validate.known_action_types_for`) can build the live
+    table's own action types plus the candidate's and pass them in, so a
+    candidate naming a dangling reversal target is caught here too, the
+    same sentence `load_file` would give. `None` (every caller before this
+    parameter existed, and any caller with no connection of its own -- the
+    model benchmark has none) skips that one check, the same way
+    `validate.problems` itself does. The rule itself still belongs entirely
+    to `validate_policy`.
     """
     root = _compose(text)
 
@@ -494,7 +524,7 @@ def staged(text: str) -> StagedResult:
     # is the existing wrapper; this adds only the position, by finding the rule the problem
     # was attributed to. No effects are passed, because none are built yet at this point in
     # the loader either -- and `problems` documents that it does not consult them.
-    rule_refusals = _stage_rules(root, entries, ("policies",), policies)
+    rule_refusals = _stage_rules(root, entries, ("policies",), policies, known_action_types)
     if rule_refusals:
         return StagedResult(
             stopped_at=STAGE_RULES,

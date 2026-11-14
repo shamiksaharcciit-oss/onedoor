@@ -8,7 +8,7 @@ pass produces a finding about the script rather than about the product.
 Same law as the walkthrough: **test the document itself, or the test guards a
 copy while the person follows the original.** So every quoted sentence below is read out of
 the document and matched against the constant it came from, and every route the script
-tells Shamik to call is checked against the app's own route table.
+tells the operator to call is checked against the app's own route table.
 
 The one thing this file does NOT do is run the pass. It cannot: the pass is a person
 looking at screens and saying what they see, and that is the whole reason it gates the tag.
@@ -216,7 +216,7 @@ def test_the_bad_yaml_the_script_supplies_really_is_refused_at_the_stage_it_says
 def test_the_euro_cap_stop_lands_in_the_forecast_list_and_not_the_refusal_list() -> None:
     """Section D's whole point, verified rather than asserted in prose.
 
-    The script tells Shamik that finding this in the refusal list is a serious finding. If
+    The script tells the operator that finding this in the refusal list is a serious finding. If
     the product ever put it there, this test fails first and the script is not the thing
     that discovers it.
     """
@@ -516,20 +516,20 @@ def test_the_authoring_stops_name_the_specific_rule_each_one_needs() -> None:
     )
 
 
-def test_c1c_demonstrates_the_referent_is_never_checked_and_cites_nd057() -> None:
+def test_c1c_demonstrates_the_referent_is_never_checked() -> None:
     """Type a nonexistent action, watch the refusal clear; then type a real
-    one, watch it clear identically; then say why, citing the ND item filed for it."""
+    one, watch it clear identically; then say why, stating the gap plainly."""
     text = _text()
     assert '"payments.refund"' in text and "names no action type in this pack" in text
     assert '"payments.reverse"' in text and "a real action type in this pack" in text
-    assert "ND-057" in text
+    assert "that gap is not fixed in this release" in text
 
 
 # --- Files the operator creates are written by exact command, never copied --------------
 
 
 def test_files_the_operator_must_create_are_written_by_exact_command() -> None:
-    """Finding 1's actual cause: 'save this as bad.yaml' over a fenced block let a fence
+    """The actual cause: 'save this as bad.yaml' over a fenced block let a fence
     tag become the file's first line. Both files this script asks for are now written by
     a command that produces the exact bytes, for both shells the script supports."""
     text = _text()

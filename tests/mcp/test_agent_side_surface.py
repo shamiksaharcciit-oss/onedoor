@@ -307,3 +307,47 @@ def test_an_out_of_range_reference_is_evaluated_as_absent_and_the_proxy_keeps_se
     replies = _serve(proxy, _with_ref(weather, ref), {**weather, "id": 2})
     assert [r["id"] for r in replies] == [1, 2]
     assert all("Amsterdam" in _text(r) for r in replies)
+
+
+def test_a_json_array_body_gets_a_jsonrpc_error_and_the_proxy_keeps_serving(
+    tmp_path: Path,
+) -> None:
+    """Valid JSON need not be a JSON-RPC message -- an array parses fine but
+    has no `.get`, which must be answered, not raised."""
+    proxy = _proxy(tmp_path / "proxy.db")
+    weather = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "get_weather", "arguments": {"city": "Amsterdam"}},
+    }
+    lines = io.StringIO(json.dumps([1, 2, 3]) + "\n" + json.dumps(weather) + "\n")
+    out = io.StringIO()
+    proxy.serve(lines, out)
+    replies = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert len(replies) == 2
+    assert replies[0]["error"]["code"] == -32600
+    assert replies[1]["id"] == 1
+    assert "Amsterdam" in _text(replies[1])
+
+
+def test_a_non_string_tool_name_gets_a_jsonrpc_error_and_the_proxy_keeps_serving(
+    tmp_path: Path,
+) -> None:
+    proxy = _proxy(tmp_path / "proxy.db")
+    malformed = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": ["not", "a", "string"], "arguments": {}},
+    }
+    weather = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "get_weather", "arguments": {"city": "Amsterdam"}},
+    }
+    replies = _serve(proxy, malformed, weather)
+    assert replies[0]["error"]["code"] == -32602
+    assert replies[1]["id"] == 2
+    assert "Amsterdam" in _text(replies[1])

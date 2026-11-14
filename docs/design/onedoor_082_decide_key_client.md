@@ -1,7 +1,8 @@
 # Design note: the LangChain middleware over HTTP, with a decide-only key
 
-Covers ruling item 3 (OD4) for 0.8.2. Amended with the decided retry/idempotency
-contract below; moves to code next.
+Covers the decide-only key's retry/idempotency contract for the
+LangChain-over-HTTP middleware, for 0.8.2. Amended with the decided
+retry/idempotency contract below; moves to code next.
 
 ## The gap this closes
 

@@ -24,9 +24,11 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 
 from onedoor.guardrail import approvals, killswitch, policy_loader
+from onedoor.guardrail.errors import NeedsMoreApprovers
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import (
     ActionRequest,
+    ApprovalPolicy,
     Bounds,
     Caps,
     NumericBound,
@@ -63,6 +65,13 @@ def pay_invoice(invoice_id: str, amount_eur: float) -> str:
 @tool
 def send_wire(beneficiary: str, amount_eur: float) -> str:
     """Send an irreversible wire."""
+    PAID.append(amount_eur)
+    return f"wired {amount_eur} to {beneficiary}"
+
+
+@tool
+def send_wire_large(beneficiary: str, amount_eur: float) -> str:
+    """Send a large, two-person-gated wire."""
     PAID.append(amount_eur)
     return f"wired {amount_eur} to {beneficiary}"
 
@@ -111,6 +120,21 @@ def _seed(conn: Connection) -> None:
                 required=["beneficiary", "amount_eur"],
                 strict_params=True,
             ),
+        ),
+    )
+    policy_loader.upsert(
+        conn,
+        Policy(
+            action_type="tool.send_wire_large",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            cost_param="amount_eur",
+            bounds=Bounds(
+                numeric={"amount_eur": NumericBound(min=0.01, max=1000000)},
+                required=["beneficiary", "amount_eur"],
+                strict_params=True,
+            ),
+            approval=ApprovalPolicy(two_person_above_eur=Decimal("100")),
         ),
     )
 
@@ -312,6 +336,25 @@ def _wire_agent(agent_conn: Connection, **middleware_kwargs: object) -> object:
     )
 
 
+def _wire_agent_large(agent_conn: Connection, **middleware_kwargs: object) -> object:
+    return create_agent(
+        model=_model(
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call("send_wire_large", {"beneficiary": "acme", "amount_eur": 2400.0}, "c1")
+                ],
+            ),
+            AIMessage(content="done"),
+        ),
+        tools=[send_wire_large],
+        middleware=[
+            OneDoorMiddleware(agent_conn, _config(), on_proposed="interrupt", **middleware_kwargs)
+        ],
+        checkpointer=MemorySaver(),
+    )
+
+
 def test_tier3_interrupt_pauses_the_graph_and_resume_executes(agent_conn: Connection) -> None:
     """The open question: does a graph interrupt work from inside wrap_tool_call?"""
     from langgraph.types import Command
@@ -369,6 +412,43 @@ def test_the_ordinary_resume_leaves_exactly_one_row_through_the_middleware(
         "the README's pause/grant/resume flow must end with exactly the one "
         "original row, consumed -- not a second, never-granted approval"
     )
+
+
+def test_a_two_person_grant_and_resume_flow_through_the_middleware(
+    agent_conn: Connection,
+) -> None:
+    """The two-person rule's grant-then-resume flow: two
+    different identities grant via `cas_approve` directly -- the shape
+    `/v1/approvals/{id}/grant` leaves behind -- then the middleware resumes by
+    presenting the ref, which reaches `approval_ref.resolve`, never
+    `executor.resume_approval`'s own buggy tx-wrap this round fixed. Proven
+    here so all three entry points (`executor.resume_approval`, the service's
+    `/approve`/`/grant`, and this one) are covered, not only the two this
+    round's library and service fixes touched directly."""
+    from langgraph.types import Command
+
+    _seed(agent_conn)
+    agent = _wire_agent_large(agent_conn, allow_same_process_approval=True)
+    cfg = {"configurable": {"thread_id": "t-2p"}}
+
+    paused = agent.invoke({"messages": [("user", "wire acme a lot")]}, cfg)
+    approval_id = paused["__interrupt__"][0].value["approval_id"]
+    assert PAID == [], "nothing runs while only one of two approvers has acted"
+
+    # Not wrapped in tx(): cas_approve's own UPDATE is already one atomic,
+    # self-committing CAS, and this round's bug is exactly what an
+    # enclosing tx() does to this vote on NeedsMoreApprovers.
+    with pytest.raises(NeedsMoreApprovers):
+        approvals.cas_approve(agent_conn, approval_id, "operator-1", now_utc())
+    assert _approvals_table(agent_conn) == [(approval_id, "pending")]
+
+    approvals.cas_approve(agent_conn, approval_id, "operator-2", now_utc())
+    assert _approvals_table(agent_conn) == [(approval_id, "approved")]
+
+    agent.invoke(Command(resume={"decision": "approved", "approval_id": str(approval_id)}), cfg)
+
+    assert PAID == [2400.0], "exactly one execution, once both approvers are recorded"
+    assert _approvals_table(agent_conn) == [(approval_id, "consumed")]
 
 
 def test_resuming_an_ungranted_reference_is_refused(agent_conn: Connection) -> None:

@@ -1,4 +1,4 @@
-"""The guardrail engine — the deterministic core of Sutradhar.
+"""The guardrail engine — Sutradhar's own deterministic decision point.
 
 Every action from every source (scheduler, rule, LLM, UI) flows through here.
 The public surface is intentionally tiny: build a request with

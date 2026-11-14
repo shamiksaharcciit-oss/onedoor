@@ -1,0 +1,18 @@
+# A single action type bound to an audience this proxy is not that audience --
+# AADP -03 section 6. Exercises PermittedIntent.present_bound's own refusal
+# rule; the downstream tool named here is never actually reached.
+policies:
+  - action_type: mcp.bound_demo
+    tier: 1
+    dry_run: false
+    compensating_command: mcp.noop
+    present_bound: https://audience.example/consume
+    bounds:
+      strict_params: false
+
+  - action_type: mcp.noop
+    tier: 1
+    dry_run: false
+    compensating_command: mcp.noop
+    bounds:
+      strict_params: false

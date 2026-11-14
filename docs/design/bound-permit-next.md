@@ -113,7 +113,7 @@ that never applied does not appear).
 
 **Built.** `onedoor.permit.confirmation` (`build`/`check`/`find_reused_permits`)
 implements this, closing bound-permit profile §10 per a separate,
-not-yet-public format note; see [`docs/confirmation.md`](confirmation.md) and
+not-yet-public format note; see [`docs/confirmation.md`](../confirmation.md) and
 `CONFORMANCE.md` §3 (V22). The three open questions below, as this design note
 first posed them, resolved as built, not as originally framed:
 

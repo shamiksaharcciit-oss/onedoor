@@ -1,4 +1,4 @@
-"""P0 — Shamik's F-G and F-H, from the 0.6.1 Studio hands-on.
+"""P0 — the operator's F-G and F-H, from the 0.6.1 Studio hands-on.
 
 Both are reached **through the served app**, because both are things an operator meets in
 a browser and neither would have been visible from a library call. That is the F-A lesson

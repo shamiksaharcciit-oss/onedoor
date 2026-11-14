@@ -14,6 +14,7 @@ for executed actions).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass
@@ -82,6 +83,22 @@ class EngineConfig:
     # every decide response can carry regardless of whether bound permits are
     # ever used.
     issuer: str | None = None
+    # Rules across a sequence (onedoor 0.11): the per-session cap on
+    # `sequence_events` rows -- the oldest is dropped first once a session
+    # reaches it, regardless of any one rule's own `within_seconds` (storage is
+    # bounded independently of what a rule asks for). 500 is generous for a
+    # single agent session's own settled actions; raise it for a deployment
+    # whose sessions run far longer than that between restarts.
+    sequence_max_events_per_session: int = 500
+    # Two-person rule and escalation (onedoor 0.11): the deployment's own
+    # lookup from an action type to a backup approver identity, consulted
+    # only for a still-pending approval whose policy declares `approval.
+    # escalate_after_seconds` and only once that window has elapsed. None
+    # (the default) means escalation never fires, whatever a policy's own
+    # `escalate_after_seconds` says -- the same "a mechanism configured by
+    # its own hook, absent by default" shape `mandate_resolver` and
+    # `permit_issuer` already use.
+    escalation_resolver: Callable[[str], str | None] | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> EngineConfig:
@@ -198,6 +215,7 @@ def evaluate_and_execute(
         outcome=result_outcome,
         payload=payload,
         error=error,
+        approved_override=approved_override,
         now=now,
     )
 
@@ -215,8 +233,25 @@ def propose_action(
     cost_eur: Decimal = Decimal(0),
     now: datetime | None = None,
     policy_store: PolicyStore | None = None,
+    principal: str | None = None,
 ) -> ActionResult:
-    """The single write path. Mints the request id server-side (invariant 1/3/11)."""
+    """The single write path. Mints the request id server-side (invariant 1/3/11).
+
+    `principal` is recorded as who proposed a Tier-3
+    approval this call creates (`approvals.proposed_by`), the same identity
+    `cas_approve`'s self-approval exclusion later compares an approver
+    against. Omitted (the default), the row stays unattributed -- exactly
+    the 0.10.2 behaviour every existing caller of this function already
+    expects, unaffected by this new, optional keyword. Omitting
+    it is not merely silent about who proposed the action -- it also
+    means NO identity is excluded from later approving it. The
+    self-approval check compares the approver just presented against
+    `proposed_by`; with `proposed_by` left `NULL`, there is nothing to
+    compare against, so the very caller that proposed the action (under
+    whatever identity it later presents) can approve its own proposal.
+    Passing `principal` is what makes the proposer's own identity
+    something that exclusion can ever apply to.
+    """
     when = now or now_utc()
     request = ActionRequest(
         request_id=uuid4(),
@@ -229,7 +264,13 @@ def propose_action(
         created_at=when,
     )
     return evaluate_and_execute(
-        request, conn=conn, registry=registry, config=config, now=when, policy_store=policy_store
+        request,
+        conn=conn,
+        registry=registry,
+        config=config,
+        now=when,
+        policy_store=policy_store,
+        principal=principal,
     )
 
 
@@ -248,10 +289,23 @@ def resume_approval(
     This function authenticates nobody: `session_id` is whatever its caller
     established. The store refuses the approval when `session_id` is the principal
     recorded as having proposed the action.
+
+    `cas_approve` runs OUTSIDE any `tx(conn)` here, per its own docstring: it is
+    already one atomic, self-committing CAS. Above a policy's two-person
+    threshold, a first approver's `NeedsMoreApprovers` must propagate with that
+    vote already durable -- wrapping the call in an enclosing transaction would
+    roll the vote back along with the exception, which is not "not approved
+    yet", it is "the vote was lost".
     """
     when = now or now_utc()
+    # A library vote is its own channel, the same way a key vote and
+    # a link vote already are -- without this, a library vote carried no
+    # channel at all, invisible to the mixed-channel check, and could pair
+    # with a link vote (one recipient, one vote) to complete a two-person
+    # approval that was never really two distinct identities being checked
+    # against each other's channel.
+    original = approvals.cas_approve(conn, approval_id, session_id, when, channel="library")
     with tx(conn):
-        original = approvals.cas_approve(conn, approval_id, session_id, when)
         proposal_audit_id = approvals.proposed_audit_id(conn, approval_id)
         proposer_principal = approvals.proposed_decide_principal(conn, approval_id)
     resumed = original.model_copy(update={"request_id": uuid4(), "created_at": when})

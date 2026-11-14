@@ -1,0 +1,9 @@
+# A policy literally naming the synthesized unmapped-tool action type, at
+# tier 0 (OBSERVE). This should never exist in a real deployment -- it is
+# the "a policy happens to catch it anyway" edge case this module's own
+# note names -- but the gateway's refusal must hold even then: a tier-0 match
+# normally returns `Decision.EXECUTED` and forwards straight through, which
+# is exactly the path an unmapped tool must never take.
+policies:
+  - action_type: mcp.unmapped.delete_everything
+    tier: 0
