@@ -425,13 +425,20 @@ def _approval_ref_status(client: TestClient) -> str | None:
     return row["approval_ref_status"]
 
 
-def _approved_ref(client: TestClient, params: dict[str, object]) -> int:
+def _approved_ref(
+    client: TestClient, params: dict[str, object], *, proposing_key: str = "dkey"
+) -> int:
     """An approval already granted, sitting `approved` and unconsumed (ND-009).
 
     Built directly against the engine's own connection -- the admin HTTP route
     (`/v1/approvals/{id}/approve`) executes immediately and never leaves an
     `approved`-but-unconsumed row for a PEP to resume, so this is the only way to
     reach the state `approval_ref` exists to resume.
+
+    `proposed_by` is set to `proposing_key`'s own fingerprint, the same value
+    the real HTTP propose path would have recorded for whichever decide key
+    later presents the ref -- this fixture skips the HTTP propose call, not
+    the identity it would have authenticated.
     """
     engine = client.app.state.engine  # type: ignore[attr-defined]
     now = now_utc()
@@ -445,7 +452,11 @@ def _approved_ref(client: TestClient, params: dict[str, object]) -> int:
     )
     with tx(engine.conn):
         approval_id = approvals.create(
-            engine.conn, request, engine.config.approval_ttl_seconds, now
+            engine.conn,
+            request,
+            engine.config.approval_ttl_seconds,
+            now,
+            proposed_by=engine.principal(proposing_key),
         )
         approvals.cas_approve(engine.conn, approval_id, "human-1", now)
     return approval_id

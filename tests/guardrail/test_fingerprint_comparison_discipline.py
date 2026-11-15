@@ -13,7 +13,7 @@ from __future__ import annotations
 import ast
 import inspect
 
-from onedoor.guardrail import approval_ref
+from onedoor.guardrail import approval_ref, approvals
 from onedoor.service import app as app_module
 
 
@@ -47,11 +47,25 @@ def _check(func_node: ast.AST) -> tuple[bool, list[str]]:
 
 
 def test_approval_ref_resolve_binds_the_principal_with_compare_digest() -> None:
+    """`resolve()` delegates the comparison to `approvals.principal_matches` --
+    checked below, on that function, for the same discipline this test held
+    directly before the delegation existed -- rather than comparing inline."""
     source = inspect.getsource(approval_ref.resolve)
     tree = ast.parse(source)
     func_node = tree.body[0]
+    _, bare_hits = _check(func_node)
+    assert not bare_hits, f"a bare ==/!= compares a principal directly: {bare_hits}"
+    assert "principal_matches" in source, (
+        "resolve() must bind the principal through approvals.principal_matches"
+    )
+
+
+def test_principal_matches_itself_uses_compare_digest() -> None:
+    source = inspect.getsource(approvals.principal_matches)
+    tree = ast.parse(source)
+    func_node = tree.body[0]
     uses_compare_digest, bare_hits = _check(func_node)
-    assert uses_compare_digest, "resolve() must compare the principal with hmac.compare_digest"
+    assert uses_compare_digest, "principal_matches must compare with hmac.compare_digest"
     assert not bare_hits, f"a bare ==/!= compares a principal directly: {bare_hits}"
 
 
