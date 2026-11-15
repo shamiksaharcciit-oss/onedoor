@@ -156,7 +156,7 @@ def test_a_0_10_2_shaped_store_upgrades_cleanly(tmp_path: Path) -> None:
     applied = Database(path).init()
     assert "0049_shadow_decisions.sql" in applied
     assert "0050_shadow_decisions_coverage.sql" in applied
-    assert len(applied) == 20  # 0033 through 0052
+    assert len(applied) == 21  # 0033 through 0053
 
     conn = sqlite3.connect(path)
     try:
