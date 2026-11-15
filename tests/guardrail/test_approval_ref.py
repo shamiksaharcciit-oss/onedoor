@@ -354,16 +354,37 @@ def test_a_matching_consuming_principal_still_honors_the_ref(
     assert _status(conn) == ApprovalRefStatus.HONORED.value
 
 
-def test_a_row_with_no_recorded_proposer_keeps_todays_behaviour(
+def test_a_row_with_no_recorded_proposer_is_not_a_free_for_all(
     conn: Connection, config: EngineConfig
 ) -> None:
     """A pre-upgrade row, or a same-process caller with no key to fingerprint,
-    has `proposed_by IS NULL` — nothing to bind to, so nothing is checked, exactly
-    as before this binding existed."""
+    has `proposed_by IS NULL` — that absence is itself compared, not skipped: a
+    presenter who DOES authenticate a principal is a different identity from
+    it, refused exactly as a mismatched pair of real principals is, and the
+    approval is left untouched for whoever (or whatever absence) actually
+    proposed it."""
     _tier3(conn)
     request = _request()
     ref = _approved(conn, request, config, proposed_by=None)
+
     outcome = _present(conn, config, ref, request, principal="anyone-at-all")
+    assert not isinstance(outcome, PermittedIntent), "an authenticated presenter must not grant"
+    assert outcome.decision.decision is Decision.PROPOSED  # type: ignore[union-attr]
+    assert _status(conn) == ApprovalRefStatus.PRINCIPAL_MISMATCH.value
+    state = conn.execute("SELECT state FROM approvals WHERE id=?", (ref,)).fetchone()["state"]
+    assert state == "approved", "a principal mismatch must not consume the approval"
+
+
+def test_a_row_with_no_recorded_proposer_still_honors_an_equally_unauthenticated_presenter(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """The legacy case this binding must not break: a same-process caller
+    that authenticates no principal on either side — `None` on both —
+    still matches, since `None` matches only `None`, never anything else."""
+    _tier3(conn)
+    request = _request()
+    ref = _approved(conn, request, config, proposed_by=None)
+    outcome = _present(conn, config, ref, request, principal=None)
     assert isinstance(outcome, PermittedIntent)
     assert _status(conn) == ApprovalRefStatus.HONORED.value
 
