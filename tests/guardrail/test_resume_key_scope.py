@@ -8,6 +8,7 @@ authenticate.
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 from sqlite3 import Connection
 
 import pytest
@@ -16,8 +17,8 @@ from onedoor.guardrail import approvals
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionResult, CheckId, Decision
-from onedoor.store.db import tx
-from tests.conftest import FROZEN_NOW, make_request
+from onedoor.store.db import _MIGRATIONS_DIR, connect as db_connect, run_migrations, tx
+from tests.conftest import FROZEN_NOW, _seed_test_policies, make_request
 
 THREAD = "shared-thread-1"
 CALL = "shared-call-1"
@@ -245,3 +246,175 @@ def test_a_matching_principals_different_shaped_request_is_still_refused_with_bo
     ).fetchone()
     assert audit_row["resume_digest_expected"] is not None
     assert audit_row["resume_digest_actual"] is not None
+
+
+# --- FIX A: a principal's own resume once ANOTHER principal already holds its
+# own row at the same key (possible since the scoping fix lets each principal
+# hold one) must still find that caller's own row, never raise, and never be
+# blocked by a rival's row whether it is still live or has already lapsed. ---
+
+
+@pytest.mark.parametrize(
+    ("first_principal", "second_principal"),
+    [
+        ("aaa-principal", "zzz-principal"),  # proposal order matches alphabetical order
+        ("zzz-principal", "aaa-principal"),  # proposal order is the reverse of it
+    ],
+)
+def test_two_principals_each_resuming_their_own_row_does_not_raise(
+    conn: Connection, config: EngineConfig, first_principal: str, second_principal: str
+) -> None:
+    """Before the fix, `find_by_resume_key` read only the first in-flight row at
+    the key -- SQLite's own index order, which sorts by principal, not by
+    proposal order -- so whichever principal's identity sorted LATER found a
+    mismatch, was told "no row", and then collided with its own already-
+    existing row trying to `create` a fresh one. Both proposal orders are
+    covered here so the fix is not accidentally order-dependent.
+    """
+    first = _resume(conn, config, principal=first_principal, params=PARAMS_A)
+    assert isinstance(first, ActionResult)
+    first_id = first.approval_id
+    assert first_id is not None
+
+    second = _resume(conn, config, principal=second_principal, params=PARAMS_A)
+    assert isinstance(second, ActionResult)
+    second_id = second.approval_id
+    assert second_id is not None
+    assert second_id != first_id
+
+    first_again = _resume(conn, config, principal=first_principal, params=PARAMS_A)
+    assert isinstance(first_again, ActionResult)
+    assert first_again.approval_id == first_id, "the first principal must still reuse its own row"
+
+    second_again = _resume(conn, config, principal=second_principal, params=PARAMS_A)
+    assert isinstance(second_again, ActionResult)
+    assert second_again.approval_id == second_id, (
+        "the second principal must still reuse its own row, not raise"
+    )
+
+
+def test_a_rivals_lapsed_row_does_not_block_ones_own_still_live_resume(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A rival's row ahead of the caller's own in the lookup's read order used
+    to block the caller's resume whether that row was still live (a mismatch,
+    read as "no row for me") or had already lapsed (the old code returned
+    right after marking it expired, before ever reading the caller's own
+    row). Here the rival's row lapses first and the caller's own is still
+    live when the caller resumes -- the case the old code got wrong by
+    returning too early.
+    """
+    rival = _resume(conn, config, principal="aaa-rival", params=PARAMS_A, now=FROZEN_NOW)
+    assert isinstance(rival, ActionResult)
+    rival_id = rival.approval_id
+    assert rival_id is not None
+
+    own_created_at = FROZEN_NOW + timedelta(seconds=30)
+    own = _resume(conn, config, principal="zzz-own", params=PARAMS_A, now=own_created_at)
+    assert isinstance(own, ActionResult)
+    own_id = own.approval_id
+    assert own_id is not None
+
+    later = FROZEN_NOW + timedelta(seconds=config.approval_ttl_seconds + 5)
+    assert later < own_created_at + timedelta(seconds=config.approval_ttl_seconds), (
+        "the rival must have lapsed while the caller's own row is still live"
+    )
+
+    own_again = _resume(conn, config, principal="zzz-own", params=PARAMS_A, now=later)
+    assert isinstance(own_again, ActionResult)
+    assert own_again.approval_id == own_id, (
+        "the rival's lapse must not block the caller's own, still-live row"
+    )
+
+    rival_row = conn.execute("SELECT state FROM approvals WHERE id=?", (rival_id,)).fetchone()
+    assert rival_row["state"] == "expired"
+
+
+def test_a_third_principals_first_presentation_of_an_occupied_key_proposes_fresh(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """A third principal's first-ever presentation of a key two others already
+    hold rows at must still be an ordinary fresh proposal -- not blocked, not
+    told `RESUME_REQUEST_MISMATCH`, and not handed anyone else's id.
+    """
+    for principal in ("aaa-rival", "zzz-rival"):
+        occupied = _resume(conn, config, principal=principal, params=PARAMS_A)
+        assert isinstance(occupied, ActionResult)
+
+    third = _resume(conn, config, principal="third-principal", params=PARAMS_A)
+    assert isinstance(third, ActionResult)
+    assert third.decision.decision == Decision.PROPOSED
+    assert third.decision.reason_code != CheckId.RESUME_REQUEST_MISMATCH
+    assert third.approval_id not in (None,)
+
+
+def _legacy_0_11_1_store(tmp_path: Path, *, legacy_principal: str | None, ttl_seconds: int) -> Connection:
+    """A store whose one row at `THREAD`/`CALL` was written before migrations
+    `0051`-`0053` existed. 0.11.1's own resume-key index was global and
+    unscoped, so it could only ever hold one in-flight row per key at all --
+    this is the only starting shape a real upgrade can actually have.
+    """
+    path = str(tmp_path / "legacy_0_11_1.db")
+    conn = db_connect(path)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations "
+        "(version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
+    )
+    for migration_path in sorted(_MIGRATIONS_DIR.glob("*.sql")):
+        if migration_path.name >= "0051":
+            continue
+        conn.executescript(migration_path.read_text(encoding="utf-8"))
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+            (migration_path.name,),
+        )
+    _seed_test_policies(conn)
+    approvals.create(
+        conn,
+        make_request("demo.confirm", PARAMS_A),
+        ttl_seconds,
+        FROZEN_NOW,
+        proposed_by=legacy_principal,
+        thread_id=THREAD,
+        tool_call_id=CALL,
+    )
+    applied = run_migrations(conn)
+    assert any(name.startswith("0051") for name in applied)
+    assert any(name.startswith("0052") for name in applied)
+    return conn
+
+
+@pytest.mark.parametrize("legacy_principal", [None, "legacy-principal"])
+def test_two_principals_resume_cleanly_on_a_store_upgraded_from_0_11_1(
+    tmp_path: Path, config: EngineConfig, legacy_principal: str | None
+) -> None:
+    """The same two-principals-at-one-key scenario, replayed starting from a
+    store an actual 0.11.1 release wrote to: one legacy row, upgraded in
+    place, with a second principal then proposing fresh at the same key.
+    Neither the legacy proposer nor the newcomer may raise resuming, and
+    each must keep reusing its own row.
+    """
+    conn = _legacy_0_11_1_store(
+        tmp_path, legacy_principal=legacy_principal, ttl_seconds=config.approval_ttl_seconds
+    )
+    try:
+        legacy_row = conn.execute(
+            "SELECT id FROM approvals WHERE thread_id=? AND tool_call_id=?", (THREAD, CALL)
+        ).fetchone()
+        legacy_id = int(legacy_row["id"])
+
+        newcomer = _resume(conn, config, principal="new-principal", params=PARAMS_A)
+        assert isinstance(newcomer, ActionResult)
+        newcomer_id = newcomer.approval_id
+        assert newcomer_id is not None
+        assert newcomer_id != legacy_id
+
+        legacy_again = _resume(conn, config, principal=legacy_principal, params=PARAMS_A)
+        assert isinstance(legacy_again, ActionResult)
+        assert legacy_again.approval_id == legacy_id, "the legacy row's own proposer must still reuse it"
+
+        newcomer_again = _resume(conn, config, principal="new-principal", params=PARAMS_A)
+        assert isinstance(newcomer_again, ActionResult)
+        assert newcomer_again.approval_id == newcomer_id, "the newcomer must still reuse its own row"
+    finally:
+        conn.close()
