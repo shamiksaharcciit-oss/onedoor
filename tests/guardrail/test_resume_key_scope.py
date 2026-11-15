@@ -105,7 +105,7 @@ def test_a_second_principal_can_no_longer_consume_a_first_proposals_approval(
     assert _approval_state(conn, approval_id) == "approved", "must still not be consumed"
 
 
-# --- Every case of 30sr step 1, now scoped: same request shape, by state ---
+# --- Every state the severity investigation covered, now scoped: same request shape ---
 
 
 @pytest.mark.parametrize("state", ["pending", "approved", "expired"])
