@@ -433,7 +433,7 @@ truncated hex run with no digest word anywhere nearby is not one, and is
 caught as an ordinary commit id regardless of its trailing ellipsis."""
 
 _COMMIT_ID_ALLOWED_EXACT: dict[str, frozenset[str]] = {
-    "eval/RESULTS.md": frozenset({"2b63e26f89b5"}),
+    "eval/RESULTS.md": frozenset({"9f36450bbf9e"}),
     "tests/guardrail/test_resume_key_approval_state.py": frozenset({"5b7a260", "f7a9333"}),
     "tests/guardrail/test_stored_v2_chain.py": frozenset({"61aaeed", "8ac78aa"}),
 }
