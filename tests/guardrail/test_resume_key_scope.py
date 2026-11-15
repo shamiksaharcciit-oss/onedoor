@@ -17,7 +17,8 @@ from onedoor.guardrail import approvals
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import ActionResult, CheckId, Decision
-from onedoor.store.db import _MIGRATIONS_DIR, connect as db_connect, run_migrations, tx
+from onedoor.store.db import _MIGRATIONS_DIR, run_migrations, tx
+from onedoor.store.db import connect as db_connect
 from tests.conftest import FROZEN_NOW, _seed_test_policies, make_request
 
 THREAD = "shared-thread-1"
@@ -348,7 +349,9 @@ def test_a_third_principals_first_presentation_of_an_occupied_key_proposes_fresh
     assert third.approval_id not in (None,)
 
 
-def _legacy_0_11_1_store(tmp_path: Path, *, legacy_principal: str | None, ttl_seconds: int) -> Connection:
+def _legacy_0_11_1_store(
+    tmp_path: Path, *, legacy_principal: str | None, ttl_seconds: int
+) -> Connection:
     """A store whose one row at `THREAD`/`CALL` was written before migrations
     `0051`-`0053` existed. 0.11.1's own resume-key index was global and
     unscoped, so it could only ever hold one in-flight row per key at all --
@@ -411,10 +414,14 @@ def test_two_principals_resume_cleanly_on_a_store_upgraded_from_0_11_1(
 
         legacy_again = _resume(conn, config, principal=legacy_principal, params=PARAMS_A)
         assert isinstance(legacy_again, ActionResult)
-        assert legacy_again.approval_id == legacy_id, "the legacy row's own proposer must still reuse it"
+        assert legacy_again.approval_id == legacy_id, (
+            "the legacy row's own proposer must still reuse it"
+        )
 
         newcomer_again = _resume(conn, config, principal="new-principal", params=PARAMS_A)
         assert isinstance(newcomer_again, ActionResult)
-        assert newcomer_again.approval_id == newcomer_id, "the newcomer must still reuse its own row"
+        assert newcomer_again.approval_id == newcomer_id, (
+            "the newcomer must still reuse its own row"
+        )
     finally:
         conn.close()
