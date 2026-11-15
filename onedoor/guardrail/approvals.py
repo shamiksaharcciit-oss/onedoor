@@ -274,27 +274,42 @@ def find_by_resume_key(
     **A row at this key for a DIFFERENT principal is treated exactly as no
     row at all**: the first return value is `None`, the same as when nothing
     matches the key itself, and the caller gets no id, no state and no
-    `RESUME_REQUEST_MISMATCH` from it. The second return value is `True` in
-    that one case, so the caller can still record the fact in its own
-    ledger's evidence, never in anything a caller sees.
+    `RESUME_REQUEST_MISMATCH` from it. The second return value is `True`
+    whenever some OTHER principal holds an in-flight, unexpired row at this
+    key -- whether or not the caller also has its own -- so the caller can
+    still record the fact in its own ledger's evidence, never in anything a
+    caller sees.
+
+    Since migration `0052`, more than one principal can hold its own
+    in-flight row at the same key at once, so every row at the key is read
+    and every lapsed one is expired here -- not only the first one SQLite
+    happens to return, which (reading the index that satisfies this query)
+    is ordered by principal, not by proposal order. Reading and expiring
+    only the first row let a caller's OWN still-live row go unread whenever
+    some other principal's row sorted ahead of it, live or lapsed; the
+    caller's own resume then collided with its own existing row trying to
+    propose a "fresh" one that already existed.
 
     Returns the raw row (not an :class:`Approval`) because the caller needs
     `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
     would have to grow a field most callers never need.
     """
-    row: sqlite3.Row | None = conn.execute(
+    rows: list[sqlite3.Row] = conn.execute(
         "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? "
         "AND state IN ('pending', 'ratified', 'approved')",
         (thread_id, tool_call_id),
-    ).fetchone()
-    if row is None:
-        return None, False
-    if row["expires_at"] <= to_iso(now):
-        conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
-        return None, False
-    if not principal_matches(row["proposed_by"], principal):
-        return None, True
-    return row, False
+    ).fetchall()
+    own_row: sqlite3.Row | None = None
+    other_in_flight = False
+    for row in rows:
+        if row["expires_at"] <= to_iso(now):
+            conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
+            continue
+        if principal_matches(row["proposed_by"], principal):
+            own_row = row
+        else:
+            other_in_flight = True
+    return own_row, other_in_flight
 
 
 def get(conn: sqlite3.Connection, approval_id: int) -> Approval | None:
