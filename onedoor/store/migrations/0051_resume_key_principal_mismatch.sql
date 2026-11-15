@@ -1,0 +1,11 @@
+-- A resume-by-key lookup (approvals.py, find_by_resume_key) is now scoped to
+-- the caller's own principal: a row at the presented (thread_id, tool_call_id)
+-- for a DIFFERENT principal is treated exactly as no row at all -- same
+-- decision, same caller-visible result, no id, no state, no
+-- resume_request_mismatch. This column is the only place that fact survives,
+-- for operator evidence, never for anything a caller sees.
+--
+-- NULL on every row before this migration, and on every row this lookup
+-- finds nothing mismatched on afterward. True, never False, on the one row
+-- it does -- absent means it did not happen, never "checked and clear".
+ALTER TABLE actions_audit ADD COLUMN resume_key_principal_mismatch INTEGER;

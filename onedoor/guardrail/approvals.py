@@ -10,6 +10,7 @@ lives in :mod:`app.guardrail.executor` (which imports this), avoiding a cycle.
 
 from __future__ import annotations
 
+import hmac
 import json
 import sqlite3
 import unicodedata
@@ -213,10 +214,35 @@ def create(
     return int(cur.lastrowid or 0)
 
 
+_NO_PRINCIPAL = b"\x00onedoor/no-principal"
+"""A byte string no real principal can produce (`keys.fingerprint` output
+never carries a NUL), so `principal_matches` can compare the "nobody
+authenticated" case the same way it compares two real principals -- never a
+branch that skips comparing at all."""
+
+
+def _principal_bytes(principal: str | None) -> bytes:
+    return _NO_PRINCIPAL if principal is None else principal.encode("utf-8")
+
+
+def principal_matches(a: str | None, b: str | None) -> bool:
+    """Constant-time identity match. `None` matches only `None` -- a caller
+    who authenticated nobody is compared against that fact itself, not
+    treated as a wildcard that matches whoever else also authenticated
+    nobody only by accident of both being absent checks."""
+    return hmac.compare_digest(_principal_bytes(a), _principal_bytes(b))
+
+
 def find_by_resume_key(
-    conn: sqlite3.Connection, thread_id: str, tool_call_id: str, now: datetime
-) -> sqlite3.Row | None:
-    """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
+    conn: sqlite3.Connection,
+    thread_id: str,
+    tool_call_id: str,
+    now: datetime,
+    principal: str | None,
+) -> tuple[sqlite3.Row | None, bool]:
+    """The row, if any, a resume with this exact (thread_id, tool_call_id) AND
+    this exact principal would reuse -- and whether a row for a DIFFERENT
+    principal exists at this key, for the caller's own evidence only.
 
     The rule, stated once over every value of :class:`ApprovalState`: a row is
     IN FLIGHT while its state is `pending`, `ratified` or `approved` AND
@@ -238,10 +264,19 @@ def find_by_resume_key(
     time.
 
     An in-flight row found past its own `expires_at` is marked `expired`
-    here, in the caller's own transaction, before returning None -- nothing
-    in `onedoor/` calls `sweep`, so without this an approval past its expiry
-    would otherwise keep its in-flight state and be reused forever (and,
-    for `pending`/`ratified`, never actually be approvable again either).
+    here, in the caller's own transaction, before returning (None, False) --
+    nothing in `onedoor/` calls `sweep`, so without this an approval past its
+    expiry would otherwise keep its in-flight state and be reused forever
+    (and, for `pending`/`ratified`, never actually be approvable again
+    either). This runs whoever's row it is: a maintenance write, not a
+    disclosure, since the caller learns nothing from it either way.
+
+    **A row at this key for a DIFFERENT principal is treated exactly as no
+    row at all**: the first return value is `None`, the same as when nothing
+    matches the key itself, and the caller gets no id, no state and no
+    `RESUME_REQUEST_MISMATCH` from it. The second return value is `True` in
+    that one case, so the caller can still record the fact in its own
+    ledger's evidence, never in anything a caller sees.
 
     Returns the raw row (not an :class:`Approval`) because the caller needs
     `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
@@ -253,11 +288,13 @@ def find_by_resume_key(
         (thread_id, tool_call_id),
     ).fetchone()
     if row is None:
-        return None
+        return None, False
     if row["expires_at"] <= to_iso(now):
         conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
-        return None
-    return row
+        return None, False
+    if not principal_matches(row["proposed_by"], principal):
+        return None, True
+    return row, False
 
 
 def get(conn: sqlite3.Connection, approval_id: int) -> Approval | None:
