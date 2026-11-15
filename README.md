@@ -328,6 +328,16 @@ receipts, anchoring, and the receipt viewer are documented in
 [`docs/integration-service.md`](docs/integration-service.md). The ten-page
 operator manual is [`docs/OneDoor_User_Manual.pdf`](docs/OneDoor_User_Manual.pdf).
 
+**Every caller should authenticate and pass its own principal.** The HTTP
+service always derives one from the authenticated decide key; the MCP
+gateway and the shipped LangChain middleware each pass one fixed identity
+for everything they route, which still distinguishes them from any other
+caller but not from each other's own end users sharing that one instance. A
+caller that calls `decide_and_reserve` directly and passes no `principal` at
+all gets no isolation at all from another caller presenting the same
+`thread_id`/`tool_call_id` resume key -- name a principal, even a static
+per-deployment value, rather than leaving it unset.
+
 ## Limitations and non-claims
 
 onedoor decides on an action as it is described to it. A tool mapped to the

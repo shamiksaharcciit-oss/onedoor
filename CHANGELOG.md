@@ -5,6 +5,38 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
 not in this repository.
 
+## 0.11.2 — (not released)
+
+### Security — a resume key did not scope to the caller
+
+Affects `0.9.0` through `0.11.1`. `find_by_resume_key` (the
+`thread_id`/`tool_call_id` resume path used by LangGraph-style
+resumption) matched on the key alone, with no check against which
+caller proposed the row it found; a presented `approval_ref`'s own
+principal check skipped entirely when the original proposal recorded
+no principal at all. Together, a deployment where a caller proposes
+with no principal, and where a second caller can present the same
+`thread_id`/`tool_call_id` as a first caller's own (two sessions that
+happen to collide, or a caller able to choose or observe another's
+key), let that second caller learn and consume the first caller's own
+approval.
+
+A deployment calling `decide_and_reserve` only through the HTTP
+service, the MCP gateway, or the shipped LangChain middleware was not
+exposed: each of those always passes a principal. A deployment that
+calls the engine directly and never passes `principal` was exposed if
+it also exposed `thread_id`/`tool_call_id` resumption to more than one
+caller.
+
+`find_by_resume_key` now takes the caller's principal and matches it
+against the row's own proposer; a row for a different principal is
+treated exactly as no row, with no approval id, state, or mismatch
+reason returned to the caller. `approval_ref`'s own principal check no
+longer skips when the proposer recorded none — an unauthenticated
+presenter is compared against that absence like any other identity,
+not exempted from the check. Upgrading to `0.11.2` is the fix; no
+configuration change is needed.
+
 ## 0.11.1 — 2026-11-15
 
 A tidy-up release: no new feature and no behaviour change.
