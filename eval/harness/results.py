@@ -20,7 +20,7 @@ FIELDS = (
 @dataclass
 class RunMeta:
     onedoor_version: str
-    onedoor_commit: str
+    onedoor_tree: str
 
 
 def _scenario_line(
@@ -41,11 +41,12 @@ def render(
     outcomes_with: dict[str, list[ActionOutcome]],
     totals: Totals,
     record_verify_line: str | None,
+    recipient_opt_in_line: str | None = None,
 ) -> str:
     lines = [
         "# eval results",
         "",
-        f"onedoor {meta.onedoor_version} ({meta.onedoor_commit}).",
+        f"onedoor {meta.onedoor_version} (onedoor/ tree {meta.onedoor_tree}).",
         "",
         'Wording: "stopped" (denied or refused outright), "held" (proposed, '
         'awaiting a person), "carried out" (the simulated tool recorded an '
@@ -82,4 +83,20 @@ def render(
             continue
         lines.append(_scenario_line(s, outcomes_without[s.name], outcomes_with[s.name]))
     lines.append("")
+    if recipient_opt_in_line:
+        lines += [
+            "## The recipient opt-in control",
+            "",
+            "The default policy does not mark any input untrusted, so the injected-"
+            "recipient scenario above is a miss (`permitted`). A second, labelled run "
+            "of that same scenario, with the caller marking the recipient untrusted "
+            "and the policy listing it in `untrusted_params.hold`:",
+            "",
+            recipient_opt_in_line,
+            "",
+            "This needs the caller to mark the input; an unmarked call sees the "
+            "default behaviour above. Not tuned here: every other scenario's own "
+            "numbers are unchanged by this control.",
+            "",
+        ]
     return "\n".join(lines)

@@ -1,4 +1,4 @@
-"""Frozen descriptions and derivation records (ND-052 / S6, T2–T3).
+"""Frozen descriptions and derivation records (ND-052).
 
 **A description is RECEIVED DATA (E10).** It is the operator's own words, and it is the
 input to a derivation that gets a record — so it is frozen **byte-for-byte as received**

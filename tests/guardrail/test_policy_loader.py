@@ -142,7 +142,7 @@ def test_an_empty_compensating_command_is_not_a_dangling_reversal() -> None:
 def test_the_policy_reference_names_the_real_load_and_decision_time_behavior() -> None:
     """`docs/policy-reference.md`'s own compensating_command field note once
     said the named action type is "not checked to exist, at load time or at
-    decision time" -- true before this round, false after it (`load_file`
+    decision time" -- true before this fix, false after it (`load_file`
     now refuses an undeclared target). A doc that still said so would send an
     operator looking for a safety net that `load_file` already provides, or
     away from the gap that genuinely remains (a policy loaded through

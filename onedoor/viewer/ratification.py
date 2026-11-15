@@ -15,7 +15,7 @@ report", and the whole point is that there *is* something to report.
 **A cited backtest surfaces its `ledger_provenance` by dereferencing.** A
 fixture-informed ratification is legitimate and must be visible as one; a receipt that
 showed only a digest would let a demo-backed decision read as a production-backed one,
-which is the overclaim S1's label discipline exists to prevent.
+which is the overclaim the library's own label discipline exists to prevent.
 
 `RENDERERS` closes the set. `tests/viewer/test_ratification.py` asserts that every
 public `render_*` in this module is in it, and runs both disciplines against every

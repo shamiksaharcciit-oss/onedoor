@@ -1,4 +1,4 @@
-"""V4 / S5 — the live room: budgets, reservations, approvals, and the kill switch.
+"""The live room: budgets, reservations, approvals, and the kill switch.
 
 What the engine's state is *right now*, read and never written.
 

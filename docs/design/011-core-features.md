@@ -551,7 +551,7 @@ the same "rehearsal must not spend a real budget" reasoning this step
 already applies to caps, so it never actually spends anything; a
 permitted call that goes on to fail at the connector already spent its
 room, the ceiling having done its job the moment the call was authorized
-to be attempted. Intentional, not a defect this round changes — a plan's
+to be attempted. Intentional, not a defect this version changes — a plan's
 own ceiling bounds how many times, and for how much, a human let this
 run, not how many of those attempts a downstream system happened to
 carry out.
@@ -1207,7 +1207,7 @@ no separate storage bound beyond what the audit log already has.
 Undo is an operator or plan-engine act, not an agent-side one — the
 proxy's existing refusal of every `onedoor/*` method already covers this if
 it is ever exposed over MCP; stated here as a boundary, not a new refusal
-this round writes.
+being written now.
 
 ### Non-claims
 

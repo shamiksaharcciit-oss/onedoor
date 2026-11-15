@@ -1,4 +1,4 @@
-"""V5 / S3 — drafts: the pipeline the engine already has, made visible.
+"""Drafts: the pipeline the engine already has, made visible.
 
 A **read model over `canvas.build`**, plus the shape of the ratification ceremony. It
 computes nothing the engine does not already compute: `canvas` builds the panels,
@@ -114,7 +114,7 @@ class RuleDiff:
 
 @dataclass(frozen=True)
 class DraftView:
-    """Everything S3 shows about one draft, resolved before rendering."""
+    """Everything the drafts screen shows about one draft, resolved before rendering."""
 
     draft: store_model.Draft
     view: canvas_model.CanvasView

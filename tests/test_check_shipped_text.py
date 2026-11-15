@@ -141,6 +141,34 @@ def test_a_role_noun_added_to_the_constitution_is_still_caught() -> None:
     assert "role_noun" in _categories(_CONSTITUTION_PATH, "\n".join(lines))
 
 
+_ROLE_NOUN_ALLOWED_EXAMPLE_PATH = "scripts/verify_memo.py"
+
+
+def test_the_role_noun_allowed_paths_let_through_only_the_standalone_word() -> None:
+    """The five path-wide role-noun allowances used to let through EVERY
+    role-noun form just by matching the path -- none of these five files
+    actually uses anything but the first role-word standing alone
+    (confirmed against the real files), so every OTHER form is still a
+    hit there now, the same as anywhere else."""
+    assert "role_noun" not in _categories(
+        _ROLE_NOUN_ALLOWED_EXAMPLE_PATH, f"escalated to {CORE_ALONE} for review"
+    )
+    possessive = CORE_ALONE + "'s"
+    assert "role_noun" in _categories(
+        _ROLE_NOUN_ALLOWED_EXAMPLE_PATH, f"this is {possessive} own format"
+    )
+    assert "role_noun" in _categories(
+        _ROLE_NOUN_ALLOWED_EXAMPLE_PATH, f"From: {CORE_ALONE}\nSubject: x"
+    )
+    assert "role_noun" in _categories(
+        _ROLE_NOUN_ALLOWED_EXAMPLE_PATH, f"{ROLE_NOUN} flagged this one"
+    )
+    agent_word = "onedoor " + _join("age", "nt")
+    assert "role_noun" in _categories(
+        _ROLE_NOUN_ALLOWED_EXAMPLE_PATH, f"routed to the {agent_word} for review"
+    )
+
+
 @pytest.mark.parametrize(
     "path", [SHIPPED_PATH, SHIPPED_TEST_PATH, SDIST_MEMBER_PATH], ids=["module", "test", "sdist"]
 )
@@ -167,7 +195,7 @@ def test_a_bare_decision_record_id_is_not_itself_a_citation() -> None:
     scheme's own id, cited BARE (no "ruling" immediately in front), is
     this program's own legitimate normative-citation vocabulary, not a
     hit -- only the word "ruling" directly in front of one turns it into
-    a citation of THIS round-based protocol instead."""
+    a citation of THIS program's own numbered-unit review vocabulary instead."""
     bare_decision_record_id = _join("ND", "-0", "52")
     bare_older_scheme_id = _join("R", "0", "39")
     assert "ruling_id" not in _categories(
@@ -301,6 +329,16 @@ def test_a_truncated_digest_preview_is_not_a_commit_id() -> None:
     assert "commit_id" not in _categories(SHIPPED_PATH, f"digest {BARE_COMMIT_ID}...b945")
 
 
+def test_a_truncated_hex_run_with_no_digest_word_nearby_is_caught() -> None:
+    """The ellipsis allowance used to apply to ANY commit-shaped word
+    trailing an ellipsis, with nothing else required. An unpublished id
+    typed with a trailing ellipsis and no digest algorithm name or the
+    word "digest" itself anywhere nearby is an ordinary commit id, caught
+    like any other."""
+    assert "commit_id" in _categories(SHIPPED_PATH, f"fixed in {BARE_COMMIT_ID}…b945 already")
+    assert "commit_id" in _categories(SHIPPED_PATH, f"fixed in {BARE_COMMIT_ID}...b945 already")
+
+
 def test_a_real_commit_id_next_to_a_truncation_mark_is_still_caught_without_one() -> None:
     """The ellipsis allowance is scoped to the match's own trailing
     characters, not the sentence -- a real id with no ellipsis right after
@@ -313,11 +351,22 @@ def test_a_real_commit_id_next_to_a_truncation_mark_is_still_caught_without_one(
 
 def test_a_real_published_commit_is_allowed_only_in_its_own_named_file() -> None:
     """A commit id allowed because it is real and PUBLIC (reachable from
-    the public release this round started from) is scoped to the exact
+    the public release this work started from) is scoped to the exact
     file that legitimately cites it, not to the id in the abstract --
     the identical id is still caught anywhere else."""
-    published = _join("a49", "ecd7", "7af01")
-    text = f"onedoor 0.10.2 ({published})."
+    published = _join("61a", "aee", "d")
+    text = f"onedoor 0.11.1 ({published})."
+    assert "commit_id" not in _categories("tests/guardrail/test_stored_v2_chain.py", text)
+    assert "commit_id" in _categories(SHIPPED_PATH, text)
+
+
+def test_the_evaluations_own_tree_id_is_allowed_only_in_its_own_file() -> None:
+    """`eval/RESULTS.md`'s provenance line names a git tree id, not a
+    commit -- the same hex shape, caught by the same pattern, allowed by
+    the same exact-match mechanism and scoped the same way: the identical
+    id is still caught anywhere else."""
+    tree_id = _join("2b6", "3e2", "6f8", "9b5")
+    text = f"onedoor 0.11.1 (onedoor/ tree {tree_id})."
     assert "commit_id" not in _categories("eval/RESULTS.md", text)
     assert "commit_id" in _categories(SHIPPED_PATH, text)
 
@@ -386,6 +435,20 @@ def test_the_packages_own_author_field_is_allowed_in_metadata() -> None:
     )
 
 
+def test_the_packages_own_author_field_is_allowed_in_the_sdists_egg_info_copy() -> None:
+    """The sdist carries the author field twice: once at its own root
+    (`PKG-INFO`, already allowed) and once more, byte-identical, under
+    setuptools' own legacy egg-info directory. Neither is a tracked file;
+    both are the one declared field, so both need their own exact entry
+    now that the allowance matches a full path rather than a bare name."""
+    assert "person_name" not in _categories(
+        "onedoor.egg-info/PKG-INFO", f"Author: {PERSON_FULL_NAME}"
+    )
+    assert "person_name" not in _categories(
+        "onedoor-0.10.2.tar.gz!onedoor.egg-info/PKG-INFO", f"Author: {PERSON_FULL_NAME}"
+    )
+
+
 def test_the_author_field_allowance_survives_the_sdist_member_prefix() -> None:
     """`scan_sdist`/`scan_wheel` report a hit's path as `archive!member`
     (e.g. `onedoor-0.10.2.tar.gz!pyproject.toml`), never a bare tracked-file
@@ -398,6 +461,25 @@ def test_the_author_field_allowance_survives_the_sdist_member_prefix() -> None:
     assert "person_name" not in _categories(
         "onedoor-0.10.2-py3-none-any.whl!onedoor-0.10.2.dist-info/METADATA",
         f"Author: {PERSON_FULL_NAME}",
+    )
+
+
+def test_a_nested_file_sharing_an_allowed_root_files_own_name_is_still_caught() -> None:
+    """The allowance used to match by bare file NAME, so a nested file
+    merely sharing a root allowed file's own name slipped through too.
+    Matched by the full path now -- only the real root file, or a real
+    METADATA inside a real *.dist-info/ member path, is allowed."""
+    assert "person_name" in _categories(
+        "vendor/pyproject.toml", f"escalated to {PERSON_GIVEN_NAME} directly"
+    )
+    assert "person_name" in _categories(
+        "onedoor/CHANGELOG.md", f"bug reported by {PERSON_GIVEN_NAME}"
+    )
+
+
+def test_a_file_merely_named_metadata_outside_a_dist_info_path_is_caught() -> None:
+    assert "person_name" in _categories(
+        "some/random/METADATA", f"escalated to {PERSON_GIVEN_NAME} directly"
     )
 
 
@@ -421,7 +503,7 @@ def test_the_surname_is_allowed_inside_the_drafts_own_name() -> None:
     `draft-saha-aadp`, the AADP Internet-Draft's formal, author-named
     identifier (`CONFORMANCE.md`, `onedoor/guardrail/models.py`, and
     anywhere else the draft is cited by its own name) -- not a citation
-    of this round-based protocol."""
+    of this program's own review vocabulary."""
     surname = PERSON_FULL_NAME.split()[-1]
     assert "person_name" not in _categories(
         "onedoor/other_module.py", f"per draft-{surname.lower()}-aadp-03 section 3"

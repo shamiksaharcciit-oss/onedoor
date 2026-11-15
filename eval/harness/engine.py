@@ -143,6 +143,8 @@ def _run_one_with_service(
     body = {"action_type": action.action_type, "params": action.params}
     if approval_ref is not None:
         body["approval_ref"] = approval_ref
+    if action.untrusted:
+        body["untrusted"] = list(action.untrusted)
     reply = svc.decide.decide(body)
     decision, reason = _classify_reply(reply)
     held_for_person = False

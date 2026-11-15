@@ -1,4 +1,4 @@
-"""`ND-056` / T1 — what this rule will DO at decision time, kept apart from what the loader refuses.
+"""`ND-056` — what this rule will DO at decision time, kept apart from what the loader refuses.
 
 Two lists, never merged. `staging.staged` answers *"will the loader refuse this
 at boot?"*. This answers a different question — *"once loaded, how will this rule

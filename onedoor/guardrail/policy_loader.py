@@ -200,7 +200,7 @@ class _DecimalSafeLoader(yaml.SafeLoader):
     E10 applies to policy YAML as explicitly as it applies to the wire: *or bounds
     compare a Decimal against a float and the money-through-a-float defect reopens*.
     A policy written `max: 500.10` must mean exactly 500.10, not the double nearest
-    to it -- otherwise the bound admits anything that rounds onto it (S2).
+    to it -- otherwise the bound admits anything that rounds onto it.
     """
 
 

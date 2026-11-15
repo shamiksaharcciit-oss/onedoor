@@ -1,4 +1,4 @@
-"""V7 / S2 — the editor: a guided form and the raw rule, always in sync.
+"""The editor: a guided form and the raw rule, always in sync.
 
 Two panes over **one rule at a time**, inside a draft, and never anywhere near the live
 policy set.

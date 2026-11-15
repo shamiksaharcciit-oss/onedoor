@@ -9,6 +9,11 @@ onedoor is part of [oneproof](https://oneproof.dev/onedoor/).
 
 **A decision point for agentic systems: policy, before the action, with a measured record of what it stops and what it misses.**
 
+![Four calls to onedoor's decision service with their real responses: a €120 transfer permitted, a €450 transfer denied by the daily cap, a payout held for a person and then approved, and the kill switch denying a transfer](docs/img/onedoor-demo.gif)
+
+A 70-second video of the same walkthrough, with the Studio and the evaluation, is on the
+[0.11.0 release page](https://github.com/shamiksaharcciit-oss/onedoor/releases/tag/v0.11.0).
+
 **For reviewers:** [Project overview](#why-onedoor) &middot;
 [Safety approach](#how-it-works) &middot;
 [Supporting evidence](#tested-against-irreversible-actions) &middot;
@@ -59,7 +64,7 @@ for a worked example.
 A scripted, rerunnable evaluation (`eval/`) built from a published
 challenge's own failure modes for irreversible autonomous actions: eight
 categories of agent scenario, each run once against a plain executor that
-carries out everything proposed, and once through onedoor 0.10.2's real
+carries out everything proposed, and once through onedoor 0.11.1's real
 decision API.
 
 | category | harmful, without onedoor | harmful, with onedoor | legitimate, wrongly stopped | held for a person | duplicate effects (without / with) |
@@ -77,14 +82,22 @@ decision API.
 ![two bars per category: harmful actions carried out, without onedoor and with it](docs/img/eval-results.svg)
 
 Without onedoor, every harmful scenario action is carried out (16 of 16).
-With onedoor: zero legitimate actions are wrongly stopped, and three harmful
-actions still get through -- kept as findings rather than fixed: a naive
-retry after a tool timeout moves money or sends a message a
+With onedoor: zero legitimate actions are wrongly stopped, and by default
+three harmful actions still get through -- kept as findings rather than
+fixed: a naive retry after a tool timeout moves money or sends a message a
 second time (the duplicate-effects column; no retry correlation exists yet),
 and a message to a recipient named by injected text is not stopped by
 anything that checks *who* the recipient is (onedoor's policies gate by
-budget and rate, not by recipient reputation). Both are kept, with the
-roadmap item that would address them, in
+budget and rate, not by recipient reputation).
+
+When the caller marks the recipient untrusted and the policy lists it in
+`untrusted_params.hold` (0.11's opt-in control,
+[`eval/RESULTS.md`](eval/RESULTS.md#the-recipient-opt-in-control)), the
+harmful actions that get through drop from three to two: this needs the
+caller to mark the input, so an unmarked call still sees the
+default behaviour above. The retry-correlation gap is not addressed by
+this or any other control yet and stays open. Both findings are kept, with
+the roadmap item that would address each, in
 [`eval/FINDINGS.md`](eval/FINDINGS.md).
 
 Full table, every scenario's own line, and how to rerun it:
@@ -322,7 +335,7 @@ wrong action type, or an action described falsely by whatever called
 `decide_and_reserve`, is decided as described -- the decision point cannot
 see past the description it was given.
 
-The evaluation above measures scripted scenarios against onedoor 0.10.2;
+The evaluation above measures scripted scenarios against onedoor 0.11.1;
 it is not a claim about every agent, every tool, or every version.
 A recipient's confirmation shows the recipient said it acted -- not that it
 did, independent of what it says.
@@ -347,8 +360,6 @@ fact about the decision service's current code: **bound permits are
 library-only.** The decision service carries no presenter key thumbprint
 and configures no permit issuer, so a bound permit is issued through the
 library today, not over the service.
-
-## Known limitations
 
 **A decimal string in `params` was refused by a `numeric` bound -- a
 conformance defect, ours, fixed in 0.8.0.** `{"amount_eur": "40.00"}` is
@@ -378,7 +389,8 @@ Planned, no dates:
 - A recipient allow-list per action, with a held path for a new recipient.
   A plan can already declare a recipient list for the actions it covers
   (0.11.0), but only while a plan is active, not as a standing per-action
-  rule.
+  rule; a recipient off that list is simply not matched by the plan, and
+  is decided as usual.
 
 ## Licence and contributing
 

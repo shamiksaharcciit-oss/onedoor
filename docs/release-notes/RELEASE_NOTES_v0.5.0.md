@@ -1,8 +1,8 @@
 # onedoor 0.5.0
 
-Notes drawn **verbatim** from [CHANGELOG.md](CHANGELOG.md)'s `0.5.0` section (R011:
-release notes are a slice of the changelog, never a rewrite of it). Conformance status
-with every gap named lives in [CONFORMANCE.md](CONFORMANCE.md).
+Notes drawn **verbatim** from [CHANGELOG.md](../../CHANGELOG.md)'s `0.5.0` section —
+release notes are a slice of the changelog, never a rewrite of it. Conformance status
+with every gap named lives in [CONFORMANCE.md](../../CONFORMANCE.md).
 
 ---
 
@@ -201,9 +201,10 @@ a *declared closure* and not a bag of facts. Every digest is over canonical JSON
 concatenation appears and the `len8` dialect is not reached** — said plainly rather than
 decorated with an unused framing.
 
-Two amendments from R040, both where delivery's flags pointed. **`T` does not carry the
+Two amendments, both where delivery's flags pointed. **`T` does not carry the
 policy hash**: `E` already seals it as an input identity, and the same hash in two
-preimages is X-14 *inside the seal itself*. **`I` does not carry the anchor cadence**:
+preimages is a second answer to one question, inside the seal itself. **`I` does not
+carry the anchor cadence**:
 cadence schedules anchoring, not deciding, and inside `I` an ops-schedule tweak would
 have re-identified the deciding instrument for every row after it. It lives on the anchor
 object, where a change is visible in the stream it governs.
@@ -215,7 +216,7 @@ points at a *range of rows* and membership is resolved by lookup. A back-referen
 have been a second answer to a question the range already answers, needing a writable
 column on the one table whose value is that it cannot be written.
 
-**X-8, and the reason stated where it is enforced:** the chain is verified before a root
+**The reason stated where it is enforced:** the chain is verified before a root
 is computed, and a fault anywhere refuses the seal — an anchor over a broken chain would
 publish a root that certifies damage, permanently and in public.
 
@@ -268,7 +269,7 @@ append-only** (migration `0014`, with the same no-update/no-delete triggers as
 `actions_audit`): a retired key stays, because the receipts it signed must verify
 forever.
 
-**X-6 at enable time, not install time.** `cryptography` is a `[signed]` extra — a
+**Checked at enable time, not install time.** `cryptography` is a `[signed]` extra — a
 library-only user who never signs should not carry it. The failure that matters is a
 deployment that believes it signs and does not, and a hard install dependency does
 nothing about that, because belief comes from config. So **signing configured plus
@@ -294,7 +295,7 @@ tell a prober whether the ref existed. The forensic difference lives in
 `approval_ref_status`, the seven-value evidence field, and **not one reason code was
 added**.
 
-**Action-equivalence is identity up to spelling** (R035 §3): same `action_type`, and
+**Action-equivalence is identity up to spelling:** same `action_type`, and
 params equal under the canonical rendering. Key order and `250.00` versus `250` are
 spelling; `250` versus `900` is not. The human saw params, so an approval for €250
 cannot be spent on €900 — which effect-set equality alone would have allowed, since
@@ -344,8 +345,8 @@ because the table forbids `UPDATE` and sealed rows can never be re-hashed. `/2` 
 last bump that needed that window, and the boundary case is verified by a test.
 
 `sig`/`key_id`/`alg` stay excluded (a signature attests the row hash and cannot precede
-it) and `anchor_ref` stays excluded (X-8 anchors after re-verification, and an edited
-anchor fails the Merkle proof — the right detector for it). `ND-050` was deliberately
+it) and `anchor_ref` stays excluded (anchoring happens after re-verification, and an
+edited anchor fails the Merkle proof — the right detector for it). `ND-050` was deliberately
 **not** pre-folded: guessing its row shape to save a bump would be designing a ticket in
 a hurry inside another one.
 
@@ -405,17 +406,18 @@ exact bytes `row_hash` covers, written so an implementer with no access to the s
 can reproduce every digest from that text alone. `tests/guardrail/test_row_preimage.py`
 holds **a second implementation built from the document rather than from the code** —
 an implementation that agrees with itself has proved nothing — plus the four golden
-vectors R031 §1.3 named: the shift collision, absent-versus-empty, a value containing
+vectors: the shift collision, absent-versus-empty, a value containing
 the framing's own header bytes, and a one-byte perturbation.
 
 - **Absent is a type tag, never a zero-length string.** Every field enters as an
   `ABSENT` tag with no payload, or `PRESENT` + an 8-byte big-endian length + the bytes.
   NULL and `""` differ in their **first byte**. `budget_json` NULL means *no budget was
-  owed* and `""` would mean *a budget was produced and it was empty*; R015 makes those
-  different facts, and this is where an adversary would look for the collapse.
+  owed* and `""` would mean *a budget was produced and it was empty*; this programme
+  treats those as different facts, and this is where an adversary would look for the
+  collapse.
 - **The vendored artifact carries no length-prefix dialect**, checked rather than
   assumed — no `struct`, no `to_bytes`, no packing anywhere in it. So the encoding is
-  written down in full as R031 required, built on the one byte-level discipline the
+  written down in full instead, built on the one byte-level discipline the
   artifact does ratify: RFC 6962's domain-separation tags.
 - **A column is hashed or deliberately excluded, never neither.** A test asserts every
   column of `actions_audit` appears in the field order or in the exclusion table with
@@ -482,7 +484,7 @@ this sound?" eventually disagree, and the one the user sees would be the wrong o
 
 Both mandatory tests are **sabotage-verified in CI**, and the assertion is exact rather
 than "something failed": render-as-if-verified fails the failure-state property **and
-no other**; a fabricated digest fails the X-11 property **and no other**. A third
+no other**; a fabricated digest fails the no-self-vouching property **and no other**. A third
 sabotage was added unasked, because it is the likelier real mistake — nobody fabricates
 a digest on purpose, but somebody will format `10` as `10.00` to make a column line up,
 and under E8 those are the same value and different evidence.

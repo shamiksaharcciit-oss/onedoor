@@ -209,7 +209,7 @@ class NumericBound(BaseModel):
     `Decimal`, not `float`. These bounds are compared against parameter values that
     arrive over the wire, and E10 forbids an IEEE double anywhere on the evaluation
     path: a float bound admits any value that rounds onto it, so a request could
-    exceed the policy maximum by up to half an ulp and be allowed (S2, disclosed
+    exceed the policy maximum by up to half an ulp and be allowed (disclosed
     against <=0.3.6). Pydantic coerces int/float/str literals in policy YAML to
     Decimal here, so a policy written `max: 500.10` gets exactly 500.10.
     """
@@ -225,7 +225,7 @@ class NumericBound(BaseModel):
         `bounds_json` is part of the policy snapshot, and the snapshot is hashed into
         `version_hash`. Pydantic's default for Decimal is `str()`, which preserves
         authored scale -- so `max: 100.00` and `max: 100` would hash differently while
-        meaning the same rule (E8's named trap, S3 in the policy hash). One form, or
+        meaning the same rule (E8's named trap, in the policy hash). One form, or
         the content-hash stops meaning "the rules changed".
         """
         return None if value is None else canon_decimal(value)
@@ -458,7 +458,7 @@ class ApprovalPolicy(BaseModel):
     @field_serializer("two_person_above_eur")
     def _canonical(self, value: Decimal | None) -> str | None:
         """Same reason as `NumericBound`/`Caps`: `approval_json` is part of
-        the policy snapshot, hashed into `version_hash` (E8/S3) -- one
+        the policy snapshot, hashed into `version_hash` (E8) -- one
         canonical form, or `100` and `100.00` would hash differently while
         meaning the same rule."""
         return None if value is None else canon_decimal(value)

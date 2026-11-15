@@ -71,7 +71,7 @@ Then open **http://127.0.0.1:8787**.
 `onedoor-service.db` and the Studio's `--db` defaults to `onedoor.db`; accept both
 defaults and they point at *different stores*, so the Studio comes up, works, and shows
 you an empty world. If the store it opened has never held a policy, the Studio says so on
-its face — that is F-H, and this is the trap it was fixed for.
+its face, which is the fix for exactly this trap.
 
 ## 4. Walk the screens
 
@@ -79,7 +79,7 @@ In this order. Each is a tab.
 
 | # | Screen | What to look for |
 |---|---|---|
-| 1 | **Drafts** (`/`, which redirects to `/drafts`) | The empty state offers a form *and* a `curl` line — an affordance discoverable only by the lost is no affordance. On a fresh store you should also see the F-H warning naming both database defaults. |
+| 1 | **Drafts** (`/`, which redirects to `/drafts`) | The empty state offers a form *and* a `curl` line — an affordance discoverable only by the lost is no affordance. On a fresh store you should also see the empty-store warning naming both database defaults. |
 | 2 | **Policies** | Empty at first, and it says *nothing is permitted* rather than showing a blank. Read the sentence about absence being denial; it is the most load-bearing fact about the engine. |
 | 3 | **History** | No decisions yet. Note that filtering by API key is **not offered**, and the page says why: the ledger does not record one. |
 | 4 | **Live state** | The kill switch is shown and **cannot be thrown from here**, with the reason. Read what it says the switch does *not* stop. |
@@ -228,5 +228,5 @@ raw output side by side, with nothing repaired.
 ## What to write down
 
 Anything that surprised you, in your words, including things that merely felt wrong. The
-three findings that shaped this Studio most — F-A, F-G, F-H — all came from someone using
-it and saying what happened, not from a test.
+findings that shaped this Studio most all came from someone using it and saying what
+happened, not from a test.

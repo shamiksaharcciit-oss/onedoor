@@ -1,4 +1,4 @@
-"""Replay a candidate policy against the real ledger (ND-052 / S1, B1–B4).
+"""Replay a candidate policy against the real ledger (ND-052).
 
 *"Under this policy, yesterday's 214 actions: 209 allowed, 3 sent to approval, 2 denied
 — here they are."* The Studio's most demo-worthy moment, and it needs no model at all:
@@ -337,8 +337,8 @@ def policy_digest(candidate: list[Policy]) -> str:
     """The candidate's identity: a digest over its canonical form.
 
     Built from the models rather than from a store, because a candidate is a proposal
-    and has not been ratified into one. S2's ceremony is what turns a candidate into a
-    `version_hash`, and it will do that by citing `policy_loader.record_snapshot` rather
+    and has not been ratified into one. The ratification ceremony is what turns a candidate
+    into a `version_hash`, and it will do that by citing `policy_loader.record_snapshot` rather
     than re-deriving it.
     """
     return digest_obj(

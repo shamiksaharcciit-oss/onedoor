@@ -1,7 +1,7 @@
 # onedoor 0.6.2
 
-Notes drawn **verbatim** from [CHANGELOG.md](CHANGELOG.md)'s `0.6.2` section (R011:
-release notes are a slice of the changelog, never a rewrite of it).
+Notes drawn **verbatim** from [CHANGELOG.md](../../CHANGELOG.md)'s `0.6.2` section —
+release notes are a slice of the changelog, never a rewrite of it.
 
 ---
 
@@ -33,10 +33,10 @@ same filename in both commands. *A wrong default that cannot be noticed is a def
 
 ### Fixed — a browser form POST returned 422 before it ever reached the handler
 
-Found while building F-G. `from __future__ import annotations` makes every annotation a
+Found while building a different fix. `from __future__ import annotations` makes every annotation a
 string, and FastAPI resolves route annotations against the **module's** globals — not the
 closure `create_app` builds them in. `Request`, imported only inside that function, was
 invisible at resolution time, so FastAPI read `request: Request` as an unresolvable
 **query parameter**. The name now lives at module scope behind an import guard, and the
-X-6 property is unchanged: importing the module still works without FastAPI, and
+optional-dependency property is unchanged: importing the module still works without FastAPI, and
 `create_app` still refuses with a remedy.

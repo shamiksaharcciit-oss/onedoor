@@ -19,7 +19,10 @@ ROADMAP_RETRY_CORRELATION = (
     "closing the duplicate-effect gap"
 )
 ROADMAP_RECIPIENT_ALLOWLIST = (
-    "a recipient allow-list per action, with a held path for a new recipient"
+    "narrowed in 0.11.0 by an opt-in control (the caller marks the recipient "
+    "untrusted and the policy lists it in untrusted_params.hold); stays open for "
+    "a caller that does not mark it. A recipient allow-list per action, with a "
+    "held path for a new recipient, remains on the roadmap"
 )
 
 ROADMAP_FOR_CATEGORY = {

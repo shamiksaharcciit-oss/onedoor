@@ -28,6 +28,11 @@ policies:
     bounds:
       required: [recipient, body]
       strict_params: true
+    # onedoor 0.11's opt-in control: only takes effect when a caller marks
+    # `recipient` untrusted (the `untrusted` request field) -- unmarked, this
+    # has no effect at all, which is exactly why it is opt-in.
+    untrusted_params:
+      hold: [recipient]
 
   - action_type: messages.retract
     tier: 1

@@ -1,4 +1,4 @@
-"""V8 / S6 — the deposition page, and the command a stranger runs.
+"""The deposition page, and the command a stranger runs.
 
 **This module is written for a reader who distrusts the operator, the vendor, and this
 page.** Everything it asserts must be checkable by that reader with what the
@@ -87,7 +87,7 @@ def available(ledger: sqlite3.Connection) -> tuple[tuple[str, str], ...]:
     """`(ratification_digest, ratified_at)` for every receipt this store can export.
 
     Read from `ratifications`, so the list offers what `export` can actually serve —
-    the same discipline as V6's version dropdown, for the same reason.
+    the same discipline as the re-evaluation tool's version dropdown, for the same reason.
     """
     rows = ledger.execute(
         "SELECT ratification_digest, created_at FROM ratifications "

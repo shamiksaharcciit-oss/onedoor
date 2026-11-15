@@ -1,4 +1,4 @@
-"""The Studio's own store — `studio.db` (ND-052 / S3-T1).
+"""The Studio's own store — `studio.db` (ND-052).
 
 **The enforcer's database contains no row the Studio can edit.** That is the
 line this module exists to hold, and it is a sharper line than "the main store is
@@ -14,7 +14,8 @@ So drafts live here, beside the canvas that owns them.
 
 What follows from the split, each consequence already paid for
 ---------------------------------------------------------------
-**The ceremony is unaffected.** S1 and S2 take `list[Policy]` *as an argument*, so the
+**The ceremony is unaffected.** The backtest and the ratification ceremony each take
+`list[Policy]` *as an argument*, so the
 server loads a draft and passes models in memory. No second connection reaches inside
 the ceremony, because the ceremony never needed a draft's address — only its content.
 
@@ -54,8 +55,8 @@ from onedoor.studio import descriptions
 SCHEMA_VERSION = 3
 """The Studio store's own version. Not a number from the enforcer's migration sequence.
 
-Version 2 adds S6's `descriptions` and `derivation_records` (see
-`studio.descriptions`). Version 3 adds `ND-056`/T2's `state` column, so a draft can be
+Version 2 adds the proposer's own `descriptions` and `derivation_records` (see
+`studio.descriptions`). Version 3 adds `ND-056`'s `state` column, so a draft can be
 SUBMITTED for ratification without being ratified. Bumped rather than silently extended:
 a store written by version 1 and read by a build expecting version 3 must be
 recognisable as such, and `open_store` already refuses a store from the FUTURE for the
@@ -88,12 +89,12 @@ CREATE TABLE IF NOT EXISTS policy_candidates (
     base_version TEXT,
     created_at   TEXT NOT NULL,
     updated_at   TEXT NOT NULL,
-    -- ND-056/T2, schema 3. `draft` or `submitted`. NULL on rows written before the
+    -- ND-056, schema 3. `draft` or `submitted`. NULL on rows written before the
     -- column existed, and read as `draft` -- the same absent-value rule the enforcer
     -- uses for an unstamped `protocol`. `submitted` means a human has been ASKED; it
     -- never means anything has been ratified, and no API route can move a draft past it.
     state        TEXT,
-    -- ND-056/T3. The derivation_records row that produced this draft, when a model did.
+    -- ND-056. The derivation_records row that produced this draft, when a model did.
     -- NULL means a person wrote it, which is the ordinary case and not a gap: absence
     -- here is a fact, and the page says "written by hand" rather than leaving it blank.
     derivation_record_digest TEXT
@@ -327,7 +328,7 @@ def set_state(conn: sqlite3.Connection, draft_id: str, *, state: str) -> Draft:
 
 
 def set_derivation(conn: sqlite3.Connection, draft_id: str, *, record_digest: str) -> Draft:
-    """Record which model derivation produced this draft (ND-056/T3, wall 1).
+    """Record which model derivation produced this draft (ND-056, wall 1).
 
     Written once, at creation, beside the append-only `derivation_records` row it points
     at. The draft stays mutable — it is working state — but the RECORD it names does not,

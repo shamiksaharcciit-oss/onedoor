@@ -1,8 +1,7 @@
 """The permits category runs in-process, through the library
 (``decide_and_reserve``/``report_result``), not through the service: the service
 has no wire field for a presenter key thumbprint, and adding one would be a
-change to ``onedoor/``, which this branch does not make -- logged in
-``questions.md``.
+change to ``onedoor/``, which this branch does not make.
 
 Builds one fresh issuer/presenter keypair per run (deterministic within the
 run, never persisted) and exercises the real cross-package boundary:

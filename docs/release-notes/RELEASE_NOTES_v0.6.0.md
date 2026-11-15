@@ -1,8 +1,8 @@
 # onedoor 0.6.0
 
-Notes drawn **verbatim** from [CHANGELOG.md](CHANGELOG.md)'s `0.6.0` section (R011:
-release notes are a slice of the changelog, never a rewrite of it). Conformance status
-with every gap named lives in [CONFORMANCE.md](CONFORMANCE.md).
+Notes drawn **verbatim** from [CHANGELOG.md](../../CHANGELOG.md)'s `0.6.0` section —
+release notes are a slice of the changelog, never a rewrite of it. Conformance status
+with every gap named lives in [CONFORMANCE.md](../../CONFORMANCE.md).
 
 ---
 
@@ -30,7 +30,7 @@ that changes nothing behaves exactly as it did under `0.5.0`. The Studio keeps i
 gets a receipt"*; a proposal is not recomputable, so it gets a **derivation record**
 instead — one that says on its face that it does not attest re-derivability, and that
 *the candidate's authority comes from the checks it passes, never from the record*. The
-amendment and its reasoning are in [docs/studio-constitution.md](docs/studio-constitution.md).
+amendment and its reasoning are in [docs/studio-constitution.md](../studio-constitution.md).
 
 **Upgrading:** nothing to do. No engine migrations; the Studio store upgrades itself on
 first open.
@@ -125,7 +125,7 @@ down; the ledger says what happened.*
 **It is a view that cites, not a receipt.** Its result is a pure function of the policy
 snapshot's `version_hash` and the ledger's cited range, both already content-addressed,
 so a coverage digest would be a second address for facts that have one.
-[docs/coverage-derivation.md](docs/coverage-derivation.md) documents the derivation well
+[docs/coverage-derivation.md](../coverage-derivation.md) documents the derivation well
 enough for a second implementation — and records the impurity that writing it exposed:
 `actions_audit` stores action types but **not resolved effects**, so effect exercise is
 *derived from today's rules applied to past traffic*, which every rendering states.

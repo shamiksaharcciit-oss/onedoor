@@ -1,4 +1,5 @@
-"""`python -m onedoor.studio` — run the policy canvas (ND-052 / S3-T2).
+"""`python -m onedoor.studio` — run the policy canvas: a local web UI for
+drafting, backtesting and ratifying policy changes against the real ledger.
 
 Loopback only. The host flag exists so a deployer can choose `::1` over `127.0.0.1`,
 not so they can choose a routable address: `server.require_loopback` refuses anything

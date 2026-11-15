@@ -1,4 +1,4 @@
-"""One answer to "is this a number?" — ND-054 / F-B.
+"""One answer to "is this a number?" — `ND-054`.
 
 Before this module two paths answered that question separately: ``bounds.validate`` and
 ``caps.resolve_cost``. They disagreed about the decimal-string form, so **declaring a

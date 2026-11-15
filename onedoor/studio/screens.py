@@ -1,7 +1,7 @@
-"""The Studio's screens, rendered into the V1 shell.
+"""The Studio's screens, rendered into the shell.
 
 Markup only. Everything shown here is resolved by a read model first — `library.build`
-for S1 — so this module never touches a database and never decides what a policy means.
+for the library screen — so this module never touches a database and never decides what a policy means.
 That split is why the sentences on the detail page can be tested without a server and
 why this file has no opinion to get wrong.
 """
@@ -84,7 +84,7 @@ def _badge(state: str) -> str:
 
 
 def library_body(model: library.Library) -> str:
-    """S1: the library page."""
+    """The library page."""
     head = f'<h2>Policies</h2><div class="rulebar"></div><p class="lede">{escape(library.ABSENCE_IS_DENIAL)}</p>'
 
     if model.version is None:
@@ -127,11 +127,11 @@ def library_body(model: library.Library) -> str:
 def policy_body(
     policy: Policy, model: library.Library, words: library.FrozenWords | None = None
 ) -> str:
-    """S1 detail: what the rule does, beside what it says.
+    """The library detail: what the rule does, beside what it says.
 
     Two panes, labelled as **different kinds of claim**. The left is derived from the
     policy by `library.sentences`; the right is the rule itself. Neither is a
-    description an operator wrote — those are S6's, frozen as received bytes, and
+    description an operator wrote — those are the proposer's, frozen as received bytes, and
     presenting one as the other is the conflation the asserted/measured split exists to
     prevent.
     """
@@ -194,7 +194,7 @@ def not_found_body(action_type: str) -> str:
     )
 
 
-# --- V3 / S4: the execution ledger ------------------------------------------------------
+# --- The execution ledger ------------------------------------------------------
 
 
 def _filter_form(choices: dict[str, tuple[str, ...]], filters: history.Filters) -> str:
@@ -245,7 +245,7 @@ def _filter_form(choices: dict[str, tuple[str, ...]], filters: history.Filters) 
 
 
 def history_body(page: history.Page, choices: dict[str, tuple[str, ...]]) -> str:
-    """S4: the register."""
+    """The execution ledger's own register."""
     head = '<h2>History</h2><div class="rulebar"></div>' + _filter_form(choices, page.filters)
 
     if not page.entries:
@@ -328,7 +328,7 @@ def entry_body(row: Any) -> str:
             # A present `seq` renders bare (unprefixed, matching this cell's own prior
             # behaviour); a null one is "unchained" -- the same word the heading above
             # already uses for this row, never `shell.NOT_RECORDED`: chaining is
-            # opt-in/periodic (F-S2), a real state with a name, not a gap in what
+            # opt-in/periodic by design, a real state with a name, not a gap in what
             # ND-017 has built yet. The other three chain fields genuinely are that gap.
             escape(str(row[column]))
             if column == "seq" and row[column] is not None
@@ -360,7 +360,7 @@ def entry_body(row: Any) -> str:
     )
 
 
-# --- V4 / S5: the live room ---------------------------------------------------------
+# --- The live room ---------------------------------------------------------
 
 
 def _bar(bar: live.Bar) -> str:
@@ -398,7 +398,7 @@ def _bar(bar: live.Bar) -> str:
 
 
 def live_body(model: live.LiveState) -> str:
-    """S5: budgets, reservations, approvals, and the switch this Studio cannot throw."""
+    """The live room: budgets, reservations, approvals, and the switch this Studio cannot throw."""
     state = "refuse" if model.engaged else "allow"
     word = "engaged" if model.engaged else "not engaged"
     since = (
@@ -516,7 +516,7 @@ def live_body(model: live.LiveState) -> str:
     )
 
 
-# --- V5 / S3: drafts, and the ceremony ----------------------------------------------
+# --- Drafts, and the ceremony ----------------------------------------------
 
 
 def _honesty_footnote() -> str:
@@ -536,12 +536,13 @@ def drafts_body(
     *,
     db_defaulted: bool = True,
 ) -> str:
-    """S3 index: the drafts, and the form that makes one.
+    """The drafts index: the drafts, and the form that makes one.
 
-    Carries F-H's empty-store warning, which shipped in `0.6.2` on the old `/` page.
-    When V5 moved Drafts to `/drafts` the warning stayed behind on a page nothing linked
-    to — **a shipped fix quietly stranded by a redesign.** Caught by V8's universal pass;
-    it lives here now, on the page the operator actually reaches.
+    Carries the empty-store warning, which shipped in `0.6.2` on the old `/` page.
+    When Drafts moved to `/drafts` the warning stayed behind on a page nothing linked
+    to — **a shipped fix quietly stranded by a redesign.** Caught by a later, universal
+    pass over the app's own route table; it lives here now, on the page the operator
+    actually reaches.
 
     `db_defaulted` picks which warning has standing. It defaults to `True`
     because that wording carries the extra hypothesis, and a caller that did not say
@@ -558,9 +559,9 @@ def drafts_body(
         '<button type="submit">Open a draft</button></form>'
         '<p class="note">A draft is pinned to the version in force when it is opened, '
         "and edits nothing until it is ratified.</p>"
-        # F-G shipped this in 0.6.2 and V5 left it behind on the old page, the same way
-        # it stranded F-H's warning. An affordance discoverable only by the lost is
-        # worth keeping discoverable.
+        # This shipped in 0.6.2 and the move to /drafts left it behind on the old page,
+        # the same way it stranded the empty-store warning above. An affordance
+        # discoverable only by the lost is worth keeping discoverable.
         '<p class="note">or, from a terminal:</p>'
         "<pre>curl -X POST 'http://127.0.0.1:8787/drafts' "
         "--data-urlencode 'title=what this draft changes'</pre></div>"
@@ -720,9 +721,9 @@ def draft_body(
     *,
     upload: staging.StagedResult | None = None,
 ) -> str:
-    """S3 detail: the pin, the diff, the problems, the backtest, and the way to ratify.
+    """The draft detail: the pin, the diff, the problems, the backtest, and the way to ratify.
 
-    `derivation` is ND-056/T3's record, when a model drafted this. It is rendered as
+    `derivation` is `ND-056`'s record, when a model drafted this. It is rendered as
     provenance BESIDE the rules, never as an endorsement of them: what the reader
     approves is the parsed rules, and the record says what produced them and what it
     does not attest.
@@ -930,7 +931,7 @@ def receipt_body(outcome: Any, draft_id: str) -> str:
     )
 
 
-# --- V6: re-evaluate under version --------------------------------------------------
+# --- Re-evaluate under version --------------------------------------------------
 
 
 def reevaluate_block(
@@ -1036,7 +1037,7 @@ def reevaluate_block(
     )
 
 
-# --- V7 / S2: the editor ------------------------------------------------------------
+# --- The editor ------------------------------------------------------------
 
 
 def _field_html(field: Any) -> str:
@@ -1073,7 +1074,7 @@ def editor_body(
     message: str = "",
     error: str = "",
 ) -> str:
-    """S2: the guided form and the raw rule, rendered from ONE object.
+    """The editor: the guided form and the raw rule, rendered from ONE object.
 
     Both panes come from the same `policy`, so "always in sync" is true by construction
     rather than maintained by two parsers agreeing — see `editor` for why that matters.
@@ -1127,7 +1128,7 @@ def editor_body(
     )
 
 
-# --- ND-056 / T1: upload -------------------------------------------------------------
+# --- `ND-056`: upload -------------------------------------------------------------
 
 
 UPLOAD_NOTE = (
@@ -1187,7 +1188,7 @@ def validation_unavailable(draft_id: str) -> str:
     )
 
 
-# --- V8 / S6: the deposition page ---------------------------------------------------
+# --- The deposition page ---------------------------------------------------
 
 
 VERIFY_CHIPS = {
@@ -1201,7 +1202,7 @@ the worst error this page could make."""
 
 
 def verify_index_body(receipts: tuple[Any, ...]) -> str:
-    """S6 index: which receipts this store can hand a stranger."""
+    """The deposition index: which receipts this store can hand a stranger."""
     head = (
         '<h2>Verify</h2><div class="rulebar"></div>'
         f'<p class="lede">{escape(verify.CANNOT_VERIFY)}</p>'
@@ -1290,7 +1291,7 @@ def deposition_missing_body(digest: str) -> str:
     )
 
 
-# --- ND-056 / T1: the two validation lists, rendered apart --------------------------
+# --- `ND-056`: the two validation lists, rendered apart --------------------------
 
 
 def _refusal_row(refusal: staging.Refusal) -> str:
@@ -1402,7 +1403,7 @@ def validation_fragment(
     )
 
 
-# --- ND-056 / T3: natural-language authoring -----------------------------------------
+# --- `ND-056`: natural-language authoring -----------------------------------------
 
 
 def _instrument_block(instrument: dict[str, Any]) -> str:

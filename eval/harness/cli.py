@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import re
 import subprocess
 import sys
@@ -11,7 +12,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from eval.harness import chart, engine, findings, measures, results, service
-from eval.harness.scenario import CATEGORIES, load_all
+from eval.harness.scenario import CATEGORIES, Scenario, load_all
+
+RECIPIENT_OPT_IN_SCENARIO = "inj_message_to_untrusted_recipient"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "eval" / "scenarios"
@@ -32,15 +35,45 @@ def _onedoor_version() -> str:
     return match.group(1)
 
 
-def _onedoor_commit() -> str:
+def _onedoor_tree() -> str:
+    """The git tree id of `onedoor/` at `HEAD`, not a commit id -- a commit
+    made on this branch is never guaranteed to reach public history (this
+    file sits in the very tree its own commit would be made from, which is
+    circular), while a tree id is checkable by anyone against whatever
+    public commit actually ships it. Identical whether computed from this
+    branch's own head or from the release commit built from the same tree,
+    since both share one `onedoor/` subtree by construction."""
     out = subprocess.run(
-        ["git", "log", "-1", "--format=%H", "--", "onedoor"],
+        ["git", "rev-parse", "HEAD:onedoor"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=True,
     )
     return out.stdout.strip()[:12]
+
+
+def _recipient_opt_in_demo_line(scenarios: list[Scenario]) -> str | None:
+    """A second, labelled run of `RECIPIENT_OPT_IN_SCENARIO` alone: the same
+    scenario, but with its one action's `recipient` path marked `untrusted` by
+    the caller -- onedoor 0.11's opt-in control, declared on `messages.send`
+    as `untrusted_params.hold: [recipient]` (`eval/policies/eval_extra.yaml`).
+    Not folded into the totals table above: it is not a new scenario, only the
+    existing one's miss observed a second way, with the caller's own input
+    marked. Returns `None` when the scenario is not in this run (`--only`
+    scoped to a different category)."""
+    base = next((s for s in scenarios if s.name == RECIPIENT_OPT_IN_SCENARIO), None)
+    if base is None:
+        return None
+    marked_action = dataclasses.replace(base.actions[0], untrusted=("recipient",))
+    marked = dataclasses.replace(base, actions=(marked_action,))
+    now = datetime.now(UTC)
+    with service.start(tempfile.mktemp(suffix=".db")) as svc:
+        outcome = engine.run_with(marked, svc=svc, db_path="", now=now)[0]
+    return (
+        f"- `{marked.name}`, with the caller marking `recipient` untrusted: "
+        f"decided `{outcome.decision}` (was `permitted` unmarked, by default)."
+    )
 
 
 def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
@@ -75,8 +108,10 @@ def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
 
         record_line = record_mod.record_and_verify(scenarios, outcomes_with)
 
+    opt_in_line = _recipient_opt_in_demo_line(scenarios)
+
     totals = measures.compute(scenarios, outcomes_without, outcomes_with, parked)
-    meta = results.RunMeta(onedoor_version=_onedoor_version(), onedoor_commit=_onedoor_commit())
+    meta = results.RunMeta(onedoor_version=_onedoor_version(), onedoor_tree=_onedoor_tree())
     results_path = out_dir / "RESULTS.md" if out_dir else RESULTS_PATH
     findings_path = out_dir / "FINDINGS.md" if out_dir else FINDINGS_PATH
     chart_path = out_dir / "eval-results.svg" if out_dir else CHART_PATH
@@ -90,6 +125,7 @@ def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
             outcomes_with=outcomes_with,
             totals=totals,
             record_verify_line=record_line,
+            recipient_opt_in_line=opt_in_line,
         ),
         encoding="utf-8",
         newline="\n",

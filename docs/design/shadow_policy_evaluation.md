@@ -131,7 +131,7 @@ modeled here.
 This is a disclosed scope cut, not an oversight. Replicating every escalation
 path correctly — and keeping a second copy of that logic in step with the
 first as it keeps growing — is a materially larger undertaking than the rest
-of this round, and getting it subtly wrong would be worse than not having it:
+of this tool's own scope, and getting it subtly wrong would be worse than not having it:
 a shadow verdict that silently disagrees with the live one for a reason
 nobody wrote down defeats the point of the comparison. A shadow verdict
 answers "what would this policy's own declared limits have allowed",
@@ -145,7 +145,7 @@ Nothing here is wired into `decide_and_reserve` itself. `evaluate`/`record`
 are standalone, callable alongside a real decision by whatever already has
 the connection and the request — a script, a scheduled job reading recent
 `actions_audit` rows, or (later) an opt-in hook inside the engine's own
-transaction. Not auto-wiring it into the hot path this round is itself a
+transaction. Not auto-wiring it into the hot path now is itself a
 disclosed choice: the live pipeline's own correctness is what every other
 invariant in this engine depends on, and this feature's own correctness has
 not yet had a release's worth of real use. Composing it in from outside costs

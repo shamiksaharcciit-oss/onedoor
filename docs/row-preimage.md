@@ -2,15 +2,15 @@
 
 **Normative.** This document defines the exact bytes that `actions_audit.row_hash`
 is computed over. It is written so an implementer with no access to the Python source
-can reproduce every digest from this text alone (P2-06), and
+can reproduce every digest from this text alone, and
 `tests/guardrail/test_row_preimage.py` holds a second implementation built from this
 document rather than from the module.
 
-**Ruled by R031 §1; ratified as the programme's SINGLE NORMATIVE SOURCE by R032 §2.**
+**This document is the programme's SINGLE NORMATIVE SOURCE for the encoding.**
 `ND-015` signs `row_hash` and `ND-017`'s `E` addresses these same bytes: both **cite
 this document and never re-derive**. A second derivation anywhere would be two answers
-to one question at the exact spot an attacker would shop for a disagreement — X-14, at
-the preimage. `tests/guardrail/test_row_preimage.py` enforces it structurally rather
+to one question at the exact spot an attacker would shop for a disagreement: the
+preimage. `tests/guardrail/test_row_preimage.py` enforces it structurally rather
 than by promise: `onedoor/guardrail/preimage.py` is the only module permitted to build
 these bytes, checked by AST, so a future ticket cannot quietly grow its own.
 
@@ -23,9 +23,9 @@ be actively trying to make two different rows produce the same digest.
 
 ## 1. The dialect this follows, quoted so the citation is checkable
 
-**Length encoding — `len8`, from the Provenance Primitives Spec v1.1 §1 (Q-11)**, the
-programme's ratified length-prefix convention. Quoted verbatim rather than referenced,
-so this document can be checked without a cross-repo hunt:
+**Length encoding — `len8`**, the programme's ratified length-prefix convention,
+adopted from an external spec rather than invented here. Quoted verbatim rather than
+referenced, so this document can be checked without a cross-repo hunt:
 
 > `uid = SHA256( len8(c) ‖ c ‖ len8(s) ‖ s ‖ len8(n) ‖ n )` — each part preceded by its
 > byte length as an **8-byte big-endian integer**.
@@ -35,10 +35,9 @@ Every PRESENT field below is exactly `len8(x) ‖ x`. One `len8` programme-wide.
 **Type tags — onedoor's documented extension, and stated as one.** The spec's uid
 preimage has **no absent case**: all three of its parts always exist, so it never had to
 say what "this field was not there" looks like. An audit row is not like that —
-`budget_json` is NULL on most rows and `""` on none, and R015 makes those different
-facts. So the ABSENT/PRESENT tag layer is **new here**, ruled by R031 §1.1, adopted as
-programme vocabulary by R033 §2, and it is an extension rather than a reading of the
-spec.
+`budget_json` is NULL on most rows and `""` on none, and this programme treats those as
+different facts. So the ABSENT/PRESENT tag layer is **new here**: an extension this
+programme's own vocabulary adds, rather than a reading of the spec.
 
 Also inherited, from the vendored `rederivable-manifest` v3 (`onedoor/_vendor`):
 **SHA-256, lowercase hex** (rule 5); decimals (rule 1), datetimes (rule 2),
@@ -48,15 +47,15 @@ rendered; and rule 6's one-byte domain-separation discipline (`0x00`/`0x01`, RFC
 
 ### How this citation came to be checkable
 
-R031 §1.2 and then R032 §2 both directed this encoding to follow *"the vendored
-artifact's uid-preimage convention… read from the vendored files."* Delivery read them —
+This encoding was directed to follow *"the vendored artifact's uid-preimage
+convention… read from the vendored files."* Delivery read them —
 all ten files of `reference/rederivable-manifest/` and the byte-identical copy in
 `onedoor/_vendor` — and **the convention is not in either**: no `to_bytes`, no `pack(`,
 no `uid`, no byte-order token, and every byte literal in the artifact is `b""`, a
 read-chunk sentinel, the two RFC 6962 tags, and five test fixtures.
 
-Escalation 008 reported that rather than writing an unverifiable provenance into a
-normative document, and **R033 §1 sustained it in full**: the claim was false, and the
+This gap was caught rather than silently writing an unverifiable provenance into a
+normative document, and the finding was confirmed in full: the claim was false, and the
 dialect lives in a different artifact that onedoor does not carry. Hence the quotation
 above. **A citation that carries its own content cannot rot into a pointer at nothing**,
 which is the whole reason this section is written this way.
@@ -82,10 +81,10 @@ The preimage is the concatenation, in the order of §3, of:
   in another language reaches for first. Eight bytes exceeds any value SQLite can
   store, so the width never has to change.
 - **ABSENT is a tag with no payload; an empty value is `0x01` + eight zero bytes.**
-  NULL and `""` therefore differ in their first byte and in their length. This is the
-  clause R031 §1.1 pinned, and it is load-bearing: `budget_json` NULL means *no budget
-  was owed*, `""` would mean *a budget was produced and it was empty*, and R015 makes
-  those different facts. Collapsing them would kill the null-versus-empty distinction
+  NULL and `""` therefore differ in their first byte and in their length. This is a
+  load-bearing distinction: `budget_json` NULL means *no budget
+  was owed*, `""` would mean *a budget was produced and it was empty*, and this
+  programme treats those as different facts. Collapsing them would kill the null-versus-empty distinction
   precisely where an adversary would go looking for it.
 - **`MAGIC` is domain separation and the authoritative version statement.** A row
   preimage can never be mistaken for `ND-017`'s `E` preimage, a Merkle leaf, or
@@ -137,7 +136,7 @@ Order is fixed. **Reordering is a new preimage version, not a refactor.**
 | 35 | `resume_digest_actual` | generated — UTF-8, the digest hex. **`/6` and later only** |
 | 36 | `permit_jti` | generated — UTF-8, the minted identifier. **`/7` and later only** |
 
-**E10 at the boundary (R031 §1.4): the preimage performs no normalisation of its own.**
+**E10 at the boundary: the preimage performs no normalisation of its own.**
 It seals what the row holds, exactly. A "generated" field was already canonicalised
 when it was written — `budget_json` through the canonical renderer, decimals through
 `canon_decimal`, datetimes through `canon_datetime` — and the preimage does not
@@ -158,7 +157,7 @@ same octets.
 | `sig`, `key_id`, `alg` | `ND-015` signs the row hash. A signature inside its own preimage is circular. |
 | `e_digest`, `i_digest`, `t_digest`, `v_digest` | `ND-017` computes these *from* the row. |
 | `preimage_version` | A **hint**, not the authority — §7. A hashed version field would have to be known before choosing the version that hashes it. Self-authenticating: a row whose hint disagrees with how it was sealed fails verification under the version it names, which is detection rather than confusion. |
-| `anchor_ref` | Assigned after anchoring, which under **X-8** happens only after verification — so it is later than the hash by construction. |
+| `anchor_ref` | Assigned after anchoring, which by design happens only after verification — so it is later than the hash by construction. |
 | `untrusted_matched_json` | Outside the preimage; inside the decision digest when set. Deliberately outside the frozen preimage this version seals, the same reason every 0.11 feature's new columns stay out of it: each is an addition a 0.10.x reader already ignores, not a new obligation on a verifier that has never heard of it. Bumping the preimage version per feature round would make every one of them a breaking change instead of the additive one each is meant to be. Not therefore unprotected: `decision_digest.OMIT_WHEN_NONE` (the same list `decide_principal`, `resume_digest_expected`/`resume_digest_actual` and `permit_jti` are already on) only skips it while it is `None` — every row before migration `0034`, and every row whose policy carries no `untrusted_params` block at all. A row whose policy DOES declare one has a real value included (even an empty list, when nothing matched), and tampering with it moves the digest like any other column. |
 | `sequence_events_considered`, `sequence_rule_matched`, `sequence_history_incomplete` | Outside the preimage; inside the decision digest when set — the same treatment as `untrusted_matched_json` just above, for the same reason. `decision_digest.OMIT_WHEN_NONE` skips each only while it is `None` — every row before migration `0037`, and every row whose policy carries no `sequence` block. A row whose policy DOES declare one has real values included (even zero/False, when nothing matched), and tampering with any of them moves the digest like any other column. |
 | `plan_ref`, `plan_consumed_count_after`, `plan_consumed_amount_after` | Outside the preimage; inside the decision digest when set — the same treatment and the same reason as `untrusted_matched_json` above. `decision_digest.OMIT_WHEN_NONE` skips each only while it is `None` — every row before migration `0039`, and every decision a plan did not satisfy. A row a plan match actually produced has real values included, and tampering with any of them moves the digest like any other column. |
@@ -171,7 +170,7 @@ hash would be a field an attacker could edit without breaking the chain, and it 
 be invisible in review — the schema would look complete and the hash would not cover
 it.
 
-## 5. Golden vectors (R031 §1.3)
+## 5. Golden vectors
 
 Held in `tests/guardrail/test_row_preimage.py`, each named for the attack it refuses.
 
@@ -179,7 +178,7 @@ Held in `tests/guardrail/test_row_preimage.py`, each named for the attack it ref
    same preimage. This is the classic failure of naive concatenation, and it is why
    the length prefix exists at all.
 2. **Absent versus empty.** A row with `detail` NULL and the same row with `detail =
-   ""` must differ. R031 §1.1's clause, as a vector.
+   ""` must differ. The absent-versus-empty clause above, as a vector.
 3. **Header bytes inside a value.** A field whose *content* is the byte sequence
    `0x01` followed by eight bytes must not be confusable with a tag-plus-length
    header. Fixed-width prefixes make this structurally impossible; the vector proves
@@ -190,10 +189,10 @@ Held in `tests/guardrail/test_row_preimage.py`, each named for the attack it ref
 
 `row_hash = sha256(preimage)`, lowercase hex. Row *n*'s `prev_hash` is row *n−1*'s
 `row_hash`; the first chained row (**genesis**) carries `prev_hash` = 64 ASCII zeros
-(R016 — an affirmative in-band statement that no predecessor exists, leaving NULL
+(an affirmative in-band statement that no predecessor exists, leaving NULL
 exactly one meaning).
 
-A walker reports **four** outcomes and never collapses them (R031 §2):
+A walker reports **four** outcomes and never collapses them:
 
 | Outcome | When |
 |---|---|
@@ -210,7 +209,7 @@ and **not** "failed". It is both, stated per region.
 | Version | Field order | Added |
 |---|---|---|
 | `onedoor/row-preimage/1` | §3 rows 1–29 | the original (`ND-001`) |
-| `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`, R035 §1) |
+| `onedoor/row-preimage/2` | §3 rows 1–30 | `approval_ref_status` (`ND-009`) |
 | `onedoor/row-preimage/3` | §3 rows 1–31 | `evaluation_trace_json` (see the design note for this version) |
 | `onedoor/row-preimage/4` | §3 rows 1–32 | `resumes_audit_id` (migration `0025`) |
 | `onedoor/row-preimage/5` | §3 rows 1–33 | `decide_principal` (migration `0029`) |
@@ -234,7 +233,7 @@ existed, a new hashed column was possible only while chaining was off everywhere
 impossible for any deployer who had switched it on, because the table forbids `UPDATE`
 and sealed rows can never be re-hashed.
 
-`/2` was the last bump that needed the everything-off window (R035 §1) — the hint
+`/2` was the last bump that needed the everything-off window — the hint
 mechanism it introduced is exactly what made `/3` possible on a live chain without one.
 `tests/guardrail/test_chain.py` verifies both boundary cases directly: a chain
 carrying rows of `/1` and `/2`, and one carrying `/2` and `/3`, each verify end to end,

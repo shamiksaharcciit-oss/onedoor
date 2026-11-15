@@ -4,10 +4,10 @@
 **Purpose:** a third party holding a coverage citation must be able to reproduce every
 row on the map **without asking this store**, and without running the engine.
 
-R049 §5 made this document a requirement rather than a courtesy, and attached a test to
-it: *if it cannot be written clearly enough for a second implementation, the derivation
-is not as pure as the ruling assumes, and that finding comes back to the board.* It was
-written; §6 records the finding it exposed **and the ruling that closed it** (R050 §4).
+This document is required, not a courtesy, and carries a test to prove it: *if it
+cannot be written clearly enough for a second implementation, the derivation
+is not as pure as assumed, and that finding comes back to the board.* It was
+written; §6 records the finding it exposed **and how it was closed**.
 
 ---
 
@@ -22,8 +22,8 @@ coverage_map = f(policy_snapshot, ledger_range)
 ```
 
 So minting a `coverage_digest` would be a **second address for facts that already have
-one** — forbidden at the preimage (R040) and sustained at the ratification preview
-(R045). **The citation pair is the receipt.**
+one** — forbidden at the preimage and sustained at the ratification preview.
+**The citation pair is the receipt.**
 
 ## 2. The citation
 
@@ -104,11 +104,11 @@ the effect policy exists.
 That is why `declared_inert` outranks every other state in `PROMINENCE`: it is a **silent
 permit** inside a rule its author believes is governing, while `uncovered_observed` is a
 **loud denial** the engine already handles safely. **Rank by what a state does at
-decision time, not by how alarming its name sounds** (R049 §3).
+decision time, not by how alarming its name sounds.**
 
 ## 6. What this derivation projects, and what it does not recall — **ruled**
 
-**`would_exercise` is a projection, and its name now says so** (R050 §4). It was
+**`would_exercise` is a projection, and its name now says so.** It was
 `exercised_effects`, which claimed history the computation cannot deliver; the ruling was
 a rename rather than a migration, and this section records the answer rather than the
 deliberation that produced it.

@@ -1,6 +1,6 @@
 # Dogfooding script — the pass that gates the `0.7.0` tag
 
-**Regenerated after R086; A0 patched after R088.** The first pass on this script reached
+**Regenerated once; A0 patched again after that.** The first pass on this script reached
 section C in about forty minutes and could not continue: it never seeded the store, so
 C1b had no rule to open, and a fenced YAML block copied by hand picked up its own
 language tag as the file's first line. Both are script defects, fixed then — not
@@ -9,7 +9,7 @@ the Studio itself; this script now describes the product as it actually behaves.
 
 The **second** pass, on the regenerated script, reached A0 and reused a `pass.db` a
 dry-run had already left on disk sixteen hours earlier — "purpose-made store" failed
-**silently**, and operator suspicion was the only detector (R088 §3, F-S1). A0 now
+**silently**, and operator suspicion was the only detector. A0 now
 removes any `pass*.db*` and `pass-policies.yaml` already on disk before it seeds, and
 says so, rather than reusing them without a word.
 
@@ -61,8 +61,11 @@ ahead. Do not stop to diagnose.
 > **Why the route is shaped like this.** It is not a tour of the screens. It builds state
 > early and consumes it late — one draft is created in the editor, uploaded over, submitted
 > through the API, ratified in the ceremony, replayed under two versions, and finally
-> verified by a command that does not trust the Studio. **The seams are where F-A, F-G and
-> F-H lived**, and none of them was a screen; each was a place where two screens met.
+> verified by a command that does not trust the Studio. **The seams are where this script's
+> own defects were found before** — a page that only broke once actually served, an
+> empty state with nothing to do next, two defaults silently pointing at different
+> stores — and none of them was inside a single screen; each was a place where two
+> screens, or two assumptions, met.
 
 > **Quoted text is quoted for a reason.** Where a line below is in quotation marks, that
 > exact sentence is a constant in the code, and `tests/studio/test_dogfooding_script.py`
@@ -80,7 +83,7 @@ cannot complete it at all — see the paragraph above.
 `pass-studio.db`, `pass-policies.yaml`, `bad.yaml`, `broken.yaml`. None of them is
 committed; none of them is read by anything outside this pass. **A0 removes the first
 three before it seeds them fresh** — a leftover from a previous run is never reused
-silently (F-S1); it is deleted, out loud, before this run writes its own.
+silently; it is deleted, out loud, before this run writes its own.
 
 ---
 
@@ -99,12 +102,12 @@ seeded store] — remove any leftover pass files, then seed a purpose-made store
 **Do:** in the first terminal, from the repo root. **"Purpose-made" means made by THIS
 run** — a `pass.db`, `pass-studio.db` or `pass-policies.yaml` a previous dry-run, a
 previous pass, or a previous session left behind is exactly as ambient as `onedoor.db`,
-and reusing one silently is F-S1 (R088 §3): the block below removes all three before
-anything is written, so the removal is never silent and the seed that follows is never
-a reuse. **On Windows, a file a running Studio server still has open cannot be
-removed** (R090 §5) — the block below detects that and stops on its own rather than
+and reusing one silently is the exact defect found before: the block below removes all
+three before anything is written, so the removal is never silent and the seed that
+follows is never a reuse. **On Windows, a file a running Studio server still has open
+cannot be removed** — the block below detects that and stops on its own rather than
 seeding on top of files it failed to clear, which would resurrect the exact silent
-contamination F-S1 exists to kill.
+contamination this removal exists to kill.
 
 Windows (PowerShell):
 
@@ -248,7 +251,7 @@ everything in C1b and up to here was live-checked and never written.
 reversal, and the Changes panel names it. **Section E ratifies this change; section F3
 replays it against the version it produces.** If you skip this save, C leaves the draft
 identical to what is already in force — E3 becomes a no-op with nothing to ratify, and
-F3 has no second version to replay against (F-S3). This save is why F3 is reachable.
+F3 has no second version to replay against. This save is why F3 is reachable.
 **Ask:** would you have guessed the earlier live-checking never wrote anything, from the
 page alone? This stop exists because the answer is no — and because the list never
 tells you something *is* wrong when it is not, which is a different, narrower promise
@@ -508,7 +511,7 @@ front of you for History to show, not to satisfy every pack's bounds.
 **Expect:** your decision, denied, with a chain number **or** `unchained` — chaining is
 opt-in and periodic, so the newest row legitimately carries neither yet. `unchained` is
 correct here, not a finding; the product is being honest about a state it has not
-reached, the same honesty the `absent` anchor state carries (R089 §2, F-S2).
+reached, the same honesty the `absent` anchor state carries.
 **Ask:** if you filter the list, does the form *show* you the filter you applied? An
 invisible filter turns "no rows" into a false statement about the world.
 
@@ -535,7 +538,7 @@ stranger.**
 **Ask:** could someone who distrusts you, and distrusts this software, check this claim
 with what the page gives them? Before this release the only path to the bytes was
 select-and-paste out of the panel, which risks a byte and a false `failed` on a sound
-receipt — R089 F-V1. The links are why that question now has a real answer.
+receipt. The links are why that question now has a real answer.
 
 **G2 [GATE — if blocked, note the finding and continue] — check it without trusting the
 Studio.**
@@ -636,12 +639,13 @@ a promise the product makes in words, or a failure mode this build was written t
 
 ## What a second pass covers
 
-- **Section I** in full, once the T3 decision is made. It is out of the 50 because T3's
-  own gate (a benchmark with published misses) is unresolved, so its screens may not ship.
+- **Section I** in full, once the model-backed proposer's own decision is made. It is
+  out of the 50 because that feature's own gate (a benchmark with published misses) is
+  unresolved, so its screens may not ship.
 - **Anything a finding opened.** A finding is a reason to look harder at that area, and
   looking harder is a second pass, not an overrun of this one.
 - **A second operator.** Every screen here has been read by the person who wrote it. The
-  three findings that shaped this Studio most — F-A, F-G, F-H — came from someone using it
+  three findings that shaped this Studio most came from someone using it
   and saying what happened.
 
 ## What counts as a finding
@@ -656,4 +660,4 @@ Anything that does not match **Expect**. Also, and worth as much:
 Write it in your own words. Do not translate it into our vocabulary — the translation is
 our job, and something is usually lost in it.
 
-Integrity: sha256(body) = b041494a3303d4c40d67f9e29ae97ce913ada10449a20f536a4229b0e2e6dce9
+Integrity: sha256(body) = b40a2d3aadd050ca5c77b74d4fca3fb24c5d94633f60b37402b3dfdfe1990953

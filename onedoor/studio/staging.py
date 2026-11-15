@@ -1,4 +1,4 @@
-"""`ND-056` / T1 — the loader's boot path, run over text, one stage at a time.
+"""`ND-056` — the loader's boot path, run over text, one stage at a time.
 
 `validate.problems` answers *"what would `validate_policy` refuse?"* for a candidate that
 has **already been built into `Policy` objects**. That is the last of the four things the

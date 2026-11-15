@@ -1,4 +1,4 @@
-"""The Studio server (ND-052 / S3-T2) — loopback only, and it refuses to be otherwise.
+"""The Studio server (ND-052) — loopback only, and it refuses to be otherwise.
 
 Why this is a **separate process** from `onedoor.service`
 --------------------------------------------------------------------
@@ -145,12 +145,12 @@ class StudioState:
     config: EngineConfig
     lock: threading.Lock = field(default_factory=threading.Lock)
     proposer: Any | None = None
-    """ND-056/T3's model-backed proposer, or `None` when none is configured.
+    """`ND-056`'s model-backed proposer, or `None` when none is configured.
 
     `None` is the default and it means the feature is ABSENT: no tab, no route, no
     mention anywhere on any page. Not a disabled control — a control that renders and
     cannot act is the right-typed lie as a button, and the Studio has refused that shape
-    since V4's kill switch.
+    since the live room's own kill switch.
     """
     db_defaulted: bool = True
     """Whether `--db` was left at its default rather than named on the command line.
@@ -243,7 +243,7 @@ def view(state: StudioState, draft_id: str, *, with_backtest: bool = False) -> c
 
 
 def active_policy_count(state: StudioState) -> int:
-    """How many policies the enforcer store holds. Zero is F-H's tell."""
+    """How many policies the enforcer store holds. Zero is the empty-store warning's own tell."""
     row = state.enforcer.execute("SELECT COUNT(*) AS n FROM policies").fetchone()
     return int(row["n"])
 
@@ -255,7 +255,7 @@ def effect_policy_count(state: StudioState) -> int:
 
 
 def banner_for(state: StudioState) -> shell.Banner:
-    """What the V1 header states, resolved from the enforcer store.
+    """What the shell's own header states, resolved from the enforcer store.
 
     Both facts come from the **enforcer** database: `policy_loader.current_version`
     reads what is in force, and `ratifications` is an enforcer table (migration `0017`)
@@ -267,7 +267,7 @@ def banner_for(state: StudioState) -> shell.Banner:
     `state.studio`, and every shell route raised `no such table: ratifications` on a
     fresh store. It was found by `test_every_shell_route_renders_over_http` -- through
     the server, on the first request -- and not by any of the library-level tests, which
-    is F-A's lesson holding: *a served surface is tested through the server.* The
+    is the same lesson holding again: *a served surface is tested through the server.* The
     programme rule it broke has a name too: **select on fields you have verified, not
     the record** -- `state.studio` is a Connection, `state.enforcer` is a Connection,
     and only one of them has the table.
@@ -315,11 +315,11 @@ later)."""
 
 @dataclass(frozen=True)
 class RatifyOutcome:
-    """Ratified, or refused **in the ceremony's own words** (T5).
+    """Ratified, or refused **in the ceremony's own words**.
 
     The refusal is carried verbatim with its named reason rather than flattened into
-    "could not ratify". S2 gave the lost race and the two citation failures distinct
-    words *because they are distinct facts with distinct remedies*, and a UI that
+    "could not ratify". The ceremony gave the lost race and the two citation failures
+    distinct words *because they are distinct facts with distinct remedies*, and a UI that
     collapses them hands the operator back exactly the ambiguity the ceremony refused
     to have.
     """
@@ -338,7 +338,7 @@ def ratify_draft(
     backtest_digest: str | None = None,
     now: datetime | None = None,
 ) -> RatifyOutcome:
-    """Invoke S2's ceremony. Never a reimplementation of it (fence post one).
+    """Invoke the ratification ceremony. Never a reimplementation of it (fence post one).
 
     The draft's models are passed **in memory** — the ceremony takes `list[Policy]` as
     an argument and never needed a draft's address, only its content, which is what
@@ -403,7 +403,7 @@ def validation_for_rule(state: StudioState, text: str) -> tuple[Any, Any]:
     """Both lists for one rule's text: what the loader refuses, and what it will do.
 
     One function so the editor page and the live-validation fragment cannot answer
-    differently — the same reason V7 syncs the panes through the server. Two callers
+    differently — the same reason the editor syncs the panes through the server. Two callers
     computing "the same" validation two ways is the two-parser defect with extra steps.
     """
     known_action_types = validate.known_action_types_for(state.enforcer, [])
@@ -434,7 +434,7 @@ def create_app(state: StudioState) -> Any:
 
     import onedoor
 
-    # DERIVED, never typed (F-D). This said `version="0.4.x"` -- a literal that was
+    # DERIVED, never typed. This said `version="0.4.x"` -- a literal that was
     # already wrong when 0.5.0 shipped and had no way of ever becoming right. A name
     # outrunning its artifact, in the one field whose whole job is to say which artifact
     # this is.
@@ -444,14 +444,14 @@ def create_app(state: StudioState) -> Any:
     # `fastapi.tiangolo.com` -- on a server whose own header promises **"loopback only
     # -- nothing leaves this machine."** Two live pages made that promise false, and
     # every per-screen test missed them because they only ever looked at screens this
-    # project wrote. V8's universal pass over the app's OWN route table found them.
+    # project wrote. A universal pass over the app's OWN route table found them.
     #
     # Turning them off rather than vendoring the assets: the Studio is an operator GUI
     # on loopback, not an API surface for third parties, and the JSON endpoints it does
     # have are documented in the README where they do not cost a network call.
-    # `openapi_url` is ON for ND-056/T2 and `/docs`/`/redoc` stay OFF.
-    # V8's finding had two heads: a surface nobody chose to publish, and external
-    # origins pulled in to render it. T2 is a chosen surface, and the JSON schema fetches
+    # `openapi_url` is ON for `ND-056` and `/docs`/`/redoc` stay OFF.
+    # That finding had two heads: a surface nobody chose to publish, and external
+    # origins pulled in to render it. The JSON schema is a chosen surface, and it fetches
     # nothing -- so the first head is answered by the choice and the second never applies.
     # The two HTML doc pages are the half that reached the network; they stay dark.
     app = FastAPI(
@@ -502,10 +502,11 @@ def create_app(state: StudioState) -> Any:
     def index() -> Any:
         """The documented entry point, now the Studio's front door to the shell.
 
-        Until V8 this rendered the pre-V1 canvas, so the Studio served **two designs at
-        once**: the ledger-room shell behind every tab, and the old skin at `/` and
-        `/draft/{id}`, reachable by anyone who kept a bookmark. The legacy pages bypassed
-        every law V8 makes universal.
+        Until recently this rendered the original, pre-shell canvas, so the Studio served
+        **two designs at once**: the ledger-room shell behind every tab, and the old skin
+        at `/` and `/draft/{id}`, reachable by anyone who kept a bookmark. The legacy pages
+        bypassed every law a later, universal pass over the app's own route table now makes
+        universal.
 
         Redirected rather than deleted: `README` and `0.6.2`'s handover both tell
         operators to open `http://127.0.0.1:8787`, and a link that has been published is
@@ -515,7 +516,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/draft/{draft_id}")
     def legacy_draft(draft_id: str) -> Any:
-        """The pre-V5 draft page. Same reasoning as `/`: published links keep working."""
+        """The legacy draft page. Same reasoning as `/`: published links keep working."""
         return RedirectResponse(url=f"/drafts/{draft_id}", status_code=303)
 
     @app.post("/draft")
@@ -548,7 +549,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/drafts", response_class=HTMLResponse)
     def drafts_page() -> str:
-        """S3 index."""
+        """The drafts index."""
         with state.lock:
             return shell.render(
                 body=screens.drafts_body(
@@ -565,7 +566,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.post("/drafts")
     async def create_draft_v5(request: Request, title: str = "untitled draft") -> Any:
-        """Same content-type dispatch F-G established: a browser gets a redirect, the
+        """Same content-type dispatch already established: a browser gets a redirect, the
         JSON caller gets JSON, and neither learns about the other."""
         from_form = "application/x-www-form-urlencoded" in (
             request.headers.get("content-type") or ""
@@ -582,7 +583,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.post("/drafts/upload", response_class=HTMLResponse)
     async def upload_draft(request: Request) -> Any:
-        """Create a draft from an uploaded policy file (ND-056/T1).
+        """Create a draft from an uploaded policy file (`ND-056`).
 
         The bytes enter at the TOP of the loader's path, which is the point of the
         feature: until now the Studio could only ever reach `validate_policy`, because
@@ -682,7 +683,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/drafts/{draft_id}", response_class=HTMLResponse)
     def draft_detail(draft_id: str, backtest: bool = False, uploaded: str = "") -> Any:
-        """S3 detail. `uploaded` is a frozen description's digest, and it is READ.
+        """The draft detail page. `uploaded` is a frozen description's digest, and it is READ.
 
         It used to be `?uploaded=1`, and nothing read it — every staged refusal was
         computed at upload time and thrown away, so a file the loader rejected produced
@@ -817,7 +818,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/drafts/{draft_id}/edit/{action_type}", response_class=HTMLResponse)
     def editor_page(draft_id: str, action_type: str, saved: bool = False) -> Any:
-        """S2, inside a draft only. Fence post one: nothing here reaches the live rules."""
+        """The editor, inside a draft only. Fence post one: nothing here reaches the live rules."""
         with state.lock:
             draft = store.load(state.studio, draft_id)
             if draft is None:
@@ -904,7 +905,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/verify", response_class=HTMLResponse)
     def verify_index() -> str:
-        """S6: the receipts this store can hand a stranger."""
+        """The deposition index: the receipts this store can hand a stranger."""
         with state.lock:
             return shell.render(
                 body=screens.verify_index_body(verify.available(state.enforcer)),
@@ -977,7 +978,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/policies", response_class=HTMLResponse)
     def policies_page() -> str:
-        """S1: the library, read from the snapshot behind the version in force."""
+        """The library, read from the snapshot behind the version in force."""
         with state.lock:
             model = library.build(state.enforcer)
             return shell.render(
@@ -995,8 +996,8 @@ def create_app(state: StudioState) -> Any:
         A rule absent from the version in force answers **404**, with an honest body
         that still explains what the absence means.
 
-        V2 answered 200 here, reasoning that the route is valid and the absence is a
-        fact about the deployed system. That is a defect, and the reason is the
+        An earlier build answered 200 here, reasoning that the route is valid and the
+        absence is a fact about the deployed system. That is a defect, and the reason is the
         audience: **the status code is the machine-readable verdict, and a 200 whose
         body says "not found" is the right-typed lie for machines.** Every crawler,
         cache, monitor and script reads the type and believes the page exists -- so the
@@ -1044,7 +1045,7 @@ def create_app(state: StudioState) -> Any:
         since: str = "",
         until: str = "",
     ) -> str:
-        """S4: the execution ledger. Filters live in the query string, so an auditor can
+        """The execution ledger. Filters live in the query string, so an auditor can
         paste the address of what they were looking at and have it mean the same thing
         tomorrow."""
         filters = history.Filters(
@@ -1104,7 +1105,7 @@ def create_app(state: StudioState) -> Any:
 
     @app.get("/state", response_class=HTMLResponse)
     def live_page() -> str:
-        """S5: the live room. Reads the enforcer store and writes nothing to it."""
+        """The live room. Reads the enforcer store and writes nothing to it."""
         with state.lock:
             return shell.render(
                 body=screens.live_body(live.build(state.enforcer, state.config)),
@@ -1114,7 +1115,7 @@ def create_app(state: StudioState) -> Any:
                 title="onedoor policy studio — live state",
             )
 
-    # V1: every tab in the shell resolves to a route. The ones whose screens are not
+    # Every tab in the shell resolves to a route. The ones whose screens are not
     # built say so in the page rather than 404-ing -- a 404 tells the operator the
     # Studio is broken; this tells them which stage builds it. `shell.TABS` is the only
     # place that knowledge lives, so the bar and the routes cannot disagree.
@@ -1136,7 +1137,7 @@ def create_app(state: StudioState) -> Any:
         if not _tab.built:
             app.get(_tab.path, response_class=HTMLResponse)(_unbuilt(_tab))
 
-    # --- ND-056 / T3: natural-language authoring ------------------------------------
+    # --- `ND-056`: natural-language authoring ------------------------------------
     #
     # Mounted ONLY when a proposer is configured. Wall 4: absent, not broken. There is no
     # route to 404 and no tab to click, because a deployment without an endpoint does not
@@ -1232,7 +1233,7 @@ def create_app(state: StudioState) -> Any:
                 store.set_derivation(state.studio, draft.draft_id, record_digest=digest)
             return RedirectResponse(url=f"/drafts/{draft.draft_id}?proposed=1", status_code=303)
 
-    # --- ND-056 / T2: the policy REST API ------------------------------------------
+    # --- `ND-056`: the policy REST API ------------------------------------------
     #
     # Same store, same parser, same refusals. Loopback-only comes free: these ride the
     # app `require_loopback` already governs, so there is no second surface to secure.
@@ -1524,10 +1525,11 @@ def create_app(state: StudioState) -> Any:
     def ratify_endpoint(draft_id: str, session: str) -> dict[str, Any]:
         """LEGACY, deprecated. Ratifies over HTTP with a DECLARED session string.
 
-        Shipped in `ND-052`/S3-T2, undocumented and untested by path until ND-056 found
+        Shipped under `ND-052`, undocumented and untested by path until ND-056 found
         it while checking the "no approval-by-API" wall against the code. The
-        wall was written by the author of a tree that already served this route, and V8's
-        universal pass could not have caught it because no law said what a route may DO.
+        wall was written by the author of a tree that already served this route, and the
+        deposition page's universal pass could not have caught it because no law said
+        what a route may DO.
         That law exists now; this route is what it was written for.
 
         It stays through this release — launch week is the wrong week to

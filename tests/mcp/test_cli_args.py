@@ -1,5 +1,5 @@
-"""The proxy's own CLI surface: --mapping and --transport/--host/--port are new
-this round; --transport http never defaults its host away from 127.0.0.1."""
+"""The proxy's own CLI surface: --mapping and --transport/--host/--port are
+newer additions; --transport http never defaults its host away from 127.0.0.1."""
 
 from __future__ import annotations
 

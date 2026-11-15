@@ -1,4 +1,4 @@
-"""The policy proposer (ND-052 / S6, T1–T3).
+"""The policy proposer (ND-052).
 
 **The proposer is never the enforcer.** This module drafts a *candidate*; it has no path
 to the active set except `studio.ratify.ratify` — preview equality, compare-and-swap,
@@ -129,7 +129,7 @@ class Proposal:
     mentions: list[Mention] = field(default_factory=list)
 
     def policy_digest(self) -> str:
-        """Cited, never re-minted: S1's function, called."""
+        """Cited, never re-minted: the backtest's own function, called."""
         from onedoor.studio import backtest
 
         return backtest.policy_digest(self.policies)

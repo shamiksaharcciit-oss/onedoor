@@ -1,4 +1,4 @@
-"""V6 / the flagship — *"was this correct under last week's rules?"*, in one click.
+"""The flagship — *"was this correct under last week's rules?"*, in one click.
 
 One recorded decision, replayed against the policy set of any version this store can
 retrieve, with the original verdict beside it.
@@ -8,9 +8,9 @@ retrieve, with the original verdict beside it.
 This was checked, not assumed: whether ratified policy sets are retrievable by version.
 They are: `policy_loader.record_snapshot` writes the whole set into `policy_versions`
 keyed by its hash, `snapshot_for` returns it, and `ratify._policies_at` rebuilds
-`Policy` objects from it. V4 leaned on the same path for its budget limits and a test
-proved it by writing a divergent cap into the live table and watching the bar hold
-still. No escalation was needed.
+`Policy` objects from it. The live room leaned on the same path for its budget limits
+and a test proved it by writing a divergent cap into the live table and watching the
+bar hold still. No escalation was needed.
 
 **But retrievable is not the same as always retrievable**, which is why
 `NOT_RETRIEVABLE` exists. A version can be named by an audit row and have no snapshot —

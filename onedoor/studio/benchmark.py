@@ -1,4 +1,4 @@
-"""The proposer benchmark (ND-052 / S6-T6).
+"""The proposer benchmark (ND-052).
 
 **The demo gate is disclosure-shaped, not score-shaped.** No threshold gates
 anything: *a threshold we choose for our own generator is the instrument fitted to the

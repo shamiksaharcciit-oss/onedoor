@@ -1,4 +1,4 @@
-"""V3 / S4 — the execution ledger, read and never written.
+"""The execution ledger, read and never written.
 
 The decisions the engine actually made, as a filterable register. **Read-only, with no
 mutating path in the module at all** — *"no mutation of any kind on this

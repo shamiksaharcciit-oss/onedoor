@@ -458,14 +458,13 @@ def test_g2_no_longer_expects_unreadable_from_a_snapshot_corruption() -> None:
 
 
 def test_c1c_saves_the_one_real_change_e_ratifies_and_f3_replays() -> None:
-    """F-S3: C1's edits were unsaved by design, so E3-as-scripted ratified a
+    """C1's edits were unsaved by design, so E3-as-scripted ratified a
     no-op and F3 had nothing to replay against -- reachable only because an earlier
     operator deviated from the script. C1c now saves one real, valid change, and says
     why: without it, E is a no-op and F3 is unreachable on a faithful walk."""
     text = _text()
     c1c = text[text.index("**C1c [") : text.index("**C1d [")]
     assert "save from the raw pane" in c1c
-    assert "F-S3" in c1c
     assert "no-op" in c1c
     assert "ratifies" in c1c.lower() or "replays" in c1c.lower()
 

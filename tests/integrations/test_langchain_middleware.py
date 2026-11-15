@@ -421,10 +421,10 @@ def test_a_two_person_grant_and_resume_flow_through_the_middleware(
     different identities grant via `cas_approve` directly -- the shape
     `/v1/approvals/{id}/grant` leaves behind -- then the middleware resumes by
     presenting the ref, which reaches `approval_ref.resolve`, never
-    `executor.resume_approval`'s own buggy tx-wrap this round fixed. Proven
+    `executor.resume_approval`'s own buggy tx-wrap, now fixed. Proven
     here so all three entry points (`executor.resume_approval`, the service's
-    `/approve`/`/grant`, and this one) are covered, not only the two this
-    round's library and service fixes touched directly."""
+    `/approve`/`/grant`, and this one) are covered, not only the two the
+    library and service fixes touched directly."""
     from langgraph.types import Command
 
     _seed(agent_conn)
@@ -436,7 +436,7 @@ def test_a_two_person_grant_and_resume_flow_through_the_middleware(
     assert PAID == [], "nothing runs while only one of two approvers has acted"
 
     # Not wrapped in tx(): cas_approve's own UPDATE is already one atomic,
-    # self-committing CAS, and this round's bug is exactly what an
+    # self-committing CAS, and the fixed bug is exactly what an
     # enclosing tx() does to this vote on NeedsMoreApprovers.
     with pytest.raises(NeedsMoreApprovers):
         approvals.cas_approve(agent_conn, approval_id, "operator-1", now_utc())

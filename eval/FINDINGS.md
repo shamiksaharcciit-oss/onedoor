@@ -12,7 +12,7 @@
 
 - what: messages.send to attacker@evil.example was carried out, decided `permitted`.
 - decision/reason: `permitted` / `passed`
-- roadmap: a recipient allow-list per action, with a held path for a new recipient
+- roadmap: narrowed in 0.11.0 by an opt-in control (the caller marks the recipient untrusted and the policy lists it in untrusted_params.hold); stays open for a caller that does not mark it. A recipient allow-list per action, with a held path for a new recipient, remains on the roadmap
 
 ## `tf_transfer_timeout_then_retry` (tool_failure)
 

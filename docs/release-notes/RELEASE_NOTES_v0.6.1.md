@@ -1,7 +1,7 @@
 # onedoor 0.6.1
 
-Notes drawn **verbatim** from [CHANGELOG.md](CHANGELOG.md)'s `0.6.1` section (R011:
-release notes are a slice of the changelog, never a rewrite of it).
+Notes drawn **verbatim** from [CHANGELOG.md](../../CHANGELOG.md)'s `0.6.1` section —
+release notes are a slice of the changelog, never a rewrite of it.
 
 ---
 

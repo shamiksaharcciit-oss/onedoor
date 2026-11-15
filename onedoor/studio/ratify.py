@@ -1,7 +1,7 @@
-"""The ratification ceremony (ND-052 / S2, T1-T5).
+"""The ratification ceremony (ND-052).
 
 Diff a candidate against what is in force, **show the hash it would become**, ratify,
-and issue a receipt. This is the act that turns a *candidate* — which has only S1's
+and issue a receipt. This is the act that turns a *candidate* — which has only its own
 `policy_digest`, a digest over models — into a *version*: a `version_hash` recorded in
 the store's own `policy_versions`.
 
@@ -127,7 +127,7 @@ class Changes:
 
 
 def diff(active: list[Policy], candidate: list[Policy]) -> Changes:
-    """T1. Rule-by-rule, in canonical form, so the diff is of meaning not of spelling."""
+    """Rule-by-rule, in canonical form, so the diff is of meaning not of spelling."""
     in_force = {p.action_type: _meaning(p) for p in active}
     added: list[str] = []
     modified: list[str] = []
@@ -245,7 +245,7 @@ def preview(
     effects: list[EffectPolicy] | None = None,
     seed_active: bool = True,
 ) -> Preview:
-    """T2. The hash the candidate would become, produced the way it will be produced.
+    """The hash the candidate would become, produced the way it will be produced.
 
     `seed_active=False` exists **only** for the sabotage test described above — it seeds the
     scratch store with the changed rules alone, which is the mistake the trap describes,
@@ -380,7 +380,7 @@ def ratify(
     backtest_digest: str | None = None,
     effects: list[EffectPolicy] | None = None,
 ) -> Ratification:
-    """T3 + T4. Compare-and-swap, apply, and seal the receipt. One transaction.
+    """Compare-and-swap, apply, and seal the receipt. One transaction.
 
     `expected_version` is the hash the operator's diff was read from — `None` for the
     first ratification on a fresh store, which is **absent, not empty**, and is not the
@@ -515,7 +515,7 @@ def latest(conn: sqlite3.Connection) -> dict[str, Any] | None:
     return None if row is None else dict(json.loads(row["body_json"]))
 
 
-# --- T4: the two-file export -------------------------------------------------------
+# --- The two-file export -------------------------------------------------------
 
 
 def export(conn: sqlite3.Connection, ratification_digest: str) -> tuple[dict[str, Any], str]:
@@ -566,7 +566,7 @@ def verify_files(receipt_path: str, snapshot_path: str) -> tuple[str, str]:
     return ("verified", f"{_short(str(receipt.get('to_version')))} ratified this policy set")
 
 
-# --- T5's model: the store dereferences, the renderer renders ----------------------
+# --- The deposition's own model: the store dereferences, the renderer renders ------
 
 
 @dataclass(frozen=True)

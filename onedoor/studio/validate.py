@@ -1,4 +1,4 @@
-"""Collect a candidate's validation problems instead of raising at the first (S3-T1).
+"""Collect a candidate's validation problems instead of raising at the first.
 
 `policy_loader.validate_policy` is fail-closed: it raises `ValueError` on the first
 thing it finds. That is right for boot — a process that starts on a half-valid policy
@@ -52,7 +52,7 @@ FOUND_WORDING = "problems found"
 """The exact words, referenced by the renderer and by the tests that hold them.
 
 One constant rather than two strings that happen to agree, the same way
-`NO_BACKTEST_SENTENCE` holds S2's absence statement.
+`NO_BACKTEST_SENTENCE` holds the editor's own absence statement.
 """
 
 INCOMPLETE_NOTICE = (

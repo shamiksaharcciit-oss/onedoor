@@ -83,7 +83,7 @@ Q1 again).
   `approval_ref_status` (`absent | pending | approved | disapproved |
   undereferenceable`), so a denial's forensic trail names *which* of the three
   verification states applied — mirroring why `approval_ref_status`'s seven-value
-  vocabulary exists at all (R035 §1).
+  vocabulary exists at all.
 
 ### Tests that would prove it
 

@@ -1,4 +1,4 @@
-"""`ND-056` / T3 — the model-backed proposer: bring your own endpoint, or have none.
+"""`ND-056` — the model-backed proposer: bring your own endpoint, or have none.
 
 `proposer.py` built the shape and left the seam: `live_proposer()` raised
 `ProposerUnavailable` rather than pretending, because *a demo that looks like a model and
@@ -84,7 +84,7 @@ CAPABILITY_FORBIDDEN = (
     "no human",
     "hands-free",
 )
-"""Phrasings this feature may never carry, held as a test over every T3 surface.
+"""Phrasings this feature may never carry, held as a test over every surface it has.
 
 Each one either makes the model the author or removes the person. The list is a fence
 around wall 5 rather than a style guide — the wording is pinned

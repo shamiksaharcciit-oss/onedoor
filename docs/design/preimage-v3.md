@@ -1,15 +1,14 @@
 # Design note: hash `evaluation_trace` into the row preimage (`/2` → `/3`)
 
-Walks every item of R035 §1's consequence chain — the ruling that bumped
+Walks every consequence of the earlier decision that bumped
 `/1` → `/2` for `approval_ref_status` — against this bump, then verdicts the four
 build constraints below. **Verdict: build.** All four constraints hold, and the mechanism
-R035 §1 put in place for exactly this case (the per-row `preimage_version` hint) needs
-no new engineering — only the version bump itself.
+that decision put in place for exactly this case (the per-row `preimage_version` hint)
+needs no new engineering — only the version bump itself.
 
-## R035 §1, walked item by item
+## The earlier decision's consequences, walked item by item
 
-Quoting `docs/from_core/Core_to_Delivery_Response_035_2026-08-22.md` (verified,
-`sha256(body) = 7e9e952...`), §1, against this bump:
+That decision already addressed this directly:
 
 > **"`approval_ref_status` must be hashed; your §2 argument is complete (flipping
 > `expired` to `honored` is precisely the edit a chain exists to catch)."**
@@ -44,7 +43,7 @@ pre-folded into `/3` either**, for the identical reason. Their evidence
 shape (a `mandate_status` column, a ratification reference, an audience-match
 outcome — whatever step 3's own design settles on) does not exist yet at the point
 this note is written; step 2 runs before step 3 in this same work order. Guessing
-their columns now to save a future bump would be exactly the mistake R035 §1 named.
+their columns now to save a future bump would be exactly the mistake named above.
 They get their own version (`/4`) when their own design is built and their columns
 exist to survey.
 
@@ -66,10 +65,10 @@ one line removed from `EXCLUDED`) and in `docs/row-preimage.md` (the normative
 document `FIELD_ORDER` must keep agreeing with, per
 `test_the_document_and_the_module_declare_the_same_field_order`).
 
-`docs/from_core/Core_to_Delivery_Response_035_2026-08-22.md` already names the exact
-transition this bump performs as its own worked example: *"a ledger whose rows
-transition `/2 → /3` at a recorded point re-derives end to end."* R035 §1 anticipated
-this bump by name before there was a `/3` to bump to.
+That same decision already names the exact transition this bump performs as its own
+worked example: *"a ledger whose rows transition `/2 → /3` at a recorded point
+re-derives end to end."* It anticipated this bump by name before there was a `/3` to
+bump to.
 
 > **"Verify the transition case with a test — a chain crossing a version boundary
 > re-derives end to end."**

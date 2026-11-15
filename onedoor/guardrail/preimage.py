@@ -246,7 +246,7 @@ EXCLUDED: dict[str, str] = {
         "preimage this version seals -- the same reason every 0.11 feature's new "
         "columns stay out of it: each is an addition a 0.10.x reader already "
         "ignores, not a new obligation on a verifier that has never heard of it. "
-        "Bumping the preimage version per feature round would make every one of "
+        "Bumping the preimage version per feature release would make every one of "
         "them a breaking change instead of the additive one each is meant to be"
     ),
     "sequence_events_considered": (

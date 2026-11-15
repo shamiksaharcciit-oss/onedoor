@@ -179,7 +179,7 @@ def test_a_tier_0_read_through_the_gateway_is_forwarded_with_no_report_result_ca
     """`mcp.get_weather`'s own policy here is tier 0 (OBSERVE): the gateway
     forwards the call and returns the downstream result directly -- there
     is no intent to settle, so `report_result` must never be called for it
-    (CHANGELOG, 0.11's own Fixed entry for the gap this round found)."""
+    (CHANGELOG, 0.11's own Fixed entry for the gap found here)."""
     proxy = _proxy(tmp_path)
     with patch("onedoor.mcp.proxy.report_result") as mock_report_result:
         reply = _serve_one(proxy, _call("check_weather", {"location": "x"}))

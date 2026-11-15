@@ -5,7 +5,7 @@
 #
 # Demonstrated on a real cold clone, not assumed. CRLF-ifying that directory makes
 # all three pinned manifests fail with "e_digest mismatch: archived evidence
-# differs from frozen evidence" and moves the Merkle anchor root from
+# differs from frozen evidence" and moves the Merkle anchor digest from
 # 4e49f63a17cf... to 576019221d5d.... The failure is indistinguishable from
 # tampering -- the worst possible way for an encoding bug to present itself in a
 # forensics tool, and a trap laid for every Windows contributor to a public repo.
@@ -46,20 +46,20 @@ reference/rederivable-manifest/** -text
 # or, worse, apply a subtly different hunk.
 patches/*.patch -text
 
-# The sender's own memo archive. Received data, same as the vendored artifact -- and from
-# Response 008 these files carry `Integrity: sha256(body) = <hex>` over their own
+# The sender's own memo archive. Received data, same as the vendored artifact --
+# these files carry `Integrity: sha256(body) = <hex>` over their own
 # bytes, so version control joined their trust path the moment the footer shipped.
 # Prose was exempt only while nothing depended on its bytes; that ended retroactively.
 #
-# Found by the forensics session and relayed: this
-# directory was falling under `* text=auto eol=lf` while reference/ and patches/ were
-# already fenced. Everything here is LF today so nothing was corrupted, but the first
-# CRLF memo would fail its own digest and present as THE SENDER TRANSMITTING A BAD DIGEST -- the
-# same tampering-shaped diagnosis as the artifact, aimed at the wrong party.
+# Found in review: this directory was falling under `* text=auto eol=lf` while
+# reference/ and patches/ were already fenced. Everything here is LF today so nothing
+# was corrupted, but the first CRLF memo would fail its own digest and present as THE
+# SENDER TRANSMITTING A BAD DIGEST -- the same tampering-shaped diagnosis as the
+# artifact, aimed at the wrong party.
 docs/from_core/** -text
 
-# The relay's byte-preserving drop point. Disk-copying the file is what finally
-# delivered the relay intact after two renderings of it arrived corrupted,
+# The byte-preserving drop point for files arriving this way. Disk-copying is what
+# finally delivered the file intact after two renderings of it arrived corrupted,
 # so this path is now part of the received-data trust path and is fenced before it is
 # used again rather than after.
 docs/incoming/** -text
@@ -79,8 +79,8 @@ onedoor/viewer/_vendor/** -text
 
 # onedoor/studio/_vendor/** is the Policy Studio v2 token block, extracted verbatim
 # from the mockup named as binding design authority (artifact
-# ee38c587-7761-4773-881a-764d21c0abdc, approved by Shamik 2026-08-28). Same
-# discipline as the oneview spec above and for the same reason: `studio/tokens.py`
-# pins its SHA-256, so a CRLF rewrite here would present as a design tamper rather
-# than as an encoding bug. It is RECEIVED data; it is not ours to reformat.
+# ee38c587-7761-4773-881a-764d21c0abdc). Same discipline as the oneview spec above
+# and for the same reason: `studio/tokens.py` pins its SHA-256, so a CRLF rewrite
+# here would present as a design tamper rather than as an encoding bug. It is
+# RECEIVED data; it is not ours to reformat.
 onedoor/studio/_vendor/** -text

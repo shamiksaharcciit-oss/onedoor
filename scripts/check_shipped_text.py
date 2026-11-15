@@ -338,13 +338,6 @@ def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
-def _line_text_of(text: str, offset: int) -> str:
-    """The full line containing `offset`, no trailing newline."""
-    start = text.rfind("\n", 0, offset) + 1
-    end = text.find("\n", offset)
-    return text[start:] if end == -1 else text[start:end]
-
-
 def scan_text(text: str, *, path: str) -> list[Hit]:
     """Every hit this module's own patterns find in `text`, named `path`
     only for the hit's own report line -- callers decide what `path`
@@ -373,27 +366,27 @@ def scan_text(text: str, *, path: str) -> list[Hit]:
         hits.append(Hit("numbered_question", path, _line_of(text, m.start()), m.group()))
     for m in _ROLE_WORD_1_POSSESSIVE_RE.finditer(text):
         line = _line_of(text, m.start())
-        if _is_allowed_role_noun(path, _line_text_of(text, m.start())):
+        if _is_allowed_role_noun(path, "possessive"):
             continue
         hits.append(Hit("role_noun", path, line, m.group()))
     for m in _ROLE_WORD_1_ALONE_RE.finditer(text):
         line = _line_of(text, m.start())
-        if _is_allowed_role_noun(path, _line_text_of(text, m.start())):
+        if _is_allowed_role_noun(path, "alone"):
             continue
         hits.append(Hit("role_noun", path, line, m.group()))
     for m in _MEMO_HEADER_RE.finditer(text):
         line = _line_of(text, m.start())
-        if _is_allowed_role_noun(path, _line_text_of(text, m.start())):
+        if _is_allowed_role_noun(path, "memo_header"):
             continue
         hits.append(Hit("role_noun", path, line, m.group().strip()))
     for m in _ROLE_WORD_2_RE.finditer(text):
         line = _line_of(text, m.start())
-        if _is_allowed_role_noun(path, _line_text_of(text, m.start())):
+        if _is_allowed_role_noun(path, "role_word_2"):
             continue
         hits.append(Hit("role_noun", path, line, m.group()))
     for m in _ROLE_WORD_3_RE.finditer(text):
         line = _line_of(text, m.start())
-        if _is_allowed_role_noun(path, _line_text_of(text, m.start())):
+        if _is_allowed_role_noun(path, "role_word_3"):
             continue
         hits.append(Hit("role_noun", path, line, m.group()))
     for m in PERSON_NAME_RE.finditer(text):
@@ -432,8 +425,15 @@ this process's own history to cite. Checked on the text immediately
 before the match, not the match itself, since the match's own hex
 digits never carry the algorithm name."""
 
+_DIGEST_FIELD_RE = re.compile(r"sha256|sha1|sha512|md5|digest", re.IGNORECASE)
+"""A wider, unanchored search for the same algorithm names, or the plain
+word "digest" itself, used only to decide whether a TRUNCATED preview
+(one followed by an ellipsis) is explained as a digest at all -- a
+truncated hex run with no digest word anywhere nearby is not one, and is
+caught as an ordinary commit id regardless of its trailing ellipsis."""
+
 _COMMIT_ID_ALLOWED_EXACT: dict[str, frozenset[str]] = {
-    "eval/RESULTS.md": frozenset({"a49ecd77af01"}),
+    "eval/RESULTS.md": frozenset({"2b63e26f89b5"}),
     "tests/guardrail/test_resume_key_approval_state.py": frozenset({"5b7a260", "f7a9333"}),
     "tests/guardrail/test_stored_v2_chain.py": frozenset({"61aaeed", "8ac78aa"}),
 }
@@ -446,7 +446,14 @@ makes naming it by id fine rather than a citation of something nobody
 outside this repository's own private history can ever see. Not a
 path-wide or shape-wide allowance: anywhere else, or any OTHER id in
 these same files, is still a hit, reworded into a plain description
-(the normal remedy for a commit id that is NOT one of these)."""
+(the normal remedy for a commit id that is NOT one of these).
+
+`eval/RESULTS.md`'s own entry is the one exception to "commit": its
+provenance line names a git TREE id (`onedoor/`'s own tree at the run,
+checkable from any commit that carries that exact tree, never a commit
+id itself) -- the identical hex shape, caught by the same pattern, and
+allowed by the same exact-match mechanism for the same reason: it is
+real, checkable by anyone, and names nothing a reader cannot verify."""
 
 _ALL_ALLOWED_COMMIT_IDS: frozenset[str] = frozenset().union(*_COMMIT_ID_ALLOWED_EXACT.values())
 """This module's own source necessarily holds every value in
@@ -510,36 +517,41 @@ def _is_allowed_commit_id(
         return True  # a pinned dependency digest or checksum, not a commit id
     after = text[end : end + 3]
     if after.startswith("…") or after.startswith("..."):
-        return True  # a truncated digest PREVIEW -- marked as partial by
-        # its own trailing ellipsis, the natural shape a genuine commit-id
-        # citation never has (an abbreviated git sha is used complete,
-        # never shown with "more cut off here"). A real commit id reworded
-        # away does not reappear as a truncated preview anywhere else, so
-        # this needs no per-path scoping, only the shape itself.
+        wide_window = text[max(0, start - 40) : start]
+        if _DIGEST_FIELD_RE.search(wide_window):
+            return True  # a truncated digest PREVIEW, marked as partial by
+            # its own trailing ellipsis AND named as a digest nearby -- the
+            # natural shape a genuine commit-id citation never has (an
+            # abbreviated git sha is used complete, never shown with "more
+            # cut off here"). Scoped to a digest actually being named
+            # close by, not the bare ellipsis shape alone, since a
+            # commit-shaped word trailing an ellipsis with nothing to
+            # explain it is not itself proof of anything.
     return False
 
 
 _PERSON_NAME_ALLOWED_PATHS = {
     "pyproject.toml",
     "PKG-INFO",
+    "onedoor.egg-info/PKG-INFO",
     "CHANGELOG.md",
-    "RELEASE_NOTES_v0.6.1.md",
-    "RELEASE_NOTES_v0.6.2.md",
-    ".gitattributes",
+    "docs/release-notes/RELEASE_NOTES_v0.6.1.md",
+    "docs/release-notes/RELEASE_NOTES_v0.6.2.md",
 }
 """Named allowance: the package's own declared author
 (`[project.authors]` in `pyproject.toml`, carried into the built
 `PKG-INFO`/`METADATA`) legitimately names the real person who owns this
-project -- that is what the field is for, not a process citation.
+project -- that is what the field is for, not a process citation. The
+sdist carries this field twice, byte-identical, under two different
+build-generated paths (`PKG-INFO` at its own root, and a second,
+legacy-egg-info copy at `onedoor.egg-info/PKG-INFO`) -- neither is a
+tracked file in this repository; both are the one declared field.
 `CHANGELOG.md`'s own two mentions (crediting the same real person for
 reporting bugs fixed in an early release) are pre-existing historical
 release notes, not a citation of this process. The two release-note
 files are each "drawn verbatim" from `CHANGELOG.md`'s own matching
 section, by their own stated convention -- the identical credit, not a
-second one, so held to the same reasoning. `.gitattributes`'s one
-mention records a real historical approval date for a vendored
-artifact's own provenance, the same kind of fact a changelog entry
-records, not a citation either. Nothing else is on this list: any
+second one, so held to the same reasoning. Nothing else is on this list: any
 other file naming the same person in their capacity as maintainer or
 operator stays reported rather than silently allowed."""
 
@@ -567,12 +579,21 @@ from (not this process's own usage):
   role-word is that OLDER scheme's own, a separate, already-audited
   concern with its own test, not a citation of this process.
 
-No other file is on this list."""
+Each of these five files, checked against the real tree, only ever uses
+the first role-word standing ALONE -- never possessive, never a memo
+header, never either of the other two role-words naming a party. So the
+allowance itself is narrowed to that one category: a possessive, a memo
+header, or a party-name hit in one of these same five files is still a
+hit, the same as anywhere else. No other file is on this list."""
 
 
-def _is_allowed_role_noun(path: str, line_text: str) -> bool:
+def _is_allowed_role_noun(path: str, kind: str) -> bool:
+    """`kind` names which role_noun pattern matched -- only "alone" (the
+    first role-word standing by itself) is ever allowed, and only in one
+    of the five files above, since that is the one form those files are
+    confirmed to actually use."""
     clean_path = path.split("!", 1)[1] if "!" in path else path
-    return clean_path in _ROLE_NOUN_ALLOWED_PATHS
+    return kind == "alone" and clean_path in _ROLE_NOUN_ALLOWED_PATHS
 
 
 _DRAFT_NAME_RE = re.compile(rf"draft-{_PERSON_SURNAME.lower()}-aadp")
@@ -606,8 +627,9 @@ def _is_patch_file(path: str) -> bool:
 
 def _is_allowed_person_name(path: str, text: str, start: int, end: int) -> bool:
     clean_path = path.split("!", 1)[1] if "!" in path else path
-    name = clean_path.rsplit("/", 1)[-1]
-    if name in _PERSON_NAME_ALLOWED_PATHS or name.endswith(("METADATA", "/METADATA")):
+    if clean_path in _PERSON_NAME_ALLOWED_PATHS:
+        return True
+    if clean_path.endswith("METADATA") and ".dist-info/" in clean_path:
         return True
     if _is_patch_file(path):
         return True

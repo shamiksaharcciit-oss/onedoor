@@ -99,7 +99,7 @@ and lets saturation drift 2.7 points, rather than the reverse. Choosing the othe
 would have moved the hue 24x further to protect a number nobody stated.
 
 `--faint` also has to stay the dimmest token, because `.tab.unbuilt` uses it and a
-disabled tab that looks enabled is the V8(f) overclaim. It does: ink 13.24, dim 6.04,
+disabled tab that looks enabled is the overclaim the design's own law forbids. It does: ink 13.24, dim 6.04,
 faint 4.57. **Readable and still visibly the quietest** -- the exemption WCAG offers for
 inactive controls was available and not taken, because a disabled control that is also
 unreadable is bad twice.

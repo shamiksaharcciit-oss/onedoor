@@ -188,11 +188,11 @@ def _check_rows(verification: ReceiptVerification) -> str:
 def _chain_block(row: sqlite3.Row, chain: Check) -> str:
     """The mockup shows digests here. In `0.4.1` there are none, and it says so.
 
-    Rendering `a3c1e7f0…` from a NULL column would be fabrication, and the spec's own
-    law forbids it. What goes here instead is the honest state, naming the ticket that
-    will fill it — which is a better demonstration of the product than a fake digest
-    would be, because the claim being made is that this system does not show you
-    numbers it cannot back.
+    Rendering a fake digest such as `a3c1e7f0…` from a NULL column would be
+    fabrication, and the spec's own law forbids it. What goes here instead is the
+    honest state, naming the ticket that will fill it — which is a better
+    demonstration of the product than a fake digest would be, because the claim
+    being made is that this system does not show you numbers it cannot back.
     """
     if chain.status is Status.ABSENT:
         return (

@@ -3,10 +3,34 @@ scenarios through onedoor's real API, so each is seconds, not milliseconds."""
 
 from __future__ import annotations
 
+import re
+import subprocess
 from pathlib import Path
 
 from eval.harness import cli
 from eval.harness.scenario import CATEGORIES
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_the_provenance_line_names_a_tree_not_a_commit(tmp_path: Path) -> None:
+    """The line used to name an `od-0111` commit that would never reach
+    public history, and citing it was circular: this very file sits in the
+    tree that commit would be made from. A tree id is checkable by anyone
+    against whatever public commit ships it, and never has this problem."""
+    cli.run(only=None, record=False, out_dir=tmp_path)
+    text = (tmp_path / "RESULTS.md").read_text(encoding="utf-8")
+    match = re.search(r"onedoor [\d.]+ \(onedoor/ tree ([0-9a-f]{12})\)\.", text)
+    assert match, "RESULTS.md's own provenance line is not in the expected shape"
+    tree_id = match.group(1)
+    kind = subprocess.run(
+        ["git", "cat-file", "-t", tree_id],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert kind == "tree", f"the provenance line names a {kind!r}, not a tree"
 
 
 def test_every_category_runs(tmp_path: Path) -> None:

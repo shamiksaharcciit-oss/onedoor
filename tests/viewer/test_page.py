@@ -81,7 +81,7 @@ def test_a_healthy_page_satisfies_every_property(conn: Connection, config: Engin
 def test_the_chain_block_says_absent_rather_than_showing_a_digest(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """The mockup shows `a3c1e7f0…` here. `0.4.1` has NULL, and the page says so.
+    """The mockup shows a digest, `a3c1e7f0…`, here. `0.4.1` has NULL, and the page says so.
 
     This is the single most important line in the viewer. Rendering a plausible digest
     over a dark column is precisely the dashboard lie the whole design exists to avoid,

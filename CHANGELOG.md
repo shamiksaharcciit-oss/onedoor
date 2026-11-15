@@ -5,6 +5,53 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
 not in this repository.
 
+## 0.11.1 — 2026-11-15
+
+A tidy-up release: no new feature and no behaviour change.
+
+### Changed — wording in shipped text
+
+A handful of internal-only comments, docstrings and two dangling doc
+pointers across `onedoor/` and the docs said more than a reader outside
+this project could resolve. Each now says its own reason in place; none
+of this changes what the code does.
+
+### Changed — the old release notes moved
+
+The six release-note files from `0.4.0` through `0.6.2` move from the
+repository root into `docs/release-notes/`, with every reference and
+relative link updated. The root's old, dated release-ping archive stays:
+removing it reads as a hit to the scan tooling that nothing can except (its
+own filename, not a line inside it), deferred rather than forced past.
+
+### Added — a labelled run for the recipient opt-in control
+
+`python -m eval run` now also replays the injected-recipient scenario a
+second way: the caller marks the recipient untrusted, and the shared
+`messages.send` policy lists it in `untrusted_params.hold` (0.11.0's own
+opt-in control). The miss becomes a hold, reported in `eval/RESULTS.md`'s
+own section and in `eval/FINDINGS.md`'s roadmap line for that finding.
+The default run's own numbers are unchanged — the control is a no-op
+for a caller that does not mark anything, same as it always was.
+
+### Changed — the README
+
+A short walkthrough gif under the opening paragraph, with a link to the
+0.11.0 release's own longer video. "Known limitations" merges into
+"Limitations and non-claims" — one section, every point kept.
+
+### Tests
+
+- `scripts/check_shipped_text.py`'s person-name allowance matches a
+  file's full path, not its bare name; its five role-noun path
+  allowances now let through only the first role-word standing alone;
+  its ellipsis allowance on a commit-shaped word now also requires a
+  digest word nearby. Each change ships with a planted, failing-first
+  test.
+- `tests/test_no_dead_doc_links.py` resolves a link by its path text
+  now, never by asking the real filesystem, so a tracked file linked
+  in the wrong letter case is caught on every platform.
+
 ## 0.11.0 — 2026-11-14
 
 ### Added — shadow policy evaluation and policy tests
@@ -1283,7 +1330,7 @@ guidance actually asks for. The contrast and separation figures now print in CI.
 
 ### Changed — the brand accent no longer carries state, anywhere
 
-This closes the earlier exemption that let an already-shipped screen keep
+This closes the earlier exemption that let already-shipped screens keep
 using gold as a state color: the rule binds everywhere, with no
 grandfathered screens. Seven rules across the coverage map and the proposal page marked
 a state or a classification in seal gold; all seven now distinguish by size, position,
@@ -1445,12 +1492,12 @@ same filename in both commands. *A wrong default that cannot be noticed is a def
 
 ### Fixed — a browser form POST returned 422 before it ever reached the handler
 
-Found while building F-G. `from __future__ import annotations` makes every annotation a
+Found while building a different fix. `from __future__ import annotations` makes every annotation a
 string, and FastAPI resolves route annotations against the **module's** globals — not the
 closure `create_app` builds them in. `Request`, imported only inside that function, was
 invisible at resolution time, so FastAPI read `request: Request` as an unresolvable
 **query parameter**. The name now lives at module scope behind an import guard, and the
-X-6 property is unchanged: importing the module still works without FastAPI, and
+optional-dependency property is unchanged: importing the module still works without FastAPI, and
 `create_app` still refuses with a remedy.
 
 ## 0.6.1 — 2026-08-27
@@ -1870,9 +1917,10 @@ a *declared closure* and not a bag of facts. Every digest is over canonical JSON
 concatenation appears and the `len8` dialect is not reached** — said plainly rather than
 decorated with an unused framing.
 
-Two amendments from R040, both where delivery's flags pointed. **`T` does not carry the
+Two amendments, both where delivery's flags pointed. **`T` does not carry the
 policy hash**: `E` already seals it as an input identity, and the same hash in two
-preimages is X-14 *inside the seal itself*. **`I` does not carry the anchor cadence**:
+preimages is a second answer to one question, inside the seal itself. **`I` does not
+carry the anchor cadence**:
 cadence schedules anchoring, not deciding, and inside `I` an ops-schedule tweak would
 have re-identified the deciding instrument for every row after it. It lives on the anchor
 object, where a change is visible in the stream it governs.
@@ -1884,7 +1932,7 @@ points at a *range of rows* and membership is resolved by lookup. A back-referen
 have been a second answer to a question the range already answers, needing a writable
 column on the one table whose value is that it cannot be written.
 
-**X-8, and the reason stated where it is enforced:** the chain is verified before a root
+**The reason stated where it is enforced:** the chain is verified before a root
 is computed, and a fault anywhere refuses the seal — an anchor over a broken chain would
 publish a root that certifies damage, permanently and in public.
 
@@ -1937,7 +1985,7 @@ append-only** (migration `0014`, with the same no-update/no-delete triggers as
 `actions_audit`): a retired key stays, because the receipts it signed must verify
 forever.
 
-**X-6 at enable time, not install time.** `cryptography` is a `[signed]` extra — a
+**Checked at enable time, not install time.** `cryptography` is a `[signed]` extra — a
 library-only user who never signs should not carry it. The failure that matters is a
 deployment that believes it signs and does not, and a hard install dependency does
 nothing about that, because belief comes from config. So **signing configured plus
@@ -1963,7 +2011,7 @@ tell a prober whether the ref existed. The forensic difference lives in
 `approval_ref_status`, the seven-value evidence field, and **not one reason code was
 added**.
 
-**Action-equivalence is identity up to spelling** (R035 §3): same `action_type`, and
+**Action-equivalence is identity up to spelling:** same `action_type`, and
 params equal under the canonical rendering. Key order and `250.00` versus `250` are
 spelling; `250` versus `900` is not. The human saw params, so an approval for €250
 cannot be spent on €900 — which effect-set equality alone would have allowed, since
@@ -2013,7 +2061,7 @@ because the table forbids `UPDATE` and sealed rows can never be re-hashed. `/2` 
 last bump that needed that window, and the boundary case is verified by a test.
 
 `sig`/`key_id`/`alg` stay excluded (a signature attests the row hash and cannot precede
-it) and `anchor_ref` stays excluded (X-8 anchors after re-verification, and an edited
+it) and `anchor_ref` stays excluded (anchoring happens after re-verification, and an edited
 anchor fails the Merkle proof — the right detector for it). `ND-050` was deliberately
 **not** pre-folded: guessing its row shape to save a bump would be designing a ticket in
 a hurry inside another one.
@@ -2074,17 +2122,18 @@ exact bytes `row_hash` covers, written so an implementer with no access to the s
 can reproduce every digest from that text alone. `tests/guardrail/test_row_preimage.py`
 holds **a second implementation built from the document rather than from the code** —
 an implementation that agrees with itself has proved nothing — plus the four golden
-vectors R031 §1.3 named: the shift collision, absent-versus-empty, a value containing
+vectors: the shift collision, absent-versus-empty, a value containing
 the framing's own header bytes, and a one-byte perturbation.
 
 - **Absent is a type tag, never a zero-length string.** Every field enters as an
   `ABSENT` tag with no payload, or `PRESENT` + an 8-byte big-endian length + the bytes.
   NULL and `""` differ in their **first byte**. `budget_json` NULL means *no budget was
-  owed* and `""` would mean *a budget was produced and it was empty*; R015 makes those
-  different facts, and this is where an adversary would look for the collapse.
+  owed* and `""` would mean *a budget was produced and it was empty*; this programme
+  treats those as different facts, and this is where an adversary would look for the
+  collapse.
 - **The vendored artifact carries no length-prefix dialect**, checked rather than
   assumed — no `struct`, no `to_bytes`, no packing anywhere in it. So the encoding is
-  written down in full as R031 required, built on the one byte-level discipline the
+  written down in full instead, built on the one byte-level discipline the
   artifact does ratify: RFC 6962's domain-separation tags.
 - **A column is hashed or deliberately excluded, never neither.** A test asserts every
   column of `actions_audit` appears in the field order or in the exclusion table with
@@ -2151,7 +2200,7 @@ this sound?" eventually disagree, and the one the user sees would be the wrong o
 
 Both mandatory tests are **sabotage-verified in CI**, and the assertion is exact rather
 than "something failed": render-as-if-verified fails the failure-state property **and
-no other**; a fabricated digest fails the X-11 property **and no other**. A third
+no other**; a fabricated digest fails the no-self-vouching property **and no other**. A third
 sabotage was added unasked, because it is the likelier real mistake — nobody fabricates
 a digest on purpose, but somebody will format `10` as `10.00` to make a column line up,
 and under E8 those are the same value and different evidence.

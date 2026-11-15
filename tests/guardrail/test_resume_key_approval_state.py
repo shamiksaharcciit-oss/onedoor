@@ -213,7 +213,7 @@ def test_case_f_an_approved_row_past_its_expiry_with_no_sweep_gets_a_fresh_row(
 def test_case_g_a_combined_approval_resumed_while_ratified_reuses_it(
     conn: Connection, config: EngineConfig, registry: ConnectorRegistry
 ) -> None:
-    """Case G, the bug this round closes: a mandate-gated
+    """Case G, the bug closed here: a mandate-gated
     (combined) approval the mandate authority has ratified sits in flight
     too -- a resume in that window must reuse it, not create a second row
     the approver's later cas_approve would then crash on."""

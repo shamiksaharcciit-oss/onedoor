@@ -59,7 +59,7 @@ jobs:
       - name: Types (mypy strict)
         # Scoped to the package. [tool.mypy] strict = true applies repo-wide;
         # holding tests/ and examples/ to strict is a separate decision, so it
-        # is not silently smuggled in here. See ND-025 note in BACKLOG.md.
+        # is not silently smuggled in here.
         run: mypy onedoor
 
       - name: Tests

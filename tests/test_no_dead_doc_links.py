@@ -10,6 +10,7 @@ check that catches the next one of those, for any file, not only this one.
 
 from __future__ import annotations
 
+import posixpath
 import re
 import subprocess
 from pathlib import Path
@@ -42,38 +43,50 @@ def _is_external_or_special(target: str) -> bool:
     return scheme in _SKIP_SCHEMES
 
 
-def _resolved_target_path(linking_file: str, target: str) -> Path | None:
-    """The real filesystem path `target` names, relative to the file that
-    links it -- `None` for anything not resolvable as a repo-relative file
-    reference (an external URL, a pure anchor, a `mailto:`, ...)."""
+def _resolved_target_path(linking_file: str, target: str) -> str | None:
+    """The repo-relative path `target` names, relative to the file that
+    links it -- as a plain POSIX path STRING, exactly as spelled, never by
+    asking the real filesystem to resolve it. `None` for anything not
+    resolvable as a repo-relative file reference (an external URL, a pure
+    anchor, a `mailto:`, or one that normalises outside the repo root
+    entirely). Resolving through the filesystem (`Path.resolve()`) used to
+    answer this, which is exactly the bug: a case-insensitive filesystem
+    folds a wrong-case link onto the real file's own on-disk casing before
+    this function ever sees it, hiding a mismatch that a case-sensitive
+    clone would not forgive. `posixpath` never touches a disk, so no
+    casing is ever folded, on any platform."""
     if _is_external_or_special(target):
         return None
     target = target.split("#", 1)[0]  # drop a same-document anchor suffix
     if not target:
         return None  # was anchor-only before the split
-    linking_dir = (ROOT / linking_file).parent
-    return (linking_dir / target).resolve()
+    if target.startswith("/"):
+        combined = target.lstrip("/")
+    else:
+        linking_dir = posixpath.dirname(linking_file)
+        combined = posixpath.join(linking_dir, target) if linking_dir else target
+    normalized = posixpath.normpath(combined)
+    if normalized == ".." or normalized.startswith("../"):
+        return None  # escapes the repo root entirely
+    return normalized
 
 
 def _tracked_file_set() -> frozenset[str]:
     return frozenset(_tracked_files())
 
 
-def _is_tracked(resolved: Path, tracked: frozenset[str]) -> bool:
-    """Whether `resolved` names a file this tree actually tracks, or a
-    directory that holds at least one tracked file -- checked against
-    `git ls-files`, never the filesystem directly. A file that merely
+def _is_tracked(rel: str, tracked: frozenset[str]) -> bool:
+    """Whether `rel` (a repo-relative POSIX path string, exactly as
+    spelled) names a file this tree actually tracks, or a directory that
+    holds at least one tracked file -- checked against `git ls-files`,
+    never the filesystem, and never case-folded. A file that merely
     exists on disk (a build artifact, a local scratch file, anything
     sitting in the working tree but never staged) is not something a
     fresh clone of this repository would ever have, so a link to one is
-    still dead even though `Path.exists()` would say otherwise. `git
+    still dead even though the filesystem would say otherwise. `git
     ls-files` names files only, never a directory on its own -- a link to
     a directory (browsing into `examples/foo/`, a common convention) is
     tracked precisely when some tracked file's own path starts with it."""
-    try:
-        rel = resolved.relative_to(ROOT).as_posix()
-    except ValueError:
-        return False  # outside the repo entirely
     if rel in tracked:
         return True
     prefix = rel if rel.endswith("/") else rel + "/"
@@ -148,8 +161,8 @@ def test_an_untracked_file_on_disk_is_still_a_dead_link() -> None:
         resolved = _resolved_target_path(
             "docs/integration-mcp.md", "_test_planted_untracked_link_target.md"
         )
-        assert resolved == planted.resolve()
-        assert resolved.exists()
+        assert resolved == "docs/_test_planted_untracked_link_target.md"
+        assert (ROOT / resolved).exists()
         assert not _is_tracked(resolved, _tracked_file_set())
     finally:
         planted.unlink()
@@ -165,9 +178,21 @@ def test_an_external_url_or_anchor_is_not_treated_as_a_file_reference(target: st
 
 def test_a_relative_link_resolves_against_its_own_linking_files_directory() -> None:
     resolved = _resolved_target_path("docs/integration-litellm.md", "../README.md")
-    assert resolved == (ROOT / "README.md").resolve()
+    assert resolved == "README.md"
 
 
 def test_an_anchor_suffix_on_a_real_file_is_stripped_before_checking() -> None:
     resolved = _resolved_target_path("README.md", "CHANGELOG.md#0.11.0")
-    assert resolved == (ROOT / "CHANGELOG.md").resolve()
+    assert resolved == "CHANGELOG.md"
+
+
+def test_a_tracked_file_linked_in_the_wrong_letter_case_is_a_dead_link() -> None:
+    """Resolving through the real filesystem (as this check used to) lets
+    a case-insensitive filesystem silently fold a wrong-case link onto the
+    real file's own on-disk casing, so the same link would pass here and
+    still fail on a case-sensitive clone. Checked by path text alone now,
+    never by touching disk, so the mismatch is caught on every platform,
+    this one included."""
+    resolved = _resolved_target_path("README.md", "Readme.MD")
+    assert resolved is not None
+    assert not _is_tracked(resolved, _tracked_file_set())

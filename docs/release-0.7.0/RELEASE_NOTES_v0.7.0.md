@@ -1,7 +1,7 @@
 # onedoor 0.7.0 — 2026-09-05
 
-**Tag `v0.7.0`.** Notes drawn from [CHANGELOG.md](../../CHANGELOG.md)'s `0.7.0` section
-(R011: release notes are a slice of the changelog, never a rewrite of it). This edition
+**Tag `v0.7.0`.** Notes drawn from [CHANGELOG.md](../../CHANGELOG.md)'s `0.7.0` section —
+release notes are a slice of the changelog, never a rewrite of it. This edition
 supersedes draft B, seal `c405e827fa4cf6ef1dbe1ca03df1980961403e4d146b8021f9bc81a9aafb1bda`,
 after the operator dogfooding pass that gated the release.
 
@@ -179,4 +179,4 @@ untouched — this release adds no enforcer migration.
   matters rather than answering identity questions with provenance facts. Actor identity
   is specced and follows.
 
-Integrity: sha256(body) = 318d24cdf1a80d0a8db062011a44269398db4cfb6e0dbbdd0807980fad87dedb
+Integrity: sha256(body) = 7de346dd4f9f992ad099b41678192f7ab9b21f172b7de319d92480f35c056594

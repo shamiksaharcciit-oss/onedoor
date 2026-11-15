@@ -412,8 +412,8 @@ def test_the_spec_carries_no_control_bytes() -> None:
 def test_the_length_prefix_is_len8_as_the_programme_spec_defines_it() -> None:
     """`len8` — the byte length as an 8-byte big-endian integer.
 
-    Quoted in `docs/row-preimage.md` §1 from the Provenance Primitives Spec v1.1 §1
-    (Q-11) rather than referenced, so the citation carries its own checkable content.
+    Quoted in `docs/row-preimage.md` §1 from the external spec it is adopted from,
+    rather than referenced, so the citation carries its own checkable content.
     This test is the other half of that: the document says `len8`, and the code is
     asserted to mean the same thing by the same arithmetic, not by agreement of prose.
 
@@ -438,8 +438,7 @@ def test_the_spec_quotes_the_formula_rather_than_pointing_at_it() -> None:
     reference later, when nobody remembers why it was written out longhand.
     """
     text = SPEC.read_text(encoding="utf-8")
-    assert "Provenance Primitives Spec v1.1" in text
-    assert "Q-11" in text
+    assert "adopted from an external spec rather than invented here" in text
     assert "8-byte big-endian" in text
     assert "len8(c)" in text, "the formula itself, not a description of it"
     assert "extension" in text.lower(), "the tag layer is declared as onedoor's, not the spec's"

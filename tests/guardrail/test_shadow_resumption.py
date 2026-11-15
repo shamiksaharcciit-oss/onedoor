@@ -7,7 +7,7 @@ approval-ref resumption, `resume_ratification`, or `evaluate_and_execute`
 with `approved_override=True`) and records the `ActionResult` it actually
 gets back -- never an `approvers` set by hand on a `PolicyDecision` built
 for the test's own convenience, since that is exactly the shape that let
-this gap through a prior round's own tests.
+this gap through an earlier test.
 """
 
 from __future__ import annotations
@@ -271,9 +271,9 @@ def test_a_bare_override_denied_directly_reads_not_modeled(
 
 def _full_row(conn: Connection, *, audit_id: int, kind: str) -> dict[str, object]:
     """Every column of one `actions_audit` row, as a plain dict, plus its
-    own `decision_digest` -- the comparison this round's own test makes,
+    own `decision_digest` -- the comparison this test makes,
     since `approvers_json` is part of the canonical record that digest
-    covers, and a prior round's own narrower column check is exactly what
+    covers, and an earlier, narrower column check is exactly what
     let a change to it through undetected."""
     row = (
         conn.execute("SELECT * FROM actions_audit WHERE id=?", (audit_id,)).fetchone()

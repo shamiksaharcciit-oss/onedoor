@@ -228,7 +228,7 @@ def _store_warning(active_policies: int | None, *, db_defaulted: bool = True) ->
 
 
 def _create_form() -> str:
-    """F-G. The empty state's next move, and a plain form so it needs no JavaScript.
+    """The empty state's next move, and a plain form so it needs no JavaScript.
 
     Posts `application/x-www-form-urlencoded` — what a browser sends — which the route
     parses with the standard library. `python-multipart` would be needed for
@@ -293,7 +293,7 @@ padding-top:.6rem;margin-top:.8rem;}
 .drafts ul{list-style:none;padding:0;display:flex;gap:1rem;}
 .drafts a{color:var(--muted);text-decoration:none;}
 .drafts .on a{color:var(--ink);}
-/* F-G. A next move, plainly. */
+/* A next move, plainly. */
 .create-block form{display:flex;gap:.6rem;align-items:center;margin:.6rem 0;}
 .create-block input{background:var(--surface);color:var(--ink);border:1px solid var(--border);
 border-radius:4px;padding:.5rem .7rem;font-family:inherit;font-size:.9rem;flex:1;max-width:28rem;}
@@ -301,7 +301,7 @@ border-radius:4px;padding:.5rem .7rem;font-family:inherit;font-size:.9rem;flex:1
 border-radius:4px;padding:.5rem 1rem;font-family:inherit;font-size:.85rem;cursor:pointer;}
 .create-block .cli{color:var(--faint);font-size:.75rem;margin:.4rem 0 0;}
 .create-block pre.cli{white-space:pre-wrap;word-break:break-all;}
-/* F-H. Configuration advice, not a verdict: seal and rule, never the semantic pair. */
+/* Configuration advice, not a verdict: seal and rule, never the semantic pair. */
 .store-warning{border-left:3px solid var(--seal);background:var(--card-hi);}
 .store-warning p{margin:0;font-size:.85rem;}
 """

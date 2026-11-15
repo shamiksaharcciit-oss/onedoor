@@ -1,4 +1,4 @@
--- ND-052 / S1-B2. The Studio's own table. It is not the ledger, and that is the point.
+-- ND-052. The Studio's own table. It is not the ledger, and that is the point.
 --
 -- A backtest writes NOTHING to the decision ledger -- not a decision row, not
 -- a marker, not a "backtest ran" breadcrumb. `actions_audit` is the enforcer's record;

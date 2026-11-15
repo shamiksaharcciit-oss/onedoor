@@ -1,4 +1,4 @@
--- ND-052 / S2-T4. The ratification receipt: the act that turned a candidate into a
+-- ND-052. The ratification receipt: the act that turned a candidate into a
 -- version, recorded so the act itself can be checked later rather than inferred from
 -- the fact that a version exists.
 --

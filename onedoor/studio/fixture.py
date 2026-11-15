@@ -1,4 +1,4 @@
-"""The shipped demonstration ledger (ND-052 / S1-B3).
+"""The shipped demonstration ledger (ND-052).
 
 A day-one deployment has an empty store, and the demo bar says **real, receipted,
 limit-stated output**. Those meet at a declared field rather than a blur: a backtest run
@@ -35,8 +35,8 @@ The property that pinning buys beyond reproducibility: **the fixture's chain
 head is a published constant.** Every install ships the same bytes, so its `row_hash`
 values are public — which makes a fixture-backed receipt stripped of its label and
 presented as `live` **checkable by anyone**, by comparing the cited
-`row_hash_at_last_seq` against the shipped head. B5's tests guard the renderings; the
-pinning guards the world outside them.
+`row_hash_at_last_seq` against the shipped head. This module's own tests guard the
+renderings; the pinning guards the world outside them.
 """
 
 from __future__ import annotations
@@ -77,7 +77,8 @@ the pin meaningless."""
 CONFIG = EngineConfig(approval_ttl_seconds=3600, connector_timeout_seconds=5.0, tz=ZoneInfo("UTC"))
 
 ACTIONS = ("payments.transfer", "crm.update_record", "docs.read", "net.http", "refunds.issue")
-"""A payments-shaped world, matching S5's vertical and the launch demo's incident."""
+"""A payments-shaped world, matching the live room's own vertical and the launch
+demo's incident."""
 
 
 def _policies() -> tuple[list[Policy], list[EffectPolicy]]:

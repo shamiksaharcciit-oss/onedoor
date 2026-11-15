@@ -1,4 +1,4 @@
-"""Verification of a decision receipt — the one implementation (ND-051 / V1).
+"""Verification of a decision receipt — the one implementation (ND-051).
 
 This module exists so that there is **exactly one** answer to "is this receipt
 sound?" in the entire package. The viewer imports it; a CLI will import it the day

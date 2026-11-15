@@ -47,6 +47,7 @@ class Action:
     retry_of: int | None = None  # index into the scenario's own actions, 0-based
     approval_ref_from: int | None = None  # present that action's approval_id as approval_ref
     wait_seconds: float = 0.0  # a real sleep before this action, so its approval can expire
+    untrusted: tuple[str, ...] = ()  # dotted paths the caller marks as untrusted (onedoor 0.11)
 
     def __post_init__(self) -> None:
         if self.ground_truth not in GROUND_TRUTHS:

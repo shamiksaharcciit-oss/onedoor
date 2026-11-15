@@ -523,7 +523,7 @@ class Proxy:
             # intent to settle, so this forwards and returns the downstream's
             # own result directly, with no `report_result` call at all (the
             # one-shot audit row above is already the complete record). A
-            # pre-existing gap, found by this round's own test for a tier-0
+            # pre-existing gap, found by a new test for a tier-0
             # read through the gateway -- no earlier test routed one this far
             # (every demo policy that reached here before was tier 1 or
             # above, going through `PermittedIntent` instead); every such

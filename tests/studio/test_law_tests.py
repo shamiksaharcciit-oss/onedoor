@@ -407,7 +407,8 @@ def test_every_rendered_digest_is_truncated_and_complete_on_hover(populated) -> 
 
 def test_the_digest_check_can_find_a_violation() -> None:
     """A format check that matches anything measures nothing."""
-    assert _SHORT.match("29e85d2c…5166")
+    digest_truncated_correctly = "29e85d2c…5166"
+    assert _SHORT.match(digest_truncated_correctly)
     assert not _SHORT.match("29e85d2c5166")
 
 

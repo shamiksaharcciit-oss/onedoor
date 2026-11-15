@@ -1,4 +1,4 @@
-"""The coverage map (ND-052 / S4, T1–T3).
+"""The coverage map (ND-052).
 
 Constitution **principle 4** — *non-coverage is stated, never silent* — as something a
 deployer can look at. The three-outcome rule applied to drafting, and E11's dark surface
@@ -7,15 +7,15 @@ in product form.
 Where the map's inputs come from, and why not from a description
 ------------------------------------------------------------------
 The design note's columns start from *effects mentioned* in a description the proposer
-reads — and the proposer is S6, last. So this map uses the two sources it has, and the
+reads — and the proposer lands last. So this map uses the two sources it has, and the
 second is better than a description would have been:
 
 - **the policy set** — candidate or active: what is declared;
 - **the ledger** — what actually arrived, over a cited range.
 
 *A description says what someone remembered to write down; the ledger says what
-happened.* When S6 lands, the description's list joins these as a **third** source, never
-replacing them.
+happened.* When the proposer lands, the description's list joins these as a **third**
+source, never replacing them.
 
 Four states, ranked by what they do rather than by how they sound
 -----------------------------------------------------------------------------

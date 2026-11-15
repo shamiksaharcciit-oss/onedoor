@@ -2,11 +2,11 @@
 
 **Normative.** This document defines the exact bytes each of `e_digest`, `i_digest`,
 `t_digest` and `v_digest` is computed over. It is written so an implementer with no
-access to the source can reproduce every digest from this text alone (P2-06), and
+access to the source can reproduce every digest from this text alone, and
 `tests/guardrail/test_receipt_digests.py` holds a second implementation built from this
 document rather than from the module.
 
-**Signed off by R040 §1**, with two amendments recorded in §5. **Frozen from the first
+**Normative, with two amendments recorded in §5.** **Frozen from the first
 sealed row.** These columns live on an append-only table: there is no migration that
 fixes a defect here.
 
@@ -22,8 +22,9 @@ the vendored `rederivable-manifest` v3 canonical JSON: keys sorted by code point
 separators `,` and `:`, UTF-8, no ASCII escaping, **floats forbidden**.
 
 **No concatenation appears, so the `len8` dialect is not reached.** Stated rather than
-implied: R039 asked for `len8` *where concatenation appears*, and a canonical object
-needs no framing. Decorating this with an unused dialect would be worse than saying so.
+implied: the `len8` dialect applies *where concatenation appears*, and a canonical
+object needs no framing. Decorating this with an unused dialect would be worse than
+saying so.
 
 **`E`, `I` and `T` are carried as opaque digests** in the receipt, never as inlined
 structures — because `I` will generalise from verdict-instruments to stage-attribution
@@ -97,16 +98,16 @@ re-rendering here would let the sealed bytes and the stored bytes diverge.
 
 ## 6. The two amendments, recorded with their reasons
 
-**`T` does not carry `policy_source`.** It was proposed and R040 §1 removed it: the
+**`T` does not carry `policy_source`.** It was proposed and removed: the
 policy hash already lives in `E` as `policy_version`, where it is an *input identity* —
 what was in force. The same hash in two preimages is two answers to one question at the
-exact layer where drift becomes undetectable — **X-14, inside the seal itself**. What
+exact layer where drift becomes undetectable, inside the seal itself. What
 `T` owes a verifier is what must be *trusted*, and trusting that a version hash resolves
 to real policy content is precisely what `closure` declares.
 
 **`I` does not carry `anchor_cadence`.** It was proposed with the consequence flagged —
 a cadence change would re-identify the deciding instrument for every row after it — and
-R040 §2 ruled the consequence *was the defect*, not the point. Cadence schedules
+the consequence *was ruled the defect*, not the point. Cadence schedules
 **anchoring**, not **deciding**: an ops-schedule tweak must not split `i_digest` cohorts
 for a reason no instrument comparison should have to care about. Cadence declares in the
 anchoring configuration and is recorded on the **anchor object** (§7), where a change is

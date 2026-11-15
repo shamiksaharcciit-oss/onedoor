@@ -1,6 +1,6 @@
 [project]
 name = "onedoor"
-version = "0.11.0"
+version = "0.11.1"
 description = "A tiered guardrail/policy engine for agentic systems: default-deny, bounds, caps, approvals, dry-run, kill switch, and reversibility as a precondition for autonomy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -177,9 +177,10 @@ exclude = [
     # if it were source, and turned the format gate red.
     ".git",
     # Markdown. Ruff formats Python inside fenced blocks, and every .md here is
-    # evidence rather than source: BACKLOG/TICKETS quote defects *verbatim* so the
-    # quote matches the file it indicts (reformatting a quoted snippet would make it
-    # no longer match examples/litellm_guardrail.py), and received memos are
+    # evidence rather than source: the changelog and release notes quote defects
+    # *verbatim* so the quote matches the file it indicts (reformatting a quoted
+    # snippet would make it no longer match examples/litellm_guardrail.py), and
+    # received memos are
     # pinned by `Integrity: sha256(body)` -- reformatting a code block inside one
     # would break that digest and fail tests/protocol/.
     "*.md",

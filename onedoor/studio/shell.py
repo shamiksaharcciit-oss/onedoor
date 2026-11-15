@@ -1,4 +1,4 @@
-"""V1 — the Studio shell: header, version banner, tabs, footer.
+"""The Studio shell: header, version banner, tabs, footer.
 
 The chrome every Studio screen sits inside. Built from the mockup that stands as
 binding design authority; the tokens come from `studio.tokens`, never from this file.
@@ -11,14 +11,14 @@ built"* — this is the built thing, so carrying the banner into it would be the
 lying about itself in the one line whose whole job is to say what the page is.
 
 **Tabs are links, not buttons.** The mockup switches tabs in JavaScript because it is
-one static file. The design calls for the F-A regression to be rerun *"against every new
-route"* — routes, plural, server-side — and the Studio has held a no-JavaScript line
-since F-G, where a `<form>` was chosen over `fetch` so the page works with scripting
-off. Same design, delivered by the transport this app actually has.
+one static file. The design calls for the no-JavaScript regression test to be rerun
+*"against every new route"* — routes, plural, server-side — and the Studio has held a
+no-JavaScript line since early on, where a `<form>` was chosen over `fetch` so the page
+works with scripting off. Same design, delivered by the transport this app actually has.
 
-**A tab whose screen is not built does not render as a link.** V8(f) states the rule —
-*a control that cannot act must not render enabled* — and there is no reason to wait
-for V8 to start obeying it. An unbuilt tab renders as text with the stage that will
+**A tab whose screen is not built does not render as a link.** The design's own law
+states the rule — *a control that cannot act must not render enabled* — and there is
+no reason to wait to start obeying it. An unbuilt tab renders as text with the stage that will
 build it named, so an operator meets the truth rather than a dead link. `TABS` is the
 single place that knowledge lives; a screen becomes reachable by flipping one flag,
 which is why the flag is not duplicated into a template.
@@ -29,7 +29,7 @@ The design note asks for digests rendered `first-8…last-4`, *"with copy-on-cli
 on hover."* Truncation is arithmetic and the full value goes in `title`; copy-on-click
 needs JavaScript.
 
-V1 first dropped the feature to keep the page script-free. **That was stricter than
+This page first dropped the feature to keep the page script-free. **That was stricter than
 necessary and cost a mandated affordance** — the design permits *"minimal inline JS, matching
 the current architecture"*, and copy-on-click was later restored as **progressive
 enhancement**.
@@ -38,8 +38,9 @@ The shape is the point. `cursor:copy` lives on `.digest.copyable`, and **nothing
 served HTML carries that class**: the inline script adds it in the same statement that
 attaches the click handler, and only after checking the clipboard API is actually
 there. So the cursor and the capability arrive in the same instant or not at all, and
-V8(f) is satisfied *structurally* rather than by anyone remembering. With scripting off,
-the page is exactly what V1 shipped — a digest, truncated, complete on hover.
+the design's own law is satisfied *structurally* rather than by anyone remembering.
+With scripting off, the page is exactly what first shipped — a digest, truncated,
+complete on hover.
 
 *An affordance is a promise; the promise and the thing must be one act.*
 
@@ -115,17 +116,17 @@ class Tab:
     path: str
     built: bool
     stage: str
-    """The V-stage that builds this screen, named in the page when it is not built yet."""
+    """Where this screen lands, named in the page when it is not built yet."""
 
 
 TABS: tuple[Tab, ...] = (
-    Tab("policies", "Policies", "/policies", True, "V2"),
-    Tab("drafts", "Drafts", "/drafts", True, "V5"),
-    Tab("history", "History", "/history", True, "V3"),
-    Tab("state", "Live state", "/state", True, "V4"),
-    Tab("verify", "Verify", "/verify", True, "V8"),
+    Tab("policies", "Policies", "/policies", True, "an earlier release"),
+    Tab("drafts", "Drafts", "/drafts", True, "an earlier release"),
+    Tab("history", "History", "/history", True, "an earlier release"),
+    Tab("state", "Live state", "/state", True, "an earlier release"),
+    Tab("verify", "Verify", "/verify", True, "an earlier release"),
 )
-"""The five tabs of the design note's six screens — S2 (the editor) lives inside a
+"""The five tabs of the design note's six screens — the editor lives inside a
 draft rather than beside it, which is fence-post one restated in navigation: there is
 no route from the top bar to anything that edits live rules."""
 
@@ -456,7 +457,7 @@ h2 .num{font-size:1rem}
 textarea{background:var(--well);color:var(--ink);border:1px solid var(--line);
   border-radius:6px;font-family:var(--mono);font-size:.82rem;line-height:1.6;
   padding:.8rem 1rem;width:100%;resize:vertical}
-/* F-H's empty-store advice. Configuration advice, NOT a verdict: it gets its own
+/* The empty-store advice. Configuration advice, NOT a verdict: it gets its own
    weight from a border and a surface, never from the semantic triple -- and never from
    the brand accent either. It must look different from an ordinary empty
    state, because it is telling the operator something is wrong with their setup. */
@@ -535,7 +536,7 @@ LIVE_VALIDATE_SCRIPT = (
     "})"
     "})();"
 )
-"""Live validation, as progressive enhancement (ND-056/T1).
+"""Live validation, as progressive enhancement (`ND-056`).
 
 **It parses nothing.** It reads a textarea, posts the text, and replaces a container with
 HTML the server rendered. Every judgement in that HTML was made by the engine's own
@@ -548,8 +549,8 @@ exactly the inputs this engine is careful about — decimal strings, unicode, ke
 `tests/studio/test_no_parser_in_the_browser.py` holds that structurally: this script may
 not contain YAML vocabulary or policy field names.
 
-With scripting off, the page is exactly what V7 shipped — the round trip on save is the
-fallback, and it renders the same fragment from the same function. The failure branch is
+With scripting off, the page is exactly what the editor shipped — the round trip on save
+is the fallback, and it renders the same fragment from the same function. The failure branch is
 deliberately silent: a validation panel that could not refresh must keep showing the last
 answer the SERVER gave, never a client-side guess about why the fetch failed.
 """
@@ -573,8 +574,8 @@ def css() -> str:
     return tokens.root_css() + _CSS
 
 
-PROPOSE_TAB = Tab("propose", "Propose", "/propose", True, "T3")
-"""ND-056/T3's tab, and it is NOT in `TABS`.
+PROPOSE_TAB = Tab("propose", "Propose", "/propose", True, "an earlier release")
+"""`ND-056`'s tab, and it is NOT in `TABS`.
 
 Wall 4: with no model endpoint configured the feature is **absent from the UI, not
 broken in it**. So the tab is added to the bar only when a proposer exists, and every

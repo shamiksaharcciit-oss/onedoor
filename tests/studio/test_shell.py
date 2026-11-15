@@ -41,9 +41,10 @@ def test_the_banner_states_every_field_r055_asks_for() -> None:
 def test_the_digest_renders_first_eight_then_last_four() -> None:
     """The design note's format, and the reason it is a format: it must be scannable
     at a glance and complete on demand."""
-    assert shell.short_digest(FULL) == "29e85d2c…5166"
+    truncated_digest = "29e85d2c…5166"
+    assert shell.short_digest(FULL) == truncated_digest
     html = _page()
-    assert "29e85d2c…5166" in html
+    assert truncated_digest in html
     assert FULL not in re.sub(r'(title|data-digest)="[^"]*"', "", html), (
         "the truncated form is what the reader sees; the full digest belongs in "
         "attributes, not in the running text"

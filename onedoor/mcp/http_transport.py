@@ -10,7 +10,7 @@ server-sent-events stream, for an exchange that needs no server-initiated messag
 mid-call, which is exactly what this gateway's synchronous decide-forward-report
 pipeline is). No `Mcp-Session-Id` negotiation, no SSE stream, no batched array of
 messages in one body: this proxy's state already lives in the one `Proxy` instance
-behind the endpoint, not in a per-session object this round would need to invent.
+behind the endpoint, not in a per-session object this scope would need to invent.
 Documented as a scope boundary, not silently as full streamable-HTTP coverage.
 
 Binds to 127.0.0.1 only -- `run` refuses any other host outright, fail closed,
@@ -93,7 +93,7 @@ def create_app(
             # export could expose. This gateway supports exactly one configured
             # token, so every successful request hashes to the same session --
             # a real limitation of a single-tenant token today, not a bug in
-            # the hash (see questions.md).
+            # the hash.
             http_session_id = hashlib.sha256(presented.encode()).hexdigest()
         body = await request.body()
         try:

@@ -1,4 +1,4 @@
-"""V2 / S1 — the policy library: the version in force, read and said in English.
+"""The policy library: the version in force, read and said in English.
 
 Two jobs, and they are separate on purpose.
 
@@ -17,7 +17,7 @@ not contain is a rendering that will be trusted for a guarantee nobody wrote.*
 
 The design note says *"plain-language rendering (descriptions.py exists for this)"*.
 `studio/descriptions.py` freezes the **operator's own words** as received data — the
-input to S6's proposer — and holds no renderer at all. The design note asks for
+input to the proposer — and holds no renderer at all. The design note asks for
 something else: *"plain-language rendering of each rule beside its YAML"*, generated
 from the rule.
 
@@ -25,7 +25,7 @@ So both are shown, and they are labelled as different kinds of thing: what the r
 **does** (derived here, from the policy) and what someone **said it was for** (frozen
 bytes, if a description exists). This distinction is stated plainly rather than silently
 resolved, because the two would be easy to conflate on screen and conflating them is exactly the mistake
-S6's asserted/measured split exists to prevent.
+the proposer's own asserted/measured split exists to prevent.
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ class PolicyRow:
 
 @dataclass(frozen=True)
 class Library:
-    """The whole S1 read model. Every field is resolved before rendering."""
+    """The whole library read model. Every field is resolved before rendering."""
 
     version: str | None
     rows: tuple[PolicyRow, ...]

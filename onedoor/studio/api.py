@@ -1,4 +1,4 @@
-"""`ND-056` / T2 — the policy REST API. Draft CRUD, and no way to approve anything.
+"""`ND-056` — the policy REST API. Draft CRUD, and no way to approve anything.
 
 ## What this is for
 
@@ -21,7 +21,7 @@ person loads.
 
 ### One legacy route exists and this API is not it
 
-`POST /draft/{id}/ratify` has served since `ND-052`/S3-T2 and shipped in `0.6.2`. It
+`POST /draft/{id}/ratify` has served since `ND-052` and shipped in `0.6.2`. It
 ratifies over HTTP with a declared session string. It stays through this
 release — launch week is the wrong week to break a published surface — documented
 truthfully, pinned by a witness test, and carrying a deprecation field in its own
@@ -60,11 +60,12 @@ API_ROOT = "/api/v1"
 OPENAPI_PATH = f"{API_ROOT}/openapi.json"
 """Published deliberately.
 
-V8 turned `openapi_url` off because `/openapi.json` *published an API surface nobody
-chose to publish*, and because `/docs` and `/redoc` pulled Swagger, ReDoc, fonts and a
-favicon from CDNs — making the header's "nothing leaves this machine" false. T2 is a
-surface someone chose, and JSON fetches nothing, so neither half of that finding
-survives here. `/docs` and `/redoc` stay off; they are the half that reached the network.
+A universal pass over the app's own route table turned `openapi_url` off because
+`/openapi.json` *published an API surface nobody chose to publish*, and because `/docs`
+and `/redoc` pulled Swagger, ReDoc, fonts and a favicon from CDNs — making the header's
+"nothing leaves this machine" false. This route is a surface someone chose, and JSON
+fetches nothing, so neither half of that finding survives here. `/docs` and `/redoc`
+stay off; they are the half that reached the network.
 """
 
 NO_APPROVAL_NOTE = (
@@ -179,7 +180,7 @@ def rule_object(policy: Policy) -> dict[str, Any]:
 
     `model_dump(mode="json")` is what makes the decimal fields render in the canonical
     form the engine stores, so the API and the raw editor pane show the same string for
-    the same money. V7 learned that one the hard way, on `'500.00'` against `'500'`.
+    the same money. The editor learned that one the hard way, on `'500.00'` against `'500'`.
     """
     return policy.model_dump(mode="json")
 

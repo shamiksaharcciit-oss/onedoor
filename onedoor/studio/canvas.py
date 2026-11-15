@@ -1,4 +1,4 @@
-"""The canvas's view model (ND-052 / S3, T3 and T4).
+"""The canvas's view model (ND-052).
 
 Everything the canvas shows, assembled here so the renderer computes nothing. Same
 split that keeps `viewer/page.py` from growing a second opinion about whether a receipt
@@ -7,14 +7,15 @@ the one the user sees is the one that is wrong.
 
 **Every number here is produced by an engine function** (fence post two): the
 previewed hash by `ratify.preview`, the diff by `ratify.diff`, divergence and coverage
-by S1's `backtest.run`, the problem list by `validate.problems` wrapping the engine's
+by the backtest's own `backtest.run`, the problem list by `validate.problems` wrapping the engine's
 own validator. Nothing in this module computes a summary of its own.
 
 Pin and surface, and what it costs the panels
 --------------------------------------------------------
 A draft is pinned to the version it was opened against. When the active set moves, the
-canvas does **not** silently re-base: a live re-base is S2's stale read arriving one
-layer earlier, before anyone clicks, where the compare-and-swap cannot catch it. The
+canvas does **not** silently re-base: a live re-base is the editor's own stale read
+arriving one layer earlier, before anyone clicks, where the compare-and-swap cannot
+catch it. The
 moved state is surfaced instead, and it **names both hashes** — *a warning that names
 no versions is a mood, not a fact.*
 
