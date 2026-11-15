@@ -21,12 +21,15 @@ happen to collide, or a caller able to choose or observe another's
 key), let that second caller learn and consume the first caller's own
 approval.
 
-A deployment calling `decide_and_reserve` only through the HTTP
-service, the MCP gateway, or the shipped LangChain middleware was not
-exposed: each of those always passes a principal. A deployment that
-calls the engine directly and never passes `principal` was exposed if
-it also exposed `thread_id`/`tool_call_id` resumption to more than one
-caller.
+The HTTP service and the MCP gateway were never exposed: neither one
+passes a resume key at all. A deployment using the shipped LangChain
+middleware was exposed to a second principal learning its approval id,
+or a mismatch, only where two middleware instances configured with
+different principals shared one store and a `thread_id`/`tool_call_id`
+collided between them; consuming the first principal's approval was
+not possible there. A deployment that calls the engine directly and
+never passes a `principal` was exposed if it also exposed
+`thread_id`/`tool_call_id` resumption to more than one caller.
 
 `find_by_resume_key` now takes the caller's principal and matches it
 against the row's own proposer; a row for a different principal is
@@ -36,6 +39,24 @@ longer skips when the proposer recorded none — an unauthenticated
 presenter is compared against that absence like any other identity,
 not exempted from the check. Upgrading to `0.11.2` is the fix; no
 configuration change is needed.
+
+### Fixed — a principal's own resume could collide with its own row
+
+Once the lookup above is scoped per principal, more than one principal
+can hold its own in-flight row at one resume key. The lookup used to
+read and act on only the first such row, so a principal's own resume
+could find a different principal's row instead of its own and then
+collide with its own existing row trying to propose a fresh one.
+Every in-flight row at the key is now read, and every lapsed one
+expired, rather than stopping at the first.
+
+### Changed — the ledger's row format moved to `row-preimage/8`
+
+`0.11.2` seals new ledger rows under preimage version `/8`, one field
+wider than `0.11.1`'s `/7`. `0.11.1` opens a `0.11.2` store without
+error but refuses to verify a `/8` row by name, rather than mis-verify
+it as `/7`. A store `0.11.2` has written to should not be rolled back
+to `0.11.1`.
 
 ## 0.11.1 — 2026-11-15
 
