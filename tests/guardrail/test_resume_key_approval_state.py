@@ -16,6 +16,13 @@ expiry -- nothing in `onedoor/` calls it, so an in-flight row past its
 `expires_at` would otherwise be reused forever (and, for `pending`/`ratified`,
 never become approvable again either); `find_by_resume_key` now expires it
 itself, in the caller's own transaction, on the way out.
+
+30sp/30sr/30tm (onedoor 0.12): a THIRD exception to "gets a fresh row" --
+the CALLER'S OWN in-flight row, found past its own expiry, is now DENIED
+(`CheckId.APPROVAL_EXPIRED`) rather than silently re-proposed. A row already
+in a terminal state (`denied`/`expired` on arrival/`consumed`/`executed`)
+still gets an ordinary fresh row, unaffected -- only a row that WAS in flight
+and has just lapsed is denied instead.
 """
 
 from __future__ import annotations
@@ -29,7 +36,7 @@ from onedoor.guardrail import approvals
 from onedoor.guardrail.decision import PermittedIntent, decide_and_reserve
 from onedoor.guardrail.errors import ApprovalError
 from onedoor.guardrail.executor import EngineConfig
-from onedoor.guardrail.models import ApprovalState, Decision
+from onedoor.guardrail.models import ApprovalState, CheckId, Decision
 from onedoor.guardrail.registry import ConnectorRegistry
 from onedoor.store.clock import to_iso
 from tests.conftest import FROZEN_NOW, make_request
@@ -117,28 +124,36 @@ def test_a_resume_reuses_the_row_only_while_it_is_in_flight_and_unexpired(
 
 
 @pytest.mark.parametrize("state", list(ApprovalState))
-def test_a_resume_gets_a_fresh_row_when_the_found_one_has_lapsed_with_no_sweep(
+def test_a_resume_at_a_lapsed_row_is_denied_in_flight_or_fresh_otherwise_with_no_sweep(
     conn: Connection, config: EngineConfig, state: ApprovalState
 ) -> None:
     """No `sweep` call anywhere -- nothing in `onedoor/` makes one. A lapsed
-    in-flight row must still yield a fresh row, and must read `expired`
-    afterwards; a row already in a terminal state is untouched by the lookup,
-    since it was never in the reusable set to begin with."""
+    in-flight row (30sp/30sr/30tm) is now DENIED, never silently re-proposed
+    -- the caller already has one answer for this exact request, and a fresh
+    row would let an unanswered approval be retried forever. A row already in
+    a terminal state is untouched by the lookup, since it was never in the
+    reusable set to begin with, and still gets an ordinary fresh row."""
     first = _resume(conn, config, params={"amount": "10"})
     approval_id = first.approval_id
     _force(conn, approval_id, state=state.value, expires_at=FROZEN_NOW - timedelta(seconds=1))
 
     second = _resume(conn, config, params={"amount": "10"})
-    assert second.approval_id != approval_id, (
-        f"a resume after the found row ({state.value}, lapsed) reused it"
-    )
     row = approvals.get(conn, approval_id)
     assert row is not None
     if state in IN_FLIGHT:
+        assert second.decision.decision == Decision.DENIED
+        assert second.decision.reason_code == CheckId.APPROVAL_EXPIRED
+        assert second.approval_id is None, "an expired own row must never be re-proposed fresh"
         assert row.state.value == "expired", (
             f"a lapsed in-flight row ({state.value}) must read expired after the lookup"
         )
+        assert _table(conn) == [(approval_id, "expired")], (
+            "a lapsed own row must not spawn a second approval"
+        )
     else:
+        assert second.approval_id != approval_id, (
+            f"a resume after the found row ({state.value}, lapsed) reused it"
+        )
         assert row.state.value == state.value, (
             "a row already in a terminal state must be untouched by the lookup"
         )
@@ -171,12 +186,13 @@ def test_the_ordinary_resume_leaves_exactly_one_row_at_engine_level(
     )
 
 
-def test_case_e_a_pending_row_past_its_expiry_with_no_sweep_gets_a_fresh_row(
+def test_case_e_a_pending_row_past_its_expiry_with_no_sweep_is_denied(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Case E: nothing sweeps a pending row past its expiry, so
-    without the lookup's own expiry check every later resume would keep
-    naming it, and the approver's own cas_approve would keep refusing it."""
+    """Case E: nothing sweeps a pending row past its expiry. Before 30tm, a
+    later resume just kept getting a fresh row forever; now (30sp/30sr/30tm)
+    it is denied outright -- the caller already has one answer (none, since
+    it never got one in time), not an invitation to keep retrying."""
     first = _resume(conn, config, params={"amount": "10"})
     approval_id = first.approval_id
     row = approvals.get(conn, approval_id)
@@ -184,20 +200,23 @@ def test_case_e_a_pending_row_past_its_expiry_with_no_sweep_gets_a_fresh_row(
     later = row.expires_at + timedelta(seconds=1)
 
     second = _resume(conn, config, params={"amount": "10"}, now=later)
-    assert second.approval_id != approval_id, "a resume after the pending row lapsed reused it"
-    assert _table(conn) == [(approval_id, "expired"), (second.approval_id, "pending")]
+    assert second.decision.decision == Decision.DENIED
+    assert second.decision.reason_code == CheckId.APPROVAL_EXPIRED
+    assert second.approval_id is None
+    assert _table(conn) == [(approval_id, "expired")]
 
     with pytest.raises(ApprovalError):
         approvals.cas_approve(conn, approval_id, session_id="approver", now=later)
 
 
-def test_case_f_an_approved_row_past_its_expiry_with_no_sweep_gets_a_fresh_row(
+def test_case_f_an_approved_row_past_its_expiry_with_no_sweep_is_denied(
     conn: Connection, config: EngineConfig
 ) -> None:
     """Case F: an approved row that lapses must not be reused
     forever -- at 5b7a260/f7a9333 that tool call could never be approved
     again, since the index forbade a fresh row and the reference itself is
-    refused as expired by the approval_ref path."""
+    refused as expired by the approval_ref path. Now (30sp/30sr/30tm) the
+    resume itself is denied outright, rather than silently proposing fresh."""
     first = _resume(conn, config, params={"amount": "10"})
     approval_id = first.approval_id
     approvals.cas_approve(conn, approval_id, session_id="approver", now=FROZEN_NOW)
@@ -206,8 +225,10 @@ def test_case_f_an_approved_row_past_its_expiry_with_no_sweep_gets_a_fresh_row(
     later = row.expires_at + timedelta(seconds=1)
 
     second = _resume(conn, config, params={"amount": "10"}, now=later)
-    assert second.approval_id != approval_id, "a resume after the approved row lapsed reused it"
-    assert _table(conn) == [(approval_id, "expired"), (second.approval_id, "pending")]
+    assert second.decision.decision == Decision.DENIED
+    assert second.decision.reason_code == CheckId.APPROVAL_EXPIRED
+    assert second.approval_id is None
+    assert _table(conn) == [(approval_id, "expired")]
 
 
 def test_case_g_a_combined_approval_resumed_while_ratified_reuses_it(
