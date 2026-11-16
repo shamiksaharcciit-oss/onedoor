@@ -42,6 +42,12 @@ whose deadline has passed unreported. Inside the transaction:
   not an exit).
 - `3a` default-deny exits here -- after effect resolution, not at policy
   lookup itself.
+- `3b` an unknown tool outcome holds the action (onedoor 0.12): checked only
+  when the caller gives both halves of a resume key, the same key
+  `approvals.find_by_resume_key` already uses. A still-unresolved
+  `exec_intent` row at that key holds this call, rather than risk carrying
+  the same action out a second time while the first attempt's own fate is
+  unknown. Absent either half of the key, this never runs.
 - `4b` external authorization: consulted only when a policy declares it and
   a resolver is configured; denies outright, or escalates a `PENDING`
   verdict to the approval step; never re-consulted on resumption.
