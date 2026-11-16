@@ -5,6 +5,38 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
 not in this repository.
 
+## 0.12.0 — (not released)
+
+### Added — an unknown tool outcome holds the action
+
+A resume key (`thread_id`/`tool_call_id`) naming an `exec_intent` whose
+outcome has not been reported yet now proposes (held for a person) rather
+than being decided afresh, so a caller's own retry can never be auto-permitted
+and executed a second time while the first attempt's own fate is still
+unresolved. Engine-level only in this round: closes the gap for any caller
+that gives a resume key, same as the resume-by-key approval path already
+does; the shipped evaluation harness does not yet pass a resume key through
+its own `decide` calls, so its own measured `tool_failure` numbers (and
+`FINDINGS.md`'s entry for them) are unchanged until the harness is updated
+to exercise this.
+
+### Fixed — an expired in-flight approval at a resume key is denied, not re-proposed
+
+A resume (matched by `thread_id`/`tool_call_id`) whose own in-flight approval
+had lapsed used to be indistinguishable from a key nobody had ever used, so
+it just created a second, unrelated approval -- an unanswered approval could
+be retried forever by resuming again. It is now denied outright
+(`approval_expired`). Scoped to the resume-key path only: a presented
+`approval_ref` to an expired approval still answers exactly as before,
+through the ordinary unknown-ref path, keeping its enumeration resistance --
+`tests/guardrail/test_approval_ref.py` is unchanged by this release.
+
+### Changed — the README's demo video plays inline
+
+The walkthrough's video is now an inline player directly under the demo GIF;
+the 0.11.0 release page link that used to be its only home stays as a
+fallback.
+
 ## 0.11.2 — (not released)
 
 ### Security — a resume key did not scope to the caller
