@@ -226,10 +226,11 @@ def _principal_bytes(principal: str | None) -> bytes:
 
 
 def principal_matches(a: str | None, b: str | None) -> bool:
-    """Constant-time identity match. `None` matches only `None` -- a caller
-    who authenticated nobody is compared against that fact itself, not
-    treated as a wildcard that matches whoever else also authenticated
-    nobody only by accident of both being absent checks.
+    """Constant-time identity match, where `None` and the literal text its
+    own fold produces are one identity (below) -- a caller who authenticated
+    nobody is compared against that fact itself, not treated as a wildcard
+    that matches whoever else also authenticated nobody only by accident of
+    both being absent checks.
 
     `None` and the literal text `_NO_PRINCIPAL` decodes to are one bucket
     here: `_principal_bytes` folds both to the same sentinel, so a caller

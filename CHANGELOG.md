@@ -37,7 +37,7 @@ The walkthrough's video is now an inline player directly under the demo GIF;
 the 0.11.0 release page link that used to be its only home stays as a
 fallback.
 
-## 0.11.2 — (not released)
+## 0.11.2 — 2026-11-16
 
 ### Security — a resume key did not scope to the caller
 
