@@ -11,8 +11,12 @@ onedoor is part of [oneproof](https://oneproof.dev/onedoor/).
 
 ![Four calls to onedoor's decision service with their real responses: a €120 transfer permitted, a €450 transfer denied by the daily cap, a payout held for a person and then approved, and the kill switch denying a transfer](docs/img/onedoor-demo.gif)
 
-A 70-second video of the same walkthrough, with the Studio and the evaluation, is on the
-[0.11.0 release page](https://github.com/shamiksaharcciit-oss/onedoor/releases/tag/v0.11.0).
+https://github.com/user-attachments/assets/770e7db2-72e9-43f8-972c-0ac67f82c1d8
+
+The same walkthrough as a 70-second video, with the Studio and the evaluation.
+
+If it does not play, the same video is on the
+[0.11.0 release page](https://github.com/shamiksaharcciit-oss/onedoor/releases/tag/v0.11.0), as a fallback.
 
 **For reviewers:** [Project overview](#why-onedoor) &middot;
 [Safety approach](#how-it-works) &middot;
