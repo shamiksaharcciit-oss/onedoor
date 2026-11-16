@@ -184,6 +184,16 @@ class CheckId(StrEnum):
     # other check still ran and still decided on its own merits -- a plan
     # replaces exactly the approval step, nothing else.
     PLAN_REF = "plan_ref"
+    # onedoor's own extension: a resume (matched by thread_id/tool_call_id) found
+    # its OWN in-flight approval at that key already past its own expires_at.
+    # Denied outright, never silently re-proposed -- the caller already has one
+    # answer for this exact request (none, since it never got one in time); a
+    # fresh proposal would let an unanswered approval be retried indefinitely by
+    # just resuming again. Scoped to the resume-key path only: a presented
+    # `approval_ref` to an expired approval still answers through the ordinary
+    # unknown-ref path (CheckId elsewhere), unchanged, keeping its enumeration
+    # resistance.
+    APPROVAL_EXPIRED = "approval_expired"
 
 
 class ApprovalState(StrEnum):

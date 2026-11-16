@@ -176,6 +176,34 @@ def test_a_matching_principal_still_reuses_the_row_as_before(
     assert rows["n"] == 1
 
 
+@pytest.mark.parametrize("principal", [None, "principal-a"])
+def test_an_expired_own_approval_is_denied_not_reproposed(
+    conn: Connection, config: EngineConfig, principal: str | None
+) -> None:
+    """30sp/30sr/30tm: the caller's own in-flight row at this key, found past
+    its own `expires_at`, must be denied (`CheckId.APPROVAL_EXPIRED`) --
+    never silently re-proposed. Before this, an expired own row was
+    indistinguishable from a key nobody had ever used, so a resume just
+    created a second, unrelated approval -- an unanswered approval could be
+    retried forever by resuming again.
+    """
+    first = _resume(conn, config, principal=principal, params=PARAMS_A)
+    assert isinstance(first, ActionResult)
+    approval_id = first.approval_id
+    assert approval_id is not None
+
+    later = FROZEN_NOW + timedelta(seconds=config.approval_ttl_seconds + 1)
+    second = _resume(conn, config, principal=principal, params=PARAMS_A, now=later)
+    assert isinstance(second, ActionResult)
+    assert second.decision.decision == Decision.DENIED
+    assert second.decision.reason_code == CheckId.APPROVAL_EXPIRED
+    assert second.approval_id is None
+
+    assert _approval_state(conn, approval_id) == "expired"
+    rows = conn.execute("SELECT COUNT(*) AS n FROM approvals").fetchone()
+    assert rows["n"] == 1, "an expired own row must not spawn a second approval"
+
+
 # --- A different request shape presented against the first caller's live key ---
 
 

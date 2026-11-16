@@ -1261,9 +1261,45 @@ def _decide_and_reserve(
             reused_approval_id: int | None = None
             resume_key_principal_mismatch = False
             if thread_id is not None and tool_call_id is not None:
-                existing, resume_key_principal_mismatch = approvals.find_by_resume_key(
+                existing, resume_key_principal_mismatch, own_expired = approvals.find_by_resume_key(
                     conn, thread_id, tool_call_id, now, principal
                 )
+                if existing is None and own_expired:
+                    decision = _decision(
+                        decision=Decision.DENIED,
+                        effective_tier=Tier.CONFIRM,
+                        nominal_tier=nominal_tier,
+                        reason_code=CheckId.APPROVAL_EXPIRED,
+                        detail=(
+                            "the in-flight approval this resume key would have reused "
+                            "expired before it was answered"
+                        ),
+                    )
+                    aid = audit.append(
+                        conn,
+                        request,
+                        decision,
+                        kind="decision",
+                        now=now,
+                        approval_ref_status=ref_status,
+                        undo_of=undo_of,
+                        opaque_class=opaque_class,
+                        evaluation_trace_json=trace.to_json(),
+                        resumes_audit_id=resumes_audit_id,
+                    )
+                    bus.publish(conn, "action.denied", {"request_id": str(request.request_id)})
+                    return ActionResult(
+                        request_id=request.request_id,
+                        decision=decision,
+                        audit_id=aid,
+                        decision_ref=_decision_ref(
+                            conn,
+                            audit_id=aid,
+                            request_id=request.request_id,
+                            decision=decision.decision,
+                            config=config,
+                        ),
+                    )
                 if existing is not None:
                     expected_digest = existing["request_digest"]
                     actual_digest = approvals.resume_digest(request.action_type, request.params)

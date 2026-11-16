@@ -250,10 +250,11 @@ def find_by_resume_key(
     tool_call_id: str,
     now: datetime,
     principal: str | None,
-) -> tuple[sqlite3.Row | None, bool]:
+) -> tuple[sqlite3.Row | None, bool, bool]:
     """The row, if any, a resume with this exact (thread_id, tool_call_id) AND
-    this exact principal would reuse -- and whether a row for a DIFFERENT
-    principal exists at this key, for the caller's own evidence only.
+    this exact principal would reuse -- whether a row for a DIFFERENT
+    principal exists at this key, for the caller's own evidence only -- and
+    whether the CALLER'S OWN row at this key was just expired here.
 
     The rule, stated once over every value of :class:`ApprovalState`: a row is
     IN FLIGHT while its state is `pending`, `ratified` or `approved` AND
@@ -275,12 +276,18 @@ def find_by_resume_key(
     time.
 
     An in-flight row found past its own `expires_at` is marked `expired`
-    here, in the caller's own transaction, before returning (None, False) --
+    here, in the caller's own transaction, before returning --
     nothing in `onedoor/` calls `sweep`, so without this an approval past its
     expiry would otherwise keep its in-flight state and be reused forever
     (and, for `pending`/`ratified`, never actually be approvable again
     either). This runs whoever's row it is: a maintenance write, not a
-    disclosure, since the caller learns nothing from it either way.
+    disclosure by itself. The THIRD return value is `True` only when the row
+    just expired this way was the CALLER'S OWN (by `principal_matches`) --
+    the caller's own resume is told apart from a key nothing was ever
+    proposed at, so it can be denied rather than silently re-proposed
+    (`CheckId.APPROVAL_EXPIRED`). A different principal's row expiring here
+    is still just expired, as before -- `other_in_flight` is unexpired-only,
+    unchanged by this; nothing new is disclosed about another principal.
 
     **A row at this key for a DIFFERENT principal is treated exactly as no
     row at all**: the first return value is `None`, the same as when nothing
@@ -312,15 +319,19 @@ def find_by_resume_key(
     ).fetchall()
     own_row: sqlite3.Row | None = None
     other_in_flight = False
+    own_expired = False
     for row in rows:
+        mine = principal_matches(row["proposed_by"], principal)
         if row["expires_at"] <= to_iso(now):
             conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
+            if mine:
+                own_expired = True
             continue
-        if principal_matches(row["proposed_by"], principal):
+        if mine:
             own_row = row
         else:
             other_in_flight = True
-    return own_row, other_in_flight
+    return own_row, other_in_flight, own_expired
 
 
 def get(conn: sqlite3.Connection, approval_id: int) -> Approval | None:
