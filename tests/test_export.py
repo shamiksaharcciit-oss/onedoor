@@ -41,13 +41,15 @@ def test_export_round_trips_every_row(
     # `sequence_history_incomplete` (migration 0037), `plan_ref`/
     # `plan_consumed_count_after`/`plan_consumed_amount_after` (migration
     # 0039), `approvers_json`/`escalated_to`/`escalated_at` (migration
-    # 0041), and `resume_key_principal_mismatch` (migration 0051) are the
+    # 0041), `resume_key_principal_mismatch` (migration 0051), and
+    # `resume_thread_id`/`resume_tool_call_id` (migration 0054) are the
     # deliberate exceptions: each omitted by `canonical_row_record` whenever
     # it is None, so an ordinary row (no resumption, no decide key, no
     # resume mismatch, no bound permit, no policy using untrusted-input or
-    # sequence checks, no plan match, no cross-principal resume-key lookup)
-    # exports as it would without the column existing at all -- see that
-    # function's own docstring for why. This row is none of those.
+    # sequence checks, no plan match, no cross-principal resume-key lookup,
+    # no unknown-outcome hold) exports as it would without the column
+    # existing at all -- see that function's own docstring for why. This row
+    # is none of those.
     for row in expected:
         assert row.pop("resumes_audit_id") is None
         assert row.pop("decide_principal") is None
@@ -65,6 +67,8 @@ def test_export_round_trips_every_row(
         assert row.pop("escalated_to") is None
         assert row.pop("escalated_at") is None
         assert row.pop("resume_key_principal_mismatch") is None
+        assert row.pop("resume_thread_id") is None
+        assert row.pop("resume_tool_call_id") is None
 
     out = tmp_path / "export.jsonl"
     count = write_export(conn, out)

@@ -26,10 +26,10 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Iterator
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

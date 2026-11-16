@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from sqlite3 import Connection
 
-from onedoor.guardrail.decision import ActionResult, PermittedIntent, decide_and_reserve, report_result
+from onedoor.guardrail.decision import (
+    ActionResult,
+    PermittedIntent,
+    decide_and_reserve,
+    report_result,
+)
 from onedoor.guardrail.executor import EngineConfig
 from onedoor.guardrail.models import CheckId, Decision, Outcome
 from tests.conftest import FROZEN_NOW, make_request
@@ -70,5 +75,7 @@ def test_an_ordinary_call_with_no_resume_key_is_never_held_by_this_check(
 ) -> None:
     first = decide_and_reserve(make_request("demo.flaky"), conn=conn, config=config, now=FROZEN_NOW)
     assert isinstance(first, PermittedIntent)
-    second = decide_and_reserve(make_request("demo.flaky"), conn=conn, config=config, now=FROZEN_NOW)
+    second = decide_and_reserve(
+        make_request("demo.flaky"), conn=conn, config=config, now=FROZEN_NOW
+    )
     assert isinstance(second, PermittedIntent), "absent a resume key, this check never runs at all"

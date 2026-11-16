@@ -29,7 +29,9 @@ def test_never_shells_out_to_pip_or_install(monkeypatch) -> None:
     def _spying_run(cmd, *args, **kwargs):
         joined = " ".join(str(part) for part in cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         assert "pip" not in joined.lower(), f"isolated_tree shelled out to pip: {joined!r}"
-        assert " install" not in f" {joined.lower()}", f"isolated_tree shelled out to install: {joined!r}"
+        assert " install" not in f" {joined.lower()}", (
+            f"isolated_tree shelled out to install: {joined!r}"
+        )
         return real_run(cmd, *args, **kwargs)
 
     monkeypatch.setattr(subprocess, "run", _spying_run)
@@ -63,7 +65,9 @@ def test_the_extracted_tree_matches_the_ref_and_is_removed_after() -> None:
 
 def test_the_tree_is_removed_even_when_the_caller_raises() -> None:
     captured: list[Path] = []
-    with mock.patch("eval.harness.isolated_tree.shutil.rmtree", wraps=__import__("shutil").rmtree) as spy:
+    with mock.patch(
+        "eval.harness.isolated_tree.shutil.rmtree", wraps=__import__("shutil").rmtree
+    ) as spy:
         try:
             with isolated_tree("HEAD", repo_root=REPO_ROOT) as tree:
                 captured.append(tree)
