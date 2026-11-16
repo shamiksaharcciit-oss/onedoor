@@ -229,7 +229,18 @@ def principal_matches(a: str | None, b: str | None) -> bool:
     """Constant-time identity match. `None` matches only `None` -- a caller
     who authenticated nobody is compared against that fact itself, not
     treated as a wildcard that matches whoever else also authenticated
-    nobody only by accident of both being absent checks."""
+    nobody only by accident of both being absent checks.
+
+    `None` and the literal text `_NO_PRINCIPAL` decodes to are one bucket
+    here: `_principal_bytes` folds both to the same sentinel, so a caller
+    presenting that exact text as its own principal would match a row
+    proposed with no principal at all. This is safe because no real
+    fingerprint can ever take that shape: `_NO_PRINCIPAL` is NUL-prefixed,
+    and `keys.fingerprint` returns only its own fixed prefix followed by
+    lowercase hex -- a byte sequence that never contains a NUL. A real
+    principal can only collide with `None` here by typing the sentinel's
+    own text literally, never by holding a fingerprint this module ever
+    issued."""
     return hmac.compare_digest(_principal_bytes(a), _principal_bytes(b))
 
 
