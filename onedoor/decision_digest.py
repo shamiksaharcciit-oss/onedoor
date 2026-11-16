@@ -34,6 +34,7 @@ OMIT_WHEN_NONE: tuple[str, ...] = (
     "approvers_json",
     "escalated_to",
     "escalated_at",
+    "resume_key_principal_mismatch",
 )
 """Columns omitted from `canonical_row_record` when `None`, each because a row
 sealed before the column existed must not change digest the moment `ALTER
@@ -105,6 +106,12 @@ def canonical_row_record(row: sqlite3.Row | Mapping[str, object]) -> dict[str, o
     only a row that DID resume one sets a real value for `approvers_json`
     (even `[]`, for a mandate-only resumption with no approver), which IS
     included.
+
+    `resume_key_principal_mismatch` (migration `0051`) is the same exception
+    again: `None` on every row before `0051`, and `None` on every row a
+    resume-by-key lookup finds no differently-principaled row at, before or
+    after -- only the one row that lookup actually finds such a mismatch for
+    sets a real value (`True`, never `False`), which IS included.
     """
     keys = row.keys()
     record: dict[str, object] = {}

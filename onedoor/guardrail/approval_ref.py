@@ -26,7 +26,6 @@ that `decide_and_reserve` already holds, makes the race decide itself — and
 
 from __future__ import annotations
 
-import hmac
 import json
 import sqlite3
 from collections.abc import Callable
@@ -68,8 +67,12 @@ class ApprovalRefStatus(StrEnum):
     the decide principal is a keyed fingerprint of the caller's decide key,
     which an attacker cannot copy out of a request he controls. `proposed_by`
     is `NULL` for a row sealed before this existed, or for a same-process
-    caller with no key to fingerprint; such a row has nothing to bind to, so
-    nothing is checked, exactly as before this binding existed.
+    caller with no key to fingerprint — and `None` is compared like any other
+    identity (`approvals.principal_matches`), never read as nothing to check:
+    a presenter with a real principal fails against a row proposed by none,
+    exactly as a presenter proposed-for-someone-else does, and a row proposed
+    by none stays good only for a later presenter who also authenticates
+    none.
     """
 
 
@@ -181,7 +184,9 @@ def resolve(
 
     `principal` is the consuming caller's own identity, as authenticated by whoever
     called `decide_and_reserve` -- compared against the approval's recorded
-    `proposed_by`, never against anything the presented request carries.
+    `proposed_by`, never against anything the presented request carries. `None`
+    matches only `None` (`approvals.principal_matches`): an unauthenticated
+    presenter is a match only for a row an unauthenticated proposer created.
 
     `escalation_resolver`, when given, is the two-person rule's own escalation
     step (`EngineConfig.escalation_resolver`), checked here -- the "new step
@@ -229,15 +234,14 @@ def resolve(
     if not equivalent(approved, presented):
         return RefResolution(False, ApprovalRefStatus.ACTION_MISMATCH, approval_ref)
 
-    proposed_by = row["proposed_by"]
-    if proposed_by is not None:
-        # A row with nothing recorded has nothing to bind to -- checked only when
-        # there is a real proposer identity to check against (a keyed
-        # fingerprint, not anything the presented request itself carries).
-        if principal is None or not hmac.compare_digest(principal, str(proposed_by)):
-            # Not consumed: the approval is still good for its real proposer, only
-            # this presenter is not that proposer.
-            return RefResolution(False, ApprovalRefStatus.PRINCIPAL_MISMATCH, approval_ref)
+    # Checked against `None` exactly as against a real principal -- a row
+    # proposed by nobody authenticated is not nobody's to consume; it is
+    # that specific absence's, and a presenter who IS authenticated is a
+    # different identity from it, not an exemption from the check.
+    if not approvals.principal_matches(row["proposed_by"], principal):
+        # Not consumed: the approval is still good for its real proposer, only
+        # this presenter is not that proposer.
+        return RefResolution(False, ApprovalRefStatus.PRINCIPAL_MISMATCH, approval_ref)
 
     # CONSUME FIRST, and let the rowcount be the gate. Reading, deciding, then marking
     # would let a second resumption read the same `approved` row in between and both

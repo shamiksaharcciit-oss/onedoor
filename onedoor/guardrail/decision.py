@@ -1259,8 +1259,11 @@ def _decide_and_reserve(
             # keys do. Absent either key, this is skipped entirely and behaves
             # exactly as it always has.
             reused_approval_id: int | None = None
+            resume_key_principal_mismatch = False
             if thread_id is not None and tool_call_id is not None:
-                existing = approvals.find_by_resume_key(conn, thread_id, tool_call_id, now)
+                existing, resume_key_principal_mismatch = approvals.find_by_resume_key(
+                    conn, thread_id, tool_call_id, now, principal
+                )
                 if existing is not None:
                     expected_digest = existing["request_digest"]
                     actual_digest = approvals.resume_digest(request.action_type, request.params)
@@ -1347,6 +1350,7 @@ def _decide_and_reserve(
                 opaque_class=opaque_class,
                 evaluation_trace_json=trace.to_json(),
                 resumes_audit_id=resumes_audit_id,
+                resume_key_principal_mismatch=resume_key_principal_mismatch or None,
             )
             bus.publish(
                 conn,

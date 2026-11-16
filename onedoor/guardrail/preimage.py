@@ -46,7 +46,8 @@ VERSION_4 = "onedoor/row-preimage/4"
 VERSION_5 = "onedoor/row-preimage/5"
 VERSION_6 = "onedoor/row-preimage/6"
 VERSION_7 = "onedoor/row-preimage/7"
-CURRENT_VERSION = VERSION_7
+VERSION_8 = "onedoor/row-preimage/8"
+CURRENT_VERSION = VERSION_8
 """What new rows are sealed under.
 
 `/2` adds `approval_ref_status` to the hash (ND-009): the field records *why*
@@ -88,6 +89,15 @@ attacker who could edit it after the row was sealed could rewrite which
 permit a row's issuance maps to, the same class of edit `decide_principal`
 guards against for who may report one. Not excluded, for the same reason:
 set in the same `INSERT`, nothing circular or later about it.
+
+`/8` adds `resume_key_principal_mismatch` (migration `0051`): the one place
+a resume-by-key lookup's own cross-principal finding survives, now that the
+lookup itself hides it from the caller entirely. An attacker who could edit
+it after the row was sealed could erase the evidence that a differently
+-principaled caller once presented this exact resume key, the same class of
+edit `resume_digest_expected`/`resume_digest_actual` guard against for a
+mismatched resume. Not excluded, for the same reason: set in the same
+`INSERT`, nothing circular or later about it.
 """
 
 MAGIC = CURRENT_VERSION.encode("ascii")
@@ -195,7 +205,16 @@ FIELD_ORDER_V7: tuple[str, ...] = (*FIELD_ORDER_V6, "permit_jti")
 bound permit it issued (see the design note for this version).
 """
 
-FIELD_ORDER = FIELD_ORDER_V7
+FIELD_ORDER_V8: tuple[str, ...] = (*FIELD_ORDER_V7, "resume_key_principal_mismatch")
+"""`/8` appends rather than inserts, same precedent as `/6` -> `/7`.
+
+`resume_key_principal_mismatch` is hashed because it is the one surviving
+record of a cross-principal resume-key lookup, now that the lookup itself
+answers the caller as though it found nothing (see the design note for this
+version).
+"""
+
+FIELD_ORDER = FIELD_ORDER_V8
 """What `row_hash()` uses by default: the current version's order."""
 
 FIELD_ORDERS: dict[str, tuple[str, ...]] = {
@@ -206,6 +225,7 @@ FIELD_ORDERS: dict[str, tuple[str, ...]] = {
     VERSION_5: FIELD_ORDER_V5,
     VERSION_6: FIELD_ORDER_V6,
     VERSION_7: FIELD_ORDER_V7,
+    VERSION_8: FIELD_ORDER_V8,
 }
 """Every version this build can verify.
 

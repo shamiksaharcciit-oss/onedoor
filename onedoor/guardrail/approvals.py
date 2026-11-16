@@ -10,6 +10,7 @@ lives in :mod:`app.guardrail.executor` (which imports this), avoiding a cycle.
 
 from __future__ import annotations
 
+import hmac
 import json
 import sqlite3
 import unicodedata
@@ -213,10 +214,46 @@ def create(
     return int(cur.lastrowid or 0)
 
 
+_NO_PRINCIPAL = b"\x00onedoor/no-principal"
+"""A byte string no real principal can produce (`keys.fingerprint` output
+never carries a NUL), so `principal_matches` can compare the "nobody
+authenticated" case the same way it compares two real principals -- never a
+branch that skips comparing at all."""
+
+
+def _principal_bytes(principal: str | None) -> bytes:
+    return _NO_PRINCIPAL if principal is None else principal.encode("utf-8")
+
+
+def principal_matches(a: str | None, b: str | None) -> bool:
+    """Constant-time identity match. `None` matches only `None` -- a caller
+    who authenticated nobody is compared against that fact itself, not
+    treated as a wildcard that matches whoever else also authenticated
+    nobody only by accident of both being absent checks.
+
+    `None` and the literal text `_NO_PRINCIPAL` decodes to are one bucket
+    here: `_principal_bytes` folds both to the same sentinel, so a caller
+    presenting that exact text as its own principal would match a row
+    proposed with no principal at all. This is safe because no real
+    fingerprint can ever take that shape: `_NO_PRINCIPAL` is NUL-prefixed,
+    and `keys.fingerprint` returns only its own fixed prefix followed by
+    lowercase hex -- a byte sequence that never contains a NUL. A real
+    principal can only collide with `None` here by typing the sentinel's
+    own text literally, never by holding a fingerprint this module ever
+    issued."""
+    return hmac.compare_digest(_principal_bytes(a), _principal_bytes(b))
+
+
 def find_by_resume_key(
-    conn: sqlite3.Connection, thread_id: str, tool_call_id: str, now: datetime
-) -> sqlite3.Row | None:
-    """The row, if any, a resume with this exact (thread_id, tool_call_id) would reuse.
+    conn: sqlite3.Connection,
+    thread_id: str,
+    tool_call_id: str,
+    now: datetime,
+    principal: str | None,
+) -> tuple[sqlite3.Row | None, bool]:
+    """The row, if any, a resume with this exact (thread_id, tool_call_id) AND
+    this exact principal would reuse -- and whether a row for a DIFFERENT
+    principal exists at this key, for the caller's own evidence only.
 
     The rule, stated once over every value of :class:`ApprovalState`: a row is
     IN FLIGHT while its state is `pending`, `ratified` or `approved` AND
@@ -238,26 +275,52 @@ def find_by_resume_key(
     time.
 
     An in-flight row found past its own `expires_at` is marked `expired`
-    here, in the caller's own transaction, before returning None -- nothing
-    in `onedoor/` calls `sweep`, so without this an approval past its expiry
-    would otherwise keep its in-flight state and be reused forever (and,
-    for `pending`/`ratified`, never actually be approvable again either).
+    here, in the caller's own transaction, before returning (None, False) --
+    nothing in `onedoor/` calls `sweep`, so without this an approval past its
+    expiry would otherwise keep its in-flight state and be reused forever
+    (and, for `pending`/`ratified`, never actually be approvable again
+    either). This runs whoever's row it is: a maintenance write, not a
+    disclosure, since the caller learns nothing from it either way.
+
+    **A row at this key for a DIFFERENT principal is treated exactly as no
+    row at all**: the first return value is `None`, the same as when nothing
+    matches the key itself, and the caller gets no id, no state and no
+    `RESUME_REQUEST_MISMATCH` from it. The second return value is `True`
+    whenever some OTHER principal holds an in-flight, unexpired row at this
+    key -- whether or not the caller also has its own -- so the caller can
+    still record the fact in its own ledger's evidence, never in anything a
+    caller sees.
+
+    Since migration `0052`, more than one principal can hold its own
+    in-flight row at the same key at once, so every row at the key is read
+    and every lapsed one is expired here -- not only the first one SQLite
+    happens to return, which (reading the index that satisfies this query)
+    is ordered by principal, not by proposal order. Reading and expiring
+    only the first row let a caller's OWN still-live row go unread whenever
+    some other principal's row sorted ahead of it, live or lapsed; the
+    caller's own resume then collided with its own existing row trying to
+    propose a "fresh" one that already existed.
 
     Returns the raw row (not an :class:`Approval`) because the caller needs
     `request_digest` and `id` to decide whether to reuse it at all -- `_row_to_approval`
     would have to grow a field most callers never need.
     """
-    row: sqlite3.Row | None = conn.execute(
+    rows: list[sqlite3.Row] = conn.execute(
         "SELECT * FROM approvals WHERE thread_id=? AND tool_call_id=? "
         "AND state IN ('pending', 'ratified', 'approved')",
         (thread_id, tool_call_id),
-    ).fetchone()
-    if row is None:
-        return None
-    if row["expires_at"] <= to_iso(now):
-        conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
-        return None
-    return row
+    ).fetchall()
+    own_row: sqlite3.Row | None = None
+    other_in_flight = False
+    for row in rows:
+        if row["expires_at"] <= to_iso(now):
+            conn.execute("UPDATE approvals SET state='expired' WHERE id=?", (row["id"],))
+            continue
+        if principal_matches(row["proposed_by"], principal):
+            own_row = row
+        else:
+            other_in_flight = True
+    return own_row, other_in_flight
 
 
 def get(conn: sqlite3.Connection, approval_id: int) -> Approval | None:

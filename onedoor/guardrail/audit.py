@@ -336,6 +336,7 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "resume_digest_expected",
     "resume_digest_actual",
     "permit_jti",
+    "resume_key_principal_mismatch",
     "untrusted_matched_json",
     "sequence_events_considered",
     "sequence_rule_matched",
@@ -403,6 +404,7 @@ def append(
     resume_digest_expected: str | None = None,
     resume_digest_actual: str | None = None,
     permit_jti: str | None = None,
+    resume_key_principal_mismatch: bool | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -436,6 +438,7 @@ def append(
         resume_digest_expected=resume_digest_expected,
         resume_digest_actual=resume_digest_actual,
         permit_jti=permit_jti,
+        resume_key_principal_mismatch=resume_key_principal_mismatch,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -487,6 +490,7 @@ def _row_values(
     resume_digest_expected: str | None = None,
     resume_digest_actual: str | None = None,
     permit_jti: str | None = None,
+    resume_key_principal_mismatch: bool | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -613,6 +617,13 @@ def _row_values(
             # `None` for every row with no bound permit, and for every row
             # written before this column existed.
             "permit_jti": permit_jti,
+            # Set only on a resume-by-key lookup that found a row for a DIFFERENT
+            # principal (migration `0051`) -- the caller gets no id, no state and
+            # no `RESUME_REQUEST_MISMATCH` from it, so this is the only place the
+            # fact survives at all. `None` for every row this lookup never touches,
+            # and `True`, never `False`, for the one it does -- absent means it did
+            # not happen, never "checked and clear".
+            "resume_key_principal_mismatch": resume_key_principal_mismatch,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (see `_stamp_chain`).

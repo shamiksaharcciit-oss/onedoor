@@ -365,8 +365,8 @@ def test_the_evaluations_own_tree_id_is_allowed_only_in_its_own_file() -> None:
     commit -- the same hex shape, caught by the same pattern, allowed by
     the same exact-match mechanism and scoped the same way: the identical
     id is still caught anywhere else."""
-    tree_id = _join("2b6", "3e2", "6f8", "9b5")
-    text = f"onedoor 0.11.1 (onedoor/ tree {tree_id})."
+    tree_id = _join("9f3", "645", "0bb", "f9e")
+    text = f"onedoor 0.11.2 (onedoor/ tree {tree_id})."
     assert "commit_id" not in _categories("eval/RESULTS.md", text)
     assert "commit_id" in _categories(SHIPPED_PATH, text)
 
