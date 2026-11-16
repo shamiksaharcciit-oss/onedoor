@@ -347,6 +347,8 @@ _INSERT_COLUMNS: tuple[str, ...] = (
     "approvers_json",
     "escalated_to",
     "escalated_at",
+    "resume_thread_id",
+    "resume_tool_call_id",
 )
 """Every column an append writes.
 
@@ -405,6 +407,8 @@ def append(
     resume_digest_actual: str | None = None,
     permit_jti: str | None = None,
     resume_key_principal_mismatch: bool | None = None,
+    resume_thread_id: str | None = None,
+    resume_tool_call_id: str | None = None,
 ) -> int:
     """Insert one audit row and return its id.
 
@@ -439,6 +443,8 @@ def append(
         resume_digest_actual=resume_digest_actual,
         permit_jti=permit_jti,
         resume_key_principal_mismatch=resume_key_principal_mismatch,
+        resume_thread_id=resume_thread_id,
+        resume_tool_call_id=resume_tool_call_id,
     )
     if chaining_on(conn):
         _stamp_chain(conn, values, _read_tip(conn))
@@ -491,6 +497,8 @@ def _row_values(
     resume_digest_actual: str | None = None,
     permit_jti: str | None = None,
     resume_key_principal_mismatch: bool | None = None,
+    resume_thread_id: str | None = None,
+    resume_tool_call_id: str | None = None,
 ) -> dict[str, object]:
     """One row's column values, shared by the immediate and buffered paths.
 
@@ -624,6 +632,13 @@ def _row_values(
             # and `True`, never `False`, for the one it does -- absent means it did
             # not happen, never "checked and clear".
             "resume_key_principal_mismatch": resume_key_principal_mismatch,
+            # Set only on an `exec_intent` row the caller gave a resume key for
+            # (migration `0054`) -- a later call at the same key can then find an
+            # unresolved intent (no matching `exec_result` yet) and hold rather
+            # than risk a second execution. `None` for every row no caller gave
+            # one for, before or after.
+            "resume_thread_id": resume_thread_id,
+            "resume_tool_call_id": resume_tool_call_id,
             # `preimage_version` is NOT set here: `_stamp_chain` owns it, because that
             # is where the sealing version is chosen. Setting it in two places is how
             # the two came apart (see `_stamp_chain`).

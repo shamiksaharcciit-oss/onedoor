@@ -532,6 +532,83 @@ def _decide_and_reserve(
                     config=config,
                 ),
             )
+
+        # 3b. AN UNKNOWN TOOL OUTCOME HOLDS THE ACTION (onedoor 0.12, README
+        #     Roadmap): a caller's own resume key already names an `exec_intent`
+        #     row whose outcome is still unknown -- no matching `exec_result` has
+        #     been reported. Checked only when the caller gives both halves of a
+        #     resume key -- the same key `approvals.find_by_resume_key` already
+        #     uses, invented nowhere new; absent either half, this never ran and
+        #     behaves exactly as it always has.
+        if thread_id is not None and tool_call_id is not None:
+            unresolved = conn.execute(
+                "SELECT id FROM actions_audit WHERE kind='exec_intent' "
+                "AND resume_thread_id=? AND resume_tool_call_id=? "
+                "AND NOT EXISTS (SELECT 1 FROM actions_audit r "
+                "WHERE r.kind='exec_result' AND r.parent_id=actions_audit.id) "
+                "ORDER BY id DESC LIMIT 1",
+                (thread_id, tool_call_id),
+            ).fetchone()
+            trace.add(
+                "outcome_unknown_hold",
+                "a resume key naming an exec_intent with no reported outcome yet holds, "
+                "rather than risk carrying the same action out a second time",
+                "no unresolved exec_intent at this resume key",
+                thread_id,
+                "fail" if unresolved is not None else "pass",
+            )
+            if unresolved is not None:
+                approval_id = approvals.create(
+                    conn,
+                    request,
+                    config.approval_ttl_seconds,
+                    now,
+                    proposed_by=principal,
+                    thread_id=thread_id,
+                    tool_call_id=tool_call_id,
+                    policy_store=store,
+                )
+                decision = _decision(
+                    decision=Decision.PROPOSED,
+                    effective_tier=Tier.CONFIRM,
+                    nominal_tier=nominal_tier,
+                    reason_code=CheckId.OUTCOME_UNKNOWN_HOLD,
+                    requires_approval=True,
+                    detail=(
+                        "a prior attempt at this exact resume key has not reported an "
+                        "outcome yet; held for a person to settle before this proceeds"
+                    ),
+                )
+                aid = audit.append(
+                    conn,
+                    request,
+                    decision,
+                    kind="decision",
+                    now=now,
+                    approval_id=approval_id,
+                    approval_ref_status=ref_status,
+                    undo_of=undo_of,
+                    opaque_class=opaque_class,
+                    evaluation_trace_json=trace.to_json(),
+                    resumes_audit_id=resumes_audit_id,
+                    resume_thread_id=thread_id,
+                    resume_tool_call_id=tool_call_id,
+                )
+                bus.publish(conn, "action.proposed", {"request_id": str(request.request_id)})
+                return ActionResult(
+                    request_id=request.request_id,
+                    decision=decision,
+                    audit_id=aid,
+                    approval_id=approval_id,
+                    decision_ref=_decision_ref(
+                        conn,
+                        audit_id=aid,
+                        request_id=request.request_id,
+                        decision=decision.decision,
+                        config=config,
+                    ),
+                )
+
         if approved_override:
             # Default-deny was evaluated above for this resumption too, and passed.
             trace.add(
@@ -1619,6 +1696,8 @@ def _decide_and_reserve(
             resumes_audit_id=resumes_audit_id,
             decide_principal=principal,
             permit_jti=permit_jti,
+            resume_thread_id=thread_id,
+            resume_tool_call_id=tool_call_id,
         )
 
         # 10b. RESERVATION LEDGER — if this permit reserved budget, record the

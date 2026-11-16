@@ -305,6 +305,14 @@ EXCLUDED: dict[str, str] = {
         "a 0.11 feature's own receipt member, the same reason and the same "
         "treatment as untrusted_matched_json just above"
     ),
+    "resume_thread_id": (
+        "a 0.12 feature's own receipt member (migration 0054), the same reason "
+        "and the same treatment as untrusted_matched_json just above"
+    ),
+    "resume_tool_call_id": (
+        "a 0.12 feature's own receipt member (migration 0054), the same reason "
+        "and the same treatment as untrusted_matched_json just above"
+    ),
 }
 """Every column NOT in the preimage, each with the reason.
 

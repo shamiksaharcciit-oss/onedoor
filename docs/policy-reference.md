@@ -170,7 +170,7 @@ Measured coverage of this deterministic layer, and the residue it still cannot s
 `dry_run` · `budget_exhausted` · `rate_exhausted` · `cost_unknown` · `kill_switch` ·
 `observe` · `effect_floor` · `malformed` · `expired` · `external_authorization` ·
 `present_bound` · `resume_request_mismatch` · `untrusted_input` · `sequence_rule` ·
-`sequence_no_session` · `plan_ref`
+`sequence_no_session` · `plan_ref` · `approval_expired` · `outcome_unknown_hold`
 
 `external_authorization` (AADP -03 §8.1) is the reason on a `denied` or
 `proposed` verdict produced by a mandate-layer authority's DENY or PENDING, for any
@@ -277,3 +277,22 @@ caller gets back (`PermittedIntent.plan_ref`, or `PolicyDecision.plan_ref`
 on an `ActionResult.decision` for a call that needed a report), and on
 `DecideReply.plan_ref` for an HTTP caller. A caller that wants to know
 whether a plan satisfied this call reads that field, not `reason`.
+
+`approval_expired` (onedoor 0.12, onedoor's own extension) is the reason on a
+`denied` verdict for a resume (matched by `thread_id`/`tool_call_id`) whose
+OWN in-flight approval at that key was found past its own `expires_at`.
+Before this, an expired own row was indistinguishable from a key nobody had
+ever used, so a resume just created a second, unrelated approval — an
+unanswered approval could be retried forever by resuming again. Scoped to
+the resume-key path only: a presented `approval_ref` to an expired approval
+still answers through the ordinary unknown-ref path, unchanged, and a
+different principal's row expiring at the same key is still just expired,
+with nothing new disclosed about it.
+
+`outcome_unknown_hold` (onedoor 0.12, onedoor's own extension) is the reason
+on a `proposed` verdict for a resume (matched by `thread_id`/`tool_call_id`)
+that already names an `exec_intent` whose outcome is unknown — no matching
+`exec_result` has been reported yet. Held for a person to settle, rather than
+decided afresh and never re-executed automatically: a naive retry after a
+timeout could otherwise carry out the same action a second time while the
+first attempt's own fate is still unresolved.

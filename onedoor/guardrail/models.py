@@ -194,6 +194,16 @@ class CheckId(StrEnum):
     # unknown-ref path (CheckId elsewhere), unchanged, keeping its enumeration
     # resistance.
     APPROVAL_EXPIRED = "approval_expired"
+    # onedoor's own extension (onedoor 0.12, README Roadmap: "an unknown tool
+    # outcome holds the action"): a caller's resume key (thread_id/tool_call_id)
+    # already names an `exec_intent` row whose outcome is unknown -- no matching
+    # `exec_result` has been reported yet. Proposed (held for a person) rather
+    # than decided afresh and never re-executed automatically: a naive retry
+    # after a timeout can carry out the same action twice while the first
+    # attempt's own fate is still unresolved, so this is settled by a person
+    # (who can check whether the first attempt actually happened), not by
+    # onedoor guessing either way.
+    OUTCOME_UNKNOWN_HOLD = "outcome_unknown_hold"
 
 
 class ApprovalState(StrEnum):
