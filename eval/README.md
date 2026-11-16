@@ -105,6 +105,22 @@ not build. This is disclosed rather than worked around: the
 decision-citation and verification halves of recording are real and
 checked above; the re-run guard itself is not demonstrated here.
 
+## Comparing against another ref
+
+A round that changes the engine needs to compare this ref's own numbers
+against another one's (an earlier release, a merge base). Do this with
+`eval.harness.isolated_tree.isolated_tree(ref)`: it extracts that ref's
+files to a throwaway directory via `git archive` and removes them again on
+the way out, for a subprocess (`PYTHONPATH` pointed at the directory) or an
+in-process `sys.path` insertion to run `python -m eval run` against.
+
+**Never install that other ref editable into the venv already running this
+one.** Doing that once, then deleting the checkout when the comparison was
+done, left the venv's `onedoor` editable install pointing at a directory
+that no longer existed -- breaking `import onedoor` for every later
+subprocess-based test against that venv, silently, until someone noticed.
+`isolated_tree` never installs anything, so it cannot do this.
+
 ## What this doesn't show
 
 These scenarios are scripted: the "agent" is fixed data, not a model, so
