@@ -17,8 +17,8 @@ expiry -- nothing in `onedoor/` calls it, so an in-flight row past its
 never become approvable again either); `find_by_resume_key` now expires it
 itself, in the caller's own transaction, on the way out.
 
-30sp/30sr/30tm (onedoor 0.12): a THIRD exception to "gets a fresh row" --
-the CALLER'S OWN in-flight row, found past its own expiry, is now DENIED
+onedoor 0.12 adds a THIRD exception to "gets a fresh row" -- the CALLER'S
+OWN in-flight row, found past its own expiry, is now DENIED
 (`CheckId.APPROVAL_EXPIRED`) rather than silently re-proposed. A row already
 in a terminal state (`denied`/`expired` on arrival/`consumed`/`executed`)
 still gets an ordinary fresh row, unaffected -- only a row that WAS in flight
@@ -128,8 +128,8 @@ def test_a_resume_at_a_lapsed_row_is_denied_in_flight_or_fresh_otherwise_with_no
     conn: Connection, config: EngineConfig, state: ApprovalState
 ) -> None:
     """No `sweep` call anywhere -- nothing in `onedoor/` makes one. A lapsed
-    in-flight row (30sp/30sr/30tm) is now DENIED, never silently re-proposed
-    -- the caller already has one answer for this exact request, and a fresh
+    in-flight row is now DENIED, never silently re-proposed -- the caller
+    already has one answer for this exact request, and a fresh
     row would let an unanswered approval be retried forever. A row already in
     a terminal state is untouched by the lookup, since it was never in the
     reusable set to begin with, and still gets an ordinary fresh row."""
@@ -189,10 +189,10 @@ def test_the_ordinary_resume_leaves_exactly_one_row_at_engine_level(
 def test_case_e_a_pending_row_past_its_expiry_with_no_sweep_is_denied(
     conn: Connection, config: EngineConfig
 ) -> None:
-    """Case E: nothing sweeps a pending row past its expiry. Before 30tm, a
-    later resume just kept getting a fresh row forever; now (30sp/30sr/30tm)
-    it is denied outright -- the caller already has one answer (none, since
-    it never got one in time), not an invitation to keep retrying."""
+    """Case E: nothing sweeps a pending row past its expiry. A later resume
+    used to keep getting a fresh row forever; it is denied outright now --
+    the caller already has one answer (none, since it never got one in
+    time), not an invitation to keep retrying."""
     first = _resume(conn, config, params={"amount": "10"})
     approval_id = first.approval_id
     row = approvals.get(conn, approval_id)
@@ -215,8 +215,8 @@ def test_case_f_an_approved_row_past_its_expiry_with_no_sweep_is_denied(
     """Case F: an approved row that lapses must not be reused
     forever -- at 5b7a260/f7a9333 that tool call could never be approved
     again, since the index forbade a fresh row and the reference itself is
-    refused as expired by the approval_ref path. Now (30sp/30sr/30tm) the
-    resume itself is denied outright, rather than silently proposing fresh."""
+    refused as expired by the approval_ref path. The resume itself is now
+    denied outright, rather than silently proposing fresh."""
     first = _resume(conn, config, params={"amount": "10"})
     approval_id = first.approval_id
     approvals.cas_approve(conn, approval_id, session_id="approver", now=FROZEN_NOW)

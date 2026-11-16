@@ -180,7 +180,7 @@ def test_a_matching_principal_still_reuses_the_row_as_before(
 def test_an_expired_own_approval_is_denied_not_reproposed(
     conn: Connection, config: EngineConfig, principal: str | None
 ) -> None:
-    """30sp/30sr/30tm: the caller's own in-flight row at this key, found past
+    """The caller's own in-flight row at this key, found past
     its own `expires_at`, must be denied (`CheckId.APPROVAL_EXPIRED`) --
     never silently re-proposed. Before this, an expired own row was
     indistinguishable from a key nobody had ever used, so a resume just
