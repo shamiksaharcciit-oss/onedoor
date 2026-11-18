@@ -1554,7 +1554,7 @@ corrupts each file for the outcome it actually produces.
 Both found by Shamik working through `0.6.1` by hand. Additive and documentation-shaped;
 no engine change, no schema change, no wire change.
 
-**F-G — the empty state was a dead end.** The Studio index with no drafts emitted **0
+**The empty state was a dead end.** The Studio index with no drafts emitted **0
 forms, 0 buttons, 0 inputs, 0 links**; its whole body read *"onedoor policy studio no
 drafts"*. It now offers a create-draft form and the equivalent `curl` one-liner, on the
 empty state and beside a populated list alike. *A state with no next move is a wall, not a
@@ -1568,7 +1568,7 @@ submission gets a **303 to the draft it created**; the JSON API, which passes `t
 query parameter, still receives JSON — the caller's content type decides, so nothing
 existing changed.
 
-**F-H — the silent database trap.** The decision service defaults to
+**The silent database trap.** The decision service defaults to
 `onedoor-service.db` and the Studio's `--db` to `onedoor.db`, so accepting both defaults
 points them at **different stores**: the Studio comes up, works, and shows an empty world.
 The Studio now says so when the enforcer store it opened has never held a policy, naming
