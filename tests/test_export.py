@@ -35,6 +35,16 @@ def test_export_round_trips_every_row(
     expected = [dict(row) for row in conn.execute("SELECT * FROM actions_audit ORDER BY id ASC")]
     assert len(expected) == 3
     # `resumes_audit_id` (migration 0025), `decide_principal` (migration 0029),
+    # This list is deliberately kept separate from `canonical_row_record`'s own
+    # `OMIT_WHEN_NONE` rather than imported from it: a test that merely replays the
+    # production list can never catch a mistake IN that list, since both sides would
+    # drift together. Every migration that adds a new omit-when-None column must add
+    # it here too, in the same change -- this has already happened once: migration
+    # 0054 added `resume_thread_id`/`resume_tool_call_id` to `canonical_row_record`'s
+    # own list correctly, but not to this one, so this test failed comparing a
+    # database row that still carried those two columns against an export that had
+    # already (correctly) dropped them.
+    #
     # `resume_digest_expected`/`resume_digest_actual` (migration 0031),
     # `permit_jti` (migration 0032), `untrusted_matched_json` (migration
     # 0034), `sequence_events_considered`/`sequence_rule_matched`/
