@@ -35,6 +35,19 @@ DECIDE_KEY = "eval-decide-key"
 ADMIN_KEY = "eval-admin-key"
 ISSUER = "https://eval.onedoor.example/issuer"
 
+DEFAULT_STARTUP_TIMEOUT_SECONDS = 60.0
+"""How long `start()` polls the service's own `/v1/health` before giving up.
+Overridable per call (the `startup_timeout_seconds` parameter) or for every
+call via `ONEDOOR_EVAL_SERVICE_STARTUP_TIMEOUT` (seconds, a float). Was a
+fixed 10s wait with no way to raise it and a message that never said how
+long had actually passed; a slower machine (or one under load from a
+concurrent heavy run) could time out on a service that was about to come up."""
+
+
+def _startup_timeout_seconds() -> float:
+    raw = os.environ.get("ONEDOOR_EVAL_SERVICE_STARTUP_TIMEOUT")
+    return float(raw) if raw else DEFAULT_STARTUP_TIMEOUT_SECONDS
+
 
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -73,7 +86,11 @@ class RunningService:
 
 @contextlib.contextmanager
 def start(
-    db_path: str, *, approval_ttl_seconds: int | None = None, issuer: str | None = ISSUER
+    db_path: str,
+    *,
+    approval_ttl_seconds: int | None = None,
+    issuer: str | None = ISSUER,
+    startup_timeout_seconds: float | None = None,
 ) -> Iterator[RunningService]:
     db = Database(db_path)
     db.init()
@@ -97,7 +114,13 @@ def start(
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    deadline = time.monotonic() + 10.0
+    timeout = (
+        startup_timeout_seconds
+        if startup_timeout_seconds is not None
+        else _startup_timeout_seconds()
+    )
+    started_at = time.monotonic()
+    deadline = started_at + timeout
     base_url = f"http://127.0.0.1:{port}"
     with httpx.Client() as probe:
         while time.monotonic() < deadline:
@@ -108,7 +131,10 @@ def start(
                 pass
             time.sleep(0.05)
         else:
-            raise RuntimeError("service did not come up within 10s")
+            waited = time.monotonic() - started_at
+            raise RuntimeError(
+                f"service did not come up within {timeout:.1f}s (waited {waited:.1f}s)"
+            )
 
     decide = DecideKeyClient.connect(base_url, DECIDE_KEY)
     admin = httpx.Client(base_url=base_url, headers={"Authorization": f"Bearer {ADMIN_KEY}"})
