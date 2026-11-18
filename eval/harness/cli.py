@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
+import json
+import platform
 import re
 import subprocess
 import sys
@@ -20,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "eval" / "scenarios"
 RESULTS_PATH = REPO_ROOT / "eval" / "RESULTS.md"
 FINDINGS_PATH = REPO_ROOT / "eval" / "FINDINGS.md"
+RUN_RECORD_PATH = REPO_ROOT / "eval" / "run_record.json"
 CHART_PATH = REPO_ROOT / "docs" / "img" / "eval-results.svg"
 
 APPROVAL_TTL_SECONDS = 2  # short enough to demonstrate expiry without a slow run
@@ -76,11 +80,16 @@ def _recipient_opt_in_demo_line(scenarios: list[Scenario]) -> str | None:
     )
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
     """``out_dir``, test-only: write ``RESULTS.md``/``FINDINGS.md``/the chart under
     this directory instead of the tracked `eval/` and `docs/img/` paths. ``python -m
     eval run`` itself never passes this -- a real run still writes the tracked files,
     exactly as before."""
+    started_at = datetime.now(UTC)
     scenarios = load_all(SCENARIOS_DIR, only=only)
     outcomes_without = {s.name: engine.run_without(s) for s in scenarios}
 
@@ -135,6 +144,39 @@ def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
     if only is None:
         chart_path.parent.mkdir(parents=True, exist_ok=True)
         chart_path.write_text(chart.render(totals), encoding="utf-8", newline="\n")
+
+    # Written only now, after both files above are actually complete on disk -- this
+    # record's own sha256 fields are read back from what was just written, not computed
+    # ahead of it, so a run that is interrupted before this point leaves no record at
+    # all rather than a record describing files that were never finished.
+    ended_at = datetime.now(UTC)
+    record_path = out_dir / "run_record.json" if out_dir else RUN_RECORD_PATH
+    record_path.write_text(
+        json.dumps(
+            {
+                "started_at": started_at.isoformat(),
+                "ended_at": ended_at.isoformat(),
+                "onedoor_tree": meta.onedoor_tree,
+                "python_version": platform.python_version(),
+                "onedoor_version": meta.onedoor_version,
+                "totals": {
+                    field_name: totals.total(field_name)
+                    for field_name, _ in results.FIELDS
+                }
+                | {
+                    "duplicate_effects_without": totals.total("duplicate_effects_without"),
+                    "duplicate_effects_with": totals.total("duplicate_effects_with"),
+                },
+                "results_sha256": _sha256_file(results_path),
+                "findings_sha256": _sha256_file(findings_path),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return 0
 
 
