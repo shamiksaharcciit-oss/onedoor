@@ -4,7 +4,6 @@ not a fixed 10s sleep, failing with how long it actually waited.
 
 from __future__ import annotations
 
-import os
 import re
 
 import pytest
