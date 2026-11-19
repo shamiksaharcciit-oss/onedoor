@@ -159,10 +159,7 @@ def run(*, only: str | None, record: bool, out_dir: Path | None = None) -> int:
                 "onedoor_tree": meta.onedoor_tree,
                 "python_version": platform.python_version(),
                 "onedoor_version": meta.onedoor_version,
-                "totals": {
-                    field_name: totals.total(field_name)
-                    for field_name, _ in results.FIELDS
-                }
+                "totals": {field_name: totals.total(field_name) for field_name, _ in results.FIELDS}
                 | {
                     "duplicate_effects_without": totals.total("duplicate_effects_without"),
                     "duplicate_effects_with": totals.total("duplicate_effects_with"),
