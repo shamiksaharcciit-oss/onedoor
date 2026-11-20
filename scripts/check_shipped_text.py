@@ -438,6 +438,12 @@ _COMMIT_ID_ALLOWED_EXACT: dict[str, frozenset[str]] = {
     ),
     "tests/guardrail/test_resume_key_approval_state.py": frozenset({"5b7a260", "f7a9333"}),
     "tests/guardrail/test_stored_v2_chain.py": frozenset({"61aaeed", "8ac78aa"}),
+    "docs/hermes.md": frozenset(
+        {"bf0203a794a07aac3ff764972ab9087baa4e4f4e", "ae2a81ccc00e9b7c06301523e5bb09608397149c"}
+    ),
+    "examples/integrations/hermes/plugin.py": frozenset(
+        {"bf0203a794a07aac3ff764972ab9087baa4e4f4e", "ae2a81ccc00e9b7c06301523e5bb09608397149c"}
+    ),
 }
 """A real commit id that must legitimately stay, by exact (path, id)
 pair: every one of these is a real, PUBLISHED commit on this project's
@@ -449,6 +455,16 @@ outside this repository's own private history can ever see. Not a
 path-wide or shape-wide allowance: anywhere else, or any OTHER id in
 these same files, is still a hit, reworded into a plain description
 (the normal remedy for a commit id that is NOT one of these).
+
+`docs/hermes.md` and `examples/integrations/hermes/plugin.py`'s two ids
+are the same kind of real, public, openable commit, just on a different
+project's own history: https://github.com/NousResearch/hermes-agent, the
+`v0.22.5` and `v0.23.2` tags this example was read from and tested
+against (ids resolved from GitHub's own tag objects, archive sha256
+recorded alongside). A reader can open either commit on that public
+repository exactly as they could one of this project's own; the
+allowance's own reasoning does not require the repository to be this
+one.
 
 `eval/RESULTS.md`'s own entry is the one exception to "commit": its
 provenance line names a git TREE id (`onedoor/`'s own tree at the run,
