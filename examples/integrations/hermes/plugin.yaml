@@ -1,0 +1,7 @@
+name: onedoor
+version: "0.1.0"
+description: "Gate Hermes tool calls through onedoor's guardrail engine: decide_and_reserve before the real dispatch (pre_tool_call), report_result after it (post_tool_call). Denies by default; permits, denies or proposes (human approval) per policy."
+author: "onedoor"
+provides_hooks:
+  - pre_tool_call
+  - post_tool_call

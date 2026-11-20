@@ -1,0 +1,29 @@
+# Policies for the Hermes Agent plugin example. Governed surface: hermes.<tool_name>,
+# one entry per Hermes built-in tool this example exercises.
+policies:
+  - action_type: hermes.web_search
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop   # a search is harmless to "reverse" by noop
+    bounds:
+      required: [query]
+      strict_params: true
+    caps:
+      daily_rate: 1000
+
+  - action_type: hermes.send_payment
+    tier: 3                              # money: propose-and-confirm, always
+    bounds:
+      numeric:
+        amount_eur: { min: 0.01, max: 500 }
+      required: [payee, amount_eur]
+      strict_params: true
+
+  - action_type: onedoor.noop
+    tier: 1
+    dry_run: false
+    compensating_command: onedoor.noop
+    bounds:
+      strict_params: false
+  # Any tool NOT listed (e.g. delete_everything, Hermes's real terminal/write_file/
+  # execute_code/...) is denied by default.
