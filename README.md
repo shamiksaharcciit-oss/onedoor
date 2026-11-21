@@ -312,6 +312,16 @@ and the step's outcome as recorded. Below them are `onetrace-verify`'s own rows
 on those decisions. The page shows what the record holds; it does not say
 whether a decision was right.
 
+The console's left menu has **Authorization** too: every run whose record names
+a gated step, the decisions those steps cite, and what `onetrace-verify`'s
+decision rows say of them, each linking to its run's page.
+
+![onetrace-console's Authorization overview, opened from its left menu: a table of runs with gated steps, each with its pipeline, the number of gated steps and decisions cited, and onetrace-verify's decision rows as PASS, FAIL or couldn't check](docs/img/onetrace-console-authorization-overview.png)
+
+*The overview in onetrace-console 0.9.1's demo, built locally. The hosted demo
+shows the same page with P8's rows; P12, an invoice agent whose model call and
+onedoor decision share one run, reaches it with console 1.0.*
+
 ![onetrace-console's Authorization page for a payment onedoor permitted: the gated step approve_payment cites its decision, the verdict reads permit, a permit is recorded, and all five decision rows read PASS](docs/img/onetrace-console-authorization-permit.png)
 
 *A payment onedoor permitted. The step cites its decision, the permit covers
@@ -328,7 +338,8 @@ decisions and permits are example data, signed with a throwaway key made when
 the demo was built. See them live on the hosted demo:
 [the permitted payment](https://demo.oneproof.dev/runs/c0eeaf2cdfaef8216500d8c7746f075963af3049808bc45a23194a976c2a1bd3/authorization.html),
 [the payment on a deny](https://demo.oneproof.dev/runs/b02e8e4d1a5f3f6d932455e1446259056e8093961530370b755f2fb36bafb8e0/authorization.html),
-or [all of P8's runs](https://demo.oneproof.dev/executions-pipeline-p8.html).
+[all of P8's runs](https://demo.oneproof.dev/executions-pipeline-p8.html),
+or [the overview](https://demo.oneproof.dev/authorization.html).
 To see your own runs this way: `pip install onetrace-console`, then
 `onetrace-console <runs folder> --open`
 ([its guide](https://oneproof.dev/developers.html)).
