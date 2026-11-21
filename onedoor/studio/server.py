@@ -1172,13 +1172,15 @@ def create_app(state: StudioState) -> Any:
             fields = parse_qs((await request.body()).decode("utf-8"))
             description = (fields.get("description") or [""])[0].strip()
             if not description:
+                with state.lock:
+                    banner = banner_for(state)
                 return HTMLResponse(
                     content=shell.render(
                         body=screens.propose_body(
                             configured.identity(),
                             error="No description arrived, so nothing was drafted.",
                         ),
-                        banner=banner_for(state),
+                        banner=banner,
                         tabs=tabs_for(state),
                         active="propose",
                         title="onedoor policy studio — propose",
@@ -1186,20 +1188,24 @@ def create_app(state: StudioState) -> Any:
                     status_code=400,
                 )
             try:
+                with state.lock:
+                    known_action_types = validate.known_action_types_for(state.enforcer, [])
                 proposal, record = studio_proposer.derive(
                     configured,
                     description,
                     now=now_utc(),
-                    known_action_types=validate.known_action_types_for(state.enforcer, []),
+                    known_action_types=known_action_types,
                 )
             except live_proposer.ProposalRefused as exc:
                 # The parser refused it. Shown with reasons, never auto-repaired.
+                with state.lock:
+                    banner = banner_for(state)
                 return HTMLResponse(
                     content=shell.render(
                         body=screens.proposal_refused_body(
                             configured.identity(), exc.result, exc.text
                         ),
-                        banner=banner_for(state),
+                        banner=banner,
                         tabs=tabs_for(state),
                         active="propose",
                         title="onedoor policy studio — propose",
@@ -1210,10 +1216,12 @@ def create_app(state: StudioState) -> Any:
                 # Unavailable is its OWN outcome. Telling an operator their description
                 # was rejected when what failed was a socket would be a verdict about
                 # content delivered about a call nothing completed.
+                with state.lock:
+                    banner = banner_for(state)
                 return HTMLResponse(
                     content=shell.render(
                         body=screens.propose_body(configured.identity(), unavailable=str(exc)),
-                        banner=banner_for(state),
+                        banner=banner,
                         tabs=tabs_for(state),
                         active="propose",
                         title="onedoor policy studio — propose",
