@@ -476,7 +476,8 @@ def create_app(
     def health() -> dict[str, Any]:
         with state.lock:
             killed = killswitch.is_engaged(state.conn)
-        return {"status": "ok", "kill_switch": killed, "pending_intents": len(state.pending)}
+            pending_count = len(state.pending)
+        return {"status": "ok", "kill_switch": killed, "pending_intents": pending_count}
 
     @app.post("/v1/decide", response_model=DecideReply)
     def decide(
