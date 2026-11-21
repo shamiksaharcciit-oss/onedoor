@@ -101,6 +101,8 @@ Self-test (no Hermes needed): `python -m examples.integrations.hermes.plugin`
 
 from __future__ import annotations
 
+import sqlite3
+import threading
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -121,16 +123,44 @@ class OneDoorHermesPlugin:
     def __init__(self, policies_path: str, db_path: str) -> None:
         from onedoor.guardrail import policy_loader
 
-        db = Database(db_path)
-        db.init()
-        self.conn = db.connect()
-        policy_loader.load_file(self.conn, Path(policies_path))
+        self._db = Database(db_path)
+        self._db.init()
+        # Loaded once, up front, on a short-lived connection -- connections run in
+        # autocommit mode (onedoor.store.db), so this is already on disk and visible
+        # to every per-thread connection `_conn` opens later.
+        conn = self._db.connect()
+        try:
+            policy_loader.load_file(conn, Path(policies_path))
+        finally:
+            conn.close()
         self.engine_config = EngineConfig(
             approval_ttl_seconds=3600, connector_timeout_seconds=30.0, tz=ZoneInfo("UTC")
         )
         # tool_call_id -> the permit awaiting its outcome. In memory: see the
         # module docstring on what a restart between the two hooks costs.
         self._pending: dict[str, PermittedIntent] = {}
+        # One sqlite connection per thread -- see `_conn`'s own docstring for why.
+        self._local = threading.local()
+
+    def _conn(self) -> sqlite3.Connection:
+        """This thread's own connection, opened the first time this thread needs one.
+
+        Hermes's real dispatch (`_dispatch_authorized_once`) calls `pre_tool_call`
+        and `post_tool_call` hooks from worker threads, not the thread that built
+        this plugin. sqlite3 refuses to reuse one connection across threads by
+        default (`check_same_thread`) -- a single shared connection raised "SQLite
+        objects created in a thread can only be used in that same thread" the
+        moment a real multi-threaded dispatch called it (see
+        tests/integration/test_hermes_plugin_threading.py). One connection per
+        thread, opened lazily and kept for that thread's own calls, fixes this
+        without widening `check_same_thread`, which would only paper over
+        concurrent access to one connection rather than give each thread its own.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._db.connect()
+            self._local.conn = conn
+        return conn
 
     # --- phase A: decide, and hold the permit -------------------------------
 
@@ -145,7 +175,7 @@ class OneDoorHermesPlugin:
             rationale=f"hermes tool call {tool_name}",
             created_at=now,
         )
-        outcome = decide_and_reserve(request, conn=self.conn, config=self.engine_config, now=now)
+        outcome = decide_and_reserve(request, conn=self._conn(), config=self.engine_config, now=now)
         if isinstance(outcome, PermittedIntent):
             return outcome
         d = outcome.decision
@@ -176,7 +206,7 @@ class OneDoorHermesPlugin:
         if intent is None:
             return  # denied by this plugin, not governed, or already reported
         report_result(
-            intent, conn=self.conn, outcome=outcome, payload=payload, error=error, now=now_utc()
+            intent, conn=self._conn(), outcome=outcome, payload=payload, error=error, now=now_utc()
         )
 
     # --- Hermes hooks --------------------------------------------------------
