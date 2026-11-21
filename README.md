@@ -303,6 +303,36 @@ call. Full detail on the onedoor side of that record, including the
 exact shape a citation and a checked permit take, is in
 [`docs/onetrace.md`](docs/onetrace.md).
 
+### What it looks like in onetrace's console
+
+[onetrace-console](https://pypi.org/project/onetrace-console/) gives each run an
+**Authorization** page, from console 0.8.0: one row per gated step, with the
+onedoor decision the step cites, the verdict as recorded, the permit if any,
+and the step's outcome as recorded. Below them are `onetrace-verify`'s own rows
+on those decisions. The page shows what the record holds; it does not say
+whether a decision was right.
+
+![onetrace-console's Authorization page for a payment onedoor permitted: the gated step approve_payment cites its decision, the verdict reads permit, a permit is recorded, and all five decision rows read PASS](docs/img/onetrace-console-authorization-permit.png)
+
+*A payment onedoor permitted. The step cites its decision, the permit covers
+the action the step recorded, and the decision is in onedoor's export: all five
+rows PASS.*
+
+![onetrace-console's Authorization page for a payment made on a deny: the verdict reads deny, no permit is recorded, the step's outcome is ok, and onetrace-verify's row fails with "acted on a decision whose last verdict is 'deny', not 'permit'"](docs/img/onetrace-console-authorization-paid-on-deny.png)
+
+*The same step paying on a deny. onetrace-verify fails the run and names the
+step; the console marks the record as contradicting itself.*
+
+Both are runs of the console's demo pipeline P8, an invoice payment. Their
+decisions and permits are example data, signed with a throwaway key made when
+the demo was built. See them live on the hosted demo:
+[the permitted payment](https://demo.oneproof.dev/runs/c0eeaf2cdfaef8216500d8c7746f075963af3049808bc45a23194a976c2a1bd3/authorization.html),
+[the payment on a deny](https://demo.oneproof.dev/runs/b02e8e4d1a5f3f6d932455e1446259056e8093961530370b755f2fb36bafb8e0/authorization.html),
+or [all of P8's runs](https://demo.oneproof.dev/executions-pipeline-p8.html).
+To see your own runs this way: `pip install onetrace-console`, then
+`onetrace-console <runs folder> --open`
+([its guide](https://oneproof.dev/developers.html)).
+
 ## Record and verify with onetrace
 
 ```bash
