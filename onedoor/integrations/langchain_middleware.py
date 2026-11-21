@@ -273,9 +273,10 @@ class OneDoorMiddleware(_BASE):  # type: ignore[misc,valid-type]
     def _ref_status(self, audit_id: int | None) -> str | None:
         if audit_id is None:
             return None
-        row = self._conn.execute(
-            "SELECT approval_ref_status FROM actions_audit WHERE id=?", (audit_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT approval_ref_status FROM actions_audit WHERE id=?", (audit_id,)
+            ).fetchone()
         return str(row["approval_ref_status"]) if row is not None else None
 
     _REF_REFUSALS = {
