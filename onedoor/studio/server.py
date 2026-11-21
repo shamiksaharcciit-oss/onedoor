@@ -1283,9 +1283,10 @@ def create_app(state: StudioState) -> Any:
                 for r in rules
                 if isinstance(r, dict) and isinstance(r.get("action_type"), str)
             )
-            known_action_types = (
-                validate.known_action_types_for(state.enforcer, []) | batch_action_types
-            )
+            with state.lock:
+                known_action_types = (
+                    validate.known_action_types_for(state.enforcer, []) | batch_action_types
+                )
             policies = [api.parse_rule(r, known_action_types=known_action_types) for r in rules]
         except api.ApiRefusal as exc:
             return _refused(exc)
