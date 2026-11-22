@@ -64,6 +64,7 @@ module scan its own source and still read zero.
 from __future__ import annotations
 
 import argparse
+import functools
 import re
 import subprocess
 import sys
@@ -433,9 +434,6 @@ truncated hex run with no digest word anywhere nearby is not one, and is
 caught as an ordinary commit id regardless of its trailing ellipsis."""
 
 _COMMIT_ID_ALLOWED_EXACT: dict[str, frozenset[str]] = {
-    "eval/RESULTS.md": frozenset(
-        {"9f36450bbf9e", "4286154f9b0c", "33032b1de5dd", "882d6e8cd65b", "540a8c6fe2ef"}
-    ),
     "tests/guardrail/test_resume_key_approval_state.py": frozenset({"5b7a260", "f7a9333"}),
     "tests/guardrail/test_stored_v2_chain.py": frozenset({"61aaeed", "8ac78aa"}),
     "docs/hermes.md": frozenset(
@@ -466,19 +464,16 @@ repository exactly as they could one of this project's own; the
 allowance's own reasoning does not require the repository to be this
 one.
 
-`eval/RESULTS.md`'s own entry is the one exception to "commit": its
-provenance line names a git TREE id (`onedoor/`'s own tree at the run,
-checkable from any commit that carries that exact tree, never a commit
-id itself) -- the identical hex shape, caught by the same pattern, and
-allowed by the same exact-match mechanism for the same reason: it is
-real, checkable by anyone, and names nothing a reader cannot verify.
-
-That id moves whenever ANY shipped file under `onedoor/` changes, not
-only when the eval harness itself changes -- a docstring edit is enough.
-The commit that reruns the eval and rewrites this line to the new id
-MUST add that id here in the same commit; adding it later leaves this
-checker, and the gate's `shipped_text` stage, failing at every commit in
-between."""
+`eval/RESULTS.md`'s own provenance line names a git TREE id, not a
+commit -- the identical hex shape, caught by the same pattern, but NOT
+held here as a fixed exact value: see `_is_eval_results_tree_citation`
+and `_head_onedoor_tree_id` below, which read `HEAD:onedoor`'s own tree
+live from git every time this runs, instead. A fixed exact-match entry
+for that one line went stale every time the eval reran and rewrote the
+line to a new id, since nothing forced the matching entry here into
+the SAME commit -- exactly the failure this file's own last update was
+for. Reading the tree live means there is no second value to keep in
+sync at all."""
 
 _ALL_ALLOWED_COMMIT_IDS: frozenset[str] = frozenset().union(*_COMMIT_ID_ALLOWED_EXACT.values())
 """This module's own source necessarily holds every value in
@@ -510,6 +505,44 @@ _COMMIT_ID_GLOBAL_ALLOWANCES = {
 
 Checked case-insensitively, exactly like every other allowance here."""
 
+_EVAL_RESULTS_PATH = "eval/RESULTS.md"
+_EVAL_RESULTS_TREE_CITATION_RE = re.compile(
+    r"^onedoor \S+ \(onedoor/ tree ([0-9a-f]{12})\)\.$", re.MULTILINE
+)
+"""`eval/RESULTS.md`'s own provenance line, matched in full (`^...$`,
+the whole line, never a substring found anywhere inside it) so that a
+SECOND hex run elsewhere in the same file -- on this line or another
+-- is never mistaken for the citation itself, and is still caught as
+an ordinary hit. Captures only the 12-hex tree id; `_is_allowed_commit_id`
+below uses the captured group's own span to confirm the match it is
+looking at sits exactly there before it ever asks git whether that id
+is actually right."""
+
+
+def _is_eval_results_tree_citation(text: str, start: int, end: int) -> bool:
+    return any(m.span(1) == (start, end) for m in _EVAL_RESULTS_TREE_CITATION_RE.finditer(text))
+
+
+@functools.lru_cache(maxsize=1)
+def _head_onedoor_tree_id() -> str | None:
+    """`HEAD:onedoor`'s own tree id (first 12 hex chars), read live from
+    git -- `None` when this is not a git checkout at all (a built wheel
+    or sdist has no `.git` to ask), in which case a citation can never
+    be confirmed and so is treated as a hit rather than silently passed.
+    Cached: `eval/RESULTS.md` cites at most one tree id per scan, and
+    this is the identical live read `tests/eval/test_results_tree_id.py`
+    already does on its own, independently, to check the citation
+    itself -- not just this checker's allowance for it."""
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD:onedoor"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()[:12].lower()
+
 
 def _is_allowed_commit_id(
     matched: str,
@@ -535,6 +568,9 @@ def _is_allowed_commit_id(
     clean_path = path.split("!", 1)[1] if "!" in path else path
     if matched.lower() in _COMMIT_ID_ALLOWED_EXACT.get(clean_path, frozenset()):
         return True
+    if clean_path == _EVAL_RESULTS_PATH and _is_eval_results_tree_citation(text, start, end):
+        head_tree = _head_onedoor_tree_id()
+        return head_tree is not None and matched.lower() == head_tree
     if clean_path == _THIS_FILE_PATH and matched.lower() in _ALL_ALLOWED_COMMIT_IDS:
         return True
     window = text[max(0, start - 16) : start]

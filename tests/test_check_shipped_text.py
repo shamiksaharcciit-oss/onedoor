@@ -360,15 +360,57 @@ def test_a_real_published_commit_is_allowed_only_in_its_own_named_file() -> None
     assert "commit_id" in _categories(SHIPPED_PATH, text)
 
 
-def test_the_evaluations_own_tree_id_is_allowed_only_in_its_own_file() -> None:
+def _real_head_onedoor_tree_id() -> str:
+    """The same live read `scripts.check_shipped_text._head_onedoor_tree_id`
+    does, and `tests/eval/test_results_tree_id.py` does independently of
+    it -- this test's own ground truth for what the checker must accept,
+    read from git rather than copied in by hand, so it can never go stale
+    the way a literal value here would."""
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD:onedoor"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()[:12]
+
+
+def test_the_evaluations_real_tree_id_is_allowed_on_its_own_citation_line() -> None:
     """`eval/RESULTS.md`'s provenance line names a git tree id, not a
-    commit -- the same hex shape, caught by the same pattern, allowed by
-    the same exact-match mechanism and scoped the same way: the identical
-    id is still caught anywhere else."""
-    tree_id = _join("9f3", "645", "0bb", "f9e")
-    text = f"onedoor 0.11.2 (onedoor/ tree {tree_id})."
+    commit -- the same hex shape, caught by the same pattern, but allowed
+    only when it is the tree actually at HEAD, read live from git."""
+    real_tree = _real_head_onedoor_tree_id()
+    text = f"onedoor 0.12.0 (onedoor/ tree {real_tree})."
     assert "commit_id" not in _categories("eval/RESULTS.md", text)
+
+
+def test_a_wrong_tree_id_on_the_evaluations_citation_line_is_still_a_hit() -> None:
+    """Not a fixed exact value any more -- a tree id that does not match
+    HEAD, on the exact citation line, is a hit like any other unverified
+    hex run (a stale rerun, or simply a typo)."""
+    real_tree = _real_head_onedoor_tree_id()
+    wrong_tree = ("0" if real_tree[0] != "0" else "1") + real_tree[1:]
+    text = f"onedoor 0.12.0 (onedoor/ tree {wrong_tree})."
+    assert "commit_id" in _categories("eval/RESULTS.md", text)
+
+
+def test_the_evaluations_citation_form_in_another_file_is_still_a_hit() -> None:
+    """Scoped to `eval/RESULTS.md` itself, not to the line's shape in the
+    abstract -- the identical, currently-correct citation is still caught
+    in any other file."""
+    real_tree = _real_head_onedoor_tree_id()
+    text = f"onedoor 0.12.0 (onedoor/ tree {real_tree})."
     assert "commit_id" in _categories(SHIPPED_PATH, text)
+
+
+def test_a_second_hex_string_in_eval_results_is_still_a_hit() -> None:
+    """The allowance covers only the citation line's own captured span --
+    an unrelated hex run elsewhere in the same file, even alongside a
+    correct citation, is still caught."""
+    real_tree = _real_head_onedoor_tree_id()
+    other_hex = _join("9f3", "645", "0bb", "f9e")
+    text = f"onedoor 0.12.0 (onedoor/ tree {real_tree}).\n\nsee {other_hex} for the prior run.\n"
+    assert "commit_id" in _categories("eval/RESULTS.md", text)
 
 
 # --- a ruling citation is not double-counted as a bare brief id too -----------
