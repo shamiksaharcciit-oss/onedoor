@@ -5,6 +5,25 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
 not in this repository.
 
+## 0.12.1 — Unreleased
+
+### Fixed — a float nested in a dict or a list, with a resume key, crashed instead of holding
+
+A tool call whose arguments carried a float inside a structured value -- a dict or a
+list, at any depth -- crashed the decision with `TypeError: floats are forbidden in
+canonical structures` instead of reaching a verdict, whenever the call also carried a
+resume key (`thread_id`/`tool_call_id`). Affected any LangChain/LangGraph caller through
+`OneDoorMiddleware`, the only shipped integration that ever supplies a resume key:
+`_canonical_args`'s own guard there converts a top-level float, but never looked inside a
+dict or list value, so one reached `approvals.create()`'s own digest computation
+unconverted. `ActionRequest` now normalises a float anywhere in `params`, at any depth, to
+`Decimal(repr(value))` when the request is built, and refuses NaN and infinity outright,
+naming the key -- before any decision runs.
+
+The crash was a hard failure, never a silent one: no action was ever wrongly permitted or
+approved while this stood. The affected call raised instead of being decided; nothing
+executed, and no approval was granted, on the strength of a value this bug touched.
+
 ## 0.12.0 — 2026-11-23
 
 ### Added — an unknown tool outcome holds the action
