@@ -119,22 +119,33 @@ def start(
         if startup_timeout_seconds is not None
         else _startup_timeout_seconds()
     )
-    started_at = time.monotonic()
-    deadline = started_at + timeout
     base_url = f"http://127.0.0.1:{port}"
+    # `started_at`/`deadline` are set only once `httpx.Client()` -- not free; its first
+    # construction in a process pays for TLS/certifi setup, ~0.5s measured cold on this
+    # machine -- already exists, and the wait below always tries the health check at least
+    # once before ever consulting the deadline. Getting either of those backwards (a
+    # deadline measured before that setup cost, or a deadline checked before the first real
+    # attempt) lets the function give up without the service ever having had a real chance
+    # to answer: on a slow-to-construct-httpx.Client machine, a near-zero timeout could
+    # previously expire before the wait's very first condition check ran, so "the service
+    # did not come up" was really "nothing ever asked" -- found diagnosing CI run 45166369479,
+    # where a 0.01s bound meant to force this exact path instead raced the real server on a
+    # host where that one-time cost happens to be cheap.
     with httpx.Client() as probe:
-        while time.monotonic() < deadline:
+        started_at = time.monotonic()
+        deadline = started_at + timeout
+        while True:
             try:
                 if probe.get(f"{base_url}/v1/health", timeout=0.5).status_code == 200:
                     break
             except httpx.TransportError:
                 pass
+            if time.monotonic() >= deadline:
+                waited = time.monotonic() - started_at
+                raise RuntimeError(
+                    f"service did not come up within {timeout:.1f}s (waited {waited:.1f}s)"
+                )
             time.sleep(0.05)
-        else:
-            waited = time.monotonic() - started_at
-            raise RuntimeError(
-                f"service did not come up within {timeout:.1f}s (waited {waited:.1f}s)"
-            )
 
     decide = DecideKeyClient.connect(base_url, DECIDE_KEY)
     admin = httpx.Client(base_url=base_url, headers={"Authorization": f"Bearer {ADMIN_KEY}"})
