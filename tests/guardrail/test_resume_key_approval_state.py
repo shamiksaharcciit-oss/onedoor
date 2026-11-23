@@ -186,6 +186,28 @@ def test_the_ordinary_resume_leaves_exactly_one_row_at_engine_level(
     )
 
 
+def test_a_resume_with_a_float_valued_param_matches_its_own_held_request(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """0.12.1: the resumed request's digest used to raise
+    `TypeError: floats are forbidden in canonical structures` the moment
+    `request.params` carried a raw float -- `ActionRequest` now normalises it
+    to `Decimal` first, so a resume at the same key with the same float value
+    matches and reuses the row exactly as it would for any other params
+    shape, never `RESUME_REQUEST_MISMATCH`."""
+    first = _resume(conn, config, params={"amount_eur": 2400.0})
+    approval_id = first.approval_id
+    assert _table(conn) == [(approval_id, "pending")]
+
+    second = _resume(conn, config, params={"amount_eur": 2400.0})
+    assert second.decision.decision == Decision.PROPOSED
+    assert second.decision.reason_code != CheckId.RESUME_REQUEST_MISMATCH
+    assert second.approval_id == approval_id
+    assert _table(conn) == [(approval_id, "pending")], (
+        "a resume with the same (float-valued) params must not create a second row"
+    )
+
+
 def test_case_e_a_pending_row_past_its_expiry_with_no_sweep_is_denied(
     conn: Connection, config: EngineConfig
 ) -> None:

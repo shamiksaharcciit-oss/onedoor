@@ -6,6 +6,7 @@ mutable lifecycle state.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from decimal import Decimal
 from enum import IntEnum, StrEnum
@@ -31,10 +32,12 @@ from onedoor._vendor.canonical import canon_decimal
 # `parse_float=Decimal`: nothing on the evaluation path may become an IEEE double, so
 # a number that arrives over the wire arrives as a Decimal and must be representable
 # in the envelope that records it. `float` remains accepted for the in-process
-# binding, whose callers hand Python objects directly rather than bytes; a float
-# param now compares exactly against a Decimal bound, which is strictly better than
-# the float-versus-float comparison it replaces. Whether the in-process boundary
-# should refuse floats outright is a live open question, not assumed here.
+# binding, whose callers hand Python objects directly rather than bytes -- settled in
+# 0.12.1, not left open: `ActionRequest._params_are_json` normalises
+# every float in `params`, AT ANY DEPTH, to `Decimal(repr(value))` when the request is
+# built, before any decision runs, so nothing past that point -- a digest, a bound, a
+# cap check -- ever sees a raw float again. NaN and infinity have no finite decimal
+# text and refuse outright, naming the key.
 type JsonValue = (
     str | int | float | Decimal | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 )
@@ -565,26 +568,36 @@ class Policy(BaseModel):
     opt-in default every field here has."""
 
 
-def _reject_non_json(value: object, path: str = "params") -> None:
-    """Refuse types that are not JSON values even though Pydantic would coerce them.
+def _normalize_params(value: object, path: str = "params") -> object:
+    """Refuses types that are not JSON values even though Pydantic would coerce
+    them, and normalises every float, AT ANY DEPTH, to ``Decimal(repr(value))`` --
+    the same text ``str()`` gives, since Python's ``repr``/``str`` of a float have
+    been identical, shortest-round-trip text since 3.1 (0.12.1, closing the
+    open question `JsonValue`'s own comment above used to carry): nothing past
+    this point -- a digest, a bound, a cap check -- ever sees a raw float again.
+    NaN and infinity have no finite decimal text and refuse outright, naming the
+    key.
 
     ``bytes`` is decoded to ``str`` and ``set``/``tuple`` are converted to ``list``
     by lax validation, which means the decision point would validate and audit a
     *different object* from the one the enforcement point holds. The evidence
     record must describe what will actually be acted on.
     """
-    if isinstance(value, str | int | float | Decimal | bool | None.__class__):
-        return
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            raise ValueError(f"{path}: {value!r} is not a finite number, refused")
+        return Decimal(repr(value))
+    if isinstance(value, str | int | Decimal | bool | None.__class__):
+        return value
     if isinstance(value, list):
-        for i, item in enumerate(value):
-            _reject_non_json(item, f"{path}[{i}]")
-        return
+        return [_normalize_params(item, f"{path}[{i}]") for i, item in enumerate(value)]
     if isinstance(value, dict):
+        out: dict[str, object] = {}
         for k, item in value.items():
             if not isinstance(k, str):
                 raise ValueError(f"{path}: non-string key {k!r}")
-            _reject_non_json(item, f"{path}.{k}")
-        return
+            out[k] = _normalize_params(item, f"{path}.{k}")
+        return out
     raise ValueError(f"{path}: {type(value).__name__} is not a JSON value")
 
 
@@ -670,8 +683,7 @@ class ActionRequest(BaseModel):
     @field_validator("params", mode="before")
     @classmethod
     def _params_are_json(cls, v: object) -> object:
-        _reject_non_json(v)
-        return v
+        return _normalize_params(v)
 
 
 class Budget(BaseModel):
