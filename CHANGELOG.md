@@ -20,6 +20,11 @@ unconverted. `ActionRequest` now normalises a float anywhere in `params`, at any
 `Decimal(repr(value))` when the request is built, and refuses NaN and infinity outright,
 naming the key -- before any decision runs.
 
+One matching change follows from this, and no other: a float written in exponent form
+(`1e-07`) is now matched, by a `param_effects` rule or anywhere else that reads the
+param's text, in its decimal form (`1E-7`), exactly as LangChain's own top-level
+arguments already were. No behaviour change beyond that.
+
 The crash was a hard failure, never a silent one: no action was ever wrongly permitted or
 approved while this stood. The affected call raised instead of being decided; nothing
 executed, and no approval was granted, on the strength of a value this bug touched.
