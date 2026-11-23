@@ -5,7 +5,7 @@ onedoor is the reference implementation of the AADP Internet-Draft
 [CONFORMANCE.md](CONFORMANCE.md). The ticket-by-ticket plan is kept privately,
 not in this repository.
 
-## 0.12.1 — Unreleased
+## 0.12.1 — 2026-11-24
 
 ### Fixed — a float nested in a dict or a list, with a resume key, crashed instead of holding
 
