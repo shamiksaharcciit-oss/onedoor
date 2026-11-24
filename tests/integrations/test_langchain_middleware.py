@@ -63,6 +63,15 @@ def pay_invoice(invoice_id: str, amount_eur: float) -> str:
 
 
 @tool
+def nested_pay(payee: str, transfer: dict, installments: list) -> str:
+    """Pay with a structured transfer object and a list of installment amounts --
+    both shapes `_canonical_args`'s own top-level-only float guard does not reach
+    into."""
+    PAID.append(transfer.get("amount_eur"))
+    return f"paid {transfer} to {payee} in {installments}"
+
+
+@tool
 def send_wire(beneficiary: str, amount_eur: float) -> str:
     """Send an irreversible wire."""
     PAID.append(amount_eur)
@@ -780,6 +789,54 @@ def test_interrupt_declined_does_not_execute(agent_conn: Connection) -> None:
     agent.invoke({"messages": [("user", "wire acme")]}, cfg)
     agent.invoke(Command(resume="declined"), cfg)
     assert PAID == []
+
+
+def test_a_resume_key_with_a_float_nested_in_a_dict_or_a_list_is_held_not_crashed(
+    agent_conn: Connection,
+) -> None:
+    """0.12.1's own fix for an exposure released in 0.12.0: `_canonical_args` guards
+    only a TOP-LEVEL float. A tool call may carry a float inside a dict value (a
+    structured transfer object) or inside a list value (a schedule of
+    installments) -- `_canonical_args` never looks inside either, so the first
+    `approvals.create()` this resume key reached used to raise `TypeError:
+    floats are forbidden in canonical structures` from inside the real
+    middleware, instead of holding the action for a person."""
+    policy_loader.upsert(
+        agent_conn,
+        Policy(
+            action_type="tool.nested_pay",
+            tier=Tier.CONFIRM,
+            dry_run=False,
+            bounds=Bounds(strict_params=False),
+        ),
+    )
+    agent = create_agent(
+        model=_model(
+            AIMessage(
+                content="",
+                tool_calls=[
+                    _call(
+                        "nested_pay",
+                        {
+                            "payee": "acme",
+                            "transfer": {"amount_eur": 2400.0},
+                            "installments": [100.0, 50.0],
+                        },
+                        "c1",
+                    )
+                ],
+            ),
+            AIMessage(content="done"),
+        ),
+        tools=[nested_pay],
+        middleware=[OneDoorMiddleware(agent_conn, _config(), on_proposed="message")],
+        checkpointer=MemorySaver(),
+    )
+    cfg = {"configurable": {"thread_id": "t-nested"}}
+    result = agent.invoke({"messages": [("user", "pay acme")]}, cfg)
+    assert PAID == [], "nothing executes while a human is deciding"
+    texts = [m.content for m in result["messages"] if isinstance(m.content, str)]
+    assert any("requires human approval" in t for t in texts), texts
 
 
 @pytest.mark.asyncio

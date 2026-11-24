@@ -201,6 +201,29 @@ def test_a_rule_cannot_declare_both_matchers_or_neither() -> None:
         ParamEffectRule(param="p", add_effects=["e"])
 
 
+def test_a_float_in_exponent_form_matches_its_normalised_decimal_text(tmp_path: Path) -> None:
+    """0.12.1's own float-normalisation fix changes what a `param_effects` rule
+    matches for a value like ``1e-07`` or ``1e+16``: ``str(1e-07)`` is ``'1e-07'``, but
+    ``str(Decimal(repr(1e-07)))`` is ``'1E-7'`` -- every value the corpus above already
+    covers agrees on both texts, but exponent form does not. This is the one matching
+    change 0.12.1 makes, pinned on purpose: a rule written against the float's old text
+    now needs to be written against its decimal text instead, exactly as LangChain's own
+    top-level arguments already were.
+    """
+    for value, decimal_text in ((1e-07, "1E-7"), (1e16, "1E+16")):
+        assert str(value) != decimal_text  # the premise: the two texts really differ
+
+        rule = ParamEffectRule(param="p", pattern=re.escape(decimal_text), add_effects=["e"])
+        with _engine(tmp_path, rule, f"exp_new_{decimal_text}") as matched:
+            assert matched(value)
+
+        old_rule = ParamEffectRule(param="p", pattern=re.escape(str(value)), add_effects=["e"])
+        with _engine(tmp_path, old_rule, f"exp_old_{decimal_text}") as matched_old:
+            # A rule written against the float's OLD text no longer matches -- the
+            # documented, intentional change, not a regression.
+            assert not matched_old(value)
+
+
 def test_random_pattern_value_pairs_agree_with_the_oracle(tmp_path: Path) -> None:
     """Generated coverage, because a hand-picked corpus finds what it thought of."""
     rng = random.Random(20260822)

@@ -79,3 +79,28 @@ def test_an_ordinary_call_with_no_resume_key_is_never_held_by_this_check(
         make_request("demo.flaky"), conn=conn, config=config, now=FROZEN_NOW
     )
     assert isinstance(second, PermittedIntent), "absent a resume key, this check never runs at all"
+
+
+def test_a_float_valued_param_at_this_key_holds_rather_than_raising(
+    conn: Connection, config: EngineConfig
+) -> None:
+    """0.12.1: this branch's own `approvals.create()` call used
+    to raise `TypeError: floats are forbidden in canonical structures` the
+    moment `request.params` carried a raw float -- `ActionRequest` now
+    normalises it to `Decimal` before this ever runs, so the hold proceeds
+    exactly as it does for any other params shape."""
+
+    def _decide_with_amount() -> object:
+        req = make_request("demo.flaky", {"amount_eur": 2400.0})
+        return decide_and_reserve(
+            req, conn=conn, config=config, now=FROZEN_NOW, thread_id=THREAD, tool_call_id=CALL
+        )
+
+    first = _decide_with_amount()
+    assert isinstance(first, PermittedIntent)
+
+    second = _decide_with_amount()
+    assert isinstance(second, ActionResult)
+    assert second.decision.decision == Decision.PROPOSED
+    assert second.decision.reason_code == CheckId.OUTCOME_UNKNOWN_HOLD
+    assert second.approval_id is not None
